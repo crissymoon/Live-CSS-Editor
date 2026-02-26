@@ -1,0 +1,47 @@
+/* =============================================================
+   Property Info Bar — shown below header when a property is selected
+   ============================================================= */
+
+.property-info-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #eceaf6;
+    border-bottom: 2px solid #4d31bf;
+    padding: 8px 20px;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.property-info-bar.hidden {
+    display: none;
+}
+
+.property-info-name {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-weight: 700;
+    color: #2d1c6e;
+}
+
+.property-info-values {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #0c071c;
+    flex: 1;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.property-info-close {
+    background: transparent;
+    border: none;
+    color: #2d1c6e;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.property-info-close:hover {
+    color: #0c071c;
+}

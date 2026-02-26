@@ -1,0 +1,190 @@
+/* =============================================================
+   Modals — overlay, box, save slots, load slots
+   ============================================================= */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(12, 7, 28, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20000;
+}
+
+.modal-overlay.hidden {
+    display: none;
+}
+
+.modal-box {
+    background: #1b1825;
+    border: 2px solid #4d31bf;
+    min-width: 420px;
+    max-width: 560px;
+    width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #2d1c6e;
+    padding: 12px 20px;
+}
+
+.modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #eceaf6;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: #eceaf6;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.modal-close:hover {
+    color: #ff6b6b;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #eceaf6;
+    margin-bottom: 8px;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    background: #0c071c;
+    color: #eceaf6;
+    border: 1px solid #4d31bf;
+    outline: none;
+}
+
+.modal-input:focus {
+    border-color: #eceaf6;
+}
+
+.modal-hint {
+    font-size: 12px;
+    color: #9e93c0;
+    margin-top: 14px;
+    margin-bottom: 6px;
+}
+
+.modal-existing {
+    margin-top: 10px;
+}
+
+.modal-empty {
+    font-size: 14px;
+    color: #9e93c0;
+    text-align: center;
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 20px;
+    background: #0c071c;
+    border-top: 1px solid #4d31bf;
+}
+
+.modal-footer .btn-action {
+    padding: 8px 22px;
+}
+
+/* ---- Save modal — existing save slots ---- */
+.save-slot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #0c071c;
+    border: 1px solid #2d1c6e;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.save-slot:hover {
+    background: #2d1c6e;
+}
+
+.save-slot-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #eceaf6;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.save-slot-date {
+    font-size: 12px;
+    color: #9e93c0;
+}
+
+/* ---- Load modal — project slots ---- */
+.load-slot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: #0c071c;
+    border: 1px solid #2d1c6e;
+    margin-bottom: 4px;
+}
+
+.load-slot-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.load-slot-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #eceaf6;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.load-slot-date {
+    font-size: 12px;
+    color: #9e93c0;
+}
+
+.load-slot-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.load-slot-actions .btn-action {
+    padding: 4px 14px;
+    font-size: 13px;
+}

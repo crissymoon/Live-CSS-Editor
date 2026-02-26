@@ -1,0 +1,48 @@
+/* =============================================================
+   Responsive — stacks panels vertically on narrow viewports
+   ============================================================= */
+
+@media (max-width: 800px) {
+    .editor-layout {
+        flex-direction: column;
+        height: auto;
+        min-height: calc(100vh - 54px);
+    }
+
+    .editor-panel,
+    .preview-panel {
+        flex: none;
+        height: 33vh;
+        min-width: unset;
+    }
+
+    /* Horizontal gutter becomes a row resize handle */
+    .gutter {
+        width: 100%;
+        height: 6px;
+        cursor: row-resize;
+    }
+
+    .gutter::after {
+        width: 40px;
+        height: 2px;
+    }
+
+    /* Hide the property lookup bar to save space */
+    .header-center {
+        display: none;
+    }
+
+    body.is-dragging {
+        cursor: row-resize;
+    }
+
+    .drag-overlay {
+        cursor: row-resize;
+    }
+
+    .modal-box {
+        min-width: unset;
+        width: 95%;
+    }
+}

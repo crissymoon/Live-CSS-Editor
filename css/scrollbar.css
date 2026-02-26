@@ -1,0 +1,20 @@
+/* =============================================================
+   Scrollbar — custom WebKit scrollbar styling
+   ============================================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0c071c;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4d31bf;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #2d1c6e;
+}
