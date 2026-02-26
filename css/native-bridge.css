@@ -1,0 +1,193 @@
+/* native-bridge.css — Dev bridge toolbar overlay
+ * Fixed floating bar with Browse, Refresh, Debug controls.
+ * Visible over the app in both PHP-dev mode and Tauri native mode.
+ */
+
+/* ── Main toolbar bar ── */
+#native-bridge-bar {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #130a2e;
+    border: 1px solid #3a2870;
+    padding: 5px 8px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65);
+    user-select: none;
+    line-height: 1;
+}
+
+/* Collapsed: hide everything except toggle button */
+#native-bridge-bar.nb-collapsed .nb-btn,
+#native-bridge-bar.nb-collapsed .nb-label,
+#native-bridge-bar.nb-collapsed .nb-sep,
+#native-bridge-bar.nb-collapsed .nb-notice {
+    display: none;
+}
+
+/* ── Label chip ── */
+.nb-label {
+    color: #6e5ccf;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* ── Visual separator ── */
+.nb-sep {
+    width: 1px;
+    height: 14px;
+    background: #3a2870;
+    flex-shrink: 0;
+}
+
+/* ── All toolbar buttons ── */
+#native-bridge-bar .nb-btn,
+#native-bridge-bar .nb-toggle {
+    background: #1f1044;
+    color: #ccc0f0;
+    border: 1px solid #3a2870;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+    line-height: 1.3;
+    transition: background 0.1s, color 0.1s;
+}
+
+#native-bridge-bar .nb-btn:hover,
+#native-bridge-bar .nb-toggle:hover {
+    background: #2d1c6e;
+    color: #fff;
+    border-color: #6e5ccf;
+}
+
+#native-bridge-bar .nb-btn:active,
+#native-bridge-bar .nb-toggle:active {
+    background: #3a2870;
+}
+
+/* Toggle collapse button — minimal style */
+#native-bridge-bar .nb-toggle {
+    padding: 4px 7px;
+    color: #6e5ccf;
+    border-color: transparent;
+    background: transparent;
+    font-size: 13px;
+}
+
+#native-bridge-bar .nb-toggle:hover {
+    background: #1f1044;
+    border-color: #3a2870;
+    color: #ccc0f0;
+}
+
+/* Debug active state */
+#native-bridge-bar .nb-btn-debug.nb-active {
+    background: #2d1c6e;
+    border-color: #6e5ccf;
+    color: #fff;
+}
+
+/* ── Status / notice text ── */
+.nb-notice {
+    color: #80e080;
+    font-size: 10px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Inline debug console panel ── */
+#nb-debug-panel {
+    position: fixed;
+    bottom: 48px;
+    right: 16px;
+    z-index: 99998;
+    width: 440px;
+    max-height: 280px;
+    background: #0c071c;
+    border: 1px solid #3a2870;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+}
+
+.nb-dp-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: #130a2e;
+    border-bottom: 1px solid #3a2870;
+    flex-shrink: 0;
+}
+
+.nb-dp-header strong {
+    flex: 1;
+    color: #ccc0f0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.nb-dp-header button {
+    background: none;
+    border: 1px solid #3a2870;
+    color: #9e93c0;
+    padding: 2px 8px;
+    font-size: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1.4;
+}
+
+.nb-dp-header button:hover {
+    background: #1f1044;
+    color: #fff;
+    border-color: #6e5ccf;
+}
+
+#nb-dp-log {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px 8px;
+}
+
+#nb-dp-log::-webkit-scrollbar {
+    width: 5px;
+}
+#nb-dp-log::-webkit-scrollbar-track { background: #0c071c; }
+#nb-dp-log::-webkit-scrollbar-thumb { background: #3a2870; }
+
+.nb-dp-line {
+    padding: 2px 0;
+    border-bottom: 1px solid #130a2e;
+    color: #ccc0f0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.nb-dp-line.nb-dp-warn  { color: #e0b840; }
+.nb-dp-line.nb-dp-error { color: #e05555; }
+.nb-dp-line.nb-dp-info  { color: #60b0e0; }
+
+.nb-dp-line .nb-dp-badge {
+    display: inline-block;
+    width: 36px;
+    font-size: 9px;
+    text-transform: uppercase;
+    opacity: 0.6;
+    margin-right: 4px;
+}

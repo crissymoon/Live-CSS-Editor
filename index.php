@@ -27,6 +27,7 @@ sort($allPropertyNames);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live CSS Editor</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/native-bridge.css">
 
     <!-- CDN fallback loader — handles CodeMirror CSS + JS from multiple sources -->
     <!-- Actual CodeMirror assets are injected at runtime by js/cdn-loader.js    -->
@@ -164,6 +165,8 @@ sort($allPropertyNames);
     <script src="js/modal-load.js"></script>
     <script src="js/gutter.js"></script>
     <script src="js/app.js"></script>
+    <!-- Dev/native bridge: file browse, refresh, debug overlay -->
+    <script src="js/native-bridge.js"></script>
 
 </body>
 </html>

@@ -13,7 +13,9 @@
 mod php_server;
 
 use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_dialog::DialogExt;
 
 // ---------------------------------------------------------------------------
 // Shared state
@@ -22,8 +24,51 @@ use tauri::{AppHandle, Manager};
 struct PhpState(Arc<Mutex<Option<php_server::PhpServer>>>);
 
 // ---------------------------------------------------------------------------
-// Tauri commands (none needed — UI runs entirely inside the PHP-served page)
+// Tauri commands
 // ---------------------------------------------------------------------------
+
+/// Open DevTools for the main window (debug builds only).
+#[tauri::command]
+fn open_devtools(window: tauri::WebviewWindow) {
+    #[cfg(debug_assertions)]
+    window.open_devtools();
+    #[cfg(not(debug_assertions))]
+    let _ = window;
+}
+
+/// Open a native file-picker dialog and return the chosen file's
+/// path and text content, or `null` if the user cancelled.
+#[tauri::command]
+async fn pick_and_read_file(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<PathBuf>>();
+
+    app.dialog()
+        .file()
+        .add_filter("Web Files", &["html", "htm", "css", "php"])
+        .add_filter("All Files", &["*"])
+        .pick_file(move |f| {
+            let pb = f.and_then(|fp| fp.as_path().map(|p| p.to_path_buf()));
+            let _ = tx.send(pb);
+        });
+
+    let path_opt = rx.await.map_err(|e| e.to_string())?;
+
+    match path_opt {
+        None => Ok(None),
+        Some(pb) => {
+            let path_str = pb
+                .to_str()
+                .ok_or_else(|| "Path contains non-UTF-8 characters".to_string())?
+                .to_string();
+            let content = std::fs::read_to_string(&pb)
+                .map_err(|e| format!("Failed to read file: {e}"))?;
+            Ok(Some(serde_json::json!({
+                "path":    path_str,
+                "content": content
+            })))
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,6 +160,8 @@ fn main() {
     };
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![open_devtools, pick_and_read_file])
         .setup(move |app| {
             let www_root = resolve_www_root(app.handle());
 

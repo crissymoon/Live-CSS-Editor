@@ -60,6 +60,20 @@ window.LiveCSS.editor = (function () {
     function getHtmlEditor() { return htmlEditor; }
     function getCssEditor()  { return cssEditor;  }
 
-    return { init: init, updatePreview: updatePreview, getHtmlEditor: getHtmlEditor, getCssEditor: getCssEditor };
+    function setHtmlValue(val) {
+        if (htmlEditor) { htmlEditor.setValue(val); updatePreview(); }
+    }
+    function setCssValue(val) {
+        if (cssEditor) { cssEditor.setValue(val); updatePreview(); }
+    }
+
+    return {
+        init: init,
+        updatePreview: updatePreview,
+        getHtmlEditor: getHtmlEditor,
+        getCssEditor: getCssEditor,
+        setHtmlValue: setHtmlValue,
+        setCssValue: setCssValue
+    };
 
 }());
