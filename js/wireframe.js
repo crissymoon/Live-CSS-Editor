@@ -191,7 +191,7 @@ window.LiveCSS.wireframe = (function () {
     }
 
     /* ── JSON export ─────────────────────────────────────────── */
-    function saveJSON() {
+    function saveJSON(btn) {
         var payload = JSON.stringify({
             version:     1,
             nextId:      nextId,
@@ -199,13 +199,52 @@ window.LiveCSS.wireframe = (function () {
             elements:    elements,
             guides:      guides
         }, null, 2);
-        var blob = new Blob([payload], { type: 'application/json' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href     = url;
-        a.download = 'wireframe.wf.json';
-        a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+
+        function blobDownload() {
+            var blob = new Blob([payload], { type: 'application/json' });
+            var url  = URL.createObjectURL(blob);
+            var a    = document.createElement('a');
+            a.href        = url;
+            a.download    = 'wireframe.wf.json';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        }
+
+        function flashBtn(label) {
+            if (!btn) return;
+            var orig = btn.textContent;
+            btn.textContent = label;
+            setTimeout(function () { btn.textContent = orig; }, 1800);
+        }
+
+        /* Try Tauri native save dialog first */
+        var tauri = window.__TAURI_INTERNALS__ || (window.__TAURI__ && window.__TAURI__.core);
+        if (tauri) {
+            var invoker = (window.__TAURI__ && window.__TAURI__.core)
+                ? window.__TAURI__.core.invoke
+                : window.__TAURI_INTERNALS__.invoke;
+
+            Promise.resolve(
+                invoker('save_text_file', {
+                    content:     payload,
+                    defaultName: 'wireframe.wf.json'
+                })
+            ).then(function (savedPath) {
+                if (savedPath) {
+                    flashBtn('Saved!');
+                } else {
+                    /* user cancelled the dialog -- no fallback needed */
+                }
+            }).catch(function (err) {
+                console.warn('[wireframe] Tauri save failed, falling back to download:', err);
+                blobDownload();
+            });
+        } else {
+            blobDownload();
+        }
     }
 
     /* ── JSON import ─────────────────────────────────────────── */
@@ -857,17 +896,22 @@ window.LiveCSS.wireframe = (function () {
         });
 
         /* Save JSON */
-        saveBtn.addEventListener('click', function () { saveJSON(); });
+        saveBtn.addEventListener('click', function () { saveJSON(saveBtn); });
 
-        /* Load JSON — trigger hidden file input */
+        /* Load JSON — create a temporary file input at body level so
+           programmatic .click() works reliably in Tauri's WebView */
         loadBtn.addEventListener('click', function () {
-            if (fileInput) { fileInput.value = ''; fileInput.click(); }
-        });
-        if (fileInput) {
-            fileInput.addEventListener('change', function () {
-                if (this.files && this.files[0]) loadJSON(this.files[0]);
+            var tmp = document.createElement('input');
+            tmp.type    = 'file';
+            tmp.accept  = '.json,.wf.json';
+            tmp.style.cssText = 'position:fixed;top:-100px;left:-100px;opacity:0;';
+            document.body.appendChild(tmp);
+            tmp.addEventListener('change', function () {
+                if (tmp.files && tmp.files[0]) loadJSON(tmp.files[0]);
+                document.body.removeChild(tmp);
             });
-        }
+            tmp.click();
+        });
 
         /* Copy Context */
         contextBtn.addEventListener('click', function () {

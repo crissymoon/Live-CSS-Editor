@@ -72,6 +72,42 @@ async fn pick_and_read_file(app: tauri::AppHandle) -> Result<Option<serde_json::
     }
 }
 
+/// Open a native save-file dialog and write `content` to the chosen path.
+/// Returns the saved path string, or `null` if the user cancelled.
+#[tauri::command]
+async fn save_text_file(
+    app: tauri::AppHandle,
+    content: String,
+    default_name: String,
+) -> Result<Option<String>, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<PathBuf>>();
+
+    app.dialog()
+        .file()
+        .add_filter("JSON", &["json"])
+        .add_filter("All Files", &["*"])
+        .set_file_name(&default_name)
+        .save_file(move |f| {
+            let pb = f.and_then(|fp| fp.as_path().map(|p| p.to_path_buf()));
+            let _ = tx.send(pb);
+        });
+
+    let path_opt = rx.await.map_err(|e| e.to_string())?;
+
+    match path_opt {
+        None => Ok(None),
+        Some(pb) => {
+            std::fs::write(&pb, content.as_bytes())
+                .map_err(|e| format!("Failed to write file: {e}"))?;
+            Ok(Some(
+                pb.to_str()
+                    .ok_or_else(|| "Path contains non-UTF-8 characters".to_string())?
+                    .to_string(),
+            ))
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -152,7 +188,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![open_devtools, pick_and_read_file])
+        .invoke_handler(tauri::generate_handler![open_devtools, pick_and_read_file, save_text_file])
         .setup(move |app| {
             // ----------------------------------------------------------------
             // DEBUG: PHP is managed by `beforeDevCommand` in tauri.conf.json.
