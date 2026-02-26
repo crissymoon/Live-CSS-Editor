@@ -261,10 +261,23 @@ window.LiveCSS.colorSwatch = (function () {
         }
 
         // -- Live-update the preview iframe without touching the editor.
-        // We find the <style> inside the iframe and swap origHex → newHex.
-        var currentHex = origHex; // tracks what's currently shown in iframe
+        // Use the exact character offset of this specific token so that
+        // other properties sharing the same hex value are not affected.
+        var previewCssOffset = null;
+        var previewCssLen    = null;
+
+        // Only CSS editor content ends up in the iframe <style> tag.
+        if (cm === LiveCSS.editor.getCssEditor() && mark) {
+            var mpos = mark.find();
+            if (mpos) {
+                previewCssOffset = cm.indexFromPos(mpos.from);
+                // Length of actual token text (may be "red", "#f00", "#ff0000", etc.)
+                previewCssLen = cm.indexFromPos(mpos.to) - previewCssOffset;
+            }
+        }
 
         function livePreview(newHex) {
+            if (previewCssOffset === null) { return; }
             try {
                 var frame = document.getElementById('previewFrame');
                 if (!frame) { return; }
@@ -272,11 +285,13 @@ window.LiveCSS.colorSwatch = (function () {
                 if (!fdoc) { return; }
                 var styleEl = fdoc.querySelector('style');
                 if (!styleEl) { return; }
-                // Replace the color currently in the iframe CSS with the new one
                 var css = styleEl.textContent;
-                var re  = new RegExp(currentHex.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-                styleEl.textContent = css.replace(re, newHex);
-                currentHex = newHex;
+                // Splice only at the exact character position of this token
+                styleEl.textContent =
+                    css.slice(0, previewCssOffset) +
+                    newHex +
+                    css.slice(previewCssOffset + previewCssLen);
+                previewCssLen = newHex.length; // length changes on next drag
             } catch (e) { /* cross-origin or missing iframe — ignore */ }
         }
 
