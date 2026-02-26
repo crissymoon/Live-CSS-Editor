@@ -130,6 +130,8 @@ window.LiveCSS.colorSwatch = (function () {
 
     var activePopover = null;
     var activeDiamond = null;
+    var popoverOpen   = false;
+    var pendingRescan = null;   // function to call after close
 
     function closePopover() {
         if (activePopover && activePopover.parentNode) {
@@ -137,6 +139,13 @@ window.LiveCSS.colorSwatch = (function () {
         }
         activePopover = null;
         activeDiamond = null;
+        popoverOpen   = false;
+        // Run the deferred rescan so the editor re-renders swatches
+        if (pendingRescan) {
+            var fn = pendingRescan;
+            pendingRescan = null;
+            setTimeout(fn, 60);
+        }
     }
 
     function openPicker(diamond, hexVal, onPick) {
@@ -203,6 +212,7 @@ window.LiveCSS.colorSwatch = (function () {
         document.body.appendChild(pop);
         activePopover = pop;
         activeDiamond = diamond;
+        popoverOpen   = true;
 
         var pw = pop.offsetWidth  || 210;
         var ph = pop.offsetHeight || 140;
@@ -340,6 +350,12 @@ window.LiveCSS.colorSwatch = (function () {
         }
 
         function scan() {
+            // While the color popover is open, skip rescanning because it
+            // would destroy the diamond the popover is attached to.
+            if (popoverOpen) {
+                pendingRescan = scan;
+                return;
+            }
             clearMarks();
             var vp   = cm.getViewport();
             var from = Math.max(0, vp.from - 10);
