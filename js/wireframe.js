@@ -148,6 +148,82 @@ window.LiveCSS.wireframe = (function () {
                (ny + nh + el.mb) <= (par.h - par.pb);
     }
 
+    /* Clamp a proposed resize so no edge crosses a locked guide barrier.
+       handle is the drag handle string ('e','s','w','n','se', etc.) */
+    function clampResizeToLockedGuides(el, nx, ny, nw, nh, handle) {
+        for (var i = 0; i < guides.length; i++) {
+            var g = guides[i];
+            if (!g.locked) continue;
+            if (g.axis === 'h') {
+                var Y = g.pos;
+                if (handle.indexOf('s') !== -1) {
+                    /* south edge expanding downward: stop at guide if element top is above guide */
+                    if (el.y < Y && ny + nh > Y) {
+                        nh = Y - ny;
+                    }
+                }
+                if (handle.indexOf('n') !== -1) {
+                    /* north edge expanding upward: stop at guide if element bottom is below guide */
+                    if (el.y + el.h > Y && ny < Y) {
+                        var newH = (el.y + el.h) - Y;
+                        ny = Y;
+                        nh = newH;
+                    }
+                }
+            } else {
+                var X = g.pos;
+                if (handle.indexOf('e') !== -1) {
+                    /* east edge expanding rightward */
+                    if (el.x < X && nx + nw > X) {
+                        nw = X - nx;
+                    }
+                }
+                if (handle.indexOf('w') !== -1) {
+                    /* west edge expanding leftward */
+                    if (el.x + el.w > X && nx < X) {
+                        var newW = (el.x + el.w) - X;
+                        nx = X;
+                        nw = newW;
+                    }
+                }
+            }
+        }
+        return { nx: nx, ny: ny, nw: nw, nh: nh };
+    }
+
+    /* Clamp a locked guide's proposed new position so it cannot pass through
+       any existing element edge.  Returns the clamped position value. */
+    function clampGuideThroughElements(g, proposedPos) {
+        var oldPos = g.pos;
+        var best = proposedPos;
+        var moving = proposedPos > oldPos;  /* true = going right / down */
+        elements.forEach(function (el) {
+            /* use absolute canvas coords (works for root elements;
+               skip deeply nested children to keep this O(n)) */
+            if (el.parentId) return;
+            if (g.axis === 'h') {
+                if (moving) {
+                    /* dragging down: stop at el.y when element starts below current */
+                    if (el.y > oldPos && el.y < best) best = el.y;
+                } else {
+                    /* dragging up: stop at el.y + el.h when element ends above current */
+                    var bottom = el.y + el.h;
+                    if (bottom < oldPos && bottom > best) best = bottom;
+                }
+            } else {
+                if (moving) {
+                    /* dragging right: stop at el.x */
+                    if (el.x > oldPos && el.x < best) best = el.x;
+                } else {
+                    /* dragging left: stop at el.x + el.w */
+                    var right = el.x + el.w;
+                    if (right < oldPos && right > best) best = right;
+                }
+            }
+        });
+        return best;
+    }
+
     /* Stop the proposed position from crossing any locked guide barrier.
        Determines which side the element is currently on and clamps accordingly. */
     function clampToLockedGuides(el, nx, ny, nw, nh) {
@@ -803,6 +879,10 @@ window.LiveCSS.wireframe = (function () {
                 pos = Math.round(e.clientX - rect.left);
                 pos = Math.max(0, Math.min(pos, CANVAS_W));
             }
+            /* locked guides cannot pass through elements */
+            if (g.locked) {
+                pos = clampGuideThroughElements(g, pos);
+            }
             g.pos = pos;
             guideDrag.moved = true;
             var gDiv = canvasEl.querySelector('[data-guide-id="' + g.id + '"]');
@@ -865,6 +945,10 @@ window.LiveCSS.wireframe = (function () {
                     ny = drag.oy + drag.oh - newH;
                     nh = newH;
                 }
+
+                /* clamp resize edges against locked guide barriers */
+                var rc = clampResizeToLockedGuides(el, nx, ny, nw, nh, h);
+                nx = rc.nx; ny = rc.ny; nw = Math.max(MIN_SIZE, rc.nw); nh = Math.max(MIN_SIZE, rc.nh);
 
                 if (!proposedConflicts(el, nx, ny, nw, nh) &&
                     fitsInParent(el, nx, ny, nw, nh)) {
