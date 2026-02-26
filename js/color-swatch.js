@@ -169,19 +169,30 @@ window.LiveCSS.colorSwatch = (function () {
         pop.style.top  = Math.max(4, top)  + 'px';
 
         // -- Live update from color wheel
-        // Track when the native picker last closed so the outsideClick guard
-        // doesn't fire immediately after the OS dialog is dismissed.
-        var lastPickTime = 0;
+        // pickerBusy is true from the moment the user mousedowns the color
+        // swatch until 800ms after the OS dialog fires 'change'. This window
+        // swallows the synthetic mousedown WebKit emits when a native sheet
+        // closes — no matter whether it arrives before or after 'change'.
+        var pickerBusy = false;
+        var pickerBusyTimer = null;
+
+        function setPickerBusy() {
+            pickerBusy = true;
+            clearTimeout(pickerBusyTimer);
+            pickerBusyTimer = setTimeout(function () { pickerBusy = false; }, 800);
+        }
+
+        // Mark busy as soon as the color swatch is pressed (picker about to open).
+        colorInp.addEventListener('mousedown', setPickerBusy);
 
         colorInp.addEventListener('input', function () {
             hexField.value = colorInp.value;
             onPick(colorInp.value, false);
         });
         // 'change' fires when the OS native picker dialog is dismissed.
-        // DO NOT treat this as final (don't close the popover) — the user
-        // should be able to re-open the picker as many times as they like.
+        // Restart the busy window so the synthetic focus-restore click is ignored.
         colorInp.addEventListener('change', function () {
-            lastPickTime = Date.now();
+            setPickerBusy();
             hexField.value = colorInp.value;
             onPick(colorInp.value, false);
         });
@@ -197,7 +208,7 @@ window.LiveCSS.colorSwatch = (function () {
         hexField.addEventListener('keydown', function (e) {
             if (e.keyCode === 13) {
                 var v = hexField.value.trim();
-                if (/^#[0-9a-fA-F]{6}$/.test(v)) { onPick(v, true); }
+                if (/^#[0-9a-fA-F]{6}$/.test(v)) { onPick(v, false); }
                 closePopover();
             } else if (e.keyCode === 27) {
                 closePopover();
@@ -211,11 +222,11 @@ window.LiveCSS.colorSwatch = (function () {
         });
 
         // -- Close on outside click.
-        // Guard: ignore any mousedown that arrives within 350 ms of the native
-        // picker dialog closing — the browser synthesises one to restore focus.
+        // Skip the event entirely if the picker dialog is busy (open or
+        // just closed) to avoid the WebKit synthetic-mousedown race.
         setTimeout(function () {
             document.addEventListener('mousedown', function outsideClick(e) {
-                if (Date.now() - lastPickTime < 350) { return; }
+                if (pickerBusy) { return; }
                 if (activePopover && !activePopover.contains(e.target)) {
                     closePopover();
                     document.removeEventListener('mousedown', outsideClick);
