@@ -102,44 +102,118 @@ window.LiveCSS.colorSwatch = (function () {
         return null;
     }
 
-    // ── Per-diamond color picker ──────────────────────────────────
-    // Create a fresh positioned <input type="color"> on every click.
-    // Reusing a single hidden input with width/height 0 is unreliable in
-    // Tauri/Chromium — zero-size or off-screen elements may not receive
-    // programmatic click dispatch.
+    // ── Inline color popover ─────────────────────────────────────
+    // Shows a small floating panel right beside the diamond with a
+    // visible large color swatch and a hex text field.
+    // Avoids relying on the native browser color-picker dialog entirely.
+
+    var activePopover = null;
+
+    function closePopover() {
+        if (activePopover && activePopover.parentNode) {
+            activePopover.parentNode.removeChild(activePopover);
+        }
+        activePopover = null;
+    }
 
     function openPicker(diamond, hexVal, onPick) {
-        var existing = document.getElementById('_cmColorPicker');
-        if (existing) { existing.parentNode.removeChild(existing); }
+        closePopover();
 
         var rect = diamond.getBoundingClientRect();
-        var inp  = document.createElement('input');
-        inp.type  = 'color';
-        inp.id    = '_cmColorPicker';
-        inp.value = hexVal;
-        // Tiny, non-zero, fully opaque=0.01 so it remains interactive
-        inp.style.cssText =
-            'position:fixed;' +
-            'top:'  + Math.round(rect.bottom + 4) + 'px;' +
-            'left:' + Math.round(rect.left)        + 'px;' +
-            'width:1px;height:1px;' +
-            'opacity:0.01;border:none;padding:0;margin:0;' +
-            'cursor:pointer;z-index:99999;';
-        document.body.appendChild(inp);
 
-        inp.addEventListener('input', function () { onPick(inp.value, false); });
-        inp.addEventListener('change', function () {
-            onPick(inp.value, true);
-            if (inp.parentNode) { inp.parentNode.removeChild(inp); }
+        var pop = document.createElement('div');
+        pop.className = 'cm-color-popover';
+        pop.id = '_cmColorPopover';
+
+        // -- Header row: hex display + close button
+        var head = document.createElement('div');
+        head.className = 'cm-color-pop-head';
+
+        var hexField = document.createElement('input');
+        hexField.type      = 'text';
+        hexField.className = 'cm-color-pop-hex';
+        hexField.value     = hexVal;
+        hexField.maxLength = 7;
+        hexField.spellcheck = false;
+
+        var closeBtn = document.createElement('button');
+        closeBtn.className   = 'cm-color-pop-close';
+        closeBtn.textContent = '\u00d7';  // ×
+        closeBtn.title       = 'Close';
+
+        head.appendChild(hexField);
+        head.appendChild(closeBtn);
+
+        // -- Large native color input (visible swatch area)
+        var colorInp = document.createElement('input');
+        colorInp.type      = 'color';
+        colorInp.className = 'cm-color-pop-input';
+        colorInp.value     = hexVal;
+
+        pop.appendChild(head);
+        pop.appendChild(colorInp);
+
+        // Position beside the diamond
+        document.body.appendChild(pop);
+        activePopover = pop;
+
+        var pw = pop.offsetWidth  || 180;
+        var ph = pop.offsetHeight || 80;
+        var left = rect.right + 8;
+        var top  = rect.top  - 4;
+        // Flip left if too close to right edge
+        if (left + pw > window.innerWidth - 8) { left = rect.left - pw - 8; }
+        // Flip up if too close to bottom
+        if (top + ph > window.innerHeight - 8)  { top  = window.innerHeight - ph - 8; }
+        pop.style.left = Math.max(4, left) + 'px';
+        pop.style.top  = Math.max(4, top)  + 'px';
+
+        // -- Live update from color wheel
+        colorInp.addEventListener('input', function () {
+            hexField.value = colorInp.value;
+            onPick(colorInp.value, false);
         });
-        inp.addEventListener('blur', function () {
-            setTimeout(function () {
-                if (inp.parentNode) { inp.parentNode.removeChild(inp); }
-            }, 300);
+        colorInp.addEventListener('change', function () {
+            hexField.value = colorInp.value;
+            onPick(colorInp.value, true);
         });
 
-        // Slight delay so the mousedown on the diamond fully resolves first
-        setTimeout(function () { inp.click(); }, 10);
+        // -- Manual hex field
+        hexField.addEventListener('input', function () {
+            var v = hexField.value.trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+                colorInp.value = v;
+                onPick(v, false);
+            }
+        });
+        hexField.addEventListener('keydown', function (e) {
+            if (e.keyCode === 13) {
+                var v = hexField.value.trim();
+                if (/^#[0-9a-fA-F]{6}$/.test(v)) { onPick(v, true); }
+                closePopover();
+            } else if (e.keyCode === 27) {
+                closePopover();
+            }
+        });
+
+        // -- Close button
+        closeBtn.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            closePopover();
+        });
+
+        // -- Close on outside click (defer so this mousedown doesn't trigger it)
+        setTimeout(function () {
+            document.addEventListener('mousedown', function outsideClick(e) {
+                if (activePopover && !activePopover.contains(e.target)) {
+                    closePopover();
+                    document.removeEventListener('mousedown', outsideClick);
+                }
+            });
+        }, 50);
+
+        // Focus the color input so the native picker is ready for keyboard
+        setTimeout(function () { colorInp.focus(); }, 30);
     }
 
     // ── Widget factory ────────────────────────────────────────────
@@ -166,10 +240,12 @@ window.LiveCSS.colorSwatch = (function () {
             e.preventDefault();
             e.stopPropagation();
 
-            // Take a snapshot of the mark before the async open
             var mark = wrap._cmMark;
 
             openPicker(diamond, hexVal, function (newHex, isFinal) {
+                // Update hexVal so re-open shows current color
+                hexVal = newHex;
+                diamond.style.background = newHex;
                 if (!mark) { return; }
                 var pos = mark.find();
                 if (!pos) { return; }

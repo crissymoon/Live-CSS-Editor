@@ -47,7 +47,78 @@
     color: inherit;
 }
 
-/* ── Floating Color Harmony Tool ── */
+/* ── Inline color popover ── */
+
+.cm-color-popover {
+    position: fixed;
+    z-index: 99999;
+    background: #0c071c;
+    border: 1px solid #4d31bf;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.75);
+    min-width: 160px;
+}
+
+.cm-color-pop-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cm-color-pop-hex {
+    flex: 1;
+    background: #1a0f42;
+    border: 1px solid #4d31bf;
+    color: #eceaf6;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    padding: 4px 7px;
+    outline: none;
+    min-width: 0;
+}
+
+.cm-color-pop-hex:focus {
+    border-color: #7c5ce8;
+}
+
+.cm-color-pop-close {
+    background: transparent;
+    border: none;
+    color: #a89fcc;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    flex-shrink: 0;
+}
+
+.cm-color-pop-close:hover {
+    color: #eceaf6;
+}
+
+/* Make the native color input fill the popover width as a large flat swatch */
+.cm-color-pop-input {
+    width: 100%;
+    height: 48px;
+    padding: 0;
+    border: 1px solid #4d31bf;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    display: block;
+}
+
+.cm-color-pop-input::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.cm-color-pop-input::-webkit-color-swatch {
+    border: none;
+}
 
 .harmony-tool {
     position: fixed;
