@@ -51,10 +51,11 @@ window.LiveCSS.fuzzy = (function () {
      * @param {RegExp}      charRe       word-character pattern
      */
     function attachFuzzy(cm, getWordList, charRe) {
-        var selIdx   = -1;
-        var matchArr = [];
-        var active   = false;
-        var wStart   = null;
+        var selIdx           = -1;
+        var matchArr         = [];
+        var active           = false;
+        var wStart           = null;
+        var skipNextActivity = false;
 
         function getWord(editor) {
             var cursor = editor.getCursor();
@@ -122,6 +123,10 @@ window.LiveCSS.fuzzy = (function () {
 
             dropdown.classList.remove('hidden');
 
+            /* scroll active item into view */
+            var activeEl = dropdown.querySelector('.fuzzy-item-active');
+            if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+
             /* click handlers */
             var items = dropdown.querySelectorAll('.fuzzy-item');
             for (var j = 0; j < items.length; j++) {
@@ -162,6 +167,7 @@ window.LiveCSS.fuzzy = (function () {
         });
 
         cm.on('cursorActivity', function (editor) {
+            if (skipNextActivity) { skipNextActivity = false; return; }
             if (!active) return;
             var info = getWord(editor);
             if (!info) hide(); else show(editor);
@@ -171,10 +177,12 @@ window.LiveCSS.fuzzy = (function () {
             if (!active) return;
             if (e.keyCode === 40) {                           /* Down */
                 e.preventDefault();
+                skipNextActivity = true;
                 selIdx = Math.min(selIdx + 1, matchArr.length - 1);
                 render(editor);
             } else if (e.keyCode === 38) {                    /* Up */
                 e.preventDefault();
+                skipNextActivity = true;
                 selIdx = Math.max(selIdx - 1, 0);
                 render(editor);
             } else if (e.keyCode === 9 || e.keyCode === 13) { /* Tab / Enter */
