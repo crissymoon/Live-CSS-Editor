@@ -263,6 +263,12 @@
     line-height: 1.6;
 }
 
+/* Extra scroll clearance so inline widgets (size diamonds, color swatches)
+   on the last line are fully reachable. */
+.panel-body .CodeMirror-lines {
+    padding-bottom: 120px;
+}
+
 /* Fold gutter */
 .panel-body .CodeMirror-foldgutter {
     width: 14px;

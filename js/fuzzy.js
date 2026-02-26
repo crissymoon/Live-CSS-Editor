@@ -51,11 +51,10 @@ window.LiveCSS.fuzzy = (function () {
      * @param {RegExp}      charRe       word-character pattern
      */
     function attachFuzzy(cm, getWordList, charRe) {
-        var selIdx           = -1;
-        var matchArr         = [];
-        var active           = false;
-        var wStart           = null;
-        var skipNextActivity = false;
+        var selIdx   = -1;
+        var matchArr = [];
+        var active   = false;
+        var wStart   = null;
 
         function getWord(editor) {
             var cursor = editor.getCursor();
@@ -90,7 +89,7 @@ window.LiveCSS.fuzzy = (function () {
             editor.focus();
         }
 
-        function render(editor) {
+        function render(editor, positionOnly) {
             var escapeHtml = LiveCSS.utils.escapeHtml;
             var html = '';
             for (var i = 0; i < matchArr.length; i++) {
@@ -100,32 +99,39 @@ window.LiveCSS.fuzzy = (function () {
             }
             dropdown.innerHTML = html;
 
-            /* ── Position: below cursor, but flip above if near bottom ── */
-            var coords = editor.cursorCoords(true, 'page');
-            var spaceBelow = window.innerHeight - coords.bottom - 8;
-            var spaceAbove = coords.top - 8;
-            var dHeight = dropdown.offsetHeight || 120;
+            /* ── Position: only recompute when the list content changed ── */
+            if (!positionOnly) {
+                var coords = editor.cursorCoords(true, 'page');
+                var spaceBelow = window.innerHeight - coords.bottom - 8;
+                var spaceAbove = coords.top - 8;
+                var dHeight = dropdown.offsetHeight || 120;
 
-            if (spaceBelow >= dHeight || spaceBelow >= spaceAbove) {
-                /* show below */
-                dropdown.style.top  = (coords.bottom + 2) + 'px';
-            } else {
-                /* flip above */
-                dropdown.style.top  = Math.max(4, (coords.top - dHeight - 2)) + 'px';
-            }
-            dropdown.style.left = coords.left + 'px';
+                if (spaceBelow >= dHeight || spaceBelow >= spaceAbove) {
+                    dropdown.style.top  = (coords.bottom + 2) + 'px';
+                } else {
+                    dropdown.style.top  = Math.max(4, (coords.top - dHeight - 2)) + 'px';
+                }
+                dropdown.style.left = coords.left + 'px';
 
-            /* clamp right edge */
-            var dRight = coords.left + (dropdown.offsetWidth || 200);
-            if (dRight > window.innerWidth - 8) {
-                dropdown.style.left = Math.max(4, window.innerWidth - (dropdown.offsetWidth || 200) - 8) + 'px';
+                var dRight = coords.left + (dropdown.offsetWidth || 200);
+                if (dRight > window.innerWidth - 8) {
+                    dropdown.style.left = Math.max(4, window.innerWidth - (dropdown.offsetWidth || 200) - 8) + 'px';
+                }
             }
 
             dropdown.classList.remove('hidden');
 
-            /* scroll active item into view */
+            /* scroll active item into view (manual scrollTop to avoid page jump) */
             var activeEl = dropdown.querySelector('.fuzzy-item-active');
-            if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+            if (activeEl) {
+                var etop = activeEl.offsetTop;
+                var ebot = etop + activeEl.offsetHeight;
+                if (ebot > dropdown.scrollTop + dropdown.clientHeight) {
+                    dropdown.scrollTop = ebot - dropdown.clientHeight;
+                } else if (etop < dropdown.scrollTop) {
+                    dropdown.scrollTop = etop;
+                }
+            }
 
             /* click handlers */
             var items = dropdown.querySelectorAll('.fuzzy-item');
@@ -167,31 +173,44 @@ window.LiveCSS.fuzzy = (function () {
         });
 
         cm.on('cursorActivity', function (editor) {
-            if (skipNextActivity) { skipNextActivity = false; return; }
             if (!active) return;
             var info = getWord(editor);
             if (!info) hide(); else show(editor);
         });
 
-        cm.on('keydown', function (editor, e) {
-            if (!active) return;
-            if (e.keyCode === 40) {                           /* Down */
+        /* DOM capture-phase keydown on the editor wrapper.
+           Fires BEFORE CodeMirror sees the event. When the dropdown is
+           active we stop propagation so CM never processes the key —
+           no cursor movement, no cursorActivity. When the dropdown is
+           inactive we do nothing and CM works normally.
+           If already at the first/last item, dismiss and let CM handle
+           the key so the cursor can leave the current line. */
+        cm.getWrapperElement().addEventListener('keydown', function (e) {
+            if (!active) return;                 /* let CM handle it */
+
+            var code = e.keyCode;
+            if (code === 40) {                   /* Down */
+                if (selIdx >= matchArr.length - 1) { hide(); return; }
                 e.preventDefault();
-                skipNextActivity = true;
+                e.stopPropagation();
                 selIdx = Math.min(selIdx + 1, matchArr.length - 1);
-                render(editor);
-            } else if (e.keyCode === 38) {                    /* Up */
+                render(cm, true);
+            } else if (code === 38) {            /* Up */
+                if (selIdx <= 0) { hide(); return; }
                 e.preventDefault();
-                skipNextActivity = true;
+                e.stopPropagation();
                 selIdx = Math.max(selIdx - 1, 0);
-                render(editor);
-            } else if (e.keyCode === 9 || e.keyCode === 13) { /* Tab / Enter */
+                render(cm, true);
+            } else if (code === 9 || code === 13) {  /* Tab / Enter */
                 e.preventDefault();
-                if (selIdx >= 0) accept(editor, selIdx);
-            } else if (e.keyCode === 27) {                    /* Escape */
+                e.stopPropagation();
+                if (selIdx >= 0) accept(cm, selIdx);
+            } else if (code === 27) {            /* Escape */
+                e.preventDefault();
+                e.stopPropagation();
                 hide();
             }
-        });
+        }, true);  /* capture phase */
 
         cm.on('blur', function () { setTimeout(hide, 200); });
     }

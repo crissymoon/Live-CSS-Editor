@@ -28,6 +28,7 @@ sort($allPropertyNames);
     <title>Crissy's Style Tool</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/native-bridge.css">
+    <link rel="stylesheet" href="css/wireframe.css">
 
     <!-- CDN fallback loader — handles CodeMirror CSS + JS from multiple sources -->
     <!-- Actual CodeMirror assets are injected at runtime by js/cdn-loader.js    -->
@@ -47,6 +48,7 @@ sort($allPropertyNames);
             <button id="propertiesBtn" class="btn-action" title="Open properties reference">Properties</button>
             <button id="harmonyBtn" class="btn-action" title="Open color harmony tool">Harmony</button>
             <button id="guidesBtn" class="btn-action" title="Indent guide settings">Guides</button>
+            <button id="wireframeBtn" class="btn-action" title="Open wireframe tool">Wireframes</button>
         </div>
     </header>
 
@@ -263,6 +265,32 @@ sort($allPropertyNames);
     <!-- Fuzzy autocomplete dropdown for CSS properties -->
     <div class="fuzzy-dropdown hidden" id="fuzzyDropdown"></div>
 
+    <!-- Wireframe Tool Modal -->
+    <div class="wf-overlay hidden" id="wireframeOverlay">
+        <div class="wf-modal">
+            <div class="wf-toolbar">
+                <span class="wf-toolbar-title">Wireframes</span>
+                <button class="wf-btn" id="wfAddBtn">+ Add Element</button>
+                <button class="wf-btn" id="wfClearBtn">Clear All</button>
+                <button class="wf-btn" id="wfSaveBtn">Save JSON</button>
+                <button class="wf-btn" id="wfLoadBtn">Load JSON</button>
+                <button class="wf-btn" id="wfContextBtn">Copy Context</button>
+                <input type="file" id="wfFileInput" accept=".json,.wf.json" style="display:none">
+                <button class="wf-btn wf-btn-close" id="wfCloseBtn">Close</button>
+            </div>
+            <div class="wf-body">
+                <div class="wf-canvas-wrap">
+                    <div id="wfCanvas">
+                        <span class="wf-canvas-info">1200 &times; 900</span>
+                    </div>
+                </div>
+                <div class="wf-props-panel" id="wfProps">
+                    <div class="wf-props-empty">Click an element to select it</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Floating properties reference tool -->
     <div class="prop-tool hidden" id="propertiesToolPanel">
         <div class="prop-tool-header">
@@ -312,6 +340,7 @@ sort($allPropertyNames);
     <script src="js/gutter.js"></script>
     <script src="js/editor-search.js"></script>
     <script src="js/indent-guide.js"></script>
+    <script src="js/wireframe.js"></script>
     <script src="js/app.js"></script>
     <!-- Dev/native bridge: file browse, refresh, debug overlay -->
     <script src="js/native-bridge.js"></script>

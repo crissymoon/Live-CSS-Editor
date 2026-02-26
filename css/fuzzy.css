@@ -27,8 +27,16 @@
     transition: background 0.1s;
 }
 
-.fuzzy-item:hover,
+.fuzzy-item:hover {
+    background: #1e1245;
+    color: #fff;
+}
+
 .fuzzy-item-active {
     background: #2d1c6e;
     color: #fff;
+}
+
+.fuzzy-item-active:hover {
+    background: #2d1c6e;
 }

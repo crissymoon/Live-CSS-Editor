@@ -96,7 +96,8 @@
         LiveCSS.indentGuide.attach(LiveCSS.editor.getCssEditor());
         LiveCSS.indentGuide.init();
 
-        // 11. Reset content button
+        // 11. Wireframe tool
+        LiveCSS.wireframe.init();
         document.getElementById('resetBtn').addEventListener('click', function () {
             if (confirm('Reset all editors to default code?')) {
                 LiveCSS.editor.getHtmlEditor().setValue(data.defaultHtml);
