@@ -102,28 +102,44 @@ window.LiveCSS.colorSwatch = (function () {
         return null;
     }
 
-    // ── Shared hidden color picker ────────────────────────────────
+    // ── Per-diamond color picker ──────────────────────────────────
+    // Create a fresh positioned <input type="color"> on every click.
+    // Reusing a single hidden input with width/height 0 is unreliable in
+    // Tauri/Chromium — zero-size or off-screen elements may not receive
+    // programmatic click dispatch.
 
-    var pickerInput   = null;
-    var pickerCb      = null;
+    function openPicker(diamond, hexVal, onPick) {
+        var existing = document.getElementById('_cmColorPicker');
+        if (existing) { existing.parentNode.removeChild(existing); }
 
-    function getPickerInput() {
-        if (pickerInput) { return pickerInput; }
-        pickerInput = document.createElement('input');
-        pickerInput.type = 'color';
-        // Must NOT have pointer-events:none — that blocks programmatic .click()
-        // in Tauri WebView. Keep it visually invisible but leave events intact.
-        pickerInput.style.cssText =
-            'position:fixed;opacity:0;width:0;height:0;top:0;left:0;border:none;padding:0;margin:0;';
-        document.body.appendChild(pickerInput);
-        pickerInput.addEventListener('input', function () {
-            if (pickerCb) { pickerCb(pickerInput.value); }
+        var rect = diamond.getBoundingClientRect();
+        var inp  = document.createElement('input');
+        inp.type  = 'color';
+        inp.id    = '_cmColorPicker';
+        inp.value = hexVal;
+        // Tiny, non-zero, fully opaque=0.01 so it remains interactive
+        inp.style.cssText =
+            'position:fixed;' +
+            'top:'  + Math.round(rect.bottom + 4) + 'px;' +
+            'left:' + Math.round(rect.left)        + 'px;' +
+            'width:1px;height:1px;' +
+            'opacity:0.01;border:none;padding:0;margin:0;' +
+            'cursor:pointer;z-index:99999;';
+        document.body.appendChild(inp);
+
+        inp.addEventListener('input', function () { onPick(inp.value, false); });
+        inp.addEventListener('change', function () {
+            onPick(inp.value, true);
+            if (inp.parentNode) { inp.parentNode.removeChild(inp); }
         });
-        pickerInput.addEventListener('change', function () {
-            if (pickerCb) { pickerCb(pickerInput.value); }
-            pickerCb = null;
+        inp.addEventListener('blur', function () {
+            setTimeout(function () {
+                if (inp.parentNode) { inp.parentNode.removeChild(inp); }
+            }, 300);
         });
-        return pickerInput;
+
+        // Slight delay so the mousedown on the diamond fully resolves first
+        setTimeout(function () { inp.click(); }, 10);
     }
 
     // ── Widget factory ────────────────────────────────────────────
@@ -150,22 +166,16 @@ window.LiveCSS.colorSwatch = (function () {
             e.preventDefault();
             e.stopPropagation();
 
-            var inp = getPickerInput();
-            inp.value = hexVal;
+            // Take a snapshot of the mark before the async open
+            var mark = wrap._cmMark;
 
-            // Capture current mark reference via closure over wrap
-            pickerCb = function (newHex) {
-                var mark = wrap._cmMark;
+            openPicker(diamond, hexVal, function (newHex, isFinal) {
                 if (!mark) { return; }
                 var pos = mark.find();
                 if (!pos) { return; }
                 cm.replaceRange(newHex, pos.from, pos.to);
-                cm.focus();
-            };
-
-            // Defer .click() so the browser fully processes mousedown first;
-            // required for Tauri WebView and some Chromium-based contexts.
-            setTimeout(function () { inp.click(); }, 0);
+                if (isFinal) { cm.focus(); }
+            });
         });
 
         return wrap;

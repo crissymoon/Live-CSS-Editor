@@ -13,25 +13,31 @@
     cursor: text;
 }
 
-/* Diamond shape: a square clipped to a rotated rhombus, no border-radius */
+/* Diamond shape: rotate a square 45deg — no clip-path so box-shadow works freely */
 .cm-color-diamond {
     display: inline-block;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
     cursor: pointer;
     vertical-align: middle;
-    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-    /* drop-shadow works after clip-path compositing; box-shadow does not */
-    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.55));
-    transition: transform 0.12s, filter 0.12s;
+    transform: rotate(45deg);
     position: relative;
-    top: -1px;
+    top: -2px;
+    /* Glow ring: spread on the rotated square renders as a diamond glow */
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.30),
+        0 0 6px 2px rgba(255, 255, 255, 0.55),
+        0 0 12px 3px rgba(255, 255, 255, 0.20);
+    transition: transform 0.12s, box-shadow 0.12s;
 }
 
 .cm-color-diamond:hover {
-    transform: scale(1.45);
-    filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.95));
+    transform: rotate(45deg) scale(1.5);
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.70),
+        0 0 8px 3px rgba(255, 255, 255, 0.85),
+        0 0 18px 5px rgba(255, 255, 255, 0.35);
 }
 
 /* Restore original text appearance after the diamond */
