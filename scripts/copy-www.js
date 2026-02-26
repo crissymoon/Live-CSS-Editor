@@ -22,6 +22,7 @@ const INCLUDE = [
     'js',
     'data',
     'vendor',
+    'style-sheets',
 ];
 
 function rimraf(dir) {
