@@ -305,6 +305,7 @@ sort($allPropertyNames);
     <script src="js/property-lookup.js"></script>
     <script src="js/fuzzy.js"></script>
     <script src="js/color-swatch.js"></script>
+    <script src="js/size-slider.js"></script>
     <script src="js/color-harmony.js"></script>
     <script src="js/modal-save.js"></script>
     <script src="js/modal-load.js"></script>

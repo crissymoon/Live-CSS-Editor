@@ -81,6 +81,9 @@
         // 7. Inline color swatches in all three editors
         LiveCSS.colorSwatch.init();
 
+        // 7b. Inline size slider diamonds (CSS editor only)
+        LiveCSS.sizeSlider.init();
+
         // 8. Color harmony floating tool
         LiveCSS.colorHarmony.init();
 
