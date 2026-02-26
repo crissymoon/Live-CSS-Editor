@@ -1,0 +1,15 @@
+{
+  "name": "live-css-editor",
+  "version": "1.0.0",
+  "description": "Live CSS Editor — Tauri desktop app",
+  "scripts": {
+    "tauri":        "tauri",
+    "dev":          "npm run copy-www && tauri dev",
+    "build":        "npm run copy-www && tauri build",
+    "copy-www":     "node scripts/copy-www.js",
+    "gen-icon":     "node scripts/gen-icon.js"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

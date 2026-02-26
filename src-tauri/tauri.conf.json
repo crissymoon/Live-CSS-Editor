@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Live CSS Editor",
+  "version": "1.0.0",
+  "identifier": "com.livecss.editor",
+  "build": {
+    "beforeDevCommand":   "npm run copy-www",
+    "beforeBuildCommand": "npm run copy-www",
+    "devUrl":             "http://localhost:7777",
+    "frontendDist":       "www"
+  },
+  "app": {
+    "windows": [
+      {
+        "label":      "main",
+        "title":      "Live CSS Editor",
+        "width":      1440,
+        "height":     900,
+        "minWidth":   800,
+        "minHeight":  600,
+        "resizable":  true,
+        "fullscreen": false,
+        "url":        "http://localhost:7777"
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": { "enable": false }
+    }
+  },
+  "bundle": {
+    "active":    true,
+    "targets":   "all",
+    "icon":      ["icons/icon.png"],
+    "resources": ["www/**/*"]
+  }
+}
