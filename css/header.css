@@ -27,73 +27,6 @@
     white-space: nowrap;
 }
 
-.header-center {
-    display: flex;
-    align-items: center;
-    flex: 1;
-    justify-content: center;
-}
-
-/* CSS property reference dropdown */
-.css-property-lookup {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.css-property-lookup label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #eceaf6;
-    white-space: nowrap;
-}
-
-.css-property-lookup select {
-    background: #0c071c;
-    color: #eceaf6;
-    border: 1px solid #4d31bf;
-    padding: 6px 12px;
-    font-size: 14px;
-    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    min-width: 220px;
-    cursor: pointer;
-    appearance: auto;
-}
-
-.css-property-lookup select:focus {
-    outline: 2px solid #4d31bf;
-    outline-offset: -1px;
-}
-
-.css-property-lookup select optgroup {
-    font-weight: 700;
-    color: #eceaf6;
-    background: #0c071c;
-}
-
-.css-property-lookup select option {
-    background: #0c071c;
-    color: #eceaf6;
-    padding: 4px 8px;
-}
-
-/* Insert property button */
-.btn-insert {
-    background: #4d31bf;
-    color: #eceaf6;
-    border: 1px solid #2d1c6e;
-    padding: 6px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.15s;
-}
-
-.btn-insert:hover {
-    background: #2d1c6e;
-}
-
 .header-right {
     display: flex;
     align-items: center;
@@ -125,4 +58,185 @@
 .btn-danger:hover {
     background: #a03030;
     color: #fff;
+}
+
+/* =============================================================
+   Floating Properties Tool Panel
+   ============================================================= */
+
+.prop-tool {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    width: 300px;
+    background: #0c071c;
+    border: 1px solid #4d31bf;
+    color: #eceaf6;
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.prop-tool.hidden {
+    display: none;
+}
+
+.prop-tool-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #2d1c6e;
+    padding: 7px 12px;
+    cursor: grab;
+    flex-shrink: 0;
+}
+
+.prop-tool-header:active {
+    cursor: grabbing;
+}
+
+.prop-tool-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #eceaf6;
+}
+
+.prop-tool-close {
+    background: transparent;
+    border: none;
+    color: #a89fcc;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+}
+
+.prop-tool-close:hover {
+    color: #eceaf6;
+}
+
+.prop-tool-tabs {
+    display: flex;
+    border-bottom: 1px solid #4d31bf;
+    flex-shrink: 0;
+}
+
+.prop-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-right: 1px solid #4d31bf;
+    color: #a89fcc;
+    padding: 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.prop-tab:last-child {
+    border-right: none;
+}
+
+.prop-tab:hover {
+    background: #1a0f42;
+    color: #eceaf6;
+}
+
+.prop-tab.active {
+    background: #1a0f42;
+    color: #eceaf6;
+    border-bottom: 2px solid #7c5ce8;
+}
+
+.prop-tool-search {
+    padding: 8px 8px 4px;
+    flex-shrink: 0;
+}
+
+.prop-search-input {
+    width: 100%;
+    background: #1a0f42;
+    border: 1px solid #4d31bf;
+    color: #eceaf6;
+    padding: 5px 8px;
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    outline: none;
+}
+
+.prop-search-input:focus {
+    border-color: #7c5ce8;
+}
+
+.prop-list {
+    list-style: none;
+    overflow-y: auto;
+    max-height: 260px;
+    flex: 1;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid #2d1c6e;
+}
+
+.prop-item {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #c8c0e8;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.prop-item:hover {
+    background: #1a0f42;
+    color: #eceaf6;
+}
+
+.prop-item.selected {
+    background: #4d31bf;
+    color: #fff;
+}
+
+.prop-tool-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-top: 1px solid #4d31bf;
+    flex-shrink: 0;
+    min-height: 36px;
+}
+
+.prop-value-hint {
+    flex: 1;
+    font-size: 11px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #a89fcc;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.prop-insert-btn {
+    background: #4d31bf;
+    color: #eceaf6;
+    border: 1px solid #2d1c6e;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.12s;
+}
+
+.prop-insert-btn:hover {
+    background: #7c5ce8;
 }

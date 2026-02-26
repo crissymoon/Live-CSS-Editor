@@ -11,10 +11,6 @@
     flex: 1;
 }
 
-body:has(.property-info-bar:not(.hidden)) .editor-layout {
-    height: calc(100vh - 54px - 40px);
-}
-
 /* ── Panels ── */
 .editor-panel,
 .preview-panel {

@@ -38,35 +38,14 @@ sort($allPropertyNames);
         <div class="header-left">
             <h1 class="app-title">Live CSS Editor</h1>
         </div>
-        <div class="header-center">
-            <div class="css-property-lookup">
-                <label for="propertySelect">CSS Properties:</label>
-                <select id="propertySelect">
-                    <option value="">-- Select a property --</option>
-                    <?php foreach ($cssProperties as $group => $props): ?>
-                        <optgroup label="<?php echo htmlspecialchars($group); ?>">
-                            <?php foreach ($props as $prop): ?>
-                                <option value="<?php echo htmlspecialchars($prop); ?>"><?php echo htmlspecialchars($prop); ?></option>
-                            <?php endforeach; ?>
-                        </optgroup>
-                    <?php endforeach; ?>
-                </select>
-                <button id="insertPropertyBtn" class="btn-insert" title="Insert property at cursor">Insert</button>
-            </div>
-        </div>
         <div class="header-right">
             <button id="saveBtn" class="btn-action" title="Save to browser storage">Save</button>
             <button id="loadBtn" class="btn-action" title="Load from browser storage">Load</button>
             <button id="resetBtn" class="btn-action">Reset</button>
             <button id="resetLayoutBtn" class="btn-action" title="Restore default panel positions">Reset Layout</button>
+            <button id="propertiesBtn" class="btn-action" title="Open properties reference">Properties</button>
         </div>
     </header>
-
-    <div id="propertyInfoBar" class="property-info-bar hidden">
-        <span class="property-info-name" id="propertyInfoName"></span>
-        <span class="property-info-values" id="propertyInfoValues"></span>
-        <button class="property-info-close" id="propertyInfoClose" title="Close">&times;</button>
-    </div>
 
     <!-- Save Modal -->
     <div class="modal-overlay hidden" id="saveModal">
@@ -151,6 +130,27 @@ sort($allPropertyNames);
 
     <!-- Fuzzy autocomplete dropdown for CSS properties -->
     <div class="fuzzy-dropdown hidden" id="fuzzyDropdown"></div>
+
+    <!-- Floating properties reference tool -->
+    <div class="prop-tool hidden" id="propertiesToolPanel">
+        <div class="prop-tool-header">
+            <span class="prop-tool-title">Properties</span>
+            <button class="prop-tool-close" id="propToolClose">&times;</button>
+        </div>
+        <div class="prop-tool-tabs">
+            <button class="prop-tab active" data-tab="css">CSS</button>
+            <button class="prop-tab" data-tab="js">JS</button>
+            <button class="prop-tab" data-tab="html">HTML</button>
+        </div>
+        <div class="prop-tool-search">
+            <input type="text" class="prop-search-input" id="propSearchInput" placeholder="Search..." autocomplete="off" spellcheck="false">
+        </div>
+        <ul class="prop-list" id="propList"></ul>
+        <div class="prop-tool-footer">
+            <span class="prop-value-hint" id="propValueHint"></span>
+            <button class="prop-insert-btn" id="propInsertBtn">Insert</button>
+        </div>
+    </div>
 
     <!-- =====================================================
          PHP-to-JS data bridge — consumed by js/app.js
