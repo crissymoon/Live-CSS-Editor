@@ -286,6 +286,93 @@
     box-shadow: 0 0 5px rgba(255, 85, 0, 0.65);
 }
 
+/* locked guide -- yellow barrier */
+.wf-guide-h.wf-guide-locked .wf-guide-line {
+    border-top-style: solid;
+    border-top-color: #ffdd00;
+    box-shadow: 0 0 6px rgba(255, 220, 0, 0.7);
+}
+
+.wf-guide-v.wf-guide-locked .wf-guide-line {
+    border-left-style: solid;
+    border-left-color: #ffdd00;
+    box-shadow: 0 0 6px rgba(255, 220, 0, 0.7);
+}
+
+.wf-guide-h.wf-guide-locked .wf-guide-label,
+.wf-guide-v.wf-guide-locked .wf-guide-label {
+    color: #ffdd00;
+}
+
+/* ── Guide ruler markers ───────────────────────────────────── */
+
+/* base marker: sits on he ruler, pointer cursor */
+.wf-gmark {
+    position: absolute;
+    cursor: pointer;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Triangle on horizontal ruler (for vertical guides): points down into canvas */
+.wf-gmark-h {
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 9px solid #e04468;
+    margin-left: -5px;
+}
+
+/* Triangle on vertical ruler (for horizontal guides): points right into canvas */
+.wf-gmark-v {
+    right: 0;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 9px solid #e04468;
+    margin-top: -5px;
+}
+
+/* Locked state: drop triangle borders, become a small yellow square */
+.wf-gmark-h.wf-gmark-locked {
+    width: 26px;
+    height: 13px;
+    border: none;
+    background: #ffdd00;
+    margin-left: -13px;
+    bottom: 1px;
+}
+
+.wf-gmark-v.wf-gmark-locked {
+    width: 13px;
+    height: 20px;
+    border: none;
+    background: #ffdd00;
+    margin-top: -10px;
+    right: 1px;
+}
+
+/* pixel label -- only visible when locked */
+.wf-gmark-label {
+    display: none;
+    font-size: 8px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-weight: bold;
+    color: #0a0618;
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.wf-gmark-locked .wf-gmark-label {
+    display: block;
+}
+
 .wf-guide-label {
     position: absolute;
     font-size: 9px;

@@ -148,6 +148,35 @@ window.LiveCSS.wireframe = (function () {
                (ny + nh + el.mb) <= (par.h - par.pb);
     }
 
+    /* Stop the proposed position from crossing any locked guide barrier.
+       Determines which side the element is currently on and clamps accordingly. */
+    function clampToLockedGuides(el, nx, ny, nw, nh) {
+        for (var i = 0; i < guides.length; i++) {
+            var g = guides[i];
+            if (!g.locked) continue;
+            if (g.axis === 'h') {
+                var Y = g.pos;
+                if (el.y + el.h <= Y) {
+                    /* element is above the guide -- keep it above */
+                    ny = Math.min(ny, Y - nh);
+                } else if (el.y >= Y) {
+                    /* element is below the guide -- keep it below */
+                    ny = Math.max(ny, Y);
+                }
+            } else {
+                var X = g.pos;
+                if (el.x + el.w <= X) {
+                    /* element is to the left -- keep it left */
+                    nx = Math.min(nx, X - nw);
+                } else if (el.x >= X) {
+                    /* element is to the right -- keep it right */
+                    nx = Math.max(nx, X);
+                }
+            }
+        }
+        return { nx: nx, ny: ny };
+    }
+
     /* Try to move/resize el to (nx,ny,nw,nh). Applies if valid. */
     function tryApply(el, nx, ny, nw, nh) {
         nw = Math.max(MIN_SIZE, nw);
@@ -158,6 +187,10 @@ window.LiveCSS.wireframe = (function () {
             nx = Math.max(0, Math.min(nx, CANVAS_W - nw));
             ny = Math.max(0, Math.min(ny, CANVAS_H - nh));
         }
+
+        /* bump against locked guide barriers */
+        var gc = clampToLockedGuides(el, nx, ny, nw, nh);
+        nx = gc.nx; ny = gc.ny;
 
         if (!proposedConflicts(el, nx, ny, nw, nh) &&
             fitsInParent(el, nx, ny, nw, nh)) {
@@ -353,6 +386,52 @@ window.LiveCSS.wireframe = (function () {
     }
 
     /* ── Rendering ───────────────────────────────────────────── */
+    /* Place / refresh the clickable lock-toggle markers on the rulers */
+    function renderGuideMarkers() {
+        if (!rulerH || !rulerV) return;
+
+        /* remove stale markers */
+        var oldH = rulerH.querySelectorAll('.wf-gmark');
+        for (var i = 0; i < oldH.length; i++) oldH[i].parentNode.removeChild(oldH[i]);
+        var oldV = rulerV.querySelectorAll('.wf-gmark');
+        for (var i = 0; i < oldV.length; i++) oldV[i].parentNode.removeChild(oldV[i]);
+
+        guides.forEach(function (g) {
+            var m = document.createElement('div');
+            var lockedCls = g.locked ? ' wf-gmark-locked' : '';
+
+            if (g.axis === 'v') {
+                /* vertical guide at X → marker on horizontal ruler */
+                m.className = 'wf-gmark wf-gmark-h' + lockedCls;
+                m.style.left = g.pos + 'px';
+                rulerH.appendChild(m);
+            } else {
+                /* horizontal guide at Y → marker on vertical ruler */
+                m.className = 'wf-gmark wf-gmark-v' + lockedCls;
+                m.style.top = g.pos + 'px';
+                rulerV.appendChild(m);
+            }
+
+            var lbl = document.createElement('span');
+            lbl.className = 'wf-gmark-label';
+            lbl.textContent = g.pos + '';
+            m.appendChild(lbl);
+
+            /* clicking a marker toggles the locked state */
+            m.addEventListener('mousedown', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            });
+            m.addEventListener('click', function (e) {
+                e.stopPropagation();
+                g.locked = !g.locked;
+                saveToStorage();
+                renderGuideMarkers();
+                renderGuides();
+            });
+        });
+    }
+
     function renderGuides() {
         /* remove existing guide divs */
         var old = canvasEl.querySelectorAll('.wf-guide-h, .wf-guide-v');
@@ -360,7 +439,9 @@ window.LiveCSS.wireframe = (function () {
 
         guides.forEach(function (g) {
             var outer = document.createElement('div');
-            outer.className    = 'wf-guide-' + g.axis + (g.id === selGuideId ? ' wf-guide-selected' : '');
+            outer.className    = 'wf-guide-' + g.axis +
+                                 (g.id === selGuideId ? ' wf-guide-selected' : '') +
+                                 (g.locked ? ' wf-guide-locked' : '');
             outer.dataset.guideId = g.id;
 
             /* 9px hit area centred on guide position */
@@ -400,6 +481,8 @@ window.LiveCSS.wireframe = (function () {
 
             canvasEl.appendChild(outer);
         });
+
+        renderGuideMarkers();
     }
 
     function renderRulers() {
@@ -424,6 +507,8 @@ window.LiveCSS.wireframe = (function () {
                      '</div>';
         }
         rulerV.innerHTML = vHtml;
+
+        renderGuideMarkers();
     }
 
     function render() {
@@ -742,6 +827,9 @@ window.LiveCSS.wireframe = (function () {
             if (drag.mode === 'move') {
                 var nx = drag.ox + dx;
                 var ny = drag.oy + dy;
+                /* bump against locked guide barriers */
+                var gc = clampToLockedGuides(el, nx, ny, el.w, el.h);
+                nx = gc.nx; ny = gc.ny;
                 /* try full move, fall back to axis-locked moves */
                 if (!proposedConflicts(el, nx, ny, el.w, el.h) &&
                     fitsInParent(el, nx, ny, el.w, el.h)) {
@@ -864,7 +952,7 @@ window.LiveCSS.wireframe = (function () {
                 e.preventDefault();
                 var rect = canvasEl.getBoundingClientRect();
                 var pos  = Math.max(0, Math.min(Math.round(e.clientY - rect.top), CANVAS_H));
-                var g    = { id: 'g_' + (nextGuideId++), axis: 'h', pos: pos };
+                var g    = { id: 'g_' + (nextGuideId++), axis: 'h', pos: pos, locked: false };
                 guides.push(g);
                 guideDrag = { guideId: g.id, axis: 'h' };
                 renderGuides();
@@ -877,7 +965,7 @@ window.LiveCSS.wireframe = (function () {
                 e.preventDefault();
                 var rect = canvasEl.getBoundingClientRect();
                 var pos  = Math.max(0, Math.min(Math.round(e.clientX - rect.left), CANVAS_W));
-                var g    = { id: 'g_' + (nextGuideId++), axis: 'v', pos: pos };
+                var g    = { id: 'g_' + (nextGuideId++), axis: 'v', pos: pos, locked: false };
                 guides.push(g);
                 guideDrag = { guideId: g.id, axis: 'v' };
                 renderGuides();
