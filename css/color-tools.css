@@ -1,0 +1,247 @@
+/* =============================================================
+   Color Tools — inline editor swatches + floating harmony panel
+   ============================================================= */
+
+/* ── Inline CodeMirror color swatch ── */
+
+/* Wrapper replaces the color token text via markText({replacedWith}) */
+.cm-color-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    vertical-align: baseline;
+    cursor: text;
+}
+
+/* Diamond shape: a square clipped to a rotated rhombus, no border-radius */
+.cm-color-diamond {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    cursor: pointer;
+    vertical-align: middle;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    transition: transform 0.1s, box-shadow 0.1s;
+    position: relative;
+    top: -1px;
+}
+
+.cm-color-diamond:hover {
+    transform: scale(1.35);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+/* Restore original text appearance after the diamond */
+.cm-color-text {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+/* ── Floating Color Harmony Tool ── */
+
+.harmony-tool {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    width: 380px;
+    background: #0c071c;
+    border: 1px solid #4d31bf;
+    color: #eceaf6;
+    z-index: 9100;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 28px rgba(0, 0, 0, 0.75);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.harmony-tool.hidden {
+    display: none;
+}
+
+/* Drag header */
+.harmony-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #2d1c6e;
+    padding: 7px 12px;
+    cursor: grab;
+    flex-shrink: 0;
+}
+
+.harmony-header:active {
+    cursor: grabbing;
+}
+
+.harmony-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #eceaf6;
+}
+
+.harmony-close {
+    background: transparent;
+    border: none;
+    color: #a89fcc;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+}
+
+.harmony-close:hover {
+    color: #eceaf6;
+}
+
+/* Mode selector buttons */
+.harmony-modes {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #4d31bf;
+    flex-shrink: 0;
+}
+
+.harmony-mode-btn {
+    flex: 1 1 auto;
+    min-width: 80px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid #2d1c6e;
+    border-bottom: 1px solid #2d1c6e;
+    color: #a89fcc;
+    padding: 5px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    transition: background 0.1s, color 0.1s;
+}
+
+.harmony-mode-btn:last-child {
+    border-right: none;
+}
+
+.harmony-mode-btn:hover {
+    background: #1a0f42;
+    color: #eceaf6;
+}
+
+.harmony-mode-btn.active {
+    background: #1a0f42;
+    color: #eceaf6;
+    border-bottom: 2px solid #7c5ce8;
+}
+
+/* Swatches display area */
+.harmony-swatches {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    padding: 12px 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    min-height: 110px;
+    align-items: flex-start;
+}
+
+.harmony-swatch-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1 1 0;
+    min-width: 50px;
+    gap: 4px;
+}
+
+/* Large solid color block — no border-radius */
+.harmony-swatch-block {
+    width: 100%;
+    height: 64px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: filter 0.12s;
+    position: relative;
+}
+
+.harmony-swatch-block:hover {
+    filter: brightness(1.2);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Flash on copy */
+.harmony-swatch-flash {
+    filter: brightness(1.8) !important;
+}
+
+.harmony-swatch-hex {
+    font-size: 10px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #a89fcc;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.harmony-swatch-lbl {
+    font-size: 9px;
+    color: #6e5caa;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Divider before picker */
+.harmony-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-top: 1px solid #4d31bf;
+    flex-shrink: 0;
+}
+
+.harmony-picker-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #a89fcc;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Native color input — styled to show as a flat square swatch, no chrome */
+.harmony-picker-input {
+    width: 36px;
+    height: 28px;
+    padding: 1px;
+    background: #1a0f42;
+    border: 1px solid #4d31bf;
+    cursor: pointer;
+    flex-shrink: 0;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.harmony-picker-input::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.harmony-picker-input::-webkit-color-swatch {
+    border: none;
+}
+
+.harmony-hex-display {
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #eceaf6;
+    letter-spacing: 0.5px;
+    flex: 1;
+}

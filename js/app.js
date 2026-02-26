@@ -30,7 +30,13 @@
         // 6. Resizable panel gutters
         LiveCSS.gutter.init();
 
-        // 7. Reset content button
+        // 7. Inline color swatches in all three editors
+        LiveCSS.colorSwatch.init();
+
+        // 8. Color harmony floating tool
+        LiveCSS.colorHarmony.init();
+
+        // 9. Reset content button
         document.getElementById('resetBtn').addEventListener('click', function () {
             if (confirm('Reset all editors to default code?')) {
                 LiveCSS.editor.getHtmlEditor().setValue(data.defaultHtml);
@@ -40,7 +46,7 @@
             }
         });
 
-        // 8. Reset layout button
+        // 10. Reset layout button
         document.getElementById('resetLayoutBtn').addEventListener('click', function () {
             LiveCSS.gutter.resetLayout();
         });

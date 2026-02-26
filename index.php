@@ -44,6 +44,7 @@ sort($allPropertyNames);
             <button id="resetBtn" class="btn-action">Reset</button>
             <button id="resetLayoutBtn" class="btn-action" title="Restore default panel positions">Reset Layout</button>
             <button id="propertiesBtn" class="btn-action" title="Open properties reference">Properties</button>
+            <button id="harmonyBtn" class="btn-action" title="Open color harmony tool">Harmony</button>
         </div>
     </header>
 
@@ -128,6 +129,29 @@ sort($allPropertyNames);
         </section>
     </main>
 
+    <!-- Floating Color Harmony Tool -->
+    <div class="harmony-tool hidden" id="harmonyTool">
+        <div class="harmony-header">
+            <span class="harmony-title">Color Harmony</span>
+            <button class="harmony-close" id="harmonyClose">&times;</button>
+        </div>
+        <div class="harmony-modes">
+            <button class="harmony-mode-btn active" data-mode="complementary">Complementary</button>
+            <button class="harmony-mode-btn" data-mode="analogous">Analogous</button>
+            <button class="harmony-mode-btn" data-mode="triadic">Triadic</button>
+            <button class="harmony-mode-btn" data-mode="split-comp">Split-Comp</button>
+            <button class="harmony-mode-btn" data-mode="tetradic">Tetradic</button>
+            <button class="harmony-mode-btn" data-mode="square">Square</button>
+            <button class="harmony-mode-btn" data-mode="monochromatic">Mono</button>
+        </div>
+        <div class="harmony-swatches" id="harmonySwatches"></div>
+        <div class="harmony-picker-row">
+            <span class="harmony-picker-label">Base Color</span>
+            <input type="color" class="harmony-picker-input" id="harmonyPicker" value="#4d31bf">
+            <span class="harmony-hex-display" id="harmonyHexDisplay">#4d31bf</span>
+        </div>
+    </div>
+
     <!-- Fuzzy autocomplete dropdown for CSS properties -->
     <div class="fuzzy-dropdown hidden" id="fuzzyDropdown"></div>
 
@@ -172,6 +196,8 @@ sort($allPropertyNames);
     <script src="js/editor.js"></script>
     <script src="js/property-lookup.js"></script>
     <script src="js/fuzzy.js"></script>
+    <script src="js/color-swatch.js"></script>
+    <script src="js/color-harmony.js"></script>
     <script src="js/modal-save.js"></script>
     <script src="js/modal-load.js"></script>
     <script src="js/gutter.js"></script>
