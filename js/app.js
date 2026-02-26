@@ -18,10 +18,53 @@
             saved ? saved.js   : data.defaultJs
         );
 
-        // 2. Header property-reference dropdown
+        // 2. Session restore bar — show if history exists
+        (function () {
+            var hist = LiveCSS.storage.getHistory();
+            if (!hist || hist.length === 0) { return; }
+
+            var bar = document.getElementById('sessionRestoreBar');
+            var sel = document.getElementById('sessionHistorySelect');
+            if (!bar || !sel) { return; }
+
+            function fmtDate(ts) {
+                var d   = new Date(ts);
+                var now = new Date();
+                var time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                if (d.toDateString() === now.toDateString()) { return 'Today ' + time; }
+                var yesterday = new Date(now - 86400000);
+                if (d.toDateString() === yesterday.toDateString()) { return 'Yesterday ' + time; }
+                return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + '  ' + time;
+            }
+
+            hist.forEach(function (entry, i) {
+                var opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = (i === 0 ? 'Last session — ' : '') + fmtDate(entry.ts);
+                sel.appendChild(opt);
+            });
+
+            bar.classList.remove('hidden');
+
+            document.getElementById('sessionRestoreBtn').addEventListener('click', function () {
+                var entry = hist[parseInt(sel.value, 10)];
+                if (!entry) { return; }
+                LiveCSS.editor.getHtmlEditor().setValue(entry.html || '');
+                LiveCSS.editor.getCssEditor().setValue(entry.css  || '');
+                LiveCSS.editor.getJsEditor().setValue(entry.js    || '');
+                LiveCSS.editor.updatePreview();
+                bar.classList.add('hidden');
+            });
+
+            document.getElementById('sessionDismissBtn').addEventListener('click', function () {
+                bar.classList.add('hidden');
+            });
+        }());
+
+        // 3. Header property-reference dropdown
         LiveCSS.propertyLookup.init(data.propertyValues);
 
-        // 3. Fuzzy autocomplete — CSS, JS, and HTML editors
+        // 4. Fuzzy autocomplete — CSS, JS, and HTML editors
         LiveCSS.fuzzy.init(data.allCssProperties);
         LiveCSS.fuzzy.initJs();
         LiveCSS.fuzzy.initHtml();
@@ -41,7 +84,16 @@
         // 8. Color harmony floating tool
         LiveCSS.colorHarmony.init();
 
-        // 9. Reset content button
+        // 9. Per-panel inline search bars
+        LiveCSS.editorSearch.init();
+
+        // 10. Custom indent guides (only within leading whitespace)
+        LiveCSS.indentGuide.attach(LiveCSS.editor.getJsEditor());
+        LiveCSS.indentGuide.attach(LiveCSS.editor.getHtmlEditor());
+        LiveCSS.indentGuide.attach(LiveCSS.editor.getCssEditor());
+        LiveCSS.indentGuide.init();
+
+        // 11. Reset content button
         document.getElementById('resetBtn').addEventListener('click', function () {
             if (confirm('Reset all editors to default code?')) {
                 LiveCSS.editor.getHtmlEditor().setValue(data.defaultHtml);
@@ -51,7 +103,7 @@
             }
         });
 
-        // 10. Auto-save current work on every editor change (debounced 1.5 s)
+        // 11. Auto-save current work on every editor change (debounced 1.5 s)
         var autosaveEl = document.getElementById('autosaveStatus');
         var autosaveFadeTimer = null;
 
@@ -86,13 +138,18 @@
         LiveCSS.editor.getCssEditor().on('change',  onEditorChange);
         LiveCSS.editor.getJsEditor().on('change',   onEditorChange);
 
-        // Also save immediately before the page unloads
+        // Also save immediately before the page unloads, and push a history snapshot
         window.addEventListener('beforeunload', function () {
-            LiveCSS.storage.saveAutosave(
-                LiveCSS.editor.getHtmlEditor().getValue(),
-                LiveCSS.editor.getCssEditor().getValue(),
-                LiveCSS.editor.getJsEditor().getValue()
-            );
+            var h = LiveCSS.editor.getHtmlEditor().getValue();
+            var c = LiveCSS.editor.getCssEditor().getValue();
+            var j = LiveCSS.editor.getJsEditor().getValue();
+            LiveCSS.storage.saveAutosave(h, c, j);
+            LiveCSS.storage.pushHistory(h, c, j);
+
+            // Final flush of all UI layout state
+            var state = LiveCSS.storage.loadUIState() || {};
+            state.panels = LiveCSS.gutter.getLayoutState();
+            LiveCSS.storage.saveUIState(state);
         });
 
         // 11. Undo / redo buttons in panel headers
@@ -108,6 +165,8 @@
         document.getElementById('resetLayoutBtn').addEventListener('click', function () {
             LiveCSS.gutter.resetLayout();
         });
+
+
 
     });
 

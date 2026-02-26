@@ -14,6 +14,88 @@
     flex-shrink: 0;
 }
 
+/* ── Session history restore bar ── */
+.session-restore-bar {
+    position: fixed;
+    top: 54px;
+    left: 0;
+    right: 0;
+    height: 38px;
+    background: #1a0f42;
+    border-bottom: 1px solid #4d31bf;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    z-index: 9500;
+}
+
+.session-restore-bar.hidden {
+    display: none;
+}
+
+.srb-label {
+    color: #a89fcc;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.srb-select {
+    background: #120b2e;
+    border: 1px solid #2a1a55;
+    color: #eceaf6;
+    font-size: 12px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    padding: 4px 8px;
+    outline: none;
+    cursor: pointer;
+    border-radius: 0;
+    min-width: 200px;
+    flex-shrink: 0;
+}
+
+.srb-select:focus {
+    border-color: #4d31bf;
+}
+
+.srb-btn {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border: 1px solid;
+    cursor: pointer;
+    flex-shrink: 0;
+    border-radius: 0;
+    transition: background 0.1s, color 0.1s;
+}
+
+.srb-restore {
+    background: #4d31bf;
+    border-color: #4d31bf;
+    color: #ffffff;
+}
+
+.srb-restore:hover {
+    background: #6a4de0;
+    border-color: #6a4de0;
+}
+
+.srb-dismiss {
+    background: transparent;
+    border-color: #2a1a55;
+    color: #7060aa;
+}
+
+.srb-dismiss:hover {
+    border-color: #4d31bf;
+    color: #c0b0f0;
+}
+
 .header-left {
     display: flex;
     align-items: center;
@@ -168,8 +250,9 @@
 /* CodeMirror highlight for all matches */
 .cm-overlay.search-match,
 .cm-searching {
-    background: rgba(99, 102, 241, 0.30);
-    outline: 1px solid rgba(99, 102, 241, 0.60);
+    background: #ff9500;
+    color: #ffffff !important;
+    outline: none;
 }
 
 /* =============================================================
@@ -257,8 +340,9 @@
 
 /* Highlight all matching tokens in the active editor */
 .cm-overlay.search-match {
-    background: rgba(99, 102, 241, 0.28);
-    outline: 1px solid rgba(99, 102, 241, 0.55);
+    background: #ff9500;
+    color: #ffffff !important;
+    outline: none;
 }
 
 /* =============================================================
@@ -440,4 +524,63 @@
 
 .prop-insert-btn:hover {
     background: #7c5ce8;
+}
+
+/* ── Panel taskbar + minimize ─────────────────────────────────── */
+
+#panel-taskbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 100px;
+    height: 34px;
+    background: #0c071c;
+    border-top: 1px solid #2a1a55;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    z-index: 9998;
+    pointer-events: none;
+}
+
+#panel-taskbar:empty {
+    display: none;
+}
+
+.taskbar-chip {
+    pointer-events: all;
+    background: #1a0f42;
+    border: 1px solid #4d31bf;
+    color: #a89fcc;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 14px;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.12s, color 0.12s;
+}
+
+.taskbar-chip:hover {
+    background: #4d31bf;
+    color: #eceaf6;
+}
+
+.panel-min-btn {
+    background: transparent;
+    border: 1px solid #2a1a55;
+    border-radius: 0;
+    color: #7060aa;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 7px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.12s, border-color 0.12s;
+}
+
+.panel-min-btn:hover {
+    color: #c0b0f0;
+    border-color: #4d31bf;
 }

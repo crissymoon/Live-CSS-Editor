@@ -220,6 +220,24 @@ window.LiveCSS.propertyLookup = (function () {
         panel.style.top  = ny + 'px';
     }
 
+    function onDocMouseup() {
+        if (drag.active) {
+            drag.active = false;
+            saveToolState();
+        }
+    }
+
+    function saveToolState() {
+        var state = LiveCSS.storage.loadUIState() || {};
+        state.properties = {
+            visible: !panel.classList.contains('hidden'),
+            left:    panel.style.left,
+            top:     panel.style.top,
+            tab:     currentTab
+        };
+        LiveCSS.storage.saveUIState(state);
+    }
+
     function positionNearBtn(btn) {
         var rect = btn.getBoundingClientRect();
         var pw   = 300;
@@ -245,16 +263,24 @@ window.LiveCSS.propertyLookup = (function () {
         document.getElementById('propertiesBtn').addEventListener('click', function () {
             if (panel.classList.contains('hidden')) {
                 panel.classList.remove('hidden');
-                positionNearBtn(this);
+                var uiState = LiveCSS.storage.loadUIState() || {};
+                if (uiState.properties && uiState.properties.left) {
+                    panel.style.left = uiState.properties.left;
+                    panel.style.top  = uiState.properties.top;
+                } else {
+                    positionNearBtn(this);
+                }
                 searchInput.focus();
                 renderList();
             } else {
                 panel.classList.add('hidden');
             }
+            saveToolState();
         });
 
         document.getElementById('propToolClose').addEventListener('click', function () {
             panel.classList.add('hidden');
+            saveToolState();
         });
 
         // Tabs
@@ -301,6 +327,7 @@ window.LiveCSS.propertyLookup = (function () {
 
             } else if (e.keyCode === 27) {                          // Escape
                 panel.classList.add('hidden');
+                saveToolState();
             }
         });
 
@@ -310,7 +337,27 @@ window.LiveCSS.propertyLookup = (function () {
         // Drag
         panel.querySelector('.prop-tool-header').addEventListener('mousedown', onHeaderMousedown);
         document.addEventListener('mousemove', onDocMousemove);
-        document.addEventListener('mouseup', function () { drag.active = false; });
+        document.addEventListener('mouseup', onDocMouseup);
+
+        // Restore saved visibility and position
+        var savedUI = LiveCSS.storage.loadUIState() || {};
+        if (savedUI.properties) {
+            if (savedUI.properties.visible) {
+                panel.classList.remove('hidden');
+                if (savedUI.properties.left) {
+                    panel.style.left = savedUI.properties.left;
+                    panel.style.top  = savedUI.properties.top;
+                }
+                renderList();
+            }
+            if (savedUI.properties.tab) {
+                currentTab = savedUI.properties.tab;
+                tabBtns.forEach(function (b) {
+                    b.classList.toggle('active', b.dataset.tab === currentTab);
+                });
+                if (!panel.classList.contains('hidden')) { renderList(); }
+            }
+        }
     }
 
     return { init: init };

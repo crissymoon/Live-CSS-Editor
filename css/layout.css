@@ -32,6 +32,83 @@
     box-shadow: 0 4px 24px rgba(0,0,0,0.75);
 }
 
+/* ── Minimize / restore genie animations ── */
+@keyframes panel-minimize {
+    0%   {
+        transform: scaleX(1) scaleY(1) translateY(0);
+        transform-origin: bottom center;
+        opacity: 1;
+    }
+    30%  {
+        transform: scaleX(0.92) scaleY(0.72) translateY(6%);
+        transform-origin: bottom center;
+        opacity: 0.95;
+    }
+    60%  {
+        transform: scaleX(0.55) scaleY(0.22) translateY(18%);
+        transform-origin: bottom center;
+        opacity: 0.7;
+    }
+    85%  {
+        transform: scaleX(0.18) scaleY(0.04) translateY(30%);
+        transform-origin: bottom center;
+        opacity: 0.3;
+    }
+    100% {
+        transform: scaleX(0.04) scaleY(0) translateY(40%);
+        transform-origin: bottom center;
+        opacity: 0;
+    }
+}
+
+@keyframes panel-restore {
+    0%   {
+        transform: scaleX(0.04) scaleY(0) translateY(40%);
+        transform-origin: bottom center;
+        opacity: 0;
+    }
+    20%  {
+        transform: scaleX(0.22) scaleY(0.06) translateY(30%);
+        transform-origin: bottom center;
+        opacity: 0.35;
+    }
+    50%  {
+        transform: scaleX(0.62) scaleY(0.28) translateY(16%);
+        transform-origin: bottom center;
+        opacity: 0.75;
+    }
+    78%  {
+        transform: scaleX(0.96) scaleY(0.82) translateY(4%);
+        transform-origin: bottom center;
+        opacity: 0.95;
+    }
+    92%  {
+        transform: scaleX(1.02) scaleY(1.02) translateY(-1%);
+        transform-origin: bottom center;
+        opacity: 1;
+    }
+    100% {
+        transform: scaleX(1) scaleY(1) translateY(0);
+        transform-origin: bottom center;
+        opacity: 1;
+    }
+}
+
+.panel-minimizing {
+    animation: panel-minimize 0.32s cubic-bezier(0.4, 0, 0.8, 0.6) forwards;
+    pointer-events: none;
+}
+
+.panel-restoring {
+    animation: panel-restore 0.36s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+    pointer-events: none;
+}
+
+/* Hide chip while panel is still animating out */
+.taskbar-chip.chip-pending {
+    display: none;
+}
+
 /* ── Panel header — doubles as drag handle ── */
 .panel-header {
     display: flex;
@@ -79,6 +156,12 @@
     border-color: #4d31bf;
 }
 
+.panel-hist-btn.active {
+    background: #4d31bf;
+    color: #fff;
+    border-color: #4d31bf;
+}
+
 /* Dots grip icon */
 .panel-drag-handle {
     width: 16px;
@@ -104,6 +187,65 @@
     width: 3px;
     height: 3px;
     background: #ccc0f0;
+}
+
+/* ── Inline panel search bar ── */
+.panel-search {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    background: #0c071c;
+    border-bottom: 1px solid #2a1a55;
+    padding: 4px 8px;
+    flex-shrink: 0;
+}
+
+.panel-search.ps-visible {
+    display: flex;
+}
+
+.ps-input {
+    flex: 1;
+    background: #120b2e;
+    border: 1px solid #2a1a55;
+    color: #eceaf6;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    padding: 3px 8px;
+    outline: none;
+    min-width: 0;
+    border-radius: 0;
+}
+
+.ps-input:focus {
+    border-color: #4d31bf;
+}
+
+.ps-count {
+    color: #7060aa;
+    font-size: 11px;
+    white-space: nowrap;
+    min-width: 42px;
+    text-align: right;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.ps-btn {
+    background: transparent;
+    border: 1px solid #2a1a55;
+    color: #7060aa;
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 7px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.1s, border-color 0.1s;
+    border-radius: 0;
+}
+
+.ps-btn:hover {
+    color: #c0b0f0;
+    border-color: #4d31bf;
 }
 
 /* ── Panel body ── */
@@ -133,6 +275,202 @@
     font-size: 12px;
     line-height: 1.4;
     padding: 0 2px;
+}
+
+/* Indent guide lines -- only within leading whitespace */
+.cm-indent-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px solid rgba(90, 65, 180, 0.18);
+    pointer-events: none;
+}
+
+.CodeMirror-line {
+    position: relative;
+    overflow: hidden;
+}
+
+/* -- Lint gutter & tooltip (dark theme overrides) -- */
+.CodeMirror-lint-markers {
+    width: 14px;
+}
+
+.CodeMirror-lint-marker-error,
+.CodeMirror-lint-marker-warning {
+    background-size: 12px 12px;
+    background-position: center center;
+    width: 12px;
+    height: 12px;
+    margin: 2px auto;
+}
+
+.CodeMirror-lint-tooltip {
+    background: #0c071c;
+    border: 1px solid #4d31bf;
+    color: #eceaf6;
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+    font-size: 12px;
+    padding: 6px 10px;
+    max-width: 420px;
+    white-space: pre-wrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,.6);
+    z-index: 10000;
+}
+
+.CodeMirror-lint-message-error {
+    color: #ff6b6b;
+    background: none;
+    padding-left: 0;
+}
+
+.CodeMirror-lint-message-warning {
+    color: #ffc554;
+    background: none;
+    padding-left: 0;
+}
+
+/* -- Indent Guide Settings Panel -- */
+.guide-tool {
+    position: fixed;
+    top: 70px;
+    right: 420px;
+    width: 260px;
+    background: #0c071c;
+    border: 1px solid #4d31bf;
+    color: #eceaf6;
+    z-index: 9100;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 28px rgba(0, 0, 0, 0.75);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.guide-tool.hidden {
+    display: none;
+}
+
+.guide-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #2d1c6e;
+    padding: 7px 12px;
+    cursor: grab;
+    flex-shrink: 0;
+}
+
+.guide-header:active {
+    cursor: grabbing;
+}
+
+.guide-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #eceaf6;
+}
+
+.guide-close {
+    background: transparent;
+    border: none;
+    color: #a89fcc;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+}
+
+.guide-close:hover {
+    color: #eceaf6;
+}
+
+.guide-body {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.guide-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.guide-label {
+    flex: 0 0 80px;
+    font-size: 12px;
+    color: #9e93c0;
+    font-weight: 600;
+}
+
+.guide-check {
+    accent-color: #4d31bf;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.guide-color-input {
+    width: 36px;
+    height: 24px;
+    border: 1px solid #2a1a55;
+    background: #120b2e;
+    padding: 0;
+    cursor: pointer;
+}
+
+.guide-slider {
+    flex: 1;
+    accent-color: #4d31bf;
+    cursor: pointer;
+}
+
+.guide-slider-val {
+    min-width: 32px;
+    font-size: 11px;
+    color: #7060aa;
+    text-align: right;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.guide-select {
+    flex: 1;
+    background: #120b2e;
+    border: 1px solid #2a1a55;
+    color: #eceaf6;
+    font-size: 12px;
+    padding: 3px 6px;
+    cursor: pointer;
+}
+
+.guide-number-input {
+    width: 60px;
+    background: #120b2e;
+    border: 1px solid #2a1a55;
+    color: #eceaf6;
+    font-size: 12px;
+    padding: 3px 6px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.guide-number-input:focus {
+    border-color: #4d31bf;
+    outline: none;
+}
+
+/* Column ruler line */
+.cm-col-ruler {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px solid rgba(77, 49, 191, 0.3);
+    pointer-events: none;
+    z-index: 1;
 }
 
 /* ── Live preview frame ── */

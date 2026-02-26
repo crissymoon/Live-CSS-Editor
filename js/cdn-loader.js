@@ -1,14 +1,15 @@
 /**
- * cdn-loader.js — Loads CodeMirror from the first available CDN.
+ * cdn-loader.js — Loads CodeMirror, local-first with CDN fallback.
  *
  * Tries sources in order:
- *   1. cdnjs.cloudflare.com  (primary)
- *   2. cdn.jsdelivr.net       (fallback 1)
- *   3. unpkg.com              (fallback 2)
+ *   0. vendor/codemirror/   (local — fastest, works offline)
+ *   1. cdnjs.cloudflare.com  (fallback 1)
+ *   2. cdn.jsdelivr.net       (fallback 2)
+ *   3. unpkg.com              (fallback 3)
  *
  * Usage: LiveCSS.cdnLoader.load(callback)
  *   callback is invoked once all scripts are loaded and ready,
- *   or not at all if every CDN fails (a fatal error UI is shown instead).
+ *   or not at all if every source fails (a fatal error UI is shown instead).
  *
  * Attached to window.LiveCSS.cdnLoader
  */
@@ -19,13 +20,20 @@ window.LiveCSS.cdnLoader = (function () {
     var CM_VER = '5.65.16';
 
     /**
-     * CDN source definitions.
+     * Source definitions (index 0 = local vendor, 1-3 = CDN fallbacks).
      * core  — the main codemirror.min.js URL
      * css   — codemirror.min.css URL
      * theme — material-darker.min.css URL
      * base  — prefix used to build all mode/addon URLs below
      */
-    var CDNS = [
+    var SOURCES = [
+        {
+            label : 'local',
+            core  : 'vendor/codemirror/lib/codemirror.min.js',
+            css   : 'vendor/codemirror/lib/codemirror.min.css',
+            theme : 'vendor/codemirror/theme/material-darker.min.css',
+            base  : 'vendor/codemirror'
+        },
         {
             label : 'cdnjs',
             core  : 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/' + CM_VER + '/codemirror.min.js',
@@ -50,8 +58,8 @@ window.LiveCSS.cdnLoader = (function () {
     ];
 
     /**
-     * Module paths, relative to each CDN base above.
-     * All three CDNs share the same relative paths for modes and addons.
+     * Module paths, relative to each source base above.
+     * Rulers addon removed — custom indent guides used instead.
      */
     var MODULES = [
         '/mode/xml/xml.min.js',
@@ -65,20 +73,37 @@ window.LiveCSS.cdnLoader = (function () {
         '/addon/fold/foldgutter.min.js',
         '/addon/fold/brace-fold.min.js',
         '/addon/fold/xml-fold.min.js',
-        '/addon/fold/comment-fold.min.js'
+        '/addon/fold/comment-fold.min.js',
+        '/addon/lint/lint.min.js'
+    ];
+
+    /**
+     * External linter libraries that must load BEFORE the CM lint bridges.
+     * Paths are relative to the same base as SOURCES[0].base parent.
+     * For CDN sources these are loaded from fixed CDN URLs.
+     */
+    var LINTER_LIBS_LOCAL = [
+        'vendor/linters/jshint.min.js',
+        'vendor/linters/csslint.min.js',
+        'vendor/linters/htmlhint.min.js'
+    ];
+
+    var LINTER_LIBS_CDN = [
+        'https://cdnjs.cloudflare.com/ajax/libs/jshint/2.13.6/jshint.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/csslint/1.0.5/csslint.min.js',
+        'https://cdn.jsdelivr.net/npm/htmlhint@0.16.3/dist/htmlhint.min.js'
+    ];
+
+    /** CM lint bridge addons — loaded after external linter libs */
+    var LINT_BRIDGES = [
+        '/addon/lint/javascript-lint.min.js',
+        '/addon/lint/css-lint.min.js',
+        '/addon/lint/html-lint.min.js'
     ];
 
     // ── Internal helpers ────────────────────────────────────────
 
-    /** Inject a <link rel="stylesheet"> and mark existing ones for removal */
-    function injectCss(href) {
-        var link = document.createElement('link');
-        link.rel  = 'stylesheet';
-        link.href = href;
-        document.head.appendChild(link);
-    }
-
-    /** Remove any previously injected CDN stylesheets (on CDN switch) */
+    /** Remove any previously injected CM stylesheets (on source switch) */
     function removePreviousCss() {
         var links = document.head.querySelectorAll('link[data-cm-cdn]');
         for (var i = 0; i < links.length; i++) {
@@ -86,35 +111,41 @@ window.LiveCSS.cdnLoader = (function () {
         }
     }
 
-    function injectCdnCss(cdn) {
+    function injectSourceCss(src) {
         removePreviousCss();
         var linkCore  = document.createElement('link');
         linkCore.rel  = 'stylesheet';
-        linkCore.href = cdn.css;
+        linkCore.href = src.css;
         linkCore.setAttribute('data-cm-cdn', '1');
         document.head.appendChild(linkCore);
 
         var linkTheme  = document.createElement('link');
         linkTheme.rel  = 'stylesheet';
-        linkTheme.href = cdn.theme;
+        linkTheme.href = src.theme;
         linkTheme.setAttribute('data-cm-cdn', '1');
         document.head.appendChild(linkTheme);
 
         var linkFold  = document.createElement('link');
         linkFold.rel  = 'stylesheet';
-        linkFold.href = cdn.base + '/addon/fold/foldgutter.min.css';
+        linkFold.href = src.base + '/addon/fold/foldgutter.min.css';
         linkFold.setAttribute('data-cm-cdn', '1');
         document.head.appendChild(linkFold);
+
+        var linkLint  = document.createElement('link');
+        linkLint.rel  = 'stylesheet';
+        linkLint.href = src.base + '/addon/lint/lint.min.css';
+        linkLint.setAttribute('data-cm-cdn', '1');
+        document.head.appendChild(linkLint);
     }
 
     /**
      * Load a single script, fire onSuccess or onError when done.
      * Sets async=false so browser execution order is preserved.
      */
-    function loadScript(src, onSuccess, onError) {
+    function loadScript(url, onSuccess, onError) {
         var el    = document.createElement('script');
         el.async  = false;
-        el.src    = src;
+        el.src    = url;
         el.onload = onSuccess;
         el.onerror = function () {
             document.head.removeChild(el);
@@ -148,7 +179,7 @@ window.LiveCSS.cdnLoader = (function () {
         document.body.innerHTML =
             '<div style="color:#eceaf6;text-align:center;padding:40px;">' +
             '<p style="font-size:20px;font-weight:700;margin-bottom:12px;">Failed to load CodeMirror</p>' +
-            '<p style="font-size:14px;color:#9e93c0;">All CDN sources failed to respond.</p>' +
+            '<p style="font-size:14px;color:#9e93c0;">All sources (local + CDN) failed to respond.</p>' +
             '<p style="font-size:14px;color:#9e93c0;margin-top:8px;">Check your network connection and reload the page.</p>' +
             '</div>';
     }
@@ -156,46 +187,71 @@ window.LiveCSS.cdnLoader = (function () {
     // ── Public API ──────────────────────────────────────────────
 
     /**
-     * Attempt to load CodeMirror (CSS + core + all modules) from each CDN
-     * in sequence. Calls onReady() once everything is loaded successfully.
+     * Attempt to load CodeMirror (CSS + core + all modules) from each
+     * source in sequence (local first, then CDNs).
+     * Calls onReady() once everything is loaded successfully.
      */
-    function load(onReady, cdnIndex) {
-        cdnIndex = cdnIndex || 0;
+    function load(onReady, srcIndex) {
+        srcIndex = srcIndex || 0;
 
-        if (cdnIndex >= CDNS.length) {
+        if (srcIndex >= SOURCES.length) {
             showFatalError();
             return;
         }
 
-        var cdn = CDNS[cdnIndex];
+        var src = SOURCES[srcIndex];
 
-        // Inject stylesheets for this CDN attempt (swap on retry)
-        injectCdnCss(cdn);
+        // Inject stylesheets for this source attempt (swap on retry)
+        injectSourceCss(src);
 
-        // Load core first, then modules
+        // Load core first, then modules, then external linters, then lint bridges
         loadScript(
-            cdn.core,
+            src.core,
             function () {
                 loadModulesSequentially(
-                    cdn.base,
+                    src.base,
                     MODULES,
                     0,
                     function () {
-                        // All scripts loaded from this CDN
-                        console.info('[cdn-loader] Loaded from ' + cdn.label);
-                        onReady();
+                        // Now load external linter libs (absolute paths)
+                        var linterUrls = (srcIndex === 0) ? LINTER_LIBS_LOCAL : LINTER_LIBS_CDN;
+                        loadModulesSequentially(
+                            '',
+                            linterUrls,
+                            0,
+                            function () {
+                                // Finally load CM lint bridge addons
+                                loadModulesSequentially(
+                                    src.base,
+                                    LINT_BRIDGES,
+                                    0,
+                                    function () {
+                                        console.info('[cdn-loader] Loaded from ' + src.label);
+                                        onReady();
+                                    },
+                                    function () {
+                                        // Lint bridges failed — still usable without lint
+                                        console.warn('[cdn-loader] Lint bridges failed on ' + src.label + ', continuing without lint');
+                                        onReady();
+                                    }
+                                );
+                            },
+                            function () {
+                                // External linters failed — still usable without lint
+                                console.warn('[cdn-loader] Linter libs failed on ' + src.label + ', continuing without lint');
+                                onReady();
+                            }
+                        );
                     },
                     function () {
-                        // A module failed — try next CDN from scratch
-                        console.warn('[cdn-loader] Module failed on ' + cdn.label + ', trying next CDN...');
-                        load(onReady, cdnIndex + 1);
+                        console.warn('[cdn-loader] Module failed on ' + src.label + ', trying next source...');
+                        load(onReady, srcIndex + 1);
                     }
                 );
             },
             function () {
-                // Core failed — try next CDN
-                console.warn('[cdn-loader] Core failed on ' + cdn.label + ', trying next CDN...');
-                load(onReady, cdnIndex + 1);
+                console.warn('[cdn-loader] Core failed on ' + src.label + ', trying next source...');
+                load(onReady, srcIndex + 1);
             }
         );
     }

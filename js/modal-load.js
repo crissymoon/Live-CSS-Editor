@@ -34,8 +34,10 @@ window.LiveCSS.modalLoad = (function () {
         var keys       = Object.keys(projects).sort();
         var escapeHtml = LiveCSS.utils.escapeHtml;
         var escapeAttr = LiveCSS.utils.escapeAttr;
+        var autosave   = LiveCSS.storage.loadAutosave();
 
-        if (!keys.length) {
+        var hasContent = keys.length > 0 || autosave;
+        if (!hasContent) {
             slotList.innerHTML = '';
             emptyMsg.classList.remove('hidden');
             return;
@@ -43,6 +45,22 @@ window.LiveCSS.modalLoad = (function () {
         emptyMsg.classList.add('hidden');
 
         var html = '';
+
+        // ── Autosave entry at top ──────────────────────────────────
+        if (autosave) {
+            var asDate = autosave.ts ? new Date(autosave.ts).toLocaleString() : '';
+            html += '<div class="load-slot load-slot-autosave">';
+            html +=   '<div class="load-slot-info">';
+            html +=     '<span class="load-slot-name">Autosave</span>';
+            html +=     '<span class="load-slot-date">' + escapeHtml(asDate) + '</span>';
+            html +=   '</div>';
+            html +=   '<div class="load-slot-actions">';
+            html +=     '<button class="btn-action load-autosave-btn">Load</button>';
+            html +=   '</div>';
+            html += '</div>';
+        }
+
+        // ── Named project entries ──────────────────────────────────
         for (var i = 0; i < keys.length; i++) {
             var name = keys[i];
             var ts   = new Date(projects[name].timestamp).toLocaleString();
@@ -59,7 +77,19 @@ window.LiveCSS.modalLoad = (function () {
         }
         slotList.innerHTML = html;
 
-        // Load button handlers
+        // Autosave load handler
+        var asBtn = slotList.querySelector('.load-autosave-btn');
+        if (asBtn && autosave) {
+            asBtn.addEventListener('click', function () {
+                LiveCSS.editor.getHtmlEditor().setValue(autosave.html || '');
+                LiveCSS.editor.getCssEditor().setValue(autosave.css  || '');
+                LiveCSS.editor.getJsEditor().setValue(autosave.js    || '');
+                LiveCSS.editor.updatePreview();
+                close();
+            });
+        }
+
+        // Named project load button handlers
         var loadBtns = slotList.querySelectorAll('.load-slot-load');
         for (var j = 0; j < loadBtns.length; j++) {
             loadBtns[j].addEventListener('click', function () {
@@ -74,7 +104,7 @@ window.LiveCSS.modalLoad = (function () {
             });
         }
 
-        // Delete button handlers
+        // Named project delete button handlers
         var delBtns = slotList.querySelectorAll('.load-slot-delete');
         for (var k = 0; k < delBtns.length; k++) {
             delBtns[k].addEventListener('click', function () {

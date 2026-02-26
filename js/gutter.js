@@ -39,13 +39,32 @@ window.LiveCSS.gutter = (function () {
     }
 
     function bringToFront(panel) {
-        zCounter = Math.min(zCounter + 1, Z_OVERLAY - 2);
+        // If counter is near the cap, renumber all panels to reclaim space
+        if (zCounter >= Z_OVERLAY - 4) {
+            // Gather visible panels sorted by their current z-index
+            var ordered = [];
+            PANEL_IDS.forEach(function (id) {
+                var p = document.getElementById(id);
+                if (p && p.style.display !== 'none') {
+                    ordered.push({ el: p, z: parseInt(p.style.zIndex, 10) || 0 });
+                }
+            });
+            ordered.sort(function (a, b) { return a.z - b.z; });
+            for (var i = 0; i < ordered.length; i++) {
+                ordered[i].el.style.zIndex = 10 + i;
+            }
+            zCounter = 10 + ordered.length;
+        }
+
+        zCounter++;
         panel.style.zIndex = zCounter;
+
         PANEL_IDS.forEach(function (id) {
             var p = document.getElementById(id);
             if (p) { p.classList.remove('is-top'); }
         });
         panel.classList.add('is-top');
+        saveLayoutState();
     }
 
     function showOverlay(cur) {
@@ -144,6 +163,7 @@ window.LiveCSS.gutter = (function () {
         drag = null;
         hideOverlay();
         refreshEditors();
+        saveLayoutState();
     }
 
     // ── Resize ────────────────────────────────────────────────────
@@ -217,6 +237,157 @@ window.LiveCSS.gutter = (function () {
         resize = null;
         hideOverlay();
         refreshEditors();
+        saveLayoutState();
+    }
+
+    // ── Minimize / Restore ────────────────────────────────────────
+
+    function minimizePanel(panel) {
+        if (panel.dataset.animating) { return; }
+        // Save geometry before animating
+        panel.dataset.savedLeft   = panel.style.left;
+        panel.dataset.savedTop    = panel.style.top;
+        panel.dataset.savedWidth  = panel.style.width;
+        panel.dataset.savedHeight = panel.style.height;
+
+        // Create taskbar chip (hidden until animation ends)
+        var taskbar  = document.getElementById('panel-taskbar');
+        if (!taskbar) { return; }
+        var labelEl  = panel.querySelector('.panel-label');
+        var chip     = document.createElement('button');
+        chip.className        = 'taskbar-chip chip-pending';
+        chip.dataset.panelId  = panel.id;
+        chip.textContent      = labelEl ? labelEl.textContent : panel.id;
+        chip.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            restorePanel(panel, chip);
+        });
+        taskbar.appendChild(chip);
+
+        // Play suck-in animation
+        panel.dataset.animating = '1';
+        panel.classList.add('panel-minimizing');
+        panel.addEventListener('animationend', function onMinEnd() {
+            panel.removeEventListener('animationend', onMinEnd);
+            panel.classList.remove('panel-minimizing');
+            panel.style.display = 'none';
+            delete panel.dataset.animating;
+            // Show chip only after panel is gone
+            chip.classList.remove('chip-pending');
+            saveLayoutState();
+        }, { once: true });
+    }
+
+    function restorePanel(panel, chip) {
+        if (panel.dataset.animating) { return; }
+        // Remove chip immediately
+        if (chip && chip.parentNode) { chip.parentNode.removeChild(chip); }
+
+        // Restore geometry and show
+        if (panel.dataset.savedLeft)   { panel.style.left   = panel.dataset.savedLeft; }
+        if (panel.dataset.savedTop)    { panel.style.top    = panel.dataset.savedTop; }
+        if (panel.dataset.savedWidth)  { panel.style.width  = panel.dataset.savedWidth; }
+        if (panel.dataset.savedHeight) { panel.style.height = panel.dataset.savedHeight; }
+        panel.style.display = '';
+        bringToFront(panel);
+
+        // Play expand animation
+        panel.dataset.animating = '1';
+        panel.classList.add('panel-restoring');
+        panel.addEventListener('animationend', function onRestEnd() {
+            panel.removeEventListener('animationend', onRestEnd);
+            panel.classList.remove('panel-restoring');
+            delete panel.dataset.animating;
+            refreshEditors();
+            saveLayoutState();
+        }, { once: true });
+    }
+
+    // ── Layout persistence ──────────────────────────────────────────
+
+    function saveLayoutState() {
+        // Debounce: called frequently during drag, so throttle actual writes
+        clearTimeout(saveLayoutState._timer);
+        saveLayoutState._timer = setTimeout(function () {
+            var state = LiveCSS.storage.loadUIState() || {};
+            state.panels = getLayoutState();
+            LiveCSS.storage.saveUIState(state);
+        }, 200);
+    }
+
+    /** Capture current panel positions, sizes, z-indices, and minimized state */
+    function getLayoutState() {
+        var panels = {};
+        PANEL_IDS.forEach(function (id) {
+            var panel = document.getElementById(id);
+            if (!panel) return;
+            var minimized = panel.style.display === 'none';
+            panels[id] = {
+                left:      minimized ? (panel.dataset.savedLeft   || panel.style.left)   : panel.style.left,
+                top:       minimized ? (panel.dataset.savedTop    || panel.style.top)     : panel.style.top,
+                width:     minimized ? (panel.dataset.savedWidth  || panel.style.width)   : panel.style.width,
+                height:    minimized ? (panel.dataset.savedHeight || panel.style.height)  : panel.style.height,
+                zIndex:    panel.style.zIndex || '',
+                minimized: minimized
+            };
+        });
+        return panels;
+    }
+
+    /** Restore panels from saved state. Returns true if restore succeeded. */
+    function restoreLayoutState(savedPanels) {
+        if (!savedPanels) return false;
+        var anyRestored = false;
+        var taskbar = document.getElementById('panel-taskbar');
+
+        PANEL_IDS.forEach(function (id) {
+            var panel = document.getElementById(id);
+            var saved = savedPanels[id];
+            if (!panel || !saved) return;
+
+            panel.style.left   = saved.left   || '';
+            panel.style.top    = saved.top    || '';
+            panel.style.width  = saved.width  || '';
+            panel.style.height = saved.height || '';
+            if (saved.zIndex) { panel.style.zIndex = saved.zIndex; }
+
+            if (saved.minimized) {
+                // Minimized without animation on restore
+                panel.dataset.savedLeft   = saved.left   || '';
+                panel.dataset.savedTop    = saved.top    || '';
+                panel.dataset.savedWidth  = saved.width  || '';
+                panel.dataset.savedHeight = saved.height || '';
+                panel.style.display = 'none';
+
+                // Create taskbar chip
+                if (taskbar) {
+                    var labelEl = panel.querySelector('.panel-label');
+                    var chip    = document.createElement('button');
+                    chip.className       = 'taskbar-chip';
+                    chip.dataset.panelId = panel.id;
+                    chip.textContent     = labelEl ? labelEl.textContent : panel.id;
+                    chip.addEventListener('mousedown', function (e) {
+                        e.preventDefault();
+                        restorePanel(panel, chip);
+                    });
+                    taskbar.appendChild(chip);
+                }
+            }
+
+            anyRestored = true;
+        });
+
+        if (anyRestored) {
+            // Determine highest z-index
+            var maxZ = 10;
+            PANEL_IDS.forEach(function (id) {
+                var p = document.getElementById(id);
+                if (p) { maxZ = Math.max(maxZ, parseInt(p.style.zIndex, 10) || 10); }
+            });
+            zCounter = maxZ + 1;
+        }
+
+        return anyRestored;
     }
 
     // ── Init ──────────────────────────────────────────────────────
@@ -242,6 +413,16 @@ window.LiveCSS.gutter = (function () {
             // Add edge/corner resize handles
             addResizeHandles(panel);
 
+            // Minimize button
+            var minBtn = panel.querySelector('.panel-min-btn');
+            if (minBtn) {
+                minBtn.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    minimizePanel(panel);
+                });
+            }
+
             // Header drag: start panel move
             var header = panel.querySelector('.panel-header');
             if (header) {
@@ -259,6 +440,59 @@ window.LiveCSS.gutter = (function () {
                 }
             });
 
+            // Also catch clicks on the panel header explicitly
+            var headerEl = panel.querySelector('.panel-header');
+            if (headerEl) {
+                headerEl.addEventListener('click', function () {
+                    bringToFront(panel);
+                });
+            }
+
+            // For CodeMirror editors: catch clicks on the CM wrapper
+            var cmWrap = panel.querySelector('.CodeMirror');
+            if (cmWrap) {
+                cmWrap.addEventListener('mousedown', function () {
+                    bringToFront(panel);
+                });
+            } else {
+                // CM may not exist yet at init time; observe DOM for it
+                var observer = new MutationObserver(function (mutations, obs) {
+                    var cm = panel.querySelector('.CodeMirror');
+                    if (cm) {
+                        cm.addEventListener('mousedown', function () {
+                            bringToFront(panel);
+                        });
+                        obs.disconnect();
+                    }
+                });
+                observer.observe(panel, { childList: true, subtree: true });
+            }
+
+            // For the preview panel: detect iframe focus to bring to front
+            var iframe = panel.querySelector('iframe');
+            if (iframe) {
+                iframe.addEventListener('mouseenter', function () {
+                    var pollId = setInterval(function () {
+                        if (document.activeElement === iframe) {
+                            bringToFront(panel);
+                            clearInterval(pollId);
+                        }
+                    }, 80);
+                    iframe.addEventListener('mouseleave', function onLeave() {
+                        clearInterval(pollId);
+                        iframe.removeEventListener('mouseleave', onLeave);
+                    });
+                });
+                // Also use focus event on the window to detect iframe clicks
+                window.addEventListener('blur', function () {
+                    setTimeout(function () {
+                        if (document.activeElement === iframe) {
+                            bringToFront(panel);
+                        }
+                    }, 0);
+                });
+            }
+
             // Resize handle mousedown
             panel.addEventListener('mousedown', function (e) {
                 if (e.target.dataset && e.target.dataset.dir) {
@@ -267,8 +501,11 @@ window.LiveCSS.gutter = (function () {
             });
         });
 
-        // Apply default tiled layout
-        applyDefaultLayout();
+        // Try to restore saved layout; fall back to default tiled layout
+        var uiState = LiveCSS.storage.loadUIState();
+        if (!uiState || !uiState.panels || !restoreLayoutState(uiState.panels)) {
+            applyDefaultLayout();
+        }
 
         // Global move/up handlers
         document.addEventListener('mousemove', function (e) {
@@ -315,10 +552,24 @@ window.LiveCSS.gutter = (function () {
 
     // Public: reset all panels to default tiled positions
     function resetLayout() {
+        // Restore any minimized panels first
+        var taskbar = document.getElementById('panel-taskbar');
+        if (taskbar) {
+            var chips = taskbar.querySelectorAll('.taskbar-chip');
+            chips.forEach(function (chip) {
+                var panel = document.getElementById(chip.dataset.panelId);
+                if (panel) { panel.style.display = ''; }
+                chip.parentNode.removeChild(chip);
+            });
+        }
         applyDefaultLayout();
         refreshEditors();
+        // Clear saved layout so next reload uses default
+        var state = LiveCSS.storage.loadUIState() || {};
+        delete state.panels;
+        LiveCSS.storage.saveUIState(state);
     }
 
-    return { init: init, resetLayout: resetLayout };
+    return { init: init, resetLayout: resetLayout, minimizePanel: minimizePanel, restorePanel: restorePanel, getLayoutState: getLayoutState };
 
 }());

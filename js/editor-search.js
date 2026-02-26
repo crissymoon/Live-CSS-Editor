@@ -1,243 +1,190 @@
 /**
- * editor-search.js — Floating draggable Cmd+F / Ctrl+F search bar
+ * editor-search.js
+ * Inline per-panel search bar for CSS / HTML / JS editors.
  * Attached to window.LiveCSS.editorSearch
  *
- * Searches whichever of the three editors last had focus.
- * Call LiveCSS.editorSearch.init() after editors are created.
+ * Each editor panel has its own .panel-search strip that slides open
+ * below the panel header. Opened via Cmd+F / Ctrl+F (extraKeys in editor.js)
+ * or by clicking inside the search input directly.
+ *
+ * Public API:  init()   - call once after editors exist
+ *              open(cm) - show and focus the search bar for a specific editor
  */
 window.LiveCSS = window.LiveCSS || {};
 
 window.LiveCSS.editorSearch = (function () {
     'use strict';
 
-    var bar        = null;
-    var input      = null;
-    var countEl    = null;
-    var activeEd   = null;   // currently focused CodeMirror instance
-    var matches    = [];
-    var matchIdx   = -1;
-    var overlayActive = false;
+    // Map: CodeMirror instance -> SearchInstance
+    var instances = [];
 
-    // ── Overlay to highlight all matches ─────────────────────────
+    /* ---- Overlay highlight ----------------------------------------- */
+
     function buildOverlay(term) {
-        var re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        var lc  = term.toLowerCase();
+        var len = term.length;
         return {
             token: function (stream) {
-                re.lastIndex = stream.pos;
-                var m = re.exec(stream.string);
-                if (m && m.index === stream.pos) {
-                    stream.pos += m[0].length;
-                    return 'search-match';
-                }
-                stream.next();
+                var rest = stream.string.slice(stream.pos).toLowerCase();
+                var idx  = rest.indexOf(lc);
+                if (idx === 0) { stream.pos += len; return 'search-match'; }
+                if (idx > 0)  { stream.pos += idx; }
+                else          { stream.skipToEnd(); }
                 return null;
             }
         };
     }
 
-    var _overlay = null;
+    /* ---- Single panel search instance ------------------------------ */
 
-    function clearOverlay() {
-        if (_overlay && activeEd) {
-            try { activeEd.removeOverlay(_overlay); } catch (e) {}
-        }
-        _overlay = null;
-        overlayActive = false;
-    }
+    function SearchInstance(cm, barEl) {
+        var self      = this;
+        self.cm       = cm;
+        self.bar      = barEl;
+        self.input    = barEl.querySelector('.ps-input');
+        self.countEl  = barEl.querySelector('.ps-count');
+        self.prevBtn  = barEl.querySelector('.ps-prev');
+        self.nextBtn  = barEl.querySelector('.ps-next');
+        self.closeBtn = barEl.querySelector('.ps-close');
+        self.matches  = [];
+        self.idx      = -1;
+        self.overlay  = null;
 
-    function applyOverlay(term) {
-        clearOverlay();
-        if (!activeEd || !term) { return; }
-        _overlay = buildOverlay(term);
-        activeEd.addOverlay(_overlay);
-        overlayActive = true;
-    }
-
-    // ── Find all match positions ──────────────────────────────────
-    function findAll(term) {
-        matches  = [];
-        matchIdx = -1;
-        if (!activeEd || !term) { return; }
-        var cursor = activeEd.getSearchCursor(term, { line: 0, ch: 0 }, { caseFold: true });
-        while (cursor.findNext()) {
-            matches.push({ from: cursor.from(), to: cursor.to() });
-        }
-    }
-
-    function updateCount() {
-        if (!countEl) { return; }
-        if (matches.length === 0) {
-            countEl.textContent = input.value ? '0 / 0' : '';
-        } else {
-            countEl.textContent = (matchIdx + 1) + ' / ' + matches.length;
-        }
-    }
-
-    function jumpTo(idx) {
-        if (!activeEd || matches.length === 0) { return; }
-        matchIdx = ((idx % matches.length) + matches.length) % matches.length;
-        var m = matches[matchIdx];
-        activeEd.setSelection(m.from, m.to);
-        activeEd.scrollIntoView({ from: m.from, to: m.to }, 80);
-        updateCount();
-    }
-
-    function search(term) {
-        applyOverlay(term);
-        findAll(term);
-        if (matches.length > 0) {
-            // Start from cursor position
-            var cur = activeEd ? activeEd.getCursor() : { line: 0, ch: 0 };
-            var start = 0;
-            for (var i = 0; i < matches.length; i++) {
-                var m = matches[i];
-                if (m.from.line > cur.line ||
-                    (m.from.line === cur.line && m.from.ch >= cur.ch)) {
-                    start = i;
-                    break;
-                }
-                start = (i + 1) % matches.length;
+        function clearOverlay() {
+            if (self.overlay) {
+                try { cm.removeOverlay(self.overlay); } catch (e) {}
+                self.overlay = null;
             }
-            jumpTo(start);
-        } else {
+        }
+
+        function applyOverlay(term) {
+            clearOverlay();
+            if (!term) { return; }
+            self.overlay = buildOverlay(term);
+            cm.addOverlay(self.overlay);
+        }
+
+        function findAll(term) {
+            self.matches = [];
+            self.idx     = -1;
+            if (!term) { return; }
+            var lc        = term.toLowerCase();
+            var lineCount = cm.lineCount();
+            for (var i = 0; i < lineCount; i++) {
+                var line = cm.getLine(i);
+                if (!line) { continue; }
+                var ll  = line.toLowerCase();
+                var pos = 0;
+                var hit;
+                while ((hit = ll.indexOf(lc, pos)) !== -1) {
+                    self.matches.push({
+                        from: { line: i, ch: hit },
+                        to:   { line: i, ch: hit + term.length }
+                    });
+                    pos = hit + term.length;
+                }
+            }
+        }
+
+        function updateCount() {
+            if (!self.input.value) { self.countEl.textContent = ''; return; }
+            self.countEl.textContent = self.matches.length === 0
+                ? '0 / 0'
+                : (self.idx + 1) + ' / ' + self.matches.length;
+        }
+
+        function jumpTo(i) {
+            if (self.matches.length === 0) { return; }
+            self.idx = ((i % self.matches.length) + self.matches.length) % self.matches.length;
+            var m = self.matches[self.idx];
+            cm.setSelection(m.from, m.to);
+            cm.scrollIntoView({ from: m.from, to: m.to }, 60);
             updateCount();
         }
-    }
 
-    // ── Open / close ──────────────────────────────────────────────
-    function open() {
-        if (!bar) { return; }
-        bar.classList.remove('search-bar-hidden');
-        input.focus();
-        input.select();
-        if (input.value) { search(input.value); }
-    }
-
-    function close() {
-        if (!bar) { return; }
-        bar.classList.add('search-bar-hidden');
-        clearOverlay();
-        matches  = [];
-        matchIdx = -1;
-        updateCount();
-        if (activeEd) { activeEd.focus(); }
-    }
-
-    // ── Drag ──────────────────────────────────────────────────────
-    function initDrag(handle) {
-        handle.addEventListener('mousedown', function (e) {
-            if (e.button !== 0) { return; }
-            e.preventDefault();
-            var startX = e.clientX - bar.offsetLeft;
-            var startY = e.clientY - bar.offsetTop;
-            function onMove(ev) {
-                bar.style.left = Math.max(0, ev.clientX - startX) + 'px';
-                bar.style.top  = Math.max(0, ev.clientY - startY) + 'px';
+        function runSearch(term) {
+            applyOverlay(term);
+            findAll(term);
+            if (self.matches.length === 0) { updateCount(); return; }
+            // Jump to match closest to current cursor
+            var cur  = cm.getCursor();
+            var best = 0;
+            for (var i = 0; i < self.matches.length; i++) {
+                var m = self.matches[i];
+                if (m.from.line > cur.line ||
+                   (m.from.line === cur.line && m.from.ch >= cur.ch)) {
+                    best = i; break;
+                }
+                best = (i + 1) % self.matches.length;
             }
-            function onUp() {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-            }
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-        });
-    }
+            jumpTo(best);
+        }
 
-    // ── Init ──────────────────────────────────────────────────────
-    function init() {
-        bar = document.getElementById('editorSearchBar');
-        if (!bar) { return; }
-
-        input   = bar.querySelector('.esb-input');
-        countEl = bar.querySelector('.esb-count');
-        var prevBtn  = bar.querySelector('.esb-prev');
-        var nextBtn  = bar.querySelector('.esb-next');
-        var closeBtn = bar.querySelector('.esb-close');
-        var handle   = bar.querySelector('.esb-handle');
-
-        initDrag(handle);
-
-        // Track which editor has focus
-        var editors = {
-            css:  LiveCSS.editor.getCssEditor(),
-            html: LiveCSS.editor.getHtmlEditor(),
-            js:   LiveCSS.editor.getJsEditor()
+        // Public: open this instance's bar
+        self.open = function () {
+            self.bar.classList.add('ps-visible');
+            self.input.focus();
+            self.input.select();
+            if (self.input.value) { runSearch(self.input.value); }
         };
 
-        Object.keys(editors).forEach(function (key) {
-            var cm = editors[key];
-            if (!cm) { return; }
-            cm.on('focus', function () {
-                if (activeEd !== cm) {
-                    clearOverlay();
-                    activeEd = cm;
-                    if (!bar.classList.contains('search-bar-hidden') && input.value) {
-                        search(input.value);
-                    }
-                }
-            });
-            // Capture Cmd+F / Ctrl+F inside each editor
-            cm.on('keydown', function (instance, e) {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-                    e.preventDefault();
-                    open();
-                }
-            });
+        // Public: close
+        self.close = function () {
+            self.bar.classList.remove('ps-visible');
+            clearOverlay();
+            self.matches = [];
+            self.idx     = -1;
+            self.countEl.textContent = '';
+            cm.focus();
+        };
+
+        // Wire events
+        self.input.addEventListener('input', function () {
+            runSearch(self.input.value);
         });
 
-        // Default active editor
-        activeEd = editors.css || editors.html || editors.js;
-
-        // Search input events
-        input.addEventListener('input', function () {
-            search(input.value);
-        });
-
-        input.addEventListener('keydown', function (e) {
+        self.input.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                if (e.shiftKey) {
-                    jumpTo(matchIdx - 1);
-                } else {
-                    jumpTo(matchIdx + 1);
-                }
+                jumpTo(e.shiftKey ? self.idx - 1 : self.idx + 1);
             } else if (e.key === 'Escape') {
-                close();
+                self.close();
             }
         });
 
-        prevBtn.addEventListener('mousedown', function (e) {
-            e.preventDefault();
-            jumpTo(matchIdx - 1);
-        });
+        self.prevBtn.addEventListener('mousedown',  function (e) { e.preventDefault(); jumpTo(self.idx - 1); });
+        self.nextBtn.addEventListener('mousedown',  function (e) { e.preventDefault(); jumpTo(self.idx + 1); });
+        self.closeBtn.addEventListener('mousedown', function (e) { e.preventDefault(); self.close(); });
+    }
 
-        nextBtn.addEventListener('mousedown', function (e) {
-            e.preventDefault();
-            jumpTo(matchIdx + 1);
-        });
+    /* ---- Public open(cm) ------------------------------------------- */
 
-        closeBtn.addEventListener('mousedown', function (e) {
-            e.preventDefault();
-            close();
-        });
-
-        // Global Cmd+F / Ctrl+F when not inside an editor
-        document.addEventListener('keydown', function (e) {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-                var tag = document.activeElement && document.activeElement.tagName;
-                // Let editor handler fire first; only intercept for non-CM focus
-                if (tag === 'INPUT' || tag === 'TEXTAREA') { return; }
-                if (document.activeElement &&
-                    document.activeElement.closest('.CodeMirror')) { return; }
-                e.preventDefault();
-                open();
+    function open(cm) {
+        for (var i = 0; i < instances.length; i++) {
+            if (instances[i].cm === cm) {
+                instances[i].open();
+                return;
             }
-            if (e.key === 'Escape') {
-                if (!bar.classList.contains('search-bar-hidden')) { close(); }
-            }
+        }
+    }
+
+    /* ---- Init -------------------------------------------------------- */
+
+    function init() {
+        var map = [
+            { getter: 'getCssEditor',  barId: 'cssSearch'  },
+            { getter: 'getHtmlEditor', barId: 'htmlSearch' },
+            { getter: 'getJsEditor',   barId: 'jsSearch'   }
+        ];
+
+        map.forEach(function (entry) {
+            var cm  = LiveCSS.editor[entry.getter] && LiveCSS.editor[entry.getter]();
+            var bar = document.getElementById(entry.barId);
+            if (!cm || !bar) { return; }
+            instances.push(new SearchInstance(cm, bar));
         });
     }
 
-    return { init: init };
+    return { init: init, open: open };
 
 }());

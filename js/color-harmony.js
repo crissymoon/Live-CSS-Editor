@@ -215,6 +215,25 @@ window.LiveCSS.colorHarmony = (function () {
         panel.style.top  = (drag.oy + e.clientY - drag.sy) + 'px';
     }
 
+    function onDocMouseup() {
+        if (drag.active) {
+            drag.active = false;
+            saveToolState();
+        }
+    }
+
+    function saveToolState() {
+        var state = LiveCSS.storage.loadUIState() || {};
+        state.harmony = {
+            visible: !panel.classList.contains('hidden'),
+            left:    panel.style.left,
+            top:     panel.style.top,
+            color:   picker ? picker.value : '#4d31bf',
+            mode:    currentMode
+        };
+        LiveCSS.storage.saveUIState(state);
+    }
+
     function positionNear(btn) {
         var rect = btn.getBoundingClientRect();
         var pw   = panel.offsetWidth  || 380;
@@ -238,15 +257,24 @@ window.LiveCSS.colorHarmony = (function () {
         document.getElementById('harmonyBtn').addEventListener('click', function () {
             if (panel.classList.contains('hidden')) {
                 panel.classList.remove('hidden');
-                positionNear(this);
+                // Use saved position, or position near button
+                var uiState = LiveCSS.storage.loadUIState() || {};
+                if (uiState.harmony && uiState.harmony.left) {
+                    panel.style.left = uiState.harmony.left;
+                    panel.style.top  = uiState.harmony.top;
+                } else {
+                    positionNear(this);
+                }
                 render();
             } else {
                 panel.classList.add('hidden');
             }
+            saveToolState();
         });
 
         document.getElementById('harmonyClose').addEventListener('click', function () {
             panel.classList.add('hidden');
+            saveToolState();
         });
 
         // Mode selection
@@ -265,7 +293,30 @@ window.LiveCSS.colorHarmony = (function () {
         // Drag
         panel.querySelector('.harmony-header').addEventListener('mousedown', onHeaderMousedown);
         document.addEventListener('mousemove', onDocMousemove);
-        document.addEventListener('mouseup', function () { drag.active = false; });
+        document.addEventListener('mouseup', onDocMouseup);
+
+        // Restore saved visibility and position
+        var savedUI = LiveCSS.storage.loadUIState() || {};
+        if (savedUI.harmony) {
+            if (savedUI.harmony.visible) {
+                panel.classList.remove('hidden');
+                if (savedUI.harmony.left) {
+                    panel.style.left = savedUI.harmony.left;
+                    panel.style.top  = savedUI.harmony.top;
+                }
+            }
+            if (savedUI.harmony.mode) {
+                currentMode = savedUI.harmony.mode;
+                modeBtns.forEach(function (b) {
+                    b.classList.toggle('active', b.dataset.mode === currentMode);
+                });
+            }
+            if (savedUI.harmony.color && picker) {
+                picker.value = savedUI.harmony.color;
+                if (hexDisplay) { hexDisplay.textContent = savedUI.harmony.color; }
+            }
+            if (!panel.classList.contains('hidden')) { render(); }
+        }
     }
 
     return { init: init };

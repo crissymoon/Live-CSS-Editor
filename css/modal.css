@@ -161,6 +161,20 @@
     margin-bottom: 4px;
 }
 
+/* Autosave entry gets an accent border and subtle tint */
+.load-slot-autosave {
+    border-color: #4d31bf;
+    background: #100a2a;
+}
+
+.load-slot-autosave .load-slot-name::after {
+    content: ' \2014 current session';
+    font-size: 11px;
+    font-weight: 400;
+    color: #7060aa;
+    letter-spacing: 0.04em;
+}
+
 .load-slot-info {
     display: flex;
     flex-direction: column;

@@ -55,13 +55,60 @@ window.LiveCSS.storage = (function () {
         localStorage.removeItem(AUTOSAVE_KEY);
     }
 
+    // ── Session history: one snapshot per session, max 8 entries ──────
+
+    var HISTORY_KEY = 'liveCssEditor_history';
+    var HISTORY_MAX = 8;
+
+    function pushHistory(html, css, js) {
+        var hist = getHistory();
+        // Skip if content is identical to the most recent entry
+        if (hist.length > 0) {
+            var last = hist[0];
+            if (last.html === html && last.css === css && last.js === (js || '')) { return; }
+        }
+        hist.unshift({ html: html || '', css: css || '', js: js || '', ts: Date.now() });
+        if (hist.length > HISTORY_MAX) { hist = hist.slice(0, HISTORY_MAX); }
+        try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+        } catch (e) { /* storage full — ignore */ }
+    }
+
+    function getHistory() {
+        try {
+            var raw = localStorage.getItem(HISTORY_KEY);
+            if (raw) { return JSON.parse(raw); }
+        } catch (e) { /* corrupt — fall through */ }
+        return [];
+    }
+
+    // ── UI state: panel layout, tool positions, visibility ───────
+
+    var UI_STATE_KEY = 'livecss-ui-state';
+
+    function saveUIState(state) {
+        try { localStorage.setItem(UI_STATE_KEY, JSON.stringify(state)); } catch (e) { /* */ }
+    }
+
+    function loadUIState() {
+        try {
+            var raw = localStorage.getItem(UI_STATE_KEY);
+            if (raw) { return JSON.parse(raw); }
+        } catch (e) { /* corrupt */ }
+        return null;
+    }
+
     return {
         getSavedProjects: getSavedProjects,
         saveProject:      saveProject,
         deleteProject:    deleteProject,
         saveAutosave:     saveAutosave,
         loadAutosave:     loadAutosave,
-        clearAutosave:    clearAutosave
+        clearAutosave:    clearAutosave,
+        pushHistory:      pushHistory,
+        getHistory:       getHistory,
+        saveUIState:      saveUIState,
+        loadUIState:      loadUIState
     };
 
 }());

@@ -46,8 +46,17 @@ sort($allPropertyNames);
             <button id="resetLayoutBtn" class="btn-action" title="Restore default panel positions">Reset Layout</button>
             <button id="propertiesBtn" class="btn-action" title="Open properties reference">Properties</button>
             <button id="harmonyBtn" class="btn-action" title="Open color harmony tool">Harmony</button>
+            <button id="guidesBtn" class="btn-action" title="Indent guide settings">Guides</button>
         </div>
     </header>
+
+    <!-- Session history restore bar -->
+    <div id="sessionRestoreBar" class="session-restore-bar hidden">
+        <span class="srb-label">Restore session:</span>
+        <select id="sessionHistorySelect" class="srb-select"></select>
+        <button id="sessionRestoreBtn" class="srb-btn srb-restore">Restore</button>
+        <button id="sessionDismissBtn" class="srb-btn srb-dismiss">Dismiss</button>
+    </div>
 
     <!-- Save Modal -->
     <div class="modal-overlay hidden" id="saveModal">
@@ -94,7 +103,15 @@ sort($allPropertyNames);
                 <span class="panel-label">JS</span>
                 <button class="panel-hist-btn" id="jsUndoBtn" title="Undo">&#8592;</button>
                 <button class="panel-hist-btn" id="jsRedoBtn" title="Redo">&#8594;</button>
+                <button class="panel-min-btn" title="Minimize">&#8722;</button>
                 <div class="panel-drag-handle" title="Drag panel"></div>
+            </div>
+            <div class="panel-search" id="jsSearch">
+                <input class="ps-input" type="text" placeholder="Find..." autocomplete="off" spellcheck="false">
+                <span class="ps-count"></span>
+                <button class="ps-btn ps-prev" title="Previous">&#8593;</button>
+                <button class="ps-btn ps-next" title="Next">&#8595;</button>
+                <button class="ps-btn ps-close" title="Close">&#215;</button>
             </div>
             <div class="panel-body">
                 <textarea id="jsEditor"></textarea>
@@ -106,7 +123,15 @@ sort($allPropertyNames);
                 <span class="panel-label">HTML</span>
                 <button class="panel-hist-btn" id="htmlUndoBtn" title="Undo">&#8592;</button>
                 <button class="panel-hist-btn" id="htmlRedoBtn" title="Redo">&#8594;</button>
+                <button class="panel-min-btn" title="Minimize">&#8722;</button>
                 <div class="panel-drag-handle" title="Drag panel"></div>
+            </div>
+            <div class="panel-search" id="htmlSearch">
+                <input class="ps-input" type="text" placeholder="Find..." autocomplete="off" spellcheck="false">
+                <span class="ps-count"></span>
+                <button class="ps-btn ps-prev" title="Previous">&#8593;</button>
+                <button class="ps-btn ps-next" title="Next">&#8595;</button>
+                <button class="ps-btn ps-close" title="Close">&#215;</button>
             </div>
             <div class="panel-body">
                 <textarea id="htmlEditor"><?php echo htmlspecialchars($defaultHtml); ?></textarea>
@@ -118,7 +143,15 @@ sort($allPropertyNames);
                 <span class="panel-label">CSS</span>
                 <button class="panel-hist-btn" id="cssUndoBtn" title="Undo">&#8592;</button>
                 <button class="panel-hist-btn" id="cssRedoBtn" title="Redo">&#8594;</button>
+                <button class="panel-min-btn" title="Minimize">&#8722;</button>
                 <div class="panel-drag-handle" title="Drag panel"></div>
+            </div>
+            <div class="panel-search" id="cssSearch">
+                <input class="ps-input" type="text" placeholder="Find..." autocomplete="off" spellcheck="false">
+                <span class="ps-count"></span>
+                <button class="ps-btn ps-prev" title="Previous">&#8593;</button>
+                <button class="ps-btn ps-next" title="Next">&#8595;</button>
+                <button class="ps-btn ps-close" title="Close">&#215;</button>
             </div>
             <div class="panel-body">
                 <textarea id="cssEditor"><?php echo htmlspecialchars($defaultCss); ?></textarea>
@@ -128,6 +161,7 @@ sort($allPropertyNames);
         <section class="preview-panel" id="previewPanel">
             <div class="panel-header">
                 <span class="panel-label">Live Preview</span>
+                <button class="panel-min-btn" title="Minimize">&#8722;</button>
                 <div class="panel-drag-handle" title="Drag panel"></div>
             </div>
             <div class="panel-body">
@@ -135,6 +169,9 @@ sort($allPropertyNames);
             </div>
         </section>
     </main>
+
+    <!-- Minimized panel taskbar -->
+    <div id="panel-taskbar"></div>
 
     <!-- Floating Color Harmony Tool -->
     <div class="harmony-tool hidden" id="harmonyTool">
@@ -159,14 +196,68 @@ sort($allPropertyNames);
         </div>
     </div>
 
-    <!-- Floating editor search bar (Cmd+F / Ctrl+F) -->
-    <div class="search-bar search-bar-hidden" id="editorSearchBar">
-        <div class="esb-handle" title="Drag">&#9776;</div>
-        <input class="esb-input" type="text" placeholder="Find in editor..." autocomplete="off" spellcheck="false">
-        <span class="esb-count"></span>
-        <button class="esb-btn esb-prev" title="Previous (Shift+Enter)">&#8593;</button>
-        <button class="esb-btn esb-next" title="Next (Enter)">&#8595;</button>
-        <button class="esb-btn esb-close" title="Close (Esc)">&#215;</button>
+
+
+    <!-- Indent Guide Settings Panel -->
+    <div class="guide-tool hidden" id="guideTool">
+        <div class="guide-header">
+            <span class="guide-title">Indent Guides</span>
+            <button class="guide-close" id="guideClose">&times;</button>
+        </div>
+        <div class="guide-body">
+            <label class="guide-row">
+                <span class="guide-label">Visible</span>
+                <input type="checkbox" id="guideToggle" class="guide-check" checked>
+            </label>
+            <label class="guide-row">
+                <span class="guide-label">Color</span>
+                <input type="color" id="guideColor" class="guide-color-input" value="#5a41b4">
+            </label>
+            <label class="guide-row">
+                <span class="guide-label">Opacity</span>
+                <input type="range" id="guideOpacity" class="guide-slider" min="0" max="100" value="18">
+                <span class="guide-slider-val" id="guideOpacityVal">18%</span>
+            </label>
+            <label class="guide-row">
+                <span class="guide-label">Thickness</span>
+                <input type="range" id="guideThickness" class="guide-slider" min="1" max="4" value="1">
+                <span class="guide-slider-val" id="guideThicknessVal">1px</span>
+            </label>
+            <label class="guide-row">
+                <span class="guide-label">Style</span>
+                <select id="guideStyle" class="guide-select">
+                    <option value="solid">Solid</option>
+                    <option value="dashed">Dashed</option>
+                    <option value="dotted">Dotted</option>
+                </select>
+            </label>
+            <label class="guide-row">
+                <span class="guide-label">Step (cols)</span>
+                <select id="guideStep" class="guide-select">
+                    <option value="2" selected>2</option>
+                    <option value="4">4</option>
+                    <option value="8">8</option>
+                </select>
+            </label>
+            <div style="border-top:1px solid #2a1a55;margin:4px 0 2px;"></div>
+            <label class="guide-row">
+                <span class="guide-label">Col ruler</span>
+                <input type="checkbox" id="guideRulerToggle" class="guide-check">
+            </label>
+            <label class="guide-row">
+                <span class="guide-label">Col length</span>
+                <input type="number" id="guideRulerCol" class="guide-number-input" min="1" max="999" value="96">
+            </label>
+            <label class="guide-row">
+                <span class="guide-label">Ruler color</span>
+                <input type="color" id="guideRulerColor" class="guide-color-input" value="#4d31bf">
+            </label>
+            <label class="guide-row">
+                <span class="guide-label">Ruler opacity</span>
+                <input type="range" id="guideRulerOpacity" class="guide-slider" min="0" max="100" value="30">
+                <span class="guide-slider-val" id="guideRulerOpacityVal">30%</span>
+            </label>
+        </div>
     </div>
 
     <!-- Fuzzy autocomplete dropdown for CSS properties -->
@@ -219,6 +310,7 @@ sort($allPropertyNames);
     <script src="js/modal-load.js"></script>
     <script src="js/gutter.js"></script>
     <script src="js/editor-search.js"></script>
+    <script src="js/indent-guide.js"></script>
     <script src="js/app.js"></script>
     <!-- Dev/native bridge: file browse, refresh, debug overlay -->
     <script src="js/native-bridge.js"></script>
