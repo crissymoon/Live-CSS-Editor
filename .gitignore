@@ -1,0 +1,33 @@
+# Environment and secrets
+.env
+.env.*
+*.env
+secrets.*
+config.local.*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor/IDE directories
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# PHP cache
+/vendor/
+
+# Build output
+/dist/
+/build/
