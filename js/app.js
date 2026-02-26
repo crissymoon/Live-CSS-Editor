@@ -10,8 +10,13 @@
 
     LiveCSS.cdnLoader.load(function () {
 
-        // 1. Editors + live preview (must be first — other modules depend on getCssEditor/getHtmlEditor)
-        LiveCSS.editor.init(data.defaultHtml, data.defaultCss, data.defaultJs);
+        // 1. Editors — use auto-saved session if one exists, otherwise defaults
+        var saved = LiveCSS.storage.loadAutosave();
+        LiveCSS.editor.init(
+            saved ? saved.html : data.defaultHtml,
+            saved ? saved.css  : data.defaultCss,
+            saved ? saved.js   : data.defaultJs
+        );
 
         // 2. Header property-reference dropdown
         LiveCSS.propertyLookup.init(data.propertyValues);
@@ -46,7 +51,37 @@
             }
         });
 
-        // 10. Reset layout button
+        // 10. Auto-save current work on every editor change (debounced 1.5 s)
+        var autoSave = LiveCSS.utils.debounce(function () {
+            LiveCSS.storage.saveAutosave(
+                LiveCSS.editor.getHtmlEditor().getValue(),
+                LiveCSS.editor.getCssEditor().getValue(),
+                LiveCSS.editor.getJsEditor().getValue()
+            );
+        }, 1500);
+        LiveCSS.editor.getHtmlEditor().on('change', autoSave);
+        LiveCSS.editor.getCssEditor().on('change',  autoSave);
+        LiveCSS.editor.getJsEditor().on('change',   autoSave);
+
+        // Also save immediately before the page unloads
+        window.addEventListener('beforeunload', function () {
+            LiveCSS.storage.saveAutosave(
+                LiveCSS.editor.getHtmlEditor().getValue(),
+                LiveCSS.editor.getCssEditor().getValue(),
+                LiveCSS.editor.getJsEditor().getValue()
+            );
+        });
+
+        // 11. Undo / redo buttons in panel headers
+        var ed = LiveCSS.editor;
+        document.getElementById('jsUndoBtn').addEventListener('mousedown',   function (e) { e.preventDefault(); ed.getJsEditor().undo();   });
+        document.getElementById('jsRedoBtn').addEventListener('mousedown',   function (e) { e.preventDefault(); ed.getJsEditor().redo();   });
+        document.getElementById('htmlUndoBtn').addEventListener('mousedown', function (e) { e.preventDefault(); ed.getHtmlEditor().undo(); });
+        document.getElementById('htmlRedoBtn').addEventListener('mousedown', function (e) { e.preventDefault(); ed.getHtmlEditor().redo(); });
+        document.getElementById('cssUndoBtn').addEventListener('mousedown',  function (e) { e.preventDefault(); ed.getCssEditor().undo();  });
+        document.getElementById('cssRedoBtn').addEventListener('mousedown',  function (e) { e.preventDefault(); ed.getCssEditor().redo();  });
+
+        // 12. Reset layout button
         document.getElementById('resetLayoutBtn').addEventListener('click', function () {
             LiveCSS.gutter.resetLayout();
         });

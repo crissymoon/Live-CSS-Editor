@@ -91,6 +91,8 @@ sort($allPropertyNames);
         <section class="editor-panel" id="jsPanel">
             <div class="panel-header">
                 <span class="panel-label">JS</span>
+                <button class="panel-hist-btn" id="jsUndoBtn" title="Undo">&#8592;</button>
+                <button class="panel-hist-btn" id="jsRedoBtn" title="Redo">&#8594;</button>
                 <div class="panel-drag-handle" title="Drag panel"></div>
             </div>
             <div class="panel-body">
@@ -101,6 +103,8 @@ sort($allPropertyNames);
         <section class="editor-panel" id="htmlPanel">
             <div class="panel-header">
                 <span class="panel-label">HTML</span>
+                <button class="panel-hist-btn" id="htmlUndoBtn" title="Undo">&#8592;</button>
+                <button class="panel-hist-btn" id="htmlRedoBtn" title="Redo">&#8594;</button>
                 <div class="panel-drag-handle" title="Drag panel"></div>
             </div>
             <div class="panel-body">
@@ -111,6 +115,8 @@ sort($allPropertyNames);
         <section class="editor-panel" id="cssPanel">
             <div class="panel-header">
                 <span class="panel-label">CSS</span>
+                <button class="panel-hist-btn" id="cssUndoBtn" title="Undo">&#8592;</button>
+                <button class="panel-hist-btn" id="cssRedoBtn" title="Redo">&#8594;</button>
                 <div class="panel-drag-handle" title="Drag panel"></div>
             </div>
             <div class="panel-body">

@@ -31,6 +31,37 @@ window.LiveCSS.storage = (function () {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
     }
 
-    return { getSavedProjects: getSavedProjects, saveProject: saveProject, deleteProject: deleteProject };
+    // ── Auto-save: persists the current working state across reloads ──
+
+    var AUTOSAVE_KEY = 'liveCssEditor_autosave';
+
+    function saveAutosave(htmlCode, cssCode, jsCode) {
+        try {
+            localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+                html: htmlCode, css: cssCode, js: jsCode, ts: Date.now()
+            }));
+        } catch (e) { /* storage full — ignore */ }
+    }
+
+    function loadAutosave() {
+        try {
+            var raw = localStorage.getItem(AUTOSAVE_KEY);
+            if (raw) { return JSON.parse(raw); }
+        } catch (e) { /* corrupt — fall through */ }
+        return null;
+    }
+
+    function clearAutosave() {
+        localStorage.removeItem(AUTOSAVE_KEY);
+    }
+
+    return {
+        getSavedProjects: getSavedProjects,
+        saveProject:      saveProject,
+        deleteProject:    deleteProject,
+        saveAutosave:     saveAutosave,
+        loadAutosave:     loadAutosave,
+        clearAutosave:    clearAutosave
+    };
 
 }());

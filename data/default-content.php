@@ -233,6 +233,51 @@ textarea::placeholder {
   color: var(--text-muted);
   border-left: 2px solid var(--text-muted);
 }
+
+/* ── Responsive ─────────────────────────────── */
+@media (max-width: 600px) {
+  body {
+    padding: 24px 12px;
+    align-items: flex-start;
+  }
+
+  .site-header {
+    margin-bottom: 20px;
+  }
+
+  .logo {
+    height: 40px;
+  }
+
+  .card {
+    padding: 20px 16px;
+  }
+
+  .field-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-send {
+    width: 100%;
+    text-align: center;
+  }
+
+  .form-status {
+    text-align: center;
+    border-left: none;
+    border-top: 2px solid transparent;
+  }
+
+  .form-status.is-success { border-top-color: var(--success); }
+  .form-status.is-error   { border-top-color: var(--error); }
+  .form-status.is-sending { border-top-color: var(--text-muted); }
+}
 CSSEOF;
 
 $defaultJs = <<<'JSEOF'

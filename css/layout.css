@@ -60,6 +60,25 @@
     pointer-events: none;
 }
 
+/* Undo / redo buttons in panel headers */
+.panel-hist-btn {
+    background: transparent;
+    border: 1px solid #2a1a55;
+    color: #7060aa;
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 7px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.12s, border-color 0.12s;
+    border-radius: 0;
+}
+
+.panel-hist-btn:hover {
+    color: #c0b0f0;
+    border-color: #4d31bf;
+}
+
 /* Dots grip icon */
 .panel-drag-handle {
     width: 16px;
