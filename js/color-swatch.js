@@ -111,8 +111,10 @@ window.LiveCSS.colorSwatch = (function () {
         if (pickerInput) { return pickerInput; }
         pickerInput = document.createElement('input');
         pickerInput.type = 'color';
+        // Must NOT have pointer-events:none — that blocks programmatic .click()
+        // in Tauri WebView. Keep it visually invisible but leave events intact.
         pickerInput.style.cssText =
-            'position:fixed;opacity:0;width:1px;height:1px;top:-100px;left:-100px;pointer-events:none;';
+            'position:fixed;opacity:0;width:0;height:0;top:0;left:0;border:none;padding:0;margin:0;';
         document.body.appendChild(pickerInput);
         pickerInput.addEventListener('input', function () {
             if (pickerCb) { pickerCb(pickerInput.value); }
@@ -161,7 +163,9 @@ window.LiveCSS.colorSwatch = (function () {
                 cm.focus();
             };
 
-            inp.click();
+            // Defer .click() so the browser fully processes mousedown first;
+            // required for Tauri WebView and some Chromium-based contexts.
+            setTimeout(function () { inp.click(); }, 0);
         });
 
         return wrap;
