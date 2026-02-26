@@ -64,6 +64,27 @@ window.LiveCSS.colorSwatch = (function () {
         return '#' + toHex2(r * 255) + toHex2(g * 255) + toHex2(b * 255);
     }
 
+    function hexToHsl(hex) {
+        var r = parseInt(hex.slice(1, 3), 16) / 255;
+        var g = parseInt(hex.slice(3, 5), 16) / 255;
+        var b = parseInt(hex.slice(5, 7), 16) / 255;
+        var max = Math.max(r, g, b), min = Math.min(r, g, b);
+        var h, s, l = (max + min) / 2;
+        if (max === min) {
+            h = s = 0;
+        } else {
+            var d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+    }
+
     function colorToHex(str) {
         str = str.trim();
 
@@ -120,88 +141,120 @@ window.LiveCSS.colorSwatch = (function () {
         closePopover();
 
         var rect = diamond.getBoundingClientRect();
+        var hsl  = hexToHsl(hexVal);
+        var H = hsl.h, S = hsl.s, L = hsl.l;
 
         var pop = document.createElement('div');
         pop.className = 'cm-color-popover';
         pop.id = '_cmColorPopover';
 
-        // -- Header row: hex display + close button
+        // -- Header row: hex field + close button
         var head = document.createElement('div');
         head.className = 'cm-color-pop-head';
 
         var hexField = document.createElement('input');
-        hexField.type      = 'text';
-        hexField.className = 'cm-color-pop-hex';
-        hexField.value     = hexVal;
-        hexField.maxLength = 7;
+        hexField.type       = 'text';
+        hexField.className  = 'cm-color-pop-hex';
+        hexField.value      = hexVal;
+        hexField.maxLength  = 7;
         hexField.spellcheck = false;
 
         var closeBtn = document.createElement('button');
         closeBtn.className   = 'cm-color-pop-close';
-        closeBtn.textContent = '\u00d7';  // ×
+        closeBtn.textContent = '\u00d7';
         closeBtn.title       = 'Close';
 
         head.appendChild(hexField);
         head.appendChild(closeBtn);
 
-        // -- Large native color input (visible swatch area)
-        var colorInp = document.createElement('input');
-        colorInp.type      = 'color';
-        colorInp.className = 'cm-color-pop-input';
-        colorInp.value     = hexVal;
+        // -- Preview swatch
+        var preview = document.createElement('div');
+        preview.className        = 'cm-color-pop-preview';
+        preview.style.background = hexVal;
+
+        // -- HSL slider rows (no native OS dialog)
+        function makeRow(label, min, max, val, cls) {
+            var row = document.createElement('div');
+            row.className = 'cm-color-pop-row';
+            var lbl = document.createElement('span');
+            lbl.className   = 'cm-color-pop-label';
+            lbl.textContent = label;
+            var inp = document.createElement('input');
+            inp.type      = 'range';
+            inp.className = 'cm-color-pop-slider ' + cls;
+            inp.min = min; inp.max = max; inp.value = val;
+            row.appendChild(lbl);
+            row.appendChild(inp);
+            return { row: row, inp: inp };
+        }
+
+        var hr = makeRow('H', 0, 360, H, 'cm-pop-h');
+        var sr = makeRow('S', 0, 100, S, 'cm-pop-s');
+        var lr = makeRow('L', 0, 100, L, 'cm-pop-l');
 
         pop.appendChild(head);
-        pop.appendChild(colorInp);
+        pop.appendChild(preview);
+        pop.appendChild(hr.row);
+        pop.appendChild(sr.row);
+        pop.appendChild(lr.row);
 
-        // Position beside the diamond
         document.body.appendChild(pop);
         activePopover = pop;
 
-        var pw = pop.offsetWidth  || 180;
-        var ph = pop.offsetHeight || 80;
+        var pw = pop.offsetWidth  || 210;
+        var ph = pop.offsetHeight || 140;
         var left = rect.right + 8;
         var top  = rect.top  - 4;
-        // Flip left if too close to right edge
-        if (left + pw > window.innerWidth - 8) { left = rect.left - pw - 8; }
-        // Flip up if too close to bottom
-        if (top + ph > window.innerHeight - 8)  { top  = window.innerHeight - ph - 8; }
+        if (left + pw > window.innerWidth  - 8) { left = rect.left - pw - 8; }
+        if (top  + ph > window.innerHeight - 8) { top  = window.innerHeight - ph - 8; }
         pop.style.left = Math.max(4, left) + 'px';
         pop.style.top  = Math.max(4, top)  + 'px';
 
-        // -- Live update from color wheel
-        // pickerBusy is true from the moment the user mousedowns the color
-        // swatch until 800ms after the OS dialog fires 'change'. This window
-        // swallows the synthetic mousedown WebKit emits when a native sheet
-        // closes — no matter whether it arrives before or after 'change'.
-        var pickerBusy = false;
-        var pickerBusyTimer = null;
-
-        function setPickerBusy() {
-            pickerBusy = true;
-            clearTimeout(pickerBusyTimer);
-            pickerBusyTimer = setTimeout(function () { pickerBusy = false; }, 800);
+        // -- Update slider track gradients to reflect current HSL
+        function updateSliderBgs() {
+            hr.inp.style.background =
+                'linear-gradient(to right,' +
+                'hsl(0,'   + S + '%,' + L + '%),' +
+                'hsl(60,'  + S + '%,' + L + '%),' +
+                'hsl(120,' + S + '%,' + L + '%),' +
+                'hsl(180,' + S + '%,' + L + '%),' +
+                'hsl(240,' + S + '%,' + L + '%),' +
+                'hsl(300,' + S + '%,' + L + '%),' +
+                'hsl(360,' + S + '%,' + L + '%)'  + ')';
+            sr.inp.style.background =
+                'linear-gradient(to right,' +
+                'hsl(' + H + ',0%,'   + L + '%),' +
+                'hsl(' + H + ',100%,' + L + '%))' ;
+            lr.inp.style.background =
+                'linear-gradient(to right,' +
+                'hsl(' + H + ',' + S + '%,0%),'   +
+                'hsl(' + H + ',' + S + '%,50%),'  +
+                'hsl(' + H + ',' + S + '%,100%))';
         }
 
-        // Mark busy as soon as the color swatch is pressed (picker about to open).
-        colorInp.addEventListener('mousedown', setPickerBusy);
+        function applyColor() {
+            var hex = hslToHex(H, S, L);
+            hexField.value           = hex;
+            preview.style.background = hex;
+            updateSliderBgs();
+            onPick(hex, false);
+        }
 
-        colorInp.addEventListener('input', function () {
-            hexField.value = colorInp.value;
-            onPick(colorInp.value, false);
-        });
-        // 'change' fires when the OS native picker dialog is dismissed.
-        // Restart the busy window so the synthetic focus-restore click is ignored.
-        colorInp.addEventListener('change', function () {
-            setPickerBusy();
-            hexField.value = colorInp.value;
-            onPick(colorInp.value, false);
-        });
+        updateSliderBgs();
+
+        hr.inp.addEventListener('input', function () { H = +hr.inp.value; applyColor(); });
+        sr.inp.addEventListener('input', function () { S = +sr.inp.value; applyColor(); });
+        lr.inp.addEventListener('input', function () { L = +lr.inp.value; applyColor(); });
 
         // -- Manual hex field
         hexField.addEventListener('input', function () {
             var v = hexField.value.trim();
             if (/^#[0-9a-fA-F]{6}$/.test(v)) {
-                colorInp.value = v;
+                var p = hexToHsl(v);
+                H = p.h; S = p.s; L = p.l;
+                hr.inp.value = H; sr.inp.value = S; lr.inp.value = L;
+                preview.style.background = v;
+                updateSliderBgs();
                 onPick(v, false);
             }
         });
@@ -221,21 +274,15 @@ window.LiveCSS.colorSwatch = (function () {
             closePopover();
         });
 
-        // -- Close on outside click.
-        // Skip the event entirely if the picker dialog is busy (open or
-        // just closed) to avoid the WebKit synthetic-mousedown race.
+        // -- Outside click: pure DOM sliders mean no OS dialog, no synthetic events
         setTimeout(function () {
             document.addEventListener('mousedown', function outsideClick(e) {
-                if (pickerBusy) { return; }
                 if (activePopover && !activePopover.contains(e.target)) {
                     closePopover();
                     document.removeEventListener('mousedown', outsideClick);
                 }
             });
         }, 50);
-
-        // Focus the color input so the native picker is ready for keyboard
-        setTimeout(function () { colorInp.focus(); }, 30);
     }
 
     // ── Widget factory ────────────────────────────────────────────

@@ -102,26 +102,59 @@
     color: #eceaf6;
 }
 
-/* Make the native color input fill the popover width as a large flat swatch */
-.cm-color-pop-input {
+/* Color preview swatch */
+.cm-color-pop-preview {
     width: 100%;
-    height: 48px;
-    padding: 0;
+    height: 32px;
     border: 1px solid #4d31bf;
-    border-radius: 0;
-    cursor: pointer;
-    appearance: none;
-    -webkit-appearance: none;
-    background: none;
     display: block;
+    box-sizing: border-box;
 }
 
-.cm-color-pop-input::-webkit-color-swatch-wrapper {
+/* HSL slider rows */
+.cm-color-pop-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cm-color-pop-label {
+    color: #a89fcc;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 11px;
+    width: 12px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.cm-color-pop-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 12px;
+    border: 1px solid #4d31bf;
+    outline: none;
+    cursor: pointer;
     padding: 0;
+    margin: 0;
+    border-radius: 0;
+    background: #333;
 }
 
-.cm-color-pop-input::-webkit-color-swatch {
-    border: none;
+.cm-color-pop-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #ffffff;
+    border: 2px solid #0c071c;
+    box-shadow: 0 0 0 1px #7c5ce8;
+    cursor: grab;
+    border-radius: 0;
+}
+
+.cm-color-pop-slider::-webkit-slider-runnable-track {
+    height: 12px;
+    border-radius: 0;
 }
 
 .harmony-tool {
