@@ -39,6 +39,7 @@ window.LiveCSS.wireframe = (function () {
     var guides      = [];    /* { id, axis:'h'|'v', pos } */
     var nextGuideId = 1;
     var guideDrag   = null;  /* { guideId, axis, moved } */
+    var selGuideId  = null;  /* id of the currently selected guide line */
     var rulerH      = null;  /* set in init() */
     var rulerV      = null;
     /*
@@ -359,7 +360,7 @@ window.LiveCSS.wireframe = (function () {
 
         guides.forEach(function (g) {
             var outer = document.createElement('div');
-            outer.className    = 'wf-guide-' + g.axis;
+            outer.className    = 'wf-guide-' + g.axis + (g.id === selGuideId ? ' wf-guide-selected' : '');
             outer.dataset.guideId = g.id;
 
             /* 9px hit area centred on guide position */
@@ -382,6 +383,18 @@ window.LiveCSS.wireframe = (function () {
             outer.addEventListener('mousedown', function (e) {
                 e.stopPropagation();
                 e.preventDefault();
+                selGuideId = g.id;
+                selId = null;
+                /* update selection highlight on all guide divs without full re-render */
+                var allGuides = canvasEl.querySelectorAll('[data-guide-id]');
+                for (var i = 0; i < allGuides.length; i++) {
+                    var gid = parseInt(allGuides[i].dataset.guideId, 10);
+                    if (gid === g.id) {
+                        allGuides[i].classList.add('wf-guide-selected');
+                    } else {
+                        allGuides[i].classList.remove('wf-guide-selected');
+                    }
+                }
                 guideDrag = { guideId: g.id, axis: g.axis, moved: false };
             });
 
@@ -484,6 +497,7 @@ window.LiveCSS.wireframe = (function () {
             e.stopPropagation();
             e.preventDefault();
             selId = el.id;
+            selGuideId = null;
             drag  = {
                 mode: 'move', elId: el.id,
                 sx: e.clientX, sy: e.clientY,
@@ -941,6 +955,7 @@ window.LiveCSS.wireframe = (function () {
         canvasEl.addEventListener('mousedown', function (e) {
             if (e.target === canvasEl) {
                 selId = null;
+                selGuideId = null;
                 render();
             }
         });
@@ -989,7 +1004,7 @@ window.LiveCSS.wireframe = (function () {
            and no text input inside the panel has focus. */
         document.addEventListener('keydown', function (e) {
             if (overlay.classList.contains('hidden')) return;
-            if (!selId) return;
+            if (!selId && !selGuideId) return;
             /* don't steal keys from property panel inputs */
             var tag = document.activeElement && document.activeElement.tagName;
             if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
@@ -999,6 +1014,24 @@ window.LiveCSS.wireframe = (function () {
 
             e.preventDefault();
             var step = e.shiftKey ? 10 : 1;
+
+            /* guide arrow key movement */
+            if (selGuideId) {
+                var g = byGuideId(selGuideId);
+                if (!g) return;
+                if (g.axis === 'h') {
+                    if (code === 38) g.pos = Math.max(0, g.pos - step);          /* Up   */
+                    if (code === 40) g.pos = Math.min(CANVAS_H, g.pos + step);   /* Down */
+                } else {
+                    if (code === 37) g.pos = Math.max(0, g.pos - step);          /* Left  */
+                    if (code === 39) g.pos = Math.min(CANVAS_W, g.pos + step);   /* Right */
+                }
+                saveToStorage();
+                renderGuides();
+                return;
+            }
+
+            /* element arrow key movement */
             var el   = byId(selId);
             if (!el) return;
 

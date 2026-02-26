@@ -175,11 +175,12 @@ window.LiveCSS.sizeSlider = (function () {
     /* ================================================================
        Popover state
        ================================================================ */
-    var activePopover = null;
-    var activeDiamond = null;
-    var popoverOpen   = false;
-    var pendingRescan = null;
-    var pendingCommit = null;
+    var activePopover  = null;
+    var activeDiamond  = null;
+    var popoverOpen    = false;
+    var pendingRescan  = null;
+    var pendingCommit  = null;
+    var activeKeyHandler = null;  /* arrow-key handler set by openSlider */
 
     function closePopover() {
         if (!popoverOpen) return;
@@ -205,15 +206,37 @@ window.LiveCSS.sizeSlider = (function () {
             pendingRescan = null;
             setTimeout(fn, 80);
         }
+
+        activeKeyHandler = null;
     }
 
-    /* Escape = cancel (no commit) */
+    /* Capture-phase keydown: fires before CodeMirror sees anything.
+       Handles Escape (cancel) and arrow keys (step slider) while popover is open. */
     document.addEventListener('keydown', function (e) {
-        if (e.keyCode === 27 && popoverOpen) {
+        if (!popoverOpen) return;
+        var code = e.keyCode;
+        if (code === 27) {
+            e.stopPropagation();
             pendingCommit = null;
             closePopover();
+            return;
         }
-    });
+        if (code >= 37 && code <= 40) {
+            /* If a text input inside the popover has focus, let the event
+               travel to it normally so its own keydown listener handles it.
+               We only intercept for the slider itself (or no-focus state). */
+            var ae = document.activeElement;
+            var inPopoverInput = activePopover && ae &&
+                                 activePopover.contains(ae) &&
+                                 ae !== activePopover &&
+                                 (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
+            if (inPopoverInput) return;
+            /* Nothing focused inside -- apply to slider directly */
+            e.stopPropagation();
+            e.preventDefault();
+            if (activeKeyHandler) activeKeyHandler(code, e.shiftKey);
+        }
+    }, true /* capture */);
 
     /* Click outside = close & commit */
     document.addEventListener('mousedown', function (e) {
@@ -251,11 +274,28 @@ window.LiveCSS.sizeSlider = (function () {
         if (isBare && unitless)  confKey = '';       /* bare on unitless prop → small range */
         var conf  = UNIT_CONF[confKey] || UNIT_CONF['px'];
         var cur   = parseFloat(numStr);
-        var sMin  = conf.min;
-        var sMax  = conf.max;
         var sStep = conf.step;
-        if (cur < sMin) sMin = Math.floor(cur * 2);
-        if (cur > sMax) sMax = Math.ceil(cur * 2);
+
+        /* Narrow the visible range so the slider is not too sensitive.
+           Use a quarter of the full conf span centred on cur.
+           This keeps 4x better precision vs the full range. */
+        var halfSpan = (conf.max - conf.min) / 4;
+        var sMin, sMax;
+        if (cur < conf.min) {
+            sMin = Math.floor(cur - halfSpan);
+            sMax = conf.max;
+        } else if (cur > conf.max) {
+            sMin = conf.min;
+            sMax = Math.ceil(cur + halfSpan);
+        } else {
+            sMin = Math.max(conf.min, cur - halfSpan);
+            sMax = Math.min(conf.max, cur + halfSpan);
+        }
+        /* keep at least 10 steps so the track renders */
+        if (sMax - sMin < sStep * 10) {
+            sMin = cur - sStep * 5;
+            sMax = cur + sStep * 5;
+        }
 
         /* ── DOM ── */
         var pop = document.createElement('div');
@@ -293,7 +333,7 @@ window.LiveCSS.sizeSlider = (function () {
 
         var minLbl = document.createElement('span');
         minLbl.className   = 'cm-size-pop-range';
-        minLbl.textContent = sMin;
+        minLbl.textContent = sStep >= 1 ? Math.round(sMin) : sMin.toFixed(2).replace(/\.?0+$/, '');
 
         var slider = document.createElement('input');
         slider.type      = 'range';
@@ -305,7 +345,7 @@ window.LiveCSS.sizeSlider = (function () {
 
         var maxLbl = document.createElement('span');
         maxLbl.className   = 'cm-size-pop-range';
-        maxLbl.textContent = sMax;
+        maxLbl.textContent = sStep >= 1 ? Math.round(sMax) : sMax.toFixed(2).replace(/\.?0+$/, '');
 
         row.appendChild(minLbl);
         row.appendChild(slider);
@@ -328,6 +368,20 @@ window.LiveCSS.sizeSlider = (function () {
         if (top  + ph > window.innerHeight - 8) top  = window.innerHeight - ph - 8;
         pop.style.left = Math.max(4, left) + 'px';
         pop.style.top  = Math.max(4, top)  + 'px';
+
+        /* defer focus for mouse users; arrow keys work via capture listener regardless */
+        setTimeout(function () { if (popoverOpen) slider.focus(); }, 0);
+
+        /* Register the arrow-key handler for the capture-phase listener */
+        activeKeyHandler = function (code, shifted) {
+            var v = parseFloat(slider.value);
+            var step = shifted ? sStep * 10 : sStep;
+            if (code === 37 || code === 40) v -= step;  /* Left / Down */
+            if (code === 39 || code === 38) v += step;  /* Right / Up  */
+            v = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), v));
+            slider.value = v;
+            apply(v);
+        };
 
         /* ── live preview (CSS editor only) ── */
         var cssOffset = null;
@@ -398,8 +452,28 @@ window.LiveCSS.sizeSlider = (function () {
             if (!isNaN(v)) { slider.value = v; apply(v); }
         });
         valField.addEventListener('keydown', function (e) {
-            if (e.keyCode === 13) closePopover();
-            else if (e.keyCode === 27) { pendingCommit = null; closePopover(); }
+            if (e.keyCode === 13) { closePopover(); return; }
+            if (e.keyCode === 27) { pendingCommit = null; closePopover(); return; }
+            /* Arrow keys act as a spinner; stop them reaching CodeMirror */
+            if (e.keyCode === 38 || e.keyCode === 39) {   /* Up / Right */
+                e.preventDefault();
+                e.stopPropagation();
+                var v = parseFloat(valField.value);
+                if (isNaN(v)) v = cur;
+                v = Math.min(sMax, v + (e.shiftKey ? sStep * 10 : sStep));
+                valField.value = fmt(v);
+                slider.value   = v;
+                apply(v);
+            } else if (e.keyCode === 40 || e.keyCode === 37) {  /* Down / Left */
+                e.preventDefault();
+                e.stopPropagation();
+                var v = parseFloat(valField.value);
+                if (isNaN(v)) v = cur;
+                v = Math.max(sMin, v - (e.shiftKey ? sStep * 10 : sStep));
+                valField.value = fmt(v);
+                slider.value   = v;
+                apply(v);
+            }
         });
 
         closeBtn.addEventListener('mousedown', function (e) {

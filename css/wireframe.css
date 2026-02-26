@@ -273,6 +273,19 @@
     border-left-color: #ff6688;
 }
 
+/* selected guide -- brighter orange-red with glow */
+.wf-guide-h.wf-guide-selected .wf-guide-line {
+    border-top-style: solid;
+    border-top-color: #ff5500;
+    box-shadow: 0 0 5px rgba(255, 85, 0, 0.65);
+}
+
+.wf-guide-v.wf-guide-selected .wf-guide-line {
+    border-left-style: solid;
+    border-left-color: #ff5500;
+    box-shadow: 0 0 5px rgba(255, 85, 0, 0.65);
+}
+
 .wf-guide-label {
     position: absolute;
     font-size: 9px;
