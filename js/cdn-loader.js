@@ -1,5 +1,12 @@
+/*
+ * Crissy's Style Tool
+ * Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
+ * https://xcaliburmoon.net/
+ * MIT License -- see LICENSE file for full text.
+ */
+
 /**
- * cdn-loader.js — Loads CodeMirror, local-first with CDN fallback.
+ * cdn-loader.js -- Loads CodeMirror, local-first with CDN fallback.
  *
  * Tries sources in order:
  *   0. vendor/codemirror/   (local — fastest, works offline)

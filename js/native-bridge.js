@@ -1,5 +1,12 @@
+/*
+ * Crissy's Style Tool
+ * Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
+ * https://xcaliburmoon.net/
+ * MIT License -- see LICENSE file for full text.
+ */
+
 /**
- * native-bridge.js — Dev/test bridge overlay for Live CSS Editor
+ * native-bridge.js -- Dev/test bridge overlay for Live CSS Editor
  *
  * Provides a floating toolbar with:
  *   Browse  — opens a native file dialog (Tauri) or file input (browser)

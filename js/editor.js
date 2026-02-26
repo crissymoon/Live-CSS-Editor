@@ -6,6 +6,12 @@
  * Provides four editors: JS, HTML, CSS, and a live preview iframe.
  * All editors have code folding (Ctrl/Cmd+Q to fold at cursor) and fold gutters.
  */
+/*
+ * Crissy's Style Tool
+ * Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
+ * https://xcaliburmoon.net/
+ * MIT License -- see LICENSE file for full text.
+ */
 window.LiveCSS = window.LiveCSS || {};
 
 window.LiveCSS.editor = (function () {

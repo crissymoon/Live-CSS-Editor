@@ -1,5 +1,11 @@
+/*
+ * Crissy's Style Tool
+ * Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
+ * https://xcaliburmoon.net/
+ * MIT License -- see LICENSE file for full text.
+ */
 /**
- * fuzzy.js — Fuzzy autocomplete dropdown for CSS, JS, and HTML editors
+ * fuzzy.js -- Fuzzy autocomplete dropdown for CSS, JS, and HTML editors
  * Attached to window.LiveCSS.fuzzy
  *
  * CSS editor: property names before ":" and value keywords after ":"

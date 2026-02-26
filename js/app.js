@@ -1,5 +1,11 @@
+/*
+ * Crissy's Style Tool
+ * Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
+ * https://xcaliburmoon.net/
+ * MIT License -- see LICENSE file for full text.
+ */
 /**
- * app.js — Entry point. Boots all modules in dependency order.
+ * app.js -- Entry point. Boots all modules in dependency order.
  *
  * Waits for cdn-loader to resolve CodeMirror before initializing.
  * Reads config from window.LiveCSSData, which is set inline by index.php.

@@ -97,14 +97,121 @@
 }
 
 /* ── Canvas area ───────────────────────────────────────────── */
-.wf-canvas-wrap {
+/* ── Canvas area (grid: ruler corner + rulers + canvas) ─────── */
+.wf-canvas-area {
     flex: 1;
     overflow: auto;
     background: #080512;
-    position: relative;
+    display: grid;
+    grid-template-columns: 20px auto;
+    grid-template-rows: 20px auto;
+    align-content: start;
+    justify-content: start;
+    min-height: 0;
+    min-width: 0;
 }
 
+.wf-ruler-corner {
+    grid-column: 1;
+    grid-row: 1;
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 52;
+    background: #110b28;
+    border-right: 1px solid #2a1a55;
+    border-bottom: 1px solid #2a1a55;
+    width: 20px;
+    height: 20px;
+}
+
+.wf-ruler-h {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: 20px;
+    width: 1200px;
+    background: #110b28;
+    border-bottom: 1px solid #2a1a55;
+    cursor: s-resize;
+    overflow: visible;
+    user-select: none;
+}
+
+.wf-ruler-v {
+    grid-column: 1;
+    grid-row: 2;
+    position: sticky;
+    left: 0;
+    z-index: 50;
+    width: 20px;
+    height: 900px;
+    background: #110b28;
+    border-right: 1px solid #2a1a55;
+    cursor: e-resize;
+    overflow: visible;
+    user-select: none;
+}
+
+/* Ruler ticks */
+.wf-tick {
+    position: absolute;
+}
+
+.wf-tick-h {
+    top: 14px;
+    height: 6px;
+    width: 0;
+    border-left: 1px solid #2a1a55;
+}
+
+.wf-tick-h.wf-tick-major {
+    top: 8px;
+    height: 12px;
+    border-left-color: #4a3470;
+}
+
+.wf-tick-v {
+    left: 14px;
+    width: 6px;
+    height: 0;
+    border-top: 1px solid #2a1a55;
+}
+
+.wf-tick-v.wf-tick-major {
+    left: 8px;
+    width: 12px;
+    border-top-color: #4a3470;
+}
+
+.wf-tick-label {
+    position: absolute;
+    font-size: 8px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    color: #5a4090;
+    white-space: nowrap;
+    pointer-events: none;
+    line-height: 1;
+}
+
+.wf-tick-h .wf-tick-label {
+    left: 2px;
+    top: -8px;
+}
+
+.wf-tick-v .wf-tick-label {
+    top: 2px;
+    left: -16px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+/* Canvas grid cell */
 #wfCanvas {
+    grid-column: 2;
+    grid-row: 2;
     position: relative;
     width: 1200px;
     height: 900px;
@@ -114,6 +221,78 @@
     background-size: 24px 24px;
     flex-shrink: 0;
     user-select: none;
+}
+
+/* Guide lines */
+.wf-guide-h {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 9px;
+    margin: 0;
+    background: transparent;
+    cursor: ns-resize;
+    z-index: 200;
+}
+
+.wf-guide-h .wf-guide-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 4px;
+    height: 0;
+    border-top: 1px dashed #e04468;
+    pointer-events: none;
+}
+
+.wf-guide-h:hover .wf-guide-line {
+    border-top-color: #ff6688;
+}
+
+.wf-guide-v {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 9px;
+    background: transparent;
+    cursor: ew-resize;
+    z-index: 200;
+}
+
+.wf-guide-v .wf-guide-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 0;
+    border-left: 1px dashed #e04468;
+    pointer-events: none;
+}
+
+.wf-guide-v:hover .wf-guide-line {
+    border-left-color: #ff6688;
+}
+
+.wf-guide-label {
+    position: absolute;
+    font-size: 9px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    color: #e04468;
+    background: rgba(12, 4, 24, 0.85);
+    padding: 1px 3px;
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.wf-guide-h .wf-guide-label {
+    left: 4px;
+    top: -1px;
+}
+
+.wf-guide-v .wf-guide-label {
+    top: 4px;
+    left: 6px;
 }
 
 /* ── Wireframe elements ────────────────────────────────────── */

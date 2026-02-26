@@ -4,6 +4,12 @@
  *
  * Call LiveCSS.modalSave.init() after storage and editor are ready.
  */
+/*
+ * Crissy's Style Tool
+ * Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
+ * https://xcaliburmoon.net/
+ * MIT License -- see LICENSE file for full text.
+ */
 window.LiveCSS = window.LiveCSS || {};
 
 window.LiveCSS.modalSave = (function () {

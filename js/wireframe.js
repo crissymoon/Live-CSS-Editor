@@ -1,5 +1,11 @@
+/*
+ * Crissy's Style Tool
+ * Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
+ * https://xcaliburmoon.net/
+ * MIT License -- see LICENSE file for full text.
+ */
 /**
- * wireframe.js — Interactive wireframe / layout prototyping tool
+ * wireframe.js -- Interactive wireframe / layout prototyping tool
  * Attached to window.LiveCSS.wireframe
  *
  * Features:
@@ -23,13 +29,18 @@ window.LiveCSS.wireframe = (function () {
     var CANVAS_H = 900;
 
     /* ── State ─────────────────────────────────────────────── */
-    var elements = [];
-    var nextId   = 1;
-    var selId    = null;
-    var drag     = null;
-    var rafId    = null;
+    var elements    = [];
+    var nextId      = 1;
+    var selId       = null;
+    var drag        = null;
+    var rafId       = null;
 
-    var LS_KEY   = 'livecss_wireframe_v1';
+    var LS_KEY      = 'livecss_wireframe_v1';
+    var guides      = [];    /* { id, axis:'h'|'v', pos } */
+    var nextGuideId = 1;
+    var guideDrag   = null;  /* { guideId, axis, moved } */
+    var rulerH      = null;  /* set in init() */
+    var rulerV      = null;
     /*
      * drag shape:
      * { mode:'move'|'resize', elId, handle(resize only),
@@ -53,6 +64,7 @@ window.LiveCSS.wireframe = (function () {
             bgColor:     '#1a0f3d',
             borderColor: '#4d31bf',
             borderWidth: 1,
+            borderRadius: 0,
             mt: 8, mr: 8, mb: 8, ml: 8,
             pt: 8, pr: 8, pb: 8, pl: 8
         };
@@ -62,6 +74,13 @@ window.LiveCSS.wireframe = (function () {
     function byId(id) {
         for (var i = 0; i < elements.length; i++) {
             if (elements[i].id === id) return elements[i];
+        }
+        return null;
+    }
+
+    function byGuideId(id) {
+        for (var i = 0; i < guides.length; i++) {
+            if (guides[i].id === id) return guides[i];
         }
         return null;
     }
@@ -149,9 +168,11 @@ window.LiveCSS.wireframe = (function () {
     function saveToStorage() {
         try {
             localStorage.setItem(LS_KEY, JSON.stringify({
-                version: 1,
-                nextId:  nextId,
-                elements: elements
+                version:     1,
+                nextId:      nextId,
+                nextGuideId: nextGuideId,
+                elements:    elements,
+                guides:      guides
             }));
         } catch (e) {}
     }
@@ -162,17 +183,21 @@ window.LiveCSS.wireframe = (function () {
             if (!raw) return;
             var data = JSON.parse(raw);
             if (!data || !Array.isArray(data.elements)) return;
-            elements = data.elements;
-            nextId   = data.nextId || (elements.length + 1);
+            elements    = data.elements;
+            nextId      = data.nextId || (elements.length + 1);
+            guides      = Array.isArray(data.guides) ? data.guides : [];
+            nextGuideId = data.nextGuideId || (guides.length + 1);
         } catch (e) {}
     }
 
     /* ── JSON export ─────────────────────────────────────────── */
     function saveJSON() {
         var payload = JSON.stringify({
-            version:  1,
-            nextId:   nextId,
-            elements: elements
+            version:     1,
+            nextId:      nextId,
+            nextGuideId: nextGuideId,
+            elements:    elements,
+            guides:      guides
         }, null, 2);
         var blob = new Blob([payload], { type: 'application/json' });
         var url  = URL.createObjectURL(blob);
@@ -193,9 +218,11 @@ window.LiveCSS.wireframe = (function () {
                     alert('Invalid wireframe JSON file.');
                     return;
                 }
-                elements = data.elements;
-                nextId   = data.nextId || (elements.length + 1);
-                selId    = null;
+                elements    = data.elements;
+                nextId      = data.nextId || (elements.length + 1);
+                guides      = Array.isArray(data.guides) ? data.guides : [];
+                nextGuideId = data.nextGuideId || (guides.length + 1);
+                selId       = null;
                 saveToStorage();
                 render();
             } catch (ex) {
@@ -230,6 +257,9 @@ window.LiveCSS.wireframe = (function () {
             lines.push(pfx + '    padding: ' + el.pt + 'px ' + el.pr + 'px ' + el.pb + 'px ' + el.pl + 'px;');
             lines.push(pfx + '    background: ' + el.bgColor + ';');
             lines.push(pfx + '    border: ' + el.borderWidth + 'px solid ' + el.borderColor + ';');
+            if (el.borderRadius) {
+                lines.push(pfx + '    border-radius: ' + el.borderRadius + 'px;');
+            }
             lines.push(pfx + '}');
 
             var kids = childrenOf(el.id);
@@ -241,6 +271,16 @@ window.LiveCSS.wireframe = (function () {
             describe(el, '');
             lines.push('');
         });
+
+        if (guides.length) {
+            lines.push('/* Guides:');
+            guides.forEach(function (g) {
+                lines.push('   ' + (g.axis === 'h' ? 'horizontal' : 'vertical') +
+                           ' guide at ' + g.pos + 'px');
+            });
+            lines.push(' */');
+            lines.push('');
+        }
 
         /* Append raw JSON payload as a comment block */
         lines.push('/* --- Raw wireframe JSON ---');
@@ -273,12 +313,74 @@ window.LiveCSS.wireframe = (function () {
     }
 
     /* ── Rendering ───────────────────────────────────────────── */
+    function renderGuides() {
+        /* remove existing guide divs */
+        var old = canvasEl.querySelectorAll('.wf-guide-h, .wf-guide-v');
+        for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+
+        guides.forEach(function (g) {
+            var outer = document.createElement('div');
+            outer.className    = 'wf-guide-' + g.axis;
+            outer.dataset.guideId = g.id;
+
+            /* 9px hit area centred on guide position */
+            if (g.axis === 'h') {
+                outer.style.top = (g.pos - 4) + 'px';
+            } else {
+                outer.style.left = (g.pos - 4) + 'px';
+            }
+
+            var line = document.createElement('div');
+            line.className = 'wf-guide-line';
+
+            var lbl = document.createElement('span');
+            lbl.className   = 'wf-guide-label';
+            lbl.textContent = g.pos + 'px';
+
+            outer.appendChild(line);
+            outer.appendChild(lbl);
+
+            outer.addEventListener('mousedown', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+                guideDrag = { guideId: g.id, axis: g.axis, moved: false };
+            });
+
+            canvasEl.appendChild(outer);
+        });
+    }
+
+    function renderRulers() {
+        if (!rulerH || !rulerV) return;
+
+        var hHtml = '';
+        for (var x = 0; x <= CANVAS_W; x += 25) {
+            var major = (x % 100 === 0);
+            hHtml += '<div class="wf-tick wf-tick-h' + (major ? ' wf-tick-major' : '') +
+                     '" style="left:' + x + 'px">' +
+                     (major ? '<span class="wf-tick-label">' + x + '</span>' : '') +
+                     '</div>';
+        }
+        rulerH.innerHTML = hHtml;
+
+        var vHtml = '';
+        for (var y = 0; y <= CANVAS_H; y += 25) {
+            var majorY = (y % 100 === 0);
+            vHtml += '<div class="wf-tick wf-tick-v' + (majorY ? ' wf-tick-major' : '') +
+                     '" style="top:' + y + 'px">' +
+                     (majorY ? '<span class="wf-tick-label">' + y + '</span>' : '') +
+                     '</div>';
+        }
+        rulerV.innerHTML = vHtml;
+    }
+
     function render() {
         saveToStorage();
         canvasEl.innerHTML = '';
 
         var roots = elements.filter(function (e) { return !e.parentId; });
         roots.forEach(function (el) { renderEl(el, canvasEl); });
+        renderGuides();
         renderProps();
     }
 
@@ -292,11 +394,13 @@ window.LiveCSS.wireframe = (function () {
         div.style.height      = el.h + 'px';
         div.style.background  = el.bgColor;
         div.style.borderColor = el.borderColor;
-        div.style.borderWidth = el.borderWidth + 'px';
-        div.style.borderStyle = 'solid';
-        div.style.boxSizing   = 'border-box';
+        div.style.borderWidth  = el.borderWidth + 'px';
+        div.style.borderStyle  = 'solid';
+        div.style.boxSizing    = 'border-box';
+        div.style.borderRadius = (el.borderRadius || 0) + 'px';
 
-        /* margin indicator */
+        /* margin indicator — always square, no border-radius */
+
         if (el.mt || el.mr || el.mb || el.ml) {
             var mb = document.createElement('div');
             mb.className = 'wf-margin-box';
@@ -456,6 +560,10 @@ window.LiveCSS.wireframe = (function () {
                 '<label>Border W</label>' +
                 '<input class="wf-pi" type="number" id="wfpBW" min="0" max="20" value="' + el.borderWidth + '">' +
               '</div>' +
+              '<div class="wf-props-row">' +
+                '<label>Radius</label>' +
+                '<input class="wf-pi" type="number" id="wfpBR" min="0" max="500" value="' + (el.borderRadius || 0) + '">' +
+              '</div>' +
             '</div>' +
 
             /* delete */
@@ -493,7 +601,8 @@ window.LiveCSS.wireframe = (function () {
             if (hex) hex.textContent = v;
             renderCanvas();
         });
-        bindNum('wfpBW', function (v) { el.borderWidth = Math.max(0, v); renderCanvas(); });
+        bindNum('wfpBW', function (v) { el.borderWidth  = Math.max(0, v); renderCanvas(); });
+        bindNum('wfpBR', function (v) { el.borderRadius = Math.max(0, v); renderCanvas(); });
 
         var parentSel = document.getElementById('wfpParent');
         if (parentSel) {
@@ -514,6 +623,7 @@ window.LiveCSS.wireframe = (function () {
         canvasEl.innerHTML = '';
         var roots = elements.filter(function (e) { return !e.parentId; });
         roots.forEach(function (el) { renderEl(el, canvasEl); });
+        renderGuides();
     }
 
     /* Update only the x/y/w/h prop inputs without full props re-render */
@@ -542,8 +652,32 @@ window.LiveCSS.wireframe = (function () {
     }
 
     /* ── Mouse handling ──────────────────────────────────────── */
-    function onMousemove(e) {
-        if (!drag) return;
+    function onMousemove(e) {        /* ── Guide dragging ── */
+        if (guideDrag) {
+            var g = byGuideId(guideDrag.guideId);
+            if (!g) { guideDrag = null; return; }
+            var rect = canvasEl.getBoundingClientRect();
+            var pos;
+            if (g.axis === 'h') {
+                pos = Math.round(e.clientY - rect.top);
+                pos = Math.max(0, Math.min(pos, CANVAS_H));
+            } else {
+                pos = Math.round(e.clientX - rect.left);
+                pos = Math.max(0, Math.min(pos, CANVAS_W));
+            }
+            g.pos = pos;
+            guideDrag.moved = true;
+            var gDiv = canvasEl.querySelector('[data-guide-id="' + g.id + '"]');
+            if (gDiv) {
+                if (g.axis === 'h') gDiv.style.top  = (pos - 4) + 'px';
+                else                gDiv.style.left = (pos - 4) + 'px';
+                var lbl = gDiv.querySelector('.wf-guide-label');
+                if (lbl) lbl.textContent = pos + 'px';
+            }
+            return;
+        }
+
+        /* ── Element drag / resize ── */        if (!drag) return;
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(function () {
             rafId = null;
@@ -610,6 +744,16 @@ window.LiveCSS.wireframe = (function () {
     }
 
     function onMouseup() {
+        if (guideDrag) {
+            var moved = guideDrag.moved;
+            guideDrag = null;
+            if (moved) {
+                /* only rebuild DOM if the guide actually moved */
+                saveToStorage();
+                renderGuides();
+            }
+            return;
+        }
         if (!drag) return;
         drag = null;
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
@@ -638,6 +782,8 @@ window.LiveCSS.wireframe = (function () {
         overlay   = document.getElementById('wireframeOverlay');
         canvasEl  = document.getElementById('wfCanvas');
         propsEl   = document.getElementById('wfProps');
+        rulerH    = document.getElementById('wfRulerH');
+        rulerV    = document.getElementById('wfRulerV');
 
         var openBtn    = document.getElementById('wireframeBtn');
         var closeBtn   = document.getElementById('wfCloseBtn');
@@ -655,8 +801,35 @@ window.LiveCSS.wireframe = (function () {
 
         openBtn.addEventListener('click', function () {
             overlay.classList.remove('hidden');
+            renderRulers();
             render();
         });
+
+        /* Drag from top ruler → create horizontal guide */
+        if (rulerH) {
+            rulerH.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                var rect = canvasEl.getBoundingClientRect();
+                var pos  = Math.max(0, Math.min(Math.round(e.clientY - rect.top), CANVAS_H));
+                var g    = { id: 'g_' + (nextGuideId++), axis: 'h', pos: pos };
+                guides.push(g);
+                guideDrag = { guideId: g.id, axis: 'h' };
+                renderGuides();
+            });
+        }
+
+        /* Drag from left ruler → create vertical guide */
+        if (rulerV) {
+            rulerV.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                var rect = canvasEl.getBoundingClientRect();
+                var pos  = Math.max(0, Math.min(Math.round(e.clientX - rect.left), CANVAS_W));
+                var g    = { id: 'g_' + (nextGuideId++), axis: 'v', pos: pos };
+                guides.push(g);
+                guideDrag = { guideId: g.id, axis: 'v' };
+                renderGuides();
+            });
+        }
 
         closeBtn.addEventListener('click', function () {
             overlay.classList.add('hidden');
@@ -749,6 +922,51 @@ window.LiveCSS.wireframe = (function () {
 
         document.addEventListener('mousemove', onMousemove);
         document.addEventListener('mouseup',   onMouseup);
+
+        /* Delegated dblclick on canvas — delete whichever guide was double-clicked.
+           Must be on the canvas (not individual guide elements) because renderGuides()
+           rebuilds guide DOM between click 1 and click 2, breaking per-element dblclick. */
+        canvasEl.addEventListener('dblclick', function (e) {
+            var guideEl = e.target.closest
+                ? e.target.closest('.wf-guide-h, .wf-guide-v')
+                : null;
+            if (!guideEl) return;
+            var gid = guideEl.dataset.guideId;
+            if (!gid) return;
+            e.stopPropagation();
+            guides = guides.filter(function (x) { return x.id !== gid; });
+            saveToStorage();
+            renderGuides();
+        });
+
+        /* Arrow key movement for the selected element.
+           1px per press; hold Shift for 10px nudge.
+           Only active when the overlay is visible and an element is selected,
+           and no text input inside the panel has focus. */
+        document.addEventListener('keydown', function (e) {
+            if (overlay.classList.contains('hidden')) return;
+            if (!selId) return;
+            /* don't steal keys from property panel inputs */
+            var tag = document.activeElement && document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+            var code = e.keyCode;
+            if (code < 37 || code > 40) return;   /* not an arrow key */
+
+            e.preventDefault();
+            var step = e.shiftKey ? 10 : 1;
+            var el   = byId(selId);
+            if (!el) return;
+
+            var nx = el.x, ny = el.y;
+            if (code === 37) nx -= step;   /* Left  */
+            if (code === 39) nx += step;   /* Right */
+            if (code === 38) ny -= step;   /* Up    */
+            if (code === 40) ny += step;   /* Down  */
+
+            tryApply(el, nx, ny, el.w, el.h);
+            render();
+        });
     }
 
     return { init: init };
