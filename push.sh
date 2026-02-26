@@ -2,7 +2,6 @@
 set -e
 
 REPO_URL="https://github.com/crissymoon/Live-CSS-Editor.git"
-BRANCH="main"
 
 # Ensure we are in the project directory
 cd "$(dirname "$0")"
@@ -72,7 +71,8 @@ else
     git commit -m "Update Live CSS Editor"
 fi
 
-# Push
+# Push using the current branch name
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 git push -u origin "$BRANCH"
 
 echo "Pushed to $REPO_URL ($BRANCH)."
