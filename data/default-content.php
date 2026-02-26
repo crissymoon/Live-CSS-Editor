@@ -52,4 +52,14 @@ p {
   color: #1b1825;
 }';
 
-$defaultJs = '// JavaScript runs in the live preview\ndocument.addEventListener("DOMContentLoaded", function () {\n  var btn = document.querySelector(".btn");\n  if (btn) {\n    btn.addEventListener("click", function () {\n      alert("Button clicked!");\n    });\n  }\n});';
+$defaultJs = <<<'JSEOF'
+// JavaScript runs in the live preview
+document.addEventListener("DOMContentLoaded", function () {
+  var btn = document.querySelector(".btn");
+  if (btn) {
+    btn.addEventListener("click", function () {
+      alert("Button clicked!");
+    });
+  }
+});
+JSEOF;

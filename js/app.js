@@ -16,8 +16,10 @@
         // 2. Header property-reference dropdown
         LiveCSS.propertyLookup.init(data.propertyValues);
 
-        // 3. Fuzzy autocomplete in the CSS editor
+        // 3. Fuzzy autocomplete — CSS, JS, and HTML editors
         LiveCSS.fuzzy.init(data.allCssProperties);
+        LiveCSS.fuzzy.initJs();
+        LiveCSS.fuzzy.initHtml();
 
         // 4. Save modal
         LiveCSS.modalSave.init();

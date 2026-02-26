@@ -53,6 +53,9 @@ window.LiveCSS.gutter = (function () {
         overlay.style.cursor = cur || 'default';
         document.body.classList.add('is-dragging');
         document.body.style.cursor = cur || 'default';
+        // Prevent the preview iframe from swallowing mouse events during drag/resize
+        var iframe = document.getElementById('previewFrame');
+        if (iframe) { iframe.style.pointerEvents = 'none'; }
     }
 
     function hideOverlay() {
@@ -60,6 +63,8 @@ window.LiveCSS.gutter = (function () {
         overlay.style.cursor = '';
         document.body.classList.remove('is-dragging', 'is-resizing');
         document.body.style.cursor = '';
+        var iframe = document.getElementById('previewFrame');
+        if (iframe) { iframe.style.pointerEvents = ''; }
     }
 
     // ── Default layout — four equal columns ──────────────────────
@@ -192,11 +197,13 @@ window.LiveCSS.gutter = (function () {
             }
         }
         if (dir.indexOf('n') !== -1) {
-            var proposedH = resize.origH - dy;
-            if (proposedH >= MIN_H) {
-                newTop = resize.origTop + dy;
-                newH   = proposedH;
-            }
+            // Bottom edge stays fixed; clamp top to 0 (never under the toolbar)
+            var rawTop  = resize.origTop + dy;
+            var bottom  = resize.origTop + resize.origH;
+            var clampedTop = Math.max(0, rawTop);
+            var clampedH   = Math.max(MIN_H, bottom - clampedTop);
+            newTop = clampedTop;
+            newH   = clampedH;
         }
 
         resize.panel.style.left   = newLeft + 'px';
