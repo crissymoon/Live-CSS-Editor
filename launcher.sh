@@ -50,15 +50,12 @@ die() {
 # ── Banner ───────────────────────────────────────────────────
 clear
 printf "${C_PURPLE}${BOLD}"
-cat << 'BANNER'
-  _     _              ___  ___  ___  ___  _ _ _
- | |   (_)_  _____    / __\/ __\/ __|/ _ \| | | |
- | |__ | \ \/ / -_)  | (__ \__ \\_  | |_| |_|_|_|
- |____||_|_\_\\___|  \___||___/____|____/
-                            E  D  I  T  O  R
-BANNER
+if [[ -f "$SCRIPT_DIR/xcm-moon-ascii.txt" ]]; then
+    cat "$SCRIPT_DIR/xcm-moon-ascii.txt"
+fi
 printf "${R}"
-printf "${C_DARK}                       Native App Launcher${R}\n"
+printf "${C_VIOLET}${BOLD}                       Live CSS Editor${R}\n"
+printf "${C_GREY}                       Native App Launcher${R}\n"
 line
 printf "  ${C_GREY}Project:${R}  %s\n" "$SCRIPT_DIR"
 printf "  ${C_GREY}Date   :${R}  %s\n" "$(date '+%Y-%m-%d %H:%M:%S')"
