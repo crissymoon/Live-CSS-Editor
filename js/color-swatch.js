@@ -168,6 +168,7 @@ window.LiveCSS.colorSwatch = (function () {
         var rect = diamond.getBoundingClientRect();
         var hsl  = hexToHsl(hexVal);
         var H = hsl.h, S = hsl.s, L = hsl.l;
+        var origHex = hexVal;   // the hex in the editor text right now
 
         var pop = document.createElement('div');
         pop.className = 'cm-color-popover';
@@ -259,13 +260,34 @@ window.LiveCSS.colorSwatch = (function () {
                 'hsl(' + H + ',' + S + '%,100%))';
         }
 
+        // -- Live-update the preview iframe without touching the editor.
+        // We find the <style> inside the iframe and swap origHex → newHex.
+        var currentHex = origHex; // tracks what's currently shown in iframe
+
+        function livePreview(newHex) {
+            try {
+                var frame = document.getElementById('previewFrame');
+                if (!frame) { return; }
+                var fdoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+                if (!fdoc) { return; }
+                var styleEl = fdoc.querySelector('style');
+                if (!styleEl) { return; }
+                // Replace the color currently in the iframe CSS with the new one
+                var css = styleEl.textContent;
+                var re  = new RegExp(currentHex.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                styleEl.textContent = css.replace(re, newHex);
+                currentHex = newHex;
+            } catch (e) { /* cross-origin or missing iframe — ignore */ }
+        }
+
         function applyColor() {
             var hex = hslToHex(H, S, L);
             hexField.value           = hex;
             preview.style.background = hex;
             diamond.style.background = hex;
             updateSliderBgs();
-            // Stage for commit on close — don't touch the editor yet
+            livePreview(hex);
+            // Stage for commit on close
             pendingCommit = { hex: hex, mark: mark, cm: cm };
         }
 
@@ -285,6 +307,7 @@ window.LiveCSS.colorSwatch = (function () {
                 preview.style.background = v;
                 diamond.style.background = v;
                 updateSliderBgs();
+                livePreview(v);
                 pendingCommit = { hex: v, mark: mark, cm: cm };
             }
         });
