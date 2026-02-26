@@ -65,7 +65,7 @@
         LiveCSS.propertyLookup.init(data.propertyValues);
 
         // 4. Fuzzy autocomplete — CSS, JS, and HTML editors
-        LiveCSS.fuzzy.init(data.allCssProperties);
+        LiveCSS.fuzzy.init(data.allCssProperties, data.propertyValues);
         LiveCSS.fuzzy.initJs();
         LiveCSS.fuzzy.initHtml();
 

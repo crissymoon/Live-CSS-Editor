@@ -3,7 +3,7 @@
  * Attached to window.LiveCSS.sizeSlider
  *
  * Scans each editor for lines that contain a known CSS sizing property,
- * then marks every numeric+unit token on that line with a diamond widget.
+ * then marks every numeric value (with or without unit) with a diamond widget.
  * Clicking the diamond opens a slider popover for live adjustment.
  *
  * Call LiveCSS.sizeSlider.init() after editor.init().
@@ -14,9 +14,9 @@ window.LiveCSS.sizeSlider = (function () {
     'use strict';
 
     /* ================================================================
-       CSS properties that accept length / size values
+       CSS properties that accept length / size / numeric values
        ================================================================ */
-    var SIZE_PROPS_KEBAB = [
+    var SIZE_PROPS = [
         /* box-model */
         'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height',
         'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
@@ -33,7 +33,8 @@ window.LiveCSS.sizeSlider = (function () {
         'block-size', 'inline-size', 'min-block-size', 'min-inline-size',
         'max-block-size', 'max-inline-size',
         /* flex / grid */
-        'gap', 'row-gap', 'column-gap', 'flex-basis',
+        'flex', 'flex-basis', 'flex-grow', 'flex-shrink',
+        'gap', 'row-gap', 'column-gap',
         'grid-template-columns', 'grid-template-rows',
         'grid-auto-columns', 'grid-auto-rows',
         'grid-gap', 'grid-column-gap', 'grid-row-gap',
@@ -57,40 +58,50 @@ window.LiveCSS.sizeSlider = (function () {
         'box-shadow', 'text-shadow',
         /* columns */
         'column-width', 'column-rule-width',
+        /* transition / animation */
+        'transition', 'transition-duration', 'transition-delay',
+        'animation', 'animation-duration', 'animation-delay',
         /* scroll */
         'scroll-margin', 'scroll-margin-top', 'scroll-margin-right',
         'scroll-margin-bottom', 'scroll-margin-left',
         'scroll-padding', 'scroll-padding-top', 'scroll-padding-right',
         'scroll-padding-bottom', 'scroll-padding-left',
         /* transform */
-        'perspective', 'translate',
+        'perspective', 'translate', 'rotate',
+        /* box-sizing (for inline declarations like `margin: 0; padding: 0;`) */
+        'box-sizing',
         /* other */
+        'z-index', 'order', 'opacity',
         'tab-size', 'shape-margin', 'object-position',
         'stroke-width', 'stroke-dashoffset', 'stroke-dasharray'
     ];
 
+    /* Properties where bare numbers should stay unitless on output */
+    var UNITLESS_PROPS_RE = /\b(flex|flex-grow|flex-shrink|line-height|z-index|order|opacity|font-weight|orphans|widows)\b/i;
+
     /* Build combined list: kebab-case + camelCase for JS support */
-    var ALL_TERMS = SIZE_PROPS_KEBAB.slice();
+    var ALL_TERMS = SIZE_PROPS.slice();
     (function () {
-        for (var i = 0; i < SIZE_PROPS_KEBAB.length; i++) {
-            var camel = SIZE_PROPS_KEBAB[i].replace(/-([a-z])/g, function (_, c) {
+        for (var i = 0; i < SIZE_PROPS.length; i++) {
+            var camel = SIZE_PROPS[i].replace(/-([a-z])/g, function (_, c) {
                 return c.toUpperCase();
             });
-            if (camel !== SIZE_PROPS_KEBAB[i]) ALL_TERMS.push(camel);
+            if (camel !== SIZE_PROPS[i]) ALL_TERMS.push(camel);
         }
     })();
 
-    /* Single regex: does the line mention any sizing property? */
+    /* Does the line mention any sizing property? */
     var PROP_RE = new RegExp('(?:' + ALL_TERMS.join('|') + ')', 'i');
 
-    /* Size-value regex ——
-       Group 1 = boundary char (space, colon, comma, paren, slash, start)
-       Group 2 = optional sign + number
-       Group 3 = unit
-       No lookbehinds — works everywhere.                                    */
-    var SIZE_RE = /(^|[\s:;,\(\/-])(-?\d+(?:\.\d+)?)(px|em|rem|%|vw|vh|vmin|vmax|ch|ex|cm|mm|in|pt|pc|fr|dvh|dvw|svh|svw)\b/g;
+    /* ── Regexes ────────────────────────────────────────────────── */
 
-    /* Slider config per unit */
+    /* Values WITH a CSS unit. (?!\w) instead of \b so % works. */
+    var UNIT_RE = /(^|[\s:;,\(\/-])(-?\d+(?:\.\d+)?)(px|em|rem|%|vw|vh|vmin|vmax|ch|ex|cm|mm|in|pt|pc|fr|dvh|dvw|svh|svw|deg|turn|ms|s)(?!\w)/g;
+
+    /* Bare numbers with NO unit — followed by value terminators */
+    var BARE_RE = /(^|[\s:;,\(\/-])(-?\d+(?:\.\d+)?)(?=[\s;,\)}\]\/]|$)/g;
+
+    /* ── Slider config per unit ─────────────────────────────────── */
     var UNIT_CONF = {
         'px':   { min: -200, max: 1000, step: 1 },
         'em':   { min: -10,  max: 30,   step: 0.05 },
@@ -111,8 +122,49 @@ window.LiveCSS.sizeSlider = (function () {
         'dvh':  { min: 0,    max: 100,  step: 1 },
         'dvw':  { min: 0,    max: 100,  step: 1 },
         'svh':  { min: 0,    max: 100,  step: 1 },
-        'svw':  { min: 0,    max: 100,  step: 1 }
+        'svw':  { min: 0,    max: 100,  step: 1 },
+        'deg':  { min: 0,    max: 360,  step: 1 },
+        'turn': { min: 0,    max: 1,    step: 0.01 },
+        's':    { min: 0,    max: 10,   step: 0.01 },
+        'ms':   { min: 0,    max: 5000, step: 10 },
+        /* bare-number defaults */
+        '':     { min: -100, max: 100,  step: 1 },
+        '_px':  { min: -200, max: 1000, step: 1 }
     };
+
+    /* ================================================================
+       Helpers
+       ================================================================ */
+
+    /* Is a character index inside (unmatched) parentheses? */
+    function insideParens(text, idx) {
+        var depth = 0;
+        for (var i = 0; i < idx; i++) {
+            if (text.charCodeAt(i) === 40) depth++;       /* ( */
+            else if (text.charCodeAt(i) === 41) depth--;  /* ) */
+        }
+        return depth > 0;
+    }
+
+    /* Does this line (or its owning property) take unitless numbers? */
+    function isUnitlessPropLine(cm, lineNo, text) {
+        if (UNITLESS_PROPS_RE.test(text)) return true;
+        /* also check backwards if property is on a prior line */
+        for (var i = lineNo - 1; i >= Math.max(0, lineNo - 12); i--) {
+            var prev = cm.getLine(i);
+            if (!prev) continue;
+            if (/[;{}]/.test(prev)) {
+                var tail = prev.slice(Math.max(
+                    prev.lastIndexOf(';'),
+                    prev.lastIndexOf('{'),
+                    prev.lastIndexOf('}')
+                ) + 1);
+                return UNITLESS_PROPS_RE.test(tail);
+            }
+            if (UNITLESS_PROPS_RE.test(prev)) return true;
+        }
+        return false;
+    }
 
     /* ================================================================
        Popover state
@@ -133,7 +185,6 @@ window.LiveCSS.sizeSlider = (function () {
         activeDiamond = null;
         popoverOpen   = false;
 
-        /* commit the value that was being dragged */
         if (pendingCommit) {
             var pc = pendingCommit;
             pendingCommit = null;
@@ -143,7 +194,6 @@ window.LiveCSS.sizeSlider = (function () {
             } catch (e) { /* mark may have been cleared */ }
         }
 
-        /* deferred rescan */
         if (pendingRescan) {
             var fn = pendingRescan;
             pendingRescan = null;
@@ -163,7 +213,6 @@ window.LiveCSS.sizeSlider = (function () {
     document.addEventListener('mousedown', function (e) {
         if (!popoverOpen || !activePopover) return;
         if (activePopover.contains(e.target)) return;
-        /* allow clicking another diamond without double-close */
         var t = e.target;
         while (t) {
             if (t.classList && t.classList.contains('cm-size-diamond')) return;
@@ -175,11 +224,26 @@ window.LiveCSS.sizeSlider = (function () {
     /* ================================================================
        Slider popover
        ================================================================ */
-    function openSlider(diamond, numStr, unit, mark, cm) {
+
+    /**
+     * @param {Element}  diamond
+     * @param {string}   numStr    — original numeric text
+     * @param {string}   unit      — original unit string ('' for bare numbers)
+     * @param {boolean}  isBare    — true when the number had no unit
+     * @param {boolean}  unitless  — true when the property is unitless (flex, z-index, etc.)
+     * @param {object}   mark      — CodeMirror TextMarker
+     * @param {object}   cm        — CodeMirror editor
+     */
+    function openSlider(diamond, numStr, unit, isBare, unitless, mark, cm) {
         closePopover();
 
-        var rect  = diamond.getBoundingClientRect();
-        var conf  = UNIT_CONF[unit] || { min: 0, max: 500, step: 1 };
+        var rect = diamond.getBoundingClientRect();
+
+        /* Choose slider config */
+        var confKey = unit;
+        if (isBare && !unitless) confKey = '_px';   /* bare on length prop → px range */
+        if (isBare && unitless)  confKey = '';       /* bare on unitless prop → small range */
+        var conf  = UNIT_CONF[confKey] || UNIT_CONF['px'];
         var cur   = parseFloat(numStr);
         var sMin  = conf.min;
         var sMax  = conf.max;
@@ -191,7 +255,6 @@ window.LiveCSS.sizeSlider = (function () {
         var pop = document.createElement('div');
         pop.className = 'cm-size-popover';
 
-        /* head: value + unit + close */
         var head = document.createElement('div');
         head.className = 'cm-size-pop-head';
 
@@ -201,9 +264,14 @@ window.LiveCSS.sizeSlider = (function () {
         valField.value      = numStr;
         valField.spellcheck = false;
 
+        /* Show the effective unit label */
+        var displayUnit = unit;
+        if (isBare && !unitless) displayUnit = 'px';
+        if (isBare && unitless)  displayUnit = '';
+
         var unitLbl = document.createElement('span');
         unitLbl.className   = 'cm-size-pop-unit';
-        unitLbl.textContent = unit;
+        unitLbl.textContent = displayUnit;
 
         var closeBtn = document.createElement('button');
         closeBtn.className   = 'cm-size-pop-close';
@@ -214,7 +282,6 @@ window.LiveCSS.sizeSlider = (function () {
         head.appendChild(unitLbl);
         head.appendChild(closeBtn);
 
-        /* slider row */
         var row = document.createElement('div');
         row.className = 'cm-size-pop-row';
 
@@ -294,19 +361,32 @@ window.LiveCSS.sizeSlider = (function () {
             return s || '0';
         }
 
+        /**
+         * Build the output string for committing:
+         * - Has unit:   "14px", "1.5em", "100%"
+         * - Bare + length prop:  "0" when zero, "10px" when nonzero
+         * - Bare + unitless:     always bare number "2", "0", "0.5"
+         */
+        function buildOutput(v) {
+            var num = fmt(v);
+            if (!isBare) return num + unit;               /* normal unit value */
+            if (unitless) return num;                      /* flex, z-index, etc. */
+            /* bare number on a length property */
+            if (parseFloat(num) === 0) return '0';         /* 0 stays bare */
+            return num + 'px';                             /* nonzero gets px */
+        }
+
         function apply(v) {
-            var text = fmt(v) + unit;
+            var text = buildOutput(v);
             valField.value = fmt(v);
             livePreview(text);
             pendingCommit = { newVal: text, mark: mark, cm: cm };
         }
 
-        /* slider drag */
         slider.addEventListener('input', function () {
             apply(parseFloat(slider.value));
         });
 
-        /* manual number entry */
         valField.addEventListener('input', function () {
             var v = parseFloat(valField.value);
             if (!isNaN(v)) { slider.value = v; apply(v); }
@@ -323,9 +403,9 @@ window.LiveCSS.sizeSlider = (function () {
     }
 
     /* ================================================================
-       Widget factory — build the diamond + original text span
+       Widget factory — diamond + original text span
        ================================================================ */
-    function createWidget(fullMatch, numStr, unit, cm) {
+    function createWidget(displayText, numStr, unit, isBare, unitless, cm) {
         var wrap = document.createElement('span');
         wrap.className = 'cm-size-wrap';
 
@@ -339,7 +419,7 @@ window.LiveCSS.sizeSlider = (function () {
 
         var txt = document.createElement('span');
         txt.className   = 'cm-size-text';
-        txt.textContent = fullMatch;
+        txt.textContent = displayText;
 
         wrap.appendChild(diamond);
         wrap.appendChild(txt);
@@ -348,7 +428,7 @@ window.LiveCSS.sizeSlider = (function () {
             e.preventDefault();
             e.stopPropagation();
             if (activeDiamond === diamond) { closePopover(); return; }
-            openSlider(diamond, numStr, unit, wrap._cmMark, cm);
+            openSlider(diamond, numStr, unit, isBare, unitless, wrap._cmMark, cm);
         });
 
         return wrap;
@@ -357,6 +437,27 @@ window.LiveCSS.sizeSlider = (function () {
     /* ================================================================
        Per-editor scanner
        ================================================================ */
+
+    /** Does this line belong to a sizing-property declaration?
+        Handles multi-line values by looking backwards. */
+    function isSizeLine(cm, lineNo, text) {
+        if (PROP_RE.test(text)) return true;
+        for (var i = lineNo - 1; i >= Math.max(0, lineNo - 12); i--) {
+            var prev = cm.getLine(i);
+            if (!prev) continue;
+            if (/[;{}]/.test(prev)) {
+                var tail = prev.slice(Math.max(
+                    prev.lastIndexOf(';'),
+                    prev.lastIndexOf('{'),
+                    prev.lastIndexOf('}')
+                ) + 1);
+                return PROP_RE.test(tail);
+            }
+            if (PROP_RE.test(prev)) return true;
+        }
+        return false;
+    }
+
     function attachSizeSliders(cm) {
         var marks = [];
 
@@ -365,6 +466,18 @@ window.LiveCSS.sizeSlider = (function () {
                 try { marks[i].clear(); } catch (e) { /* */ }
             }
             marks = [];
+        }
+
+        function addMark(displayText, numStr, unit, isBare, unitless, fromPos, toPos) {
+            var w  = createWidget(displayText, numStr, unit, isBare, unitless, cm);
+            var mk = cm.markText(fromPos, toPos, {
+                replacedWith:     w,
+                handleMouseEvents: false,
+                inclusiveLeft:    false,
+                inclusiveRight:   false
+            });
+            w._cmMark = mk;
+            marks.push(mk);
         }
 
         function scan() {
@@ -378,34 +491,50 @@ window.LiveCSS.sizeSlider = (function () {
             for (var ln = from; ln < to; ln++) {
                 var text = cm.getLine(ln);
                 if (!text) continue;
+                if (!isSizeLine(cm, ln, text)) continue;
 
-                /* Only process lines that mention a sizing property */
-                if (!PROP_RE.test(text)) continue;
+                var unitless = isUnitlessPropLine(cm, ln, text);
 
-                SIZE_RE.lastIndex = 0;
+                /* ── Pass 1: values WITH a unit ── */
+                var unitRanges = [];   /* track columns already marked */
+                UNIT_RE.lastIndex = 0;
                 var m;
-                while ((m = SIZE_RE.exec(text)) !== null) {
-                    var prefix = m[1];      /* boundary char */
+                while ((m = UNIT_RE.exec(text)) !== null) {
+                    var prefix = m[1];
                     var numStr = m[2];
                     var unit   = m[3];
                     var full   = numStr + unit;
                     var ch0    = m.index + prefix.length;
                     var ch1    = ch0 + full.length;
 
-                    var fromPos = { line: ln, ch: ch0 };
-                    var toPos   = { line: ln, ch: ch1 };
+                    unitRanges.push({ from: ch0, to: ch1 });
+                    addMark(full, numStr, unit, false, false,
+                            { line: ln, ch: ch0 }, { line: ln, ch: ch1 });
+                }
 
-                    marks.push((function (f, n, u, fp, tp) {
-                        var w  = createWidget(f, n, u, cm);
-                        var mk = cm.markText(fp, tp, {
-                            replacedWith:     w,
-                            handleMouseEvents: false,
-                            inclusiveLeft:    false,
-                            inclusiveRight:   false
-                        });
-                        w._cmMark = mk;
-                        return mk;
-                    })(full, numStr, unit, fromPos, toPos));
+                /* ── Pass 2: bare numbers (no unit) ── */
+                BARE_RE.lastIndex = 0;
+                while ((m = BARE_RE.exec(text)) !== null) {
+                    var bPrefix = m[1];
+                    var bNum    = m[2];
+                    var bCh0    = m.index + bPrefix.length;
+                    var bCh1    = bCh0 + bNum.length;
+
+                    /* Skip if already covered by a unit match */
+                    var overlap = false;
+                    for (var r = 0; r < unitRanges.length; r++) {
+                        if (bCh0 < unitRanges[r].to && bCh1 > unitRanges[r].from) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    if (overlap) continue;
+
+                    /* Skip numbers inside parentheses (rgb, rgba, calc args, var) */
+                    if (insideParens(text, bCh0)) continue;
+
+                    addMark(bNum, bNum, '', true, unitless,
+                            { line: ln, ch: bCh0 }, { line: ln, ch: bCh1 });
                 }
             }
         }
@@ -415,7 +544,7 @@ window.LiveCSS.sizeSlider = (function () {
         cm.on('viewportChange', debounced);
         cm.on('scroll',         debounced);
 
-        /* first paint */
+        /* initial paint */
         setTimeout(scan, 600);
     }
 
@@ -425,7 +554,6 @@ window.LiveCSS.sizeSlider = (function () {
     function init() {
         var ed = LiveCSS.editor;
         if (!ed) return;
-        /* attach to all three editors */
         try { if (ed.getCssEditor)  attachSizeSliders(ed.getCssEditor());  } catch (e) { /* */ }
         try { if (ed.getHtmlEditor) attachSizeSliders(ed.getHtmlEditor()); } catch (e) { /* */ }
         try { if (ed.getJsEditor)   attachSizeSliders(ed.getJsEditor());   } catch (e) { /* */ }
