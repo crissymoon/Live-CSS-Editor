@@ -5,7 +5,7 @@
   "scripts": {
     "tauri":        "tauri",
     "launch":       "bash launcher.sh",
-    "dev":          "npm run copy-www && tauri dev",
+    "dev":          "npx tauri dev",
     "build":        "npm run copy-www && tauri build",
     "copy-www":     "node scripts/copy-www.js",
     "gen-icon":     "node scripts/gen-icon.js"

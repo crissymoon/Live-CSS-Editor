@@ -2,6 +2,10 @@
 //
 // Discovers the PHP binary, starts `php -S 127.0.0.1:<port> -t <www_root>`,
 // and exposes a handle that kills the process on drop.
+//
+// Used only in release builds; debug mode lets tauri.conf.json
+// beforeDevCommand manage the PHP process.
+#![cfg_attr(debug_assertions, allow(dead_code))]
 
 use std::net::TcpListener;
 use std::path::Path;

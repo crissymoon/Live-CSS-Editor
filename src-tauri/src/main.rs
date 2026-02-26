@@ -14,7 +14,9 @@ mod php_server;
 
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::Manager;
+#[cfg(not(debug_assertions))]
+use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
 
 // ---------------------------------------------------------------------------
@@ -74,30 +76,18 @@ async fn pick_and_read_file(app: tauri::AppHandle) -> Result<Option<serde_json::
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Return the www directory that PHP should serve.
-///
-/// - In debug builds:  <workspace_root>/src-tauri/www
-///   (populated by `npm run copy-www` before `tauri dev`)
-/// - In release builds: the `www` folder bundled as a Tauri resource.
+/// Return the www directory that PHP should serve (release builds only).
+/// Points at the `www` folder bundled as a Tauri resource.
+#[cfg(not(debug_assertions))]
 fn resolve_www_root(app: &AppHandle) -> std::path::PathBuf {
-    #[cfg(debug_assertions)]
-    {
-        // CARGO_MANIFEST_DIR is set at compile-time to src-tauri/
-        let _ = app; // unused in debug builds
-        let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        manifest.join("www")
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        app.path()
-            .resource_dir()
-            .expect("Tauri resource dir unavailable")
-            .join("www")
-    }
+    app.path()
+        .resource_dir()
+        .expect("Tauri resource dir unavailable")
+        .join("www")
 }
 
 /// Show a native error dialog and return, without panicking the whole app.
+#[cfg(not(debug_assertions))]
 fn show_error(app: &AppHandle, title: &str, body: &str) {
     eprintln!("[error] {}: {}", title, body);
     // Use a plain injected window as a fallback error display
@@ -131,6 +121,7 @@ p{{font-size:14px;color:#9e93c0;line-height:1.6;}}
     });
 }
 
+#[cfg(not(debug_assertions))]
 fn urlencoding(s: &str) -> String {
     // Minimal percent-encoder for the data URI
     s.chars()
@@ -150,60 +141,76 @@ fn urlencoding(s: &str) -> String {
 // ---------------------------------------------------------------------------
 
 fn main() {
-    // Pick the port up front so it is captured by the move closure.
-    // In debug we pin port 7777 to match tauri.conf.json devUrl so the dev
-    // window auto-navigates there without extra plumbing.
-    let port: u16 = if cfg!(debug_assertions) {
-        7777
-    } else {
-        php_server::find_free_port().expect("No free TCP port available")
-    };
+    // In release mode: find a free port dynamically.
+    // In debug mode: PHP is already started by tauri.conf.json beforeDevCommand
+    // on port 7777, so Rust must not try to bind that port again.
+    #[cfg(not(debug_assertions))]
+    let port: u16 = php_server::find_free_port().expect("No free TCP port available");
+
+    #[cfg(debug_assertions)]
+    let port: u16 = 7777;
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![open_devtools, pick_and_read_file])
         .setup(move |app| {
-            let www_root = resolve_www_root(app.handle());
-
-            // Validate www root exists
-            if !www_root.exists() {
-                show_error(
-                    app.handle(),
-                    "Startup Error",
-                    &format!(
-                        "PHP app directory not found:\n{}\n\nRun `npm run copy-www` first.",
-                        www_root.display()
-                    ),
-                );
+            // ----------------------------------------------------------------
+            // DEBUG: PHP is managed by `beforeDevCommand` in tauri.conf.json.
+            //        We only need to verify it is reachable.
+            // ----------------------------------------------------------------
+            #[cfg(debug_assertions)]
+            {
+                let _ = app; // suppress unused warning — state not stored in dev
+                eprintln!("[php-server] dev mode — PHP managed by beforeDevCommand on port {}", port);
+                let ready = php_server::wait_for_ready(port, 8000);
+                if !ready {
+                    eprintln!("[warn] PHP dev server not reachable on port {} after 8 s", port);
+                }
+                // Register empty state so on_window_event does not panic
+                app.manage(PhpState(Arc::new(Mutex::new(None))));
                 return Ok(());
             }
 
-            // Start PHP server
-            match php_server::start(port, &www_root) {
-                Err(e) => {
-                    show_error(app.handle(), "PHP Not Found", &e);
-                }
-                Ok(server) => {
-                    // Store server handle so it lives for the app lifetime
-                    app.manage(PhpState(Arc::new(Mutex::new(Some(server)))));
+            // ----------------------------------------------------------------
+            // RELEASE: start the bundled PHP server ourselves.
+            // ----------------------------------------------------------------
+            #[cfg(not(debug_assertions))]
+            {
+                let www_root = resolve_www_root(app.handle());
 
-                    // Wait up to 3 s for PHP to be ready
-                    let ready = php_server::wait_for_ready(port, 3000);
-                    if !ready {
-                        eprintln!("[warn] PHP server did not respond within 3 s — continuing anyway");
-                    }
+                if !www_root.exists() {
+                    show_error(
+                        app.handle(),
+                        "Startup Error",
+                        &format!(
+                            "PHP app directory not found:\n{}",
+                            www_root.display()
+                        ),
+                    );
+                    return Ok(());
+                }
 
-                    // In release builds the window starts at devUrl placeholder;
-                    // navigate it to the actual PHP server.
-                    #[cfg(not(debug_assertions))]
-                    if let Some(win) = app.get_webview_window("main") {
-                        let url = format!("http://127.0.0.1:{}", port);
-                        let _ = win.navigate(url.parse().expect("Invalid PHP server URL"));
+                match php_server::start(port, &www_root) {
+                    Err(e) => {
+                        show_error(app.handle(), "PHP Not Found", &e);
+                    }
+                    Ok(server) => {
+                        app.manage(PhpState(Arc::new(Mutex::new(Some(server)))));
+
+                        let ready = php_server::wait_for_ready(port, 5000);
+                        if !ready {
+                            eprintln!("[warn] PHP server did not respond within 5 s — continuing anyway");
+                        }
+
+                        if let Some(win) = app.get_webview_window("main") {
+                            let url = format!("http://127.0.0.1:{}", port);
+                            let _ = win.navigate(url.parse().expect("Invalid PHP server URL"));
+                        }
                     }
                 }
+
+                Ok(())
             }
-
-            Ok(())
         })
         // Kill PHP when the last window is closed
         .on_window_event(|window, event| {

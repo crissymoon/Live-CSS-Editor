@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "identifier": "com.livecss.editor",
   "build": {
-    "beforeDevCommand":   "npm run copy-www",
-    "beforeBuildCommand": "npm run copy-www",
-    "devUrl":             "http://localhost:7777",
+    "beforeDevCommand":   { "script": "lsof -ti:7777 | xargs kill -9 2>/dev/null; node scripts/copy-www.js && php -S 127.0.0.1:7777 -t src-tauri/www", "wait": false },
+    "beforeBuildCommand": "node scripts/copy-www.js",
+    "devUrl":             "http://127.0.0.1:7777",
     "frontendDist":       "www"
   },
   "app": {
