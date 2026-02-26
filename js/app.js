@@ -52,16 +52,39 @@
         });
 
         // 10. Auto-save current work on every editor change (debounced 1.5 s)
+        var autosaveEl = document.getElementById('autosaveStatus');
+        var autosaveFadeTimer = null;
+
+        function showAutosaveStatus(msg, cls) {
+            if (!autosaveEl) { return; }
+            clearTimeout(autosaveFadeTimer);
+            autosaveEl.textContent  = msg;
+            autosaveEl.className    = 'autosave-status ' + cls;
+            if (cls === 'autosave-saved') {
+                autosaveFadeTimer = setTimeout(function () {
+                    autosaveEl.textContent = '';
+                    autosaveEl.className   = 'autosave-status';
+                }, 2200);
+            }
+        }
+
         var autoSave = LiveCSS.utils.debounce(function () {
             LiveCSS.storage.saveAutosave(
                 LiveCSS.editor.getHtmlEditor().getValue(),
                 LiveCSS.editor.getCssEditor().getValue(),
                 LiveCSS.editor.getJsEditor().getValue()
             );
+            showAutosaveStatus('Saved', 'autosave-saved');
         }, 1500);
-        LiveCSS.editor.getHtmlEditor().on('change', autoSave);
-        LiveCSS.editor.getCssEditor().on('change',  autoSave);
-        LiveCSS.editor.getJsEditor().on('change',   autoSave);
+
+        function onEditorChange() {
+            showAutosaveStatus('Saving...', 'autosave-saving');
+            autoSave();
+        }
+
+        LiveCSS.editor.getHtmlEditor().on('change', onEditorChange);
+        LiveCSS.editor.getCssEditor().on('change',  onEditorChange);
+        LiveCSS.editor.getJsEditor().on('change',   onEditorChange);
 
         // Also save immediately before the page unloads
         window.addEventListener('beforeunload', function () {

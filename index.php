@@ -25,7 +25,7 @@ sort($allPropertyNames);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live CSS Editor</title>
+    <title>Crissy's Style Tool</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/native-bridge.css">
 
@@ -36,7 +36,8 @@ sort($allPropertyNames);
 
     <header class="app-header">
         <div class="header-left">
-            <h1 class="app-title">Live CSS Editor</h1>
+            <h1 class="app-title">Crissy's Style Tool</h1>
+            <span id="autosaveStatus" class="autosave-status"></span>
         </div>
         <div class="header-right">
             <button id="saveBtn" class="btn-action" title="Save to browser storage">Save</button>
@@ -158,6 +159,16 @@ sort($allPropertyNames);
         </div>
     </div>
 
+    <!-- Floating editor search bar (Cmd+F / Ctrl+F) -->
+    <div class="search-bar search-bar-hidden" id="editorSearchBar">
+        <div class="esb-handle" title="Drag">&#9776;</div>
+        <input class="esb-input" type="text" placeholder="Find in editor..." autocomplete="off" spellcheck="false">
+        <span class="esb-count"></span>
+        <button class="esb-btn esb-prev" title="Previous (Shift+Enter)">&#8593;</button>
+        <button class="esb-btn esb-next" title="Next (Enter)">&#8595;</button>
+        <button class="esb-btn esb-close" title="Close (Esc)">&#215;</button>
+    </div>
+
     <!-- Fuzzy autocomplete dropdown for CSS properties -->
     <div class="fuzzy-dropdown hidden" id="fuzzyDropdown"></div>
 
@@ -207,6 +218,7 @@ sort($allPropertyNames);
     <script src="js/modal-save.js"></script>
     <script src="js/modal-load.js"></script>
     <script src="js/gutter.js"></script>
+    <script src="js/editor-search.js"></script>
     <script src="js/app.js"></script>
     <!-- Dev/native bridge: file browse, refresh, debug overlay -->
     <script src="js/native-bridge.js"></script>

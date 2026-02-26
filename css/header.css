@@ -27,6 +27,28 @@
     white-space: nowrap;
 }
 
+/* Autosave status beside the title */
+.autosave-status {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-left: 14px;
+    padding: 2px 8px;
+    border-left: 2px solid transparent;
+    transition: opacity 0.4s;
+    white-space: nowrap;
+}
+
+.autosave-saving {
+    color: #8888a0;
+    border-left-color: #4d31bf;
+}
+
+.autosave-saved {
+    color: #10b981;
+    border-left-color: #10b981;
+}
+
 .header-right {
     display: flex;
     align-items: center;
@@ -58,6 +80,185 @@
 .btn-danger:hover {
     background: #a03030;
     color: #fff;
+}
+
+/* =============================================================
+   Floating Editor Search Bar (Cmd+F)
+   ============================================================= */
+
+.search-bar {
+    position: fixed;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    background: #0c071c;
+    border: 1px solid #4d31bf;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.75);
+    user-select: none;
+    -webkit-user-select: none;
+    min-width: 340px;
+}
+
+.search-bar-hidden {
+    display: none !important;
+}
+
+.esb-handle {
+    color: #4d31bf;
+    font-size: 13px;
+    cursor: grab;
+    padding: 0 4px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.esb-handle:active {
+    cursor: grabbing;
+}
+
+.esb-input {
+    flex: 1;
+    background: #1a0f42;
+    border: 1px solid #4d31bf;
+    border-radius: 0;
+    color: #eceaf6;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    padding: 4px 8px;
+    outline: none;
+    min-width: 0;
+}
+
+.esb-input:focus {
+    border-color: #7c5ce8;
+}
+
+.esb-count {
+    font-size: 11px;
+    color: #8888a0;
+    white-space: nowrap;
+    min-width: 40px;
+    text-align: center;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.esb-btn {
+    background: transparent;
+    border: 1px solid #2a1a55;
+    border-radius: 0;
+    color: #a89fcc;
+    font-size: 14px;
+    line-height: 1;
+    padding: 3px 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.12s, border-color 0.12s;
+}
+
+.esb-btn:hover {
+    color: #eceaf6;
+    border-color: #4d31bf;
+}
+
+/* CodeMirror highlight for all matches */
+.cm-overlay.search-match,
+.cm-searching {
+    background: rgba(99, 102, 241, 0.30);
+    outline: 1px solid rgba(99, 102, 241, 0.60);
+}
+
+/* =============================================================
+   Floating Editor Search Bar (Cmd+F / Ctrl+F)
+   ============================================================= */
+
+.search-bar {
+    position: fixed;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    background: #0c071c;
+    border: 1px solid #4d31bf;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.75);
+    user-select: none;
+    -webkit-user-select: none;
+    min-width: 340px;
+}
+
+.search-bar-hidden {
+    display: none !important;
+}
+
+.esb-handle {
+    color: #4d31bf;
+    font-size: 14px;
+    cursor: grab;
+    padding: 0 4px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.esb-handle:active {
+    cursor: grabbing;
+}
+
+.esb-input {
+    flex: 1;
+    background: #1a0f42;
+    border: 1px solid #4d31bf;
+    border-radius: 0;
+    color: #eceaf6;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    padding: 4px 8px;
+    outline: none;
+    min-width: 0;
+}
+
+.esb-input:focus {
+    border-color: #7c5ce8;
+}
+
+.esb-count {
+    font-size: 11px;
+    color: #8888a0;
+    white-space: nowrap;
+    min-width: 44px;
+    text-align: center;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.esb-btn {
+    background: transparent;
+    border: 1px solid #2a1a55;
+    border-radius: 0;
+    color: #a89fcc;
+    font-size: 14px;
+    line-height: 1;
+    padding: 3px 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.12s, border-color 0.12s;
+}
+
+.esb-btn:hover {
+    color: #eceaf6;
+    border-color: #4d31bf;
+}
+
+/* Highlight all matching tokens in the active editor */
+.cm-overlay.search-match {
+    background: rgba(99, 102, 241, 0.28);
+    outline: 1px solid rgba(99, 102, 241, 0.55);
 }
 
 /* =============================================================
