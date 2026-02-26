@@ -68,6 +68,7 @@ window.LiveCSS.modalLoad = (function () {
                 if (!p[n]) return;
                 LiveCSS.editor.getHtmlEditor().setValue(p[n].html);
                 LiveCSS.editor.getCssEditor().setValue(p[n].css);
+                if (p[n].js !== undefined) { LiveCSS.editor.getJsEditor().setValue(p[n].js); }
                 LiveCSS.editor.updatePreview();
                 close();
             });

@@ -34,7 +34,8 @@ window.LiveCSS.modalSave = (function () {
             LiveCSS.storage.saveProject(
                 name,
                 LiveCSS.editor.getHtmlEditor().getValue(),
-                LiveCSS.editor.getCssEditor().getValue()
+                LiveCSS.editor.getCssEditor().getValue(),
+                LiveCSS.editor.getJsEditor().getValue()
             );
             close();
         });

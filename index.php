@@ -7,7 +7,7 @@
 
 require_once 'data/css-properties.php';   // $cssProperties
 require_once 'data/property-values.php';  // $propertyValues
-require_once 'data/default-content.php';  // $defaultHtml, $defaultCss
+require_once 'data/default-content.php';  // $defaultHtml, $defaultCss, $defaultJs
 
 // Flat sorted list of all property names for the JS fuzzy autocomplete
 $allPropertyNames = [];
@@ -107,31 +107,40 @@ sort($allPropertyNames);
         <!-- Transparent overlay to capture mouse events during gutter drag -->
         <div class="drag-overlay" id="dragOverlay"></div>
 
+        <section class="editor-panel" id="jsPanel">
+            <div class="panel-header">
+                <span class="panel-label">JS</span>
+                <div class="panel-drag-handle" title="Drag to reorder panel"></div>
+            </div>
+            <div class="panel-body">
+                <textarea id="jsEditor"></textarea>
+            </div>
+        </section>
+
         <section class="editor-panel" id="htmlPanel">
             <div class="panel-header">
                 <span class="panel-label">HTML</span>
+                <div class="panel-drag-handle" title="Drag to reorder panel"></div>
             </div>
             <div class="panel-body">
                 <textarea id="htmlEditor"><?php echo htmlspecialchars($defaultHtml); ?></textarea>
             </div>
         </section>
 
-        <div class="gutter" id="gutter1"></div>
-
         <section class="editor-panel" id="cssPanel">
             <div class="panel-header">
                 <span class="panel-label">CSS</span>
+                <div class="panel-drag-handle" title="Drag to reorder panel"></div>
             </div>
             <div class="panel-body">
                 <textarea id="cssEditor"><?php echo htmlspecialchars($defaultCss); ?></textarea>
             </div>
         </section>
 
-        <div class="gutter" id="gutter2"></div>
-
         <section class="preview-panel" id="previewPanel">
             <div class="panel-header">
                 <span class="panel-label">Live Preview</span>
+                <div class="panel-drag-handle" title="Drag to reorder panel"></div>
             </div>
             <div class="panel-body">
                 <iframe id="previewFrame"></iframe>
@@ -150,7 +159,8 @@ sort($allPropertyNames);
         propertyValues:   <?= json_encode($propertyValues,   JSON_UNESCAPED_UNICODE) ?>,
         allCssProperties: <?= json_encode($allPropertyNames, JSON_UNESCAPED_UNICODE) ?>,
         defaultHtml:      <?= json_encode($defaultHtml,      JSON_UNESCAPED_UNICODE) ?>,
-        defaultCss:       <?= json_encode($defaultCss,       JSON_UNESCAPED_UNICODE) ?>
+        defaultCss:       <?= json_encode($defaultCss,       JSON_UNESCAPED_UNICODE) ?>,
+        defaultJs:        <?= json_encode($defaultJs,        JSON_UNESCAPED_UNICODE) ?>
     };
     </script>
 

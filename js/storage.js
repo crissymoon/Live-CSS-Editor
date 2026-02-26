@@ -18,9 +18,9 @@ window.LiveCSS.storage = (function () {
     }
 
     /** Persist a project by name, overwriting any existing entry */
-    function saveProject(name, htmlCode, cssCode) {
+    function saveProject(name, htmlCode, cssCode, jsCode) {
         var projects = getSavedProjects();
-        projects[name] = { html: htmlCode, css: cssCode, timestamp: Date.now() };
+        projects[name] = { html: htmlCode, css: cssCode, js: jsCode || '', timestamp: Date.now() };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
     }
 

@@ -60,7 +60,12 @@ window.LiveCSS.cdnLoader = (function () {
         '/mode/javascript/javascript.min.js',
         '/addon/edit/closetag.min.js',
         '/addon/edit/closebrackets.min.js',
-        '/addon/edit/matchbrackets.min.js'
+        '/addon/edit/matchbrackets.min.js',
+        '/addon/fold/foldcode.min.js',
+        '/addon/fold/foldgutter.min.js',
+        '/addon/fold/brace-fold.min.js',
+        '/addon/fold/xml-fold.min.js',
+        '/addon/fold/comment-fold.min.js'
     ];
 
     // ── Internal helpers ────────────────────────────────────────
@@ -94,6 +99,12 @@ window.LiveCSS.cdnLoader = (function () {
         linkTheme.href = cdn.theme;
         linkTheme.setAttribute('data-cm-cdn', '1');
         document.head.appendChild(linkTheme);
+
+        var linkFold  = document.createElement('link');
+        linkFold.rel  = 'stylesheet';
+        linkFold.href = cdn.base + '/addon/fold/foldgutter.min.css';
+        linkFold.setAttribute('data-cm-cdn', '1');
+        document.head.appendChild(linkFold);
     }
 
     /**

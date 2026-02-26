@@ -11,7 +11,7 @@
     LiveCSS.cdnLoader.load(function () {
 
         // 1. Editors + live preview (must be first — other modules depend on getCssEditor/getHtmlEditor)
-        LiveCSS.editor.init(data.defaultHtml, data.defaultCss);
+        LiveCSS.editor.init(data.defaultHtml, data.defaultCss, data.defaultJs);
 
         // 2. Header property-reference dropdown
         LiveCSS.propertyLookup.init(data.propertyValues);
@@ -30,9 +30,10 @@
 
         // 7. Reset button
         document.getElementById('resetBtn').addEventListener('click', function () {
-            if (confirm('Reset both editors to default code?')) {
+            if (confirm('Reset all editors to default code?')) {
                 LiveCSS.editor.getHtmlEditor().setValue(data.defaultHtml);
                 LiveCSS.editor.getCssEditor().setValue(data.defaultCss);
+                LiveCSS.editor.getJsEditor().setValue(data.defaultJs || '');
                 LiveCSS.editor.updatePreview();
             }
         });
