@@ -129,12 +129,14 @@ window.LiveCSS.colorSwatch = (function () {
     // Avoids relying on the native browser color-picker dialog entirely.
 
     var activePopover = null;
+    var activeDiamond = null;
 
     function closePopover() {
         if (activePopover && activePopover.parentNode) {
             activePopover.parentNode.removeChild(activePopover);
         }
         activePopover = null;
+        activeDiamond = null;
     }
 
     function openPicker(diamond, hexVal, onPick) {
@@ -200,6 +202,7 @@ window.LiveCSS.colorSwatch = (function () {
 
         document.body.appendChild(pop);
         activePopover = pop;
+        activeDiamond = diamond;
 
         var pw = pop.offsetWidth  || 210;
         var ph = pop.offsetHeight || 140;
@@ -273,16 +276,8 @@ window.LiveCSS.colorSwatch = (function () {
             e.preventDefault();
             closePopover();
         });
-
-        // -- Outside click: pure DOM sliders mean no OS dialog, no synthetic events
-        setTimeout(function () {
-            document.addEventListener('mousedown', function outsideClick(e) {
-                if (activePopover && !activePopover.contains(e.target)) {
-                    closePopover();
-                    document.removeEventListener('mousedown', outsideClick);
-                }
-            });
-        }, 50);
+        // No outside-click listener — popover stays open until the user
+        // clicks the diamond again (toggle), presses Escape, or clicks X.
     }
 
     // ── Widget factory ────────────────────────────────────────────
@@ -308,6 +303,12 @@ window.LiveCSS.colorSwatch = (function () {
         diamond.addEventListener('mousedown', function (e) {
             e.preventDefault();
             e.stopPropagation();
+
+            // Toggle: clicking the same diamond closes the popover
+            if (activeDiamond === diamond) {
+                closePopover();
+                return;
+            }
 
             var mark = wrap._cmMark;
 
