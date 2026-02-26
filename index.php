@@ -58,6 +58,7 @@ sort($allPropertyNames);
             <button id="saveBtn" class="btn-action" title="Save to browser storage">Save</button>
             <button id="loadBtn" class="btn-action" title="Load from browser storage">Load</button>
             <button id="resetBtn" class="btn-action">Reset</button>
+            <button id="resetLayoutBtn" class="btn-action" title="Restore default panel positions">Reset Layout</button>
         </div>
     </header>
 
@@ -110,7 +111,7 @@ sort($allPropertyNames);
         <section class="editor-panel" id="jsPanel">
             <div class="panel-header">
                 <span class="panel-label">JS</span>
-                <div class="panel-drag-handle" title="Drag to reorder panel"></div>
+                <div class="panel-drag-handle" title="Drag panel"></div>
             </div>
             <div class="panel-body">
                 <textarea id="jsEditor"></textarea>
@@ -120,7 +121,7 @@ sort($allPropertyNames);
         <section class="editor-panel" id="htmlPanel">
             <div class="panel-header">
                 <span class="panel-label">HTML</span>
-                <div class="panel-drag-handle" title="Drag to reorder panel"></div>
+                <div class="panel-drag-handle" title="Drag panel"></div>
             </div>
             <div class="panel-body">
                 <textarea id="htmlEditor"><?php echo htmlspecialchars($defaultHtml); ?></textarea>
@@ -130,7 +131,7 @@ sort($allPropertyNames);
         <section class="editor-panel" id="cssPanel">
             <div class="panel-header">
                 <span class="panel-label">CSS</span>
-                <div class="panel-drag-handle" title="Drag to reorder panel"></div>
+                <div class="panel-drag-handle" title="Drag panel"></div>
             </div>
             <div class="panel-body">
                 <textarea id="cssEditor"><?php echo htmlspecialchars($defaultCss); ?></textarea>
@@ -140,7 +141,7 @@ sort($allPropertyNames);
         <section class="preview-panel" id="previewPanel">
             <div class="panel-header">
                 <span class="panel-label">Live Preview</span>
-                <div class="panel-drag-handle" title="Drag to reorder panel"></div>
+                <div class="panel-drag-handle" title="Drag panel"></div>
             </div>
             <div class="panel-body">
                 <iframe id="previewFrame"></iframe>

@@ -1,264 +1,317 @@
 /**
- * gutter.js — Resizable gutters + drag-to-reorder panels
+ * gutter.js — Free-floating panel manager
  * Attached to window.LiveCSS.gutter
  *
- * Call LiveCSS.gutter.init() after editor.init().
+ * Converts all .editor-panel and .preview-panel elements to
+ * absolutely positioned floating panels that can be:
+ *   - Dragged freely in 2D by their header
+ *   - Resized from any edge or corner
+ *   - Brought to front by clicking
  *
- * Features:
- *   - Resize any panel by dragging the gutter between it and its neighbour
- *   - Reorder panels by dragging the handle (three-line grip) in a panel header
- *   - Layout is rebuilt from a panel-order array; gutters are created dynamically
+ * Call LiveCSS.gutter.init() after editor.init().
  */
 window.LiveCSS = window.LiveCSS || {};
 
 window.LiveCSS.gutter = (function () {
     'use strict';
 
-    // Default left-to-right panel order
-    var order = ['jsPanel', 'htmlPanel', 'cssPanel', 'previewPanel'];
+    var PANEL_IDS = ['jsPanel', 'htmlPanel', 'cssPanel', 'previewPanel'];
+    var MIN_W     = 180;
+    var MIN_H     = 100;
+    var zCounter  = 10;
+    var Z_OVERLAY = 100;   // drag-overlay z-index (must match CSS)
+    var Z_ACTIVE  = 200;   // z-index of the panel being dragged/resized
 
-    function getLayout() { return document.querySelector('.editor-layout'); }
+    var overlay   = null;
+    var layout    = null;
 
-    function refreshAllEditors() {
+    // ── Helpers ──────────────────────────────────────────────────
+
+    function getLayoutRect() { return layout.getBoundingClientRect(); }
+
+    function refreshEditors() {
         setTimeout(function () {
             ['getJsEditor', 'getHtmlEditor', 'getCssEditor'].forEach(function (fn) {
                 var ed = LiveCSS.editor[fn] && LiveCSS.editor[fn]();
                 if (ed) { ed.refresh(); }
             });
-        }, 50);
+        }, 30);
     }
 
-    // ── Layout render ──────────────────────────────────────────────
-    // Rebuilds panel + gutter DOM order from the `order` array.
-    // Gutters are created fresh each time; event binding uses delegation.
-    function renderLayout() {
-        var layout  = getLayout();
-        var overlay = document.getElementById('dragOverlay');
-
-        // Remove stale gutters
-        var stale = layout.querySelectorAll('.gutter');
-        for (var s = 0; s < stale.length; s++) { layout.removeChild(stale[s]); }
-
-        // Append panels in current order
-        for (var p = 0; p < order.length; p++) {
-            var panel = document.getElementById(order[p]);
-            if (panel) { layout.appendChild(panel); }
-        }
-
-        // Keep drag-overlay as last child (covers iframe during resize drags)
-        if (overlay) { layout.appendChild(overlay); }
-
-        // Insert a gutter before every panel except the first
-        for (var g = 1; g < order.length; g++) {
-            var next = document.getElementById(order[g]);
-            if (!next) { continue; }
-            var gut = document.createElement('div');
-            gut.className = 'gutter';
-            layout.insertBefore(gut, next);
-        }
-
-        refreshAllEditors();
+    function bringToFront(panel) {
+        zCounter = Math.min(zCounter + 1, Z_OVERLAY - 2);
+        panel.style.zIndex = zCounter;
+        PANEL_IDS.forEach(function (id) {
+            var p = document.getElementById(id);
+            if (p) { p.classList.remove('is-top'); }
+        });
+        panel.classList.add('is-top');
     }
 
-    // ── Gutter resize (delegated) ──────────────────────────────────
-    var resize = { active: false, el: null, left: null, right: null };
-
-    function startResize(e, gutterEl, leftPanel, rightPanel) {
-        e.preventDefault();
-        resize = { active: true, el: gutterEl, left: leftPanel, right: rightPanel };
-        var overlay = document.getElementById('dragOverlay');
+    function showOverlay(cur) {
         overlay.classList.add('active');
+        overlay.style.cursor = cur || 'default';
         document.body.classList.add('is-dragging');
-        gutterEl.classList.add('active');
+        document.body.style.cursor = cur || 'default';
     }
 
-    function stopResize() {
-        if (!resize.active) { return; }
-        document.getElementById('dragOverlay').classList.remove('active');
-        document.body.classList.remove('is-dragging');
-        if (resize.el) { resize.el.classList.remove('active'); }
-        resize = { active: false, el: null, left: null, right: null };
-        refreshAllEditors();
+    function hideOverlay() {
+        overlay.classList.remove('active');
+        overlay.style.cursor = '';
+        document.body.classList.remove('is-dragging', 'is-resizing');
+        document.body.style.cursor = '';
+    }
+
+    // ── Default layout — four equal columns ──────────────────────
+
+    function applyDefaultLayout() {
+        var r = getLayoutRect();
+        var w = r.width;
+        var h = r.height;
+
+        var cols  = PANEL_IDS.length;
+        var colW  = Math.floor(w / cols);
+
+        PANEL_IDS.forEach(function (id, i) {
+            var panel = document.getElementById(id);
+            if (!panel) { return; }
+            panel.style.left   = (i * colW) + 'px';
+            panel.style.top    = '0px';
+            panel.style.width  = colW + 'px';
+            panel.style.height = h + 'px';
+            panel.style.zIndex = 10 + i;
+        });
+
+        zCounter = 10 + cols;
+    }
+
+    // ── Resize handles ────────────────────────────────────────────
+
+    var DIRECTIONS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+
+    function addResizeHandles(panel) {
+        DIRECTIONS.forEach(function (dir) {
+            var h = document.createElement('div');
+            h.className  = 'panel-resize panel-resize-' + dir;
+            h.dataset.dir = dir;
+            panel.appendChild(h);
+        });
+    }
+
+    // ── Drag ─────────────────────────────────────────────────────
+
+    var drag = null;   // { panel, startX, startY, origLeft, origTop }
+
+    function startDrag(e, panel) {
+        e.preventDefault();
+        drag = {
+            panel    : panel,
+            startX   : e.clientX,
+            startY   : e.clientY,
+            origLeft : panel.offsetLeft,
+            origTop  : panel.offsetTop
+        };
+        panel.style.zIndex = Z_ACTIVE;
+        showOverlay('grabbing');
+    }
+
+    function onDragMove(e) {
+        if (!drag) { return; }
+        var lr = getLayoutRect();
+        var dx = e.clientX - drag.startX;
+        var dy = e.clientY - drag.startY;
+
+        var newLeft = drag.origLeft + dx;
+        var newTop  = drag.origTop  + dy;
+
+        // Keep dragged panel at least partially visible
+        var pw = drag.panel.offsetWidth;
+        var ph = drag.panel.offsetHeight;
+        newLeft = Math.max(-pw + 40, Math.min(lr.width  - 40, newLeft));
+        newTop  = Math.max(0,        Math.min(lr.height - 20, newTop));
+
+        drag.panel.style.left = newLeft + 'px';
+        drag.panel.style.top  = newTop  + 'px';
+    }
+
+    function stopDrag() {
+        if (drag) { bringToFront(drag.panel); }
+        drag = null;
+        hideOverlay();
+        refreshEditors();
+    }
+
+    // ── Resize ────────────────────────────────────────────────────
+
+    var resize = null;  // { panel, dir, startX, startY, origLeft, origTop, origW, origH }
+
+    function startResize(e, panel, dir) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var cursorMap = {
+            n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',
+            ne: 'nesw-resize', sw: 'nesw-resize', nw: 'nwse-resize', se: 'nwse-resize'
+        };
+
+        resize = {
+            panel    : panel,
+            dir      : dir,
+            startX   : e.clientX,
+            startY   : e.clientY,
+            origLeft : panel.offsetLeft,
+            origTop  : panel.offsetTop,
+            origW    : panel.offsetWidth,
+            origH    : panel.offsetHeight
+        };
+        panel.style.zIndex = Z_ACTIVE;
+        document.body.classList.add('is-resizing');
+        showOverlay(cursorMap[dir] || 'default');
     }
 
     function onResizeMove(e) {
-        if (!resize.active) { return; }
-        e.preventDefault();
+        if (!resize) { return; }
 
-        var layout       = getLayout();
-        var totalWidth   = layout.getBoundingClientRect().width;
-        var originLeft   = layout.getBoundingClientRect().left;
-        var leftStart    = resize.left.getBoundingClientRect().left - originLeft;
-        var rightEnd     = resize.right.getBoundingClientRect().right - originLeft;
-        var cursorOffset = e.clientX - originLeft;
+        var dx  = e.clientX - resize.startX;
+        var dy  = e.clientY - resize.startY;
+        var dir = resize.dir;
 
-        var newLeft  = cursorOffset - leftStart - 3;
-        var newRight = rightEnd - cursorOffset - 3;
+        var newLeft = resize.origLeft;
+        var newTop  = resize.origTop;
+        var newW    = resize.origW;
+        var newH    = resize.origH;
 
-        if (newLeft < 120 || newRight < 120) { return; }
+        if (dir.indexOf('e') !== -1) { newW = Math.max(MIN_W, resize.origW + dx); }
+        if (dir.indexOf('s') !== -1) { newH = Math.max(MIN_H, resize.origH + dy); }
 
-        resize.left.style.flex  = '0 0 ' + (newLeft  / totalWidth * 100) + '%';
-        resize.right.style.flex = '0 0 ' + (newRight / totalWidth * 100) + '%';
-    }
-
-    // ── Panel drag-to-reorder ──────────────────────────────────────
-    var pd = { active: false, panel: null, ghost: null, dropIndex: -1 };
-    var dropLine = null;
-
-    function startPanelDrag(e, panel) {
-        e.preventDefault();
-        pd.active = true;
-        pd.panel  = panel;
-
-        // Ghost label
-        var ghost = document.createElement('div');
-        ghost.className = 'panel-drag-ghost';
-        var lbl = panel.querySelector('.panel-label');
-        ghost.textContent = lbl ? lbl.textContent : 'Panel';
-        ghost.style.left = (e.clientX + 14) + 'px';
-        ghost.style.top  = (e.clientY - 12) + 'px';
-        document.body.appendChild(ghost);
-        pd.ghost = ghost;
-
-        // Drop line indicator
-        dropLine = document.createElement('div');
-        dropLine.className = 'panel-drop-indicator hidden';
-        document.body.appendChild(dropLine);
-
-        panel.classList.add('panel-is-dragging');
-        document.body.classList.add('is-panel-dragging');
-    }
-
-    function onPanelMove(e) {
-        if (!pd.active) { return; }
-
-        pd.ghost.style.left = (e.clientX + 14) + 'px';
-        pd.ghost.style.top  = (e.clientY - 12) + 'px';
-
-        // Find which slot the cursor is hovering over
-        var layout = getLayout();
-        var panels = Array.prototype.slice.call(
-            layout.querySelectorAll('.editor-panel, .preview-panel')
-        );
-        var layoutRect = layout.getBoundingClientRect();
-        var dropIdx    = panels.length;
-        var lineX      = -1;
-
-        for (var i = 0; i < panels.length; i++) {
-            var r   = panels[i].getBoundingClientRect();
-            var mid = r.left + r.width / 2;
-            if (e.clientX < mid) {
-                dropIdx = i;
-                lineX   = r.left;
-                break;
+        if (dir.indexOf('w') !== -1) {
+            var proposedW = resize.origW - dx;
+            if (proposedW >= MIN_W) {
+                newLeft = resize.origLeft + dx;
+                newW    = proposedW;
             }
-            if (i === panels.length - 1) {
-                lineX = r.right;
+        }
+        if (dir.indexOf('n') !== -1) {
+            var proposedH = resize.origH - dy;
+            if (proposedH >= MIN_H) {
+                newTop = resize.origTop + dy;
+                newH   = proposedH;
             }
         }
 
-        pd.dropIndex = dropIdx;
-
-        if (lineX >= 0) {
-            dropLine.style.left   = lineX + 'px';
-            dropLine.style.top    = layoutRect.top + 'px';
-            dropLine.style.height = layoutRect.height + 'px';
-            dropLine.classList.remove('hidden');
-        }
+        resize.panel.style.left   = newLeft + 'px';
+        resize.panel.style.top    = newTop  + 'px';
+        resize.panel.style.width  = newW    + 'px';
+        resize.panel.style.height = newH    + 'px';
     }
 
-    function stopPanelDrag() {
-        if (!pd.active) { return; }
-
-        if (pd.ghost && pd.ghost.parentNode) { pd.ghost.parentNode.removeChild(pd.ghost); }
-        if (dropLine && dropLine.parentNode) { dropLine.parentNode.removeChild(dropLine); }
-        dropLine = null;
-
-        if (pd.panel) { pd.panel.classList.remove('panel-is-dragging'); }
-        document.body.classList.remove('is-panel-dragging');
-
-        var dragId  = pd.panel ? pd.panel.id : null;
-        var dropIdx = pd.dropIndex;
-
-        pd = { active: false, panel: null, ghost: null, dropIndex: -1 };
-
-        if (dragId && dropIdx >= 0) {
-            var cur = order.indexOf(dragId);
-            if (cur !== -1) {
-                order.splice(cur, 1);
-                if (cur < dropIdx) { dropIdx--; }
-                if (dropIdx > order.length) { dropIdx = order.length; }
-                order.splice(dropIdx, 0, dragId);
-                renderLayout();
-            }
-        }
+    function stopResize() {
+        if (resize) { bringToFront(resize.panel); }
+        resize = null;
+        hideOverlay();
+        refreshEditors();
     }
 
-    function cancelPanelDrag() {
-        if (!pd.active) { return; }
-        if (pd.ghost && pd.ghost.parentNode) { pd.ghost.parentNode.removeChild(pd.ghost); }
-        if (dropLine && dropLine.parentNode) { dropLine.parentNode.removeChild(dropLine); }
-        dropLine = null;
-        if (pd.panel) { pd.panel.classList.remove('panel-is-dragging'); }
-        document.body.classList.remove('is-panel-dragging');
-        pd = { active: false, panel: null, ghost: null, dropIndex: -1 };
-    }
+    // ── Init ──────────────────────────────────────────────────────
 
-    // ── Init ───────────────────────────────────────────────────────
     function init() {
-        var layout = getLayout();
+        layout  = document.querySelector('.editor-layout');
+        overlay = document.getElementById('dragOverlay');
 
-        // Build initial layout (creates gutters between panels)
-        renderLayout();
+        // Set up each panel
+        PANEL_IDS.forEach(function (id, i) {
+            var panel = document.getElementById(id);
+            if (!panel) { return; }
 
-        // Delegated mousedown: panel drag handle OR gutter resize
-        layout.addEventListener('mousedown', function (e) {
-            // Walk up to see if we hit a drag handle
-            var el = e.target;
-            while (el && el !== layout) {
-                if (el.classList.contains('panel-drag-handle')) {
-                    var panel = el.parentElement;
-                    // Walk up from the header to find the panel
-                    while (panel && panel !== layout) {
-                        if (panel.classList.contains('editor-panel') ||
-                            panel.classList.contains('preview-panel')) {
-                            startPanelDrag(e, panel);
-                            return;
-                        }
-                        panel = panel.parentElement;
-                    }
-                    return;
+            // Add the 6-dot grip spans to the drag handle
+            var grip = panel.querySelector('.panel-drag-handle');
+            if (grip && !grip.children.length) {
+                for (var s = 0; s < 6; s++) {
+                    var dot = document.createElement('span');
+                    grip.appendChild(dot);
                 }
-                el = el.parentElement;
             }
 
-            // Gutter resize
-            if (e.target.classList.contains('gutter')) {
-                var g    = e.target;
-                var prev = g.previousElementSibling;
-                var next = g.nextElementSibling;
-                // Skip the drag-overlay (it is last child, not a panel)
-                while (next && next.id === 'dragOverlay') { next = next.previousElementSibling; }
-                if (prev && next) { startResize(e, g, prev, next); }
+            // Add edge/corner resize handles
+            addResizeHandles(panel);
+
+            // Header drag: start panel move
+            var header = panel.querySelector('.panel-header');
+            if (header) {
+                header.addEventListener('mousedown', function (e) {
+                    // Don't start drag if clicking a resize handle
+                    if (e.target.classList.contains('panel-resize')) { return; }
+                    startDrag(e, panel);
+                });
             }
+
+            // Click anywhere on panel → bring to front
+            panel.addEventListener('mousedown', function (e) {
+                if (!e.target.classList.contains('panel-resize')) {
+                    bringToFront(panel);
+                }
+            });
+
+            // Resize handle mousedown
+            panel.addEventListener('mousedown', function (e) {
+                if (e.target.dataset && e.target.dataset.dir) {
+                    startResize(e, panel, e.target.dataset.dir);
+                }
+            });
         });
 
+        // Apply default tiled layout
+        applyDefaultLayout();
+
+        // Global move/up handlers
         document.addEventListener('mousemove', function (e) {
-            if (resize.active) { onResizeMove(e); }
-            if (pd.active)     { onPanelMove(e); }
+            if (drag)   { onDragMove(e); }
+            if (resize) { onResizeMove(e); }
         });
 
         document.addEventListener('mouseup', function () {
-            if (resize.active) { stopResize(); }
-            if (pd.active)     { stopPanelDrag(); }
+            if (drag)   { stopDrag(); }
+            if (resize) { stopResize(); }
         });
 
         window.addEventListener('blur', function () {
-            if (resize.active) { stopResize(); }
-            if (pd.active)     { cancelPanelDrag(); }
+            if (drag)   { stopDrag(); }
+            if (resize) { stopResize(); }
+        });
+
+        // Re-layout on window resize (scale panels proportionally)
+        var lastW = getLayoutRect().width;
+        var lastH = getLayoutRect().height;
+        window.addEventListener('resize', function () {
+            var r  = getLayoutRect();
+            var rw = r.width;
+            var rh = r.height;
+            if (!rw || !rh || (rw === lastW && rh === lastH)) { return; }
+
+            var scaleX = rw / lastW;
+            var scaleY = rh / lastH;
+
+            PANEL_IDS.forEach(function (id) {
+                var panel = document.getElementById(id);
+                if (!panel) { return; }
+                panel.style.left   = (panel.offsetLeft * scaleX) + 'px';
+                panel.style.top    = (panel.offsetTop  * scaleY) + 'px';
+                panel.style.width  = (panel.offsetWidth  * scaleX) + 'px';
+                panel.style.height = (panel.offsetHeight * scaleY) + 'px';
+            });
+
+            lastW = rw;
+            lastH = rh;
+            refreshEditors();
         });
     }
 
-    return { init: init };
+    // Public: reset all panels to default tiled positions
+    function resetLayout() {
+        applyDefaultLayout();
+        refreshEditors();
+    }
+
+    return { init: init, resetLayout: resetLayout };
 
 }());

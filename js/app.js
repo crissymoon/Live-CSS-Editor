@@ -28,7 +28,7 @@
         // 6. Resizable panel gutters
         LiveCSS.gutter.init();
 
-        // 7. Reset button
+        // 7. Reset content button
         document.getElementById('resetBtn').addEventListener('click', function () {
             if (confirm('Reset all editors to default code?')) {
                 LiveCSS.editor.getHtmlEditor().setValue(data.defaultHtml);
@@ -36,6 +36,11 @@
                 LiveCSS.editor.getJsEditor().setValue(data.defaultJs || '');
                 LiveCSS.editor.updatePreview();
             }
+        });
+
+        // 8. Reset layout button
+        document.getElementById('resetLayoutBtn').addEventListener('click', function () {
+            LiveCSS.gutter.resetLayout();
         });
 
     });
