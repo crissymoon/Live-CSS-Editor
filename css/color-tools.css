@@ -54,6 +54,7 @@
     z-index: 99999;
     background: #0c071c;
     border: 1px solid #4d31bf;
+    border-radius: 0;
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -72,6 +73,7 @@
     flex: 1;
     background: #1a0f42;
     border: 1px solid #4d31bf;
+    border-radius: 0;
     color: #eceaf6;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     font-size: 13px;
@@ -87,6 +89,7 @@
 .cm-color-pop-close {
     background: transparent;
     border: none;
+    border-radius: 0;
     color: #a89fcc;
     font-size: 18px;
     line-height: 1;
@@ -105,6 +108,7 @@
     height: 48px;
     padding: 0;
     border: 1px solid #4d31bf;
+    border-radius: 0;
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;

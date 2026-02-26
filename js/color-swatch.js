@@ -169,13 +169,21 @@ window.LiveCSS.colorSwatch = (function () {
         pop.style.top  = Math.max(4, top)  + 'px';
 
         // -- Live update from color wheel
+        // Track when the native picker last closed so the outsideClick guard
+        // doesn't fire immediately after the OS dialog is dismissed.
+        var lastPickTime = 0;
+
         colorInp.addEventListener('input', function () {
             hexField.value = colorInp.value;
             onPick(colorInp.value, false);
         });
+        // 'change' fires when the OS native picker dialog is dismissed.
+        // DO NOT treat this as final (don't close the popover) — the user
+        // should be able to re-open the picker as many times as they like.
         colorInp.addEventListener('change', function () {
+            lastPickTime = Date.now();
             hexField.value = colorInp.value;
-            onPick(colorInp.value, true);
+            onPick(colorInp.value, false);
         });
 
         // -- Manual hex field
@@ -202,9 +210,12 @@ window.LiveCSS.colorSwatch = (function () {
             closePopover();
         });
 
-        // -- Close on outside click (defer so this mousedown doesn't trigger it)
+        // -- Close on outside click.
+        // Guard: ignore any mousedown that arrives within 350 ms of the native
+        // picker dialog closing — the browser synthesises one to restore focus.
         setTimeout(function () {
             document.addEventListener('mousedown', function outsideClick(e) {
+                if (Date.now() - lastPickTime < 350) { return; }
                 if (activePopover && !activePopover.contains(e.target)) {
                     closePopover();
                     document.removeEventListener('mousedown', outsideClick);
