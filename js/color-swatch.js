@@ -128,10 +128,11 @@ window.LiveCSS.colorSwatch = (function () {
     // visible large color swatch and a hex text field.
     // Avoids relying on the native browser color-picker dialog entirely.
 
-    var activePopover = null;
-    var activeDiamond = null;
-    var popoverOpen   = false;
-    var pendingRescan = null;   // function to call after close
+    var activePopover  = null;
+    var activeDiamond  = null;
+    var popoverOpen    = false;
+    var pendingRescan  = null;   // scan function to call after close
+    var pendingCommit  = null;   // {hex, mark, cm} — written to editor on close
 
     function closePopover() {
         if (activePopover && activePopover.parentNode) {
@@ -140,6 +141,19 @@ window.LiveCSS.colorSwatch = (function () {
         activePopover = null;
         activeDiamond = null;
         popoverOpen   = false;
+
+        // Commit the chosen color into the editor text
+        if (pendingCommit) {
+            var pc = pendingCommit;
+            pendingCommit = null;
+            if (pc.mark) {
+                var pos = pc.mark.find();
+                if (pos) {
+                    pc.cm.replaceRange(pc.hex, pos.from, pos.to);
+                }
+            }
+        }
+
         // Run the deferred rescan so the editor re-renders swatches
         if (pendingRescan) {
             var fn = pendingRescan;
@@ -148,7 +162,7 @@ window.LiveCSS.colorSwatch = (function () {
         }
     }
 
-    function openPicker(diamond, hexVal, onPick) {
+    function openPicker(diamond, hexVal, mark, cm) {
         closePopover();
 
         var rect = diamond.getBoundingClientRect();
@@ -249,8 +263,10 @@ window.LiveCSS.colorSwatch = (function () {
             var hex = hslToHex(H, S, L);
             hexField.value           = hex;
             preview.style.background = hex;
+            diamond.style.background = hex;
             updateSliderBgs();
-            onPick(hex, false);
+            // Stage for commit on close — don't touch the editor yet
+            pendingCommit = { hex: hex, mark: mark, cm: cm };
         }
 
         updateSliderBgs();
@@ -267,16 +283,20 @@ window.LiveCSS.colorSwatch = (function () {
                 H = p.h; S = p.s; L = p.l;
                 hr.inp.value = H; sr.inp.value = S; lr.inp.value = L;
                 preview.style.background = v;
+                diamond.style.background = v;
                 updateSliderBgs();
-                onPick(v, false);
+                pendingCommit = { hex: v, mark: mark, cm: cm };
             }
         });
         hexField.addEventListener('keydown', function (e) {
             if (e.keyCode === 13) {
                 var v = hexField.value.trim();
-                if (/^#[0-9a-fA-F]{6}$/.test(v)) { onPick(v, false); }
+                if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+                    pendingCommit = { hex: v, mark: mark, cm: cm };
+                }
                 closePopover();
             } else if (e.keyCode === 27) {
+                pendingCommit = null;  // discard changes
                 closePopover();
             }
         });
@@ -321,17 +341,7 @@ window.LiveCSS.colorSwatch = (function () {
             }
 
             var mark = wrap._cmMark;
-
-            openPicker(diamond, hexVal, function (newHex, isFinal) {
-                // Update hexVal so re-open shows current color
-                hexVal = newHex;
-                diamond.style.background = newHex;
-                if (!mark) { return; }
-                var pos = mark.find();
-                if (!pos) { return; }
-                cm.replaceRange(newHex, pos.from, pos.to);
-                if (isFinal) { cm.focus(); }
-            });
+            openPicker(diamond, hexVal, mark, cm);
         });
 
         return wrap;
