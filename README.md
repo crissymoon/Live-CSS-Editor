@@ -1,8 +1,6 @@
-# ADDING AI TO THIS
-
 # Crissy's Style Tool
 
-A desktop CSS/HTML/JavaScript live editor with real-time preview, built with Tauri v2 and PHP.
+A desktop CSS/HTML/JavaScript live editor with real-time preview and an integrated AI agent, built with Tauri v2 and PHP.
 
 **Author:** Crissy Deutsch  
 **Company:** XcaliburMoon Web Development  
@@ -14,6 +12,8 @@ A desktop CSS/HTML/JavaScript live editor with real-time preview, built with Tau
 ## Overview
 
 Crissy's Style Tool is a floating-panel code editor designed for rapid CSS prototyping and front-end development. Three resizable CodeMirror editors (CSS, HTML, JS) sit alongside a live preview iframe. All panels are freely draggable, minimizable, and restore their positions between sessions.
+
+An AI Agent window is built into the app. It connects to Anthropic, OpenAI, or DeepSeek and can generate HTML/CSS from scratch, apply targeted changes to the current editor content, or have an open-ended chat. Generated code can be reviewed in a diff view and applied directly to the editors with one click.
 
 ---
 
@@ -56,7 +56,7 @@ Crissy's Style Tool is a floating-panel code editor designed for rapid CSS proto
 - Children are constrained inside parent padding
 - Horizontal and vertical ruler strips with tick marks every 25px, labels every 100px
 - Drag from a ruler strip to create guide lines; drag guides to reposition; double-click to delete
-- Save wireframe as JSON, load from JSON, and Copy Context (CSS comment block for use as AI/documentation context)
+- Save wireframe as JSON, load from JSON, and Copy Context (CSS comment block for AI or documentation use)
 - Auto-saves to localStorage on every change
 
 ### Session Management
@@ -64,6 +64,66 @@ Crissy's Style Tool is a floating-panel code editor designed for rapid CSS proto
 - Session history restore bar on startup (last 10 sessions)
 - Manual save and load modals
 - Reset Layout button restores default panel positions
+
+---
+
+## AI Agent
+
+The Agent is a floating, resizable window (860x580px) that launches from the header toolbar. It persists its settings (provider, model, task, source, active tab) to localStorage between sessions.
+
+### Tasks
+- **Build Something New** -- describe a component or layout; the agent picks the best CSS theme and generates complete, correct HTML
+- **Request a Change** -- send the current editor content as context and describe modifications; the agent returns a targeted diff
+- **Chat** -- open-ended conversation with the selected AI provider
+
+### Source Modes
+- **Crissy's Editors** -- uses the live CSS and HTML content from the three CodeMirror editors as context
+- **Load a File** -- paste or load an external file as the source context
+
+### Apply Bar
+- After a generation finishes, a diff view shows the before/after
+- Apply to Editors patches the CSS and HTML editors in place with no copy/paste required
+
+### Neural Animation
+- While the agent is working, a canvas overlay shows a drifting neural network with animated signal pulses
+- Conversational phrases are displayed over the animation; the phrase pool is seeded from GPT-4o-mini on first use and stored in a local SQLite database (ai/data/phrases.db)
+
+### Providers
+
+| Provider | Endpoint | Default Model |
+|----------|----------|---------------|
+| Anthropic | ai/anthropic.php | claude-opus-4-5 |
+| OpenAI | ai/openai.php | gpt-4o |
+| DeepSeek | ai/deepseek.php | deepseek-chat |
+
+Provider API keys are stored in ai/config.json (not committed to version control).
+
+---
+
+## CSS Theme System
+
+The style-sheets/ folder contains seven production-ready CSS design systems. The agent uses the theme system to pick the right one for any request and to resolve correct class names, prefixes, and variables.
+
+### Themes
+
+| Key | Prefix | File | Description |
+|-----|--------|------|-------------|
+| atom-age | aa | atom-age.css | Retro space-age, warm amber tones |
+| clean-system | -- | clean-system.css | Minimal system UI for dev tools |
+| crystal-ui | cr | crystal-ui.css | Glassmorphism with translucent surfaces |
+| dark-neu | dn | dark-neu.css | Dark neumorphism |
+| keyboard-ui | kb | keyboard-ui.css | Keyboard/terminal aesthetic |
+| neon-grid | ng | neon-grid.css | Cyberpunk neon on dark grid |
+| neumorphism | neu | neumorphism.css | Classic soft neumorphism |
+
+### Theme Data Structure
+
+Theme metadata is split across two locations for fast lookup:
+
+- style-sheets/theme_handler.json -- lightweight routing manifest containing scoring data (description, best_for, avoid_for, visual_identity, components_available, palette_keywords, component_coverage) for all seven themes
+- style-sheets/themes/{key}.json -- heavy per-theme detail (palette, variables, line counts) loaded on demand only for the winning theme
+
+style-sheets/parser.php reads theme_handler.json at startup and lazy-loads the per-theme file only when building the full AI context object. style-sheets/fuzzy-search.php searches against theme_handler.json for fast component and keyword lookups.
 
 ---
 
@@ -75,7 +135,9 @@ Crissy's Style Tool is a floating-panel code editor designed for rapid CSS proto
 | Backend | PHP 8.x built-in server |
 | Editors | CodeMirror 5.65.16 (local vendor) |
 | Linters | CSSLint 1.0.5, JSHint 2.13.6, HTMLHint 0.16.3 |
-| JS modules | Vanilla ES5, namespaced under `window.LiveCSS` |
+| AI streaming | Server-Sent Events via PHP, consumed by the agent JS modules |
+| Phrase storage | SQLite via PHP (ai/data/phrases.db) |
+| JS modules | Vanilla ES5/ES6, namespaced under window.LiveCSS |
 | CSS | Custom dark theme, no framework |
 
 ---
@@ -84,44 +146,96 @@ Crissy's Style Tool is a floating-panel code editor designed for rapid CSS proto
 
 ```
 live-css/
-  index.php              Main HTML shell and PHP data bridge
-  style.css              Global styles
-  css/                   Modular CSS files
+  index.php                    Main HTML shell and PHP data bridge
+  style.css                    Global styles
+  css/                         Modular CSS files
     base.css
-    layout.css           CodeMirror panel layout
-    fuzzy.css            Autocomplete dropdown
-    wireframe.css        Wireframe tool
+    layout.css                 Panel layout
+    agent.css                  AI agent floating window
+    ai-chat.css                Chat tab styles
+    fuzzy.css                  Autocomplete dropdown
+    wireframe.css              Wireframe tool
     color-tools.css
     ...
-  js/                    Modular JavaScript files
-    app.js               Boot and wiring
-    editor.js            CodeMirror setup and live preview
-    fuzzy.js             Fuzzy autocomplete
-    color-swatch.js      Inline color swatch diamonds
-    size-slider.js       Inline size slider diamonds
-    color-harmony.js     Color harmony tool
-    wireframe.js         Wireframe / layout prototyping tool
-    gutter.js            Resizable/draggable panel system
-    editor-search.js     Per-panel inline search
-    indent-guide.js      Custom indent guides
-    storage.js           localStorage persistence
+  js/                          Modular JavaScript files
+    app.js                     Boot and wiring
+    agent.js                   Agent entry point (loads agent/ modules)
+    agent/                     AI agent modules
+      agent-core.js            State, settings persistence, busy/idle
+      agent-ui.js              DOM rendering and panel construction
+      agent-run.js             SSE streaming runner (run.php mode)
+      agent-diff.js            Diff view and apply-to-editors
+      agent-context.js         Context building from editors
+      agent-prompts.js         Prompt assembly
+      agent-chat.js            Chat tab logic
+      agent-window.js          Floating window drag, resize, minimize
+      agent-neural.js          Neural network canvas animation + phrases
+    editor.js                  CodeMirror setup and live preview
+    fuzzy.js                   Fuzzy autocomplete
+    color-swatch.js            Inline color swatch diamonds
+    size-slider.js             Inline size slider diamonds
+    color-harmony.js           Color harmony tool
+    wireframe.js               Wireframe / layout prototyping tool
+    gutter.js                  Resizable/draggable panel system
+    editor-search.js           Per-panel inline search
+    indent-guide.js            Custom indent guides
+    storage.js                 localStorage persistence
     modal-save.js
     modal-load.js
-    property-lookup.js   CSS properties reference
-    native-bridge.js     Tauri native file/bridge integration
-    cdn-loader.js        Local-first CodeMirror loader with CDN fallback
-    utils.js             Shared utilities
+    property-lookup.js         CSS properties reference
+    native-bridge.js           Tauri native file/bridge integration
+    cdn-loader.js              Local-first CodeMirror loader with CDN fallback
+    utils.js                   Shared utilities
+  ai/                          PHP AI backend
+    config.json                API keys (not committed)
+    config.php                 Key loader
+    anthropic.php              Anthropic SSE endpoint
+    openai.php                 OpenAI SSE endpoint
+    deepseek.php               DeepSeek SSE endpoint
+    phrases.php                Phrase pool (SQLite + GPT-4o-mini seed)
+    data/
+      phrases.db               SQLite database for agent phrases
+    agent/
+      agent.php                Agent action router
+      run.php                  Full agent run with parser context
+      diff.php                 Diff utilities
+      outline.php              CSS outline extractor
+      db.php                   Database helpers
+      prompts.json             Agent and mode prompt templates
+      context/
+        context.php            Context assembler
+  style-sheets/                CSS theme system
+    theme_handler.json         Routing manifest for all 7 themes
+    themes/                    Per-theme detail files (lazy-loaded)
+      atom-age.json
+      clean-system.json
+      crystal-ui.json
+      dark-neu.json
+      keyboard-ui.json
+      neon-grid.json
+      neumorphism.json
+    parser.php                 Theme router and AI context builder
+    fuzzy-search.php           Cross-source fuzzy search
+    rules.json                 Component and naming rules
+    atom-age.css
+    clean-system.css
+    crystal-ui.css
+    dark-neu.css
+    keyboard-ui.css
+    neon-grid.css
+    neumorphism.css
   data/
-    css-properties.php   CSS property reference data
-    property-values.php  CSS property value keyword map
-    default-content.php  Default editor content
+    css-properties.php         CSS property reference data
+    property-values.php        CSS property value keyword map
+    default-content.php        Default editor content
   vendor/
-    codemirror/          CodeMirror 5.65.16 (local copy)
-    linters/             CSSLint, JSHint, HTMLHint
-  src-tauri/             Tauri Rust application
-  scripts/               Build and deploy scripts
-    copy-www.js          Copies web assets to src-tauri/www
-    gen-icon.js          App icon generator
+    codemirror/                CodeMirror 5.65.16 (local copy)
+    linters/                   CSSLint, JSHint, HTMLHint
+  src-tauri/                   Tauri Rust application
+  scripts/                     Build and deploy scripts
+    copy-www.js                Copies web assets to src-tauri/www
+    split-learn-json.js        Splits theme metadata into per-theme files
+    gen-icon.js                App icon generator
 ```
 
 ---
@@ -129,20 +243,27 @@ live-css/
 ## Running Locally (PHP server)
 
 ```bash
-php -S localhost:8080
+php -S 127.0.0.1:7777 -t src-tauri/www
 ```
 
-Then open http://localhost:8080 in a browser.
+Then open http://127.0.0.1:7777 in a browser.
 
 ---
 
 ## Building the Desktop App
 
 ```bash
+node scripts/copy-www.js
 npm run tauri build
 ```
 
-Requires Rust, Cargo, and the Tauri CLI. Run `node scripts/copy-www.js` before building to sync the web assets into `src-tauri/www/`.
+Requires Rust, Cargo, and the Tauri CLI. copy-www.js must be run before each build to sync the web assets into src-tauri/www/.
+
+For live development:
+
+```bash
+npx tauri dev
+```
 
 ---
 
