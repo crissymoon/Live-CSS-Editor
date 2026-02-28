@@ -52,6 +52,7 @@ sort($allPropertyNames);
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/native-bridge.css">
     <link rel="stylesheet" href="css/wireframe.css">
+    <link rel="stylesheet" href="css/agent.css">
 
     <!-- CDN fallback loader — handles CodeMirror CSS + JS from multiple sources -->
     <!-- Actual CodeMirror assets are injected at runtime by js/cdn-loader.js    -->
@@ -59,19 +60,34 @@ sort($allPropertyNames);
 <body>
 
     <header class="app-header">
-        <div class="header-left">
+        <nav class="app-menubar" id="appMenubar">
+            <div class="menu-item">
+                <span class="menu-label">File</span>
+                <ul class="menu-dropdown">
+                    <li><button id="saveBtn">Save</button></li>
+                    <li><button id="loadBtn">Load</button></li>
+                    <li class="menu-sep"></li>
+                    <li><button id="resetBtn">Reset</button></li>
+                    <li><button id="resetLayoutBtn">Reset Layout</button></li>
+                    <li class="menu-sep"></li>
+                    <li><button id="propertiesBtn">Properties</button></li>
+                </ul>
+            </div>
+            <div class="menu-item">
+                <span class="menu-label">Edit</span>
+                <ul class="menu-dropdown">
+                    <li><button id="harmonyBtn">Harmony</button></li>
+                    <li><button id="guidesBtn">Guides</button></li>
+                    <li><button id="wireframeBtn">Wireframes</button></li>
+                </ul>
+            </div>
+        </nav>
+        <div class="header-center">
             <h1 class="app-title">Crissy's Style Tool</h1>
             <span id="autosaveStatus" class="autosave-status"></span>
         </div>
         <div class="header-right">
-            <button id="saveBtn" class="btn-action" title="Save to browser storage">Save</button>
-            <button id="loadBtn" class="btn-action" title="Load from browser storage">Load</button>
-            <button id="resetBtn" class="btn-action">Reset</button>
-            <button id="resetLayoutBtn" class="btn-action" title="Restore default panel positions">Reset Layout</button>
-            <button id="propertiesBtn" class="btn-action" title="Open properties reference">Properties</button>
-            <button id="harmonyBtn" class="btn-action" title="Open color harmony tool">Harmony</button>
-            <button id="guidesBtn" class="btn-action" title="Indent guide settings">Guides</button>
-            <button id="wireframeBtn" class="btn-action" title="Open wireframe tool">Wireframes</button>
+            <button id="agentBtn" class="btn-action btn-agent" title="Open Code Agent">Agent</button>
         </div>
     </header>
 
@@ -368,8 +384,40 @@ sort($allPropertyNames);
     <script src="js/indent-guide.js"></script>
     <script src="js/wireframe.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/agent.js"></script>
     <!-- Dev/native bridge: file browse, refresh, debug overlay -->
     <script src="js/native-bridge.js"></script>
+    <script>
+    // Menu bar dropdown toggle
+    (function () {
+        var menubar = document.getElementById('appMenubar');
+        if (!menubar) { return; }
+
+        function closeAll() {
+            menubar.querySelectorAll('.menu-item.menu-open').forEach(function (m) {
+                m.classList.remove('menu-open');
+            });
+        }
+
+        menubar.querySelectorAll('.menu-item').forEach(function (item) {
+            item.addEventListener('click', function (e) {
+                var wasOpen = item.classList.contains('menu-open');
+                closeAll();
+                if (!wasOpen) { item.classList.add('menu-open'); }
+                e.stopPropagation();
+            });
+            // Close when a dropdown button is clicked
+            item.querySelectorAll('.menu-dropdown button').forEach(function (btn) {
+                btn.addEventListener('click', function () { closeAll(); });
+            });
+        });
+
+        document.addEventListener('click', closeAll);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { closeAll(); }
+        });
+    }());
+    </script>
 
 </body>
 </html>

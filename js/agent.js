@@ -16,6 +16,14 @@
     var AGENT_URL = 'ai/agent/agent.php';
     var RUN_URL   = 'ai/agent/run.php';
 
+    var CHAT_PROVIDERS = {
+        anthropic: { label: 'Anthropic',  endpoint: 'ai/anthropic.php' },
+        openai:    { label: 'OpenAI',      endpoint: 'ai/openai.php'    },
+        deepseek:  { label: 'Deepseek',    endpoint: 'ai/deepseek.php'  }
+    };
+
+    var CHAT_SYSTEM = 'You are a helpful CSS and web development assistant embedded in a live CSS editor. When returning code, always use fenced code blocks with the correct language identifier.';
+
     var THEMES = ['dark-neu', 'morphism', 'glassmorphic', 'keyboard-ui', 'ada'];
 
     var THEME_LABELS = {
@@ -58,6 +66,7 @@
     var state = {
         theme:      'ada',
         mode:       'repair',
+        source:     'editors',
         filePath:   '',
         content:    '',
         provider:   'anthropic',
@@ -69,7 +78,10 @@
         conversation: [],
         activeStream: null,
         busy:       false,
-        activeTab:  'run'
+        activeTab:  'run',
+        chatHistory: [],
+        chatStream: null,
+        minimized: false
     };
 
     // -----------------------------------------------------------------------
@@ -195,15 +207,17 @@
 
     function buildModalHTML() {
         return [
-            '<div class="agent-header">',
+            '<div class="agent-header" id="agentHeader">',
             '  <span class="agent-title">Code Agent</span>',
             '  <div class="agent-header-controls">',
             '    <div class="agent-theme-dots" id="agentThemeDots">' + buildThemeDots() + '</div>',
+            '    <button class="agent-btn agent-btn-ghost agent-btn-icon" id="agentMinBtn" title="Minimize">&#8722;</button>',
             '    <button class="agent-btn agent-btn-ghost agent-btn-icon" id="agentCloseBtn" title="Close">&#215;</button>',
             '  </div>',
             '</div>',
             '<div class="agent-tabs" id="agentTabs">',
             '  <button class="agent-tab agent-tab-active" data-tab="run">Run</button>',
+            '  <button class="agent-tab" data-tab="chat">Chat</button>',
             '  <button class="agent-tab" data-tab="diff">Diff</button>',
             '  <button class="agent-tab" data-tab="versions">Versions</button>',
             '  <button class="agent-tab" data-tab="context">Context</button>',
@@ -211,6 +225,7 @@
             '</div>',
             '<div class="agent-body">',
             buildRunPane(),
+            buildChatPane(),
             buildDiffPane(),
             buildVersionsPane(),
             buildContextPane(),
@@ -234,29 +249,45 @@
         return [
             '<div class="agent-pane agent-pane-active" data-pane="run">',
             '  <div class="agent-split">',
+
+            // Outline col
             '    <div class="agent-outline-col" id="agentOutlineCol">',
             '      <div class="outline-header">Outline</div>',
-            '      <div id="agentOutline"><p class="outline-empty">No file loaded</p></div>',
+            '      <div id="agentOutline"><p class="outline-empty">Select a source above</p></div>',
             '    </div>',
+
             '    <div class="agent-main-col">',
-            '      <div class="agent-toolbar">',
+
+            // Source toggle -- Crissy's Editors vs Load a File
+            '      <div class="agent-source-toggle">',
+            '        <span class="agent-task-label">Source</span>',
+            '        <button class="agent-source-btn agent-source-btn-active" id="agentSrcEditors">Crissy\'s Editors</button>',
+            '        <button class="agent-source-btn" id="agentSrcFile">Load a File</button>',
+            '      </div>',
+
+            // File path row (hidden when source = editors)
+            '      <div class="agent-toolbar" id="agentFileRow" style="display:none;">',
             '        <span class="agent-toolbar-label">File</span>',
             '        <input class="agent-input" id="agentFilePath" placeholder="relative/path/to/file.php" style="flex:1;min-width:120px;" autocomplete="off">',
             '        <button class="agent-btn agent-btn-ghost" id="agentLoadBtn">Load</button>',
             '      </div>',
-            '      <div class="agent-history-bar" id="agentHistoryBar">',
+
+            // Version history bar (hidden until a file is loaded)
+            '      <div class="agent-history-bar" id="agentHistoryBar" style="display:none;">',
             '        <span class="agent-history-label">History</span>',
             '        <div class="agent-history-slots" id="agentHistorySlots"></div>',
             '        <button class="agent-btn agent-btn-ghost agent-btn-icon" id="agentBackBtn" title="Go back" disabled>&#8592;</button>',
             '        <button class="agent-btn agent-btn-ghost agent-btn-icon" id="agentFwdBtn"  title="Go forward" disabled>&#8594;</button>',
             '      </div>',
+
+            // Task form
             '      <div class="agent-task-form">',
             '        <div class="agent-task-row">',
             '          <span class="agent-task-label">Mode</span>',
-            '          <select class="agent-select" id="agentMode"><option value="repair" selected>Code Repair / Edit</option><option value="new_project">New Project</option></select>',
+            '          <select class="agent-select" id="agentMode"><option value="repair" selected>Fix / Edit</option><option value="new_project">New Project</option></select>',
             '        </div>',
             '        <div class="agent-task-row">',
-            '          <span class="agent-task-label">Provider</span>',
+            '          <span class="agent-task-label">AI Provider</span>',
             '          <select class="agent-select" id="agentProvider"></select>',
             '          <select class="agent-select" id="agentModel"></select>',
             '          <span id="agentStreamBadge" class="agent-badge agent-badge-stream">stream</span>',
@@ -278,7 +309,7 @@
             '        </div>',
             '        <div class="agent-task-row" style="flex-direction:column;align-items:flex-start;gap:4px;">',
             '          <span class="agent-task-label">Instruction</span>',
-            '          <textarea class="agent-input" id="agentInstruction" rows="2" placeholder="Optional extra instruction..."></textarea>',
+            '          <textarea class="agent-input" id="agentInstruction" rows="2" placeholder="Describe what you want the agent to do..."></textarea>',
             '        </div>',
             '        <div class="agent-task-row">',
             '          <button class="agent-btn agent-btn-primary" id="agentRunBtn" style="min-width:80px;">Run</button>',
@@ -286,8 +317,29 @@
             '          <button class="agent-btn agent-btn-ghost agent-btn-danger" id="agentAbortBtn" disabled>Abort</button>',
             '        </div>',
             '      </div>',
+
             '      <div class="agent-response-area" id="agentResponseArea"></div>',
             '      <div class="agent-run-output" id="agentRunCmdOutput" style="display:none;"></div>',
+            '    </div>',
+            '  </div>',
+            '</div>',
+        ].join('');
+    }
+
+    function buildChatPane() {
+        return [
+            '<div class="agent-pane" data-pane="chat">',
+            '  <div class="agent-toolbar">',
+            '    <span class="agent-toolbar-label">Provider</span>',
+            '    <select class="agent-select" id="chatProvider"></select>',
+            '    <select class="agent-select" id="chatModel"></select>',
+            '    <button class="agent-btn agent-btn-ghost" id="chatClearBtn">Clear</button>',
+            '  </div>',
+            '  <div class="agent-chat-messages" id="agentChatMessages"></div>',
+            '  <div class="agent-chat-input-row">',
+            '    <div class="agent-chat-input-wrap">',
+            '      <textarea class="agent-input agent-chat-input" id="agentChatInput" rows="3" placeholder="Ask anything about CSS or code..." spellcheck="false"></textarea>',
+            '      <button class="agent-btn agent-btn-primary agent-chat-send-btn" id="agentChatSend">Send</button>',
             '    </div>',
             '  </div>',
             '</div>',
@@ -355,6 +407,8 @@
     function cacheDOM() {
         var m = dom.modal;
         dom.closeBtn       = m.querySelector('#agentCloseBtn');
+        dom.minBtn         = m.querySelector('#agentMinBtn');
+        dom.header         = m.querySelector('#agentHeader');
         dom.tabs           = m.querySelectorAll('.agent-tab');
         dom.panes          = m.querySelectorAll('.agent-pane');
         dom.themeDots      = m.querySelector('#agentThemeDots');
@@ -363,6 +417,9 @@
         dom.statusText     = m.querySelector('#agentStatusText');
         dom.filePath       = m.querySelector('#agentFilePath');
         dom.loadBtn        = m.querySelector('#agentLoadBtn');
+        dom.fileRow        = m.querySelector('#agentFileRow');
+        dom.srcEditorsBtn  = m.querySelector('#agentSrcEditors');
+        dom.srcFileBtn     = m.querySelector('#agentSrcFile');
         dom.historySlots   = m.querySelector('#agentHistorySlots');
         dom.backBtn        = m.querySelector('#agentBackBtn');
         dom.fwdBtn         = m.querySelector('#agentFwdBtn');
@@ -394,6 +451,13 @@
         dom.refreshContext = m.querySelector('#agentRefreshContext');
         dom.promptsEditor  = m.querySelector('#agentPromptsEditor');
         dom.savePrompts    = m.querySelector('#agentSavePrompts');
+        // Chat pane
+        dom.chatMessages   = m.querySelector('#agentChatMessages');
+        dom.chatInput      = m.querySelector('#agentChatInput');
+        dom.chatSend       = m.querySelector('#agentChatSend');
+        dom.chatClear      = m.querySelector('#chatClearBtn');
+        dom.chatProvider   = m.querySelector('#chatProvider');
+        dom.chatModel      = m.querySelector('#chatModel');
     }
 
     // -----------------------------------------------------------------------
@@ -402,7 +466,6 @@
 
     function bindEvents() {
         dom.trigger.addEventListener('click', toggleOpen);
-        dom.overlay.addEventListener('click', close);
         dom.closeBtn.addEventListener('click', close);
 
         dom.tabs.forEach(function (tab) {
@@ -416,6 +479,9 @@
 
         dom.loadBtn.addEventListener('click', loadFile);
         dom.filePath.addEventListener('keydown', function (e) { if (e.key === 'Enter') { loadFile(); } });
+
+        dom.srcEditorsBtn.addEventListener('click', function () { switchSource('editors'); });
+        dom.srcFileBtn.addEventListener('click',    function () { switchSource('file'); });
 
         dom.backBtn.addEventListener('click', function () { navigate('back'); });
         dom.fwdBtn.addEventListener('click',  function () { navigate('forward'); });
@@ -440,6 +506,23 @@
         dom.diffBtn.addEventListener('click', showDiff);
         dom.refreshContext.addEventListener('click', loadContext);
         dom.savePrompts.addEventListener('click', savePrompts);
+
+        // Chat pane events
+        dom.chatSend.addEventListener('click', chatSend);
+        dom.chatInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
+        });
+        dom.chatClear.addEventListener('click', function () {
+            state.chatHistory = [];
+            dom.chatMessages.innerHTML = '';
+        });
+        dom.chatProvider.addEventListener('change', function () { populateChatModels(); });
+
+        // Minimize
+        dom.minBtn.addEventListener('click', minimize);
+
+        // Draggable header
+        initDrag();
     }
 
     // -----------------------------------------------------------------------
@@ -452,19 +535,39 @@
     }
 
     function open() {
-        dom.overlay.classList.add('agent-open');
+        // Remove minimized chip if present
+        var chip = document.getElementById('agent-taskbar-chip');
+        if (chip) { chip.remove(); }
+        state.minimized = false;
+
+        // Center on first open (no inline position set yet)
+        if (!dom.modal.style.left) {
+            var vw = window.innerWidth;
+            var vh = window.innerHeight;
+            var mw = dom.modal.offsetWidth  || 860;
+            var mh = dom.modal.offsetHeight || 580;
+            dom.modal.style.left   = Math.max(0, Math.round((vw - mw) / 2)) + 'px';
+            dom.modal.style.top    = Math.max(0, Math.round((vh - mh) / 2)) + 'px';
+            dom.modal.style.right  = 'auto';
+            dom.modal.style.bottom = 'auto';
+        }
+
         dom.modal.classList.add('agent-open');
         dom.trigger.classList.add('agent-trigger-active');
         if (!state.providers || !Object.keys(state.providers).length) {
             loadProviders();
         }
         if (state.activeTab === 'prompts') { loadPromptsEditor(); }
+        if (state.source === 'editors') { loadOutlineFromEditors(); }
     }
 
     function close() {
-        dom.overlay.classList.remove('agent-open');
         dom.modal.classList.remove('agent-open');
         dom.trigger.classList.remove('agent-trigger-active');
+        // Remove minimized chip
+        var chip = document.getElementById('agent-taskbar-chip');
+        if (chip) { chip.remove(); }
+        state.minimized = false;
     }
 
     // -----------------------------------------------------------------------
@@ -565,6 +668,7 @@
             state.history  = data.history  || {};
             updateHistorySlots();
             setActiveCurrent();
+            dom.historyBar.style.display = '';
             setStatus('ok', 'Loaded ' + state.versions.length + ' version(s)');
             if (state.versions.length > 0) {
                 state.content = state.versions[0].content;
@@ -664,8 +768,9 @@
     function runAgent() {
         if (state.busy) { return; }
 
-        // In new_project mode with preview task, use theme file instead of requiring loaded file
         var taskVal = dom.task.value;
+
+        // New project preview always uses a theme file
         if (state.mode === 'new_project' && taskVal === 'preview') {
             var themeFile = dom.themeSelect ? dom.themeSelect.value : '';
             if (!themeFile) { toast('Select a theme first.', 'error'); return; }
@@ -673,14 +778,36 @@
             return;
         }
 
-        if (!state.filePath) { toast('Load a file first.', 'error'); return; }
+        // Determine source content
+        var filePath = '';
+        var content  = '';
+
+        if (state.source === 'editors') {
+            try {
+                var htmlVal = LiveCSS.editor.getHtmlEditor ? LiveCSS.editor.getHtmlEditor().getValue() : '';
+                var cssVal  = LiveCSS.editor.getCssEditor  ? LiveCSS.editor.getCssEditor().getValue()  : '';
+                var jsVal   = LiveCSS.editor.getJsEditor   ? LiveCSS.editor.getJsEditor().getValue()   : '';
+                content = '/* === HTML === */\n' + htmlVal
+                        + '\n\n/* === CSS === */\n' + cssVal
+                        + '\n\n/* === JS === */\n'  + jsVal;
+            } catch(e) { content = ''; }
+            filePath = '_editors';
+            if (!content.replace(/\/\*[^*]*\*\//g, '').trim()) {
+                toast('The editors are empty.', 'error');
+                return;
+            }
+        } else {
+            if (!state.filePath) { toast('Load a file first.', 'error'); return; }
+            filePath = state.filePath;
+            content  = state.content;
+        }
 
         var payload = {
             provider:    state.provider,
             model:       state.model,
             task:        taskVal,
-            file_path:   state.filePath,
-            content:     state.content,
+            file_path:   filePath,
+            content:     content,
             instruction: dom.instruction.value.trim(),
             messages:    state.conversation,
             mode:        state.mode,
@@ -931,6 +1058,65 @@
         }
 
         setStatus('ok', 'Mode: ' + modeInfo.name);
+    }
+
+    // -----------------------------------------------------------------------
+    // Source toggle (Crissy's Editors vs Load a File)
+    // -----------------------------------------------------------------------
+
+    function switchSource(src) {
+        state.source = src;
+        var isFile = (src === 'file');
+
+        dom.fileRow.style.display       = isFile ? '' : 'none';
+        dom.historyBar.style.display    = (isFile && state.filePath) ? '' : 'none';
+
+        dom.srcEditorsBtn.classList.toggle('agent-source-btn-active', src === 'editors');
+        dom.srcFileBtn.classList.toggle('agent-source-btn-active',    src === 'file');
+
+        if (src === 'editors') {
+            loadOutlineFromEditors();
+        } else {
+            if (state.filePath && state.content) {
+                loadOutline();
+            } else {
+                dom.outline.innerHTML = '<p class="outline-empty">Load a file to see outline</p>';
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Outline from editors
+    // -----------------------------------------------------------------------
+
+    function loadOutlineFromEditors() {
+        var cssContent = '';
+        try {
+            if (LiveCSS && LiveCSS.editor && LiveCSS.editor.getCssEditor) {
+                cssContent = LiveCSS.editor.getCssEditor().getValue();
+            }
+        } catch(e) {}
+
+        if (!cssContent || !cssContent.trim()) {
+            dom.outline.innerHTML = '<p class="outline-empty">No CSS in editor yet</p>';
+            return;
+        }
+
+        agentPost({ action: 'outline', file_path: '_editors.css', content: cssContent })
+            .then(function (data) {
+                if (data.html) {
+                    dom.outline.innerHTML = data.html;
+                    dom.outline.querySelectorAll('.outline-node').forEach(function (node) {
+                        node.addEventListener('click', function () {
+                            var line = parseInt(node.dataset.line, 10);
+                            if (line && LiveCSS.editor && LiveCSS.editor.getCssEditor) {
+                                LiveCSS.editor.getCssEditor().setCursor({ line: line - 1, ch: 0 });
+                                LiveCSS.editor.getCssEditor().focus();
+                            }
+                        });
+                    });
+                }
+            }).catch(function () {});
     }
 
     function loadThemeList() {
@@ -1288,6 +1474,239 @@
     }
 
     // -----------------------------------------------------------------------
+    // Chat pane logic
+    // -----------------------------------------------------------------------
+
+    function populateChatProviders() {
+        dom.chatProvider.innerHTML = '';
+        Object.keys(CHAT_PROVIDERS).forEach(function (slug) {
+            var opt = document.createElement('option');
+            opt.value = slug;
+            opt.textContent = CHAT_PROVIDERS[slug].label;
+            dom.chatProvider.appendChild(opt);
+        });
+        populateChatModels();
+    }
+
+    function populateChatModels() {
+        var slug   = dom.chatProvider.value;
+        var config = window.LiveCSSAIConfig && window.LiveCSSAIConfig[slug];
+        dom.chatModel.innerHTML = '';
+        var models = (config && config.models) ? config.models : [];
+        var def    = (config && config.default_model) ? config.default_model : '';
+        if (models.length === 0) {
+            var opt = document.createElement('option');
+            opt.value = def || 'default';
+            opt.textContent = def || 'Default';
+            dom.chatModel.appendChild(opt);
+            return;
+        }
+        models.forEach(function (m) {
+            var opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            if (m === def) { opt.selected = true; }
+            dom.chatModel.appendChild(opt);
+        });
+    }
+
+    function chatSend() {
+        var text = dom.chatInput.value.trim();
+        if (!text || state.chatStream) { return; }
+
+        // Render user message
+        var userWrap = el('div', 'agent-msg agent-msg-user');
+        var userLbl  = el('div', 'agent-msg-label'); userLbl.textContent = 'You';
+        var userBody = el('div', 'agent-msg-body');  userBody.innerHTML = MD.toHtml(text);
+        userWrap.appendChild(userLbl); userWrap.appendChild(userBody);
+        dom.chatMessages.appendChild(userWrap);
+        scrollChat();
+
+        state.chatHistory.push({ role: 'user', content: text });
+        dom.chatInput.value = '';
+        dom.chatSend.disabled = true;
+        dom.chatSend.textContent = 'Stop';
+
+        // Build assistant placeholder
+        var aWrap = el('div', 'agent-msg');
+        var aLbl  = el('div', 'agent-msg-label'); aLbl.textContent = CHAT_PROVIDERS[dom.chatProvider.value].label;
+        var aBody = el('div', 'agent-msg-body');  aBody.innerHTML = '<span class=\"ag-cursor\"></span>';
+        aWrap.appendChild(aLbl); aWrap.appendChild(aBody);
+        dom.chatMessages.appendChild(aWrap);
+        scrollChat();
+
+        var accum    = '';
+        var ctrl     = new AbortController();
+        var endpoint = CHAT_PROVIDERS[dom.chatProvider.value].endpoint;
+
+        state.chatStream = { close: function () { ctrl.abort(); } };
+
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages: state.chatHistory,
+                model:    dom.chatModel.value || '',
+                system:   CHAT_SYSTEM
+            }),
+            signal: ctrl.signal
+        })
+        .then(function (resp) {
+            if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+            var reader  = resp.body.getReader();
+            var decoder = new TextDecoder();
+            var buf     = '';
+
+            function pump() {
+                return reader.read().then(function (r) {
+                    if (r.done) {
+                        finalizeChatMsg(aBody, accum);
+                        if (accum) { state.chatHistory.push({ role: 'assistant', content: accum }); }
+                        chatStreamDone();
+                        return;
+                    }
+                    buf += decoder.decode(r.value, { stream: true });
+                    var parts = buf.split('\n\n'); buf = parts.pop();
+                    parts.forEach(function (block) {
+                        var evName = ''; var dataStr = '';
+                        block.split('\n').forEach(function (line) {
+                            if (line.startsWith('event: ')) { evName  = line.slice(7).trim(); }
+                            if (line.startsWith('data: '))  { dataStr = line.slice(6).trim(); }
+                        });
+                        if (!dataStr) { return; }
+                        var data;
+                        try { data = JSON.parse(dataStr); } catch(e) { return; }
+                        if (evName === 'chunk') {
+                            accum += data.text || '';
+                            aBody.innerHTML = MD.toHtml(accum) + '<span class=\"ag-cursor\"></span>';
+                            scrollChat();
+                        } else if (evName === 'done') {
+                            finalizeChatMsg(aBody, accum);
+                            if (accum) { state.chatHistory.push({ role: 'assistant', content: accum }); }
+                            chatStreamDone();
+                        } else if (evName === 'error') {
+                            finalizeChatMsg(aBody, accum || '_Error_');
+                            chatStreamDone();
+                        }
+                    });
+                    return pump();
+                });
+            }
+            return pump();
+        })
+        .catch(function (err) {
+            if (err.name === 'AbortError') { chatStreamDone(); return; }
+            finalizeChatMsg(aBody, accum || '_Request failed: ' + err.message + '_');
+            chatStreamDone();
+        });
+    }
+
+    function finalizeChatMsg(bodyEl, text) {
+        bodyEl.innerHTML = text ? MD.toHtml(text) : '<em style=\"color:var(--ag-text-muted)\">Empty response</em>';
+        scrollChat();
+    }
+
+    function chatStreamDone() {
+        state.chatStream = null;
+        dom.chatSend.disabled = false;
+        dom.chatSend.textContent = 'Send';
+    }
+
+    function scrollChat() {
+        dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
+    }
+
+    // -----------------------------------------------------------------------
+    // Minimize
+    // -----------------------------------------------------------------------
+
+    function minimize() {
+        state.minimized = true;
+
+        // Play genie-out animation, then hide
+        dom.modal.classList.add('agent-genie-out');
+        setTimeout(function () {
+            dom.modal.classList.remove('agent-genie-out');
+            dom.modal.classList.remove('agent-open');
+            dom.modal.classList.add('agent-is-minimized');
+        }, 300);
+
+        // Create taskbar chip if not exists
+        var chip = document.getElementById('agent-taskbar-chip');
+        if (!chip) {
+            chip = document.createElement('button');
+            chip.id = 'agent-taskbar-chip';
+            chip.className = 'taskbar-chip';
+            chip.textContent = 'AGENT';
+            chip.addEventListener('click', restore);
+            var taskbar = document.getElementById('panel-taskbar');
+            if (taskbar) { taskbar.appendChild(chip); }
+        }
+    }
+
+    function restore() {
+        state.minimized = false;
+
+        // Show modal and play genie-in
+        dom.modal.classList.remove('agent-is-minimized');
+        dom.modal.classList.add('agent-open');
+        dom.modal.classList.add('agent-genie-in');
+        setTimeout(function () {
+            dom.modal.classList.remove('agent-genie-in');
+        }, 320);
+
+        var chip = document.getElementById('agent-taskbar-chip');
+        if (chip) { chip.remove(); }
+    }
+
+    // -----------------------------------------------------------------------
+    // Draggable
+    // -----------------------------------------------------------------------
+
+    function initDrag() {
+        var dragging = false;
+        var startX, startY, origLeft, origTop;
+
+        dom.header.style.cursor = 'grab';
+
+        dom.header.addEventListener('mousedown', function (e) {
+            // Do not start drag on buttons
+            if (e.target.closest('button') || e.target.closest('.agent-theme-dot')) { return; }
+
+            dragging = true;
+            dom.header.style.cursor = 'grabbing';
+
+            // Switch from right-anchored to left/top positioned
+            var rect = dom.modal.getBoundingClientRect();
+            dom.modal.style.right = 'auto';
+            dom.modal.style.left  = rect.left + 'px';
+            dom.modal.style.top   = rect.top + 'px';
+            dom.modal.style.bottom = 'auto';
+
+            startX  = e.clientX;
+            startY  = e.clientY;
+            origLeft = rect.left;
+            origTop  = rect.top;
+
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function (e) {
+            if (!dragging) { return; }
+            var dx = e.clientX - startX;
+            var dy = e.clientY - startY;
+            dom.modal.style.left = Math.max(0, origLeft + dx) + 'px';
+            dom.modal.style.top  = Math.max(0, origTop  + dy) + 'px';
+        });
+
+        document.addEventListener('mouseup', function () {
+            if (!dragging) { return; }
+            dragging = false;
+            dom.header.style.cursor = 'grab';
+        });
+    }
+
+    // -----------------------------------------------------------------------
     // Public API
     // -----------------------------------------------------------------------
 
@@ -1316,6 +1735,9 @@
 
             // Load providers immediately if modal is already open somehow
             loadProviders();
+
+            // Populate chat provider/model selects
+            populateChatProviders();
         },
 
         open:  open,

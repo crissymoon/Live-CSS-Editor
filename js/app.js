@@ -176,7 +176,13 @@
             LiveCSS.gutter.resetLayout();
         });
 
-
+        // 13. Code Agent modal
+        if (LiveCSS.agent && LiveCSS.agent.init) {
+            LiveCSS.agent.init();
+        }
+        document.getElementById('agentBtn').addEventListener('click', function () {
+            if (LiveCSS.agent) { LiveCSS.agent.open(); }
+        });
 
     });
 

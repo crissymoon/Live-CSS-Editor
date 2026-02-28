@@ -203,6 +203,7 @@
     letter-spacing: 0.04em;
     transition:   background var(--ag-transition), color var(--ag-transition);
     box-shadow:   var(--ag-shadow-soft);
+    display:      none; /* hidden -- header button used instead */
 }
 
 .agent-trigger:hover,
@@ -217,35 +218,33 @@
    AGENT OVERLAY
    ====================================================================== */
 
-.agent-overlay {
-    position:   fixed;
-    inset:      0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index:    940;
-    opacity:    0;
-    pointer-events: none;
-    transition: opacity var(--ag-transition);
-}
-.agent-overlay.agent-open { opacity: 1; pointer-events: auto; }
+/* Overlay removed -- agent is a floating window, no backdrop */
+.agent-overlay { display: none !important; }
 
 /* =========================================================================
-   AGENT MODAL
+   AGENT FLOATING WINDOW
    ====================================================================== */
 
 .agent-modal {
     position:       fixed;
-    top:            0;
-    bottom:         0;
-    right:          0;
-    width:          min(900px, 92vw);
+    width:          860px;
+    height:         580px;
+    min-width:      480px;
+    min-height:     340px;
     background:     var(--ag-surface);
-    border-left:    1px solid var(--ag-border);
+    border:         1px solid var(--ag-border);
+    border-top:     2px solid var(--ag-accent);
     display:        flex;
     flex-direction: column;
     z-index:        945;
-    box-shadow:     var(--ag-shadow);
-    transform:      translateX(100%);
-    transition:     transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow:     0 8px 40px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3);
+    border-radius:  4px;
+    resize:         both;
+    overflow:       hidden;
+    opacity:        0;
+    transform:      scale(0.93);
+    pointer-events: none;
+    transition:     opacity 0.16s ease, transform 0.16s ease;
 }
 
 .theme-glassmorphic .agent-modal,
@@ -255,7 +254,42 @@
     background:     var(--ag-surface);
 }
 
-.agent-modal.agent-open { transform: translateX(0); }
+.agent-modal.agent-open {
+    opacity:        1;
+    transform:      scale(1);
+    pointer-events: auto;
+}
+
+/* Fully hidden after genie-out completes */
+.agent-modal.agent-is-minimized {
+    display:    none;
+    transition: none;
+}
+
+@keyframes agent-genie-out {
+    0%   { transform: scale(1)    translateY(0);   opacity: 1;   }
+    40%  { transform: scale(0.55) translateY(30px); opacity: 0.5; }
+    100% { transform: scale(0.05) translateY(80px); opacity: 0;   }
+}
+
+@keyframes agent-genie-in {
+    0%   { transform: scale(0.05) translateY(80px); opacity: 0;   }
+    60%  { transform: scale(0.55) translateY(30px); opacity: 0.5; }
+    100% { transform: scale(1)    translateY(0);   opacity: 1;   }
+}
+
+.agent-modal.agent-genie-out {
+    animation:      agent-genie-out 0.28s cubic-bezier(0.4, 0, 0.8, 0.6) forwards;
+    transition:     none !important;
+    transform-origin: bottom center;
+    pointer-events: none;
+}
+
+.agent-modal.agent-genie-in {
+    animation:      agent-genie-in 0.30s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+    transition:     none !important;
+    transform-origin: bottom center;
+}
 
 /* =========================================================================
    HEADER
@@ -409,16 +443,23 @@
    ====================================================================== */
 
 .agent-select {
+    -webkit-appearance: none;
+    -moz-appearance:    none;
+    appearance:         none;
     background:    var(--ag-surface-3);
     color:         var(--ag-text);
     border:        1px solid var(--ag-border);
-    padding:       4px 8px;
+    border-radius: 0;
+    padding:       4px 22px 4px 8px;
     font-family:   inherit;
     font-size:     11px;
     cursor:        pointer;
     outline:       none;
     box-shadow:    var(--ag-inset);
     transition:    border-color var(--ag-transition);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
 }
 .agent-select:focus { border-color: var(--ag-accent); }
 
@@ -745,6 +786,42 @@
     border-bottom: 1px solid var(--ag-border);
 }
 
+/* Source toggle bar */
+.agent-source-toggle {
+    display:      flex;
+    align-items:  center;
+    gap:          8px;
+    padding:      8px 14px;
+    border-bottom: 1px solid var(--ag-border);
+    background:   var(--ag-surface-2);
+    flex-shrink:  0;
+}
+
+.agent-source-btn {
+    background:     transparent;
+    color:          var(--ag-text-muted);
+    border:         1px solid var(--ag-border);
+    padding:        5px 14px;
+    font-size:      12px;
+    font-weight:    600;
+    font-family:    inherit;
+    letter-spacing: 0.04em;
+    cursor:         pointer;
+    border-radius:  2px;
+    transition:     background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.agent-source-btn:hover {
+    border-color: var(--ag-accent);
+    color:        var(--ag-text);
+}
+
+.agent-source-btn-active {
+    background:   var(--ag-accent);
+    border-color: var(--ag-accent);
+    color:        #fff;
+}
+
 .agent-task-row {
     display:     flex;
     align-items: center;
@@ -961,8 +1038,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    flex: 1;
-    overflow-y: auto;
 }
 
 .agent-prompts-field { display: flex; flex-direction: column; gap: 4px; }
@@ -1036,6 +1111,65 @@
 .dot-glassmorphic { background: #7090ff; }
 .dot-keyboard-ui  { background: #00cc66; }
 .dot-ada          { background: #c08040; }
+
+/* =========================================================================
+   CHAT PANE
+   ====================================================================== */
+
+.agent-chat-messages {
+    flex:         1;
+    overflow-y:   auto;
+    padding:      12px 14px;
+    display:      flex;
+    flex-direction: column;
+    gap:          10px;
+}
+
+.agent-chat-input-row {
+    padding:      10px 14px;
+    border-top:   1px solid var(--ag-border);
+    flex-shrink:  0;
+    background:   var(--ag-surface-2);
+}
+
+.agent-chat-input-wrap {
+    position:     relative;
+    display:      flex;
+}
+
+.agent-chat-input {
+    flex:         1;
+    resize:       none;
+    line-height:  1.5;
+    padding-right: 72px;
+}
+
+.agent-chat-send-btn {
+    position:     absolute;
+    right:        6px;
+    bottom:       6px;
+    padding:      5px 14px;
+    font-size:    12px;
+    line-height:  1.4;
+    height:       auto;
+}
+
+/* Make the chat pane a flex column so messages fill the space */
+.agent-pane[data-pane="chat"] {
+    display:        none;
+    flex-direction: column;
+    overflow:       hidden;
+}
+.agent-pane-active[data-pane="chat"] {
+    display:        flex;
+    overflow:       hidden;
+}
+
+/* Context and prompts panes scroll the whole pane */
+.agent-pane[data-pane="context"].agent-pane-active,
+.agent-pane[data-pane="prompts"].agent-pane-active {
+    overflow-y: auto;
+}
 
 /* =========================================================================
    RESPONSIVE
