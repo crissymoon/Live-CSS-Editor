@@ -306,16 +306,18 @@
   },
 
   "html_generation": {
-    "rule": "When generating HTML that uses a theme, detect the prefix from the CSS filename or class names, then apply it to all class references. Never mix prefixes.",
-    "steps": [
-      "1. Identify the target CSS file",
-      "2. Look up the prefix in the prefix map (or detect from class names)",
-      "3. Look up the body class from the body_class map",
-      "4. Apply body class to <body> tag",
-      "5. Use {prefix}-{component} for all class names",
-      "6. Variant classes combine with base: class=\"{p}-btn {p}-btn-primary\"",
-      "7. Child classes use same prefix: class=\"{p}-card-header\"",
-      "8. CSS variables in inline styles use: var(--{prefix}-{token})"
-    ]
+    "rule": "Preview HTML links the CSS file and uses the theme's own variables and body class for all styling. No inline colors or hardcoded hex values in preview HTML. The preview generator extracts variable names and class names, then generates simple divs.",
+    "approach": [
+      "1. Extract CSS custom properties from :root (variable names and values)",
+      "2. Extract class names grouped by section comments",
+      "3. Link the CSS file via <link rel='stylesheet'>",
+      "4. Apply the body class to <body> so the theme styles activate",
+      "5. Render color variables as swatches using var(--name) for background",
+      "6. Render non-color variables as name/value token pairs",
+      "7. Render classes as simple divs with the class applied",
+      "8. All preview shell borders/backgrounds reference theme variables with fallbacks"
+    ],
+    "preview_shell_styling": "The preview layout uses only var(--{prefix}-bg), var(--{prefix}-border), etc. with fallbacks to var(--clr-*) for clean-system. Zero hardcoded colors in the preview HTML.",
+    "when_ai_creates_css": "After generating a new CSS file, run 'go run preview.go {file}.css' to auto-generate the preview HTML and update learn.json with detected components and variables."
   }
 }
