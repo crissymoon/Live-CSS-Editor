@@ -286,8 +286,20 @@
     C.populateChatProviders      = populateChatProviders;
     C.populateChatModels         = populateChatModels;
     C.chatSend                   = chatSend;
+    function appendNoteMsg(text) {
+        var wrap = C.el('div', 'agent-msg agent-msg-note');
+        var lbl  = C.el('div', 'agent-msg-label'); lbl.textContent = 'System';
+        var body = C.el('div', 'agent-msg-body');
+        body.innerHTML = C.MD.toHtml(text);
+        wrap.appendChild(lbl); wrap.appendChild(body);
+        dom.responseArea.appendChild(wrap);
+        scrollResponse();
+        return body;
+    }
+
     C.appendUserMsg              = appendUserMsg;
     C.appendAssistantPlaceholder = appendAssistantPlaceholder;
+    C.appendNoteMsg              = appendNoteMsg;
     C.updateMsg                  = updateMsg;
     C.finalizeMsg                = finalizeMsg;
     C.updateReasoning            = updateReasoning;

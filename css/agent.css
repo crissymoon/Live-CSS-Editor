@@ -999,6 +999,33 @@
     padding:     8px 12px;
 }
 
+/* System / info note messages (e.g. model lock notice) */
+.agent-msg-note {
+    border-left: 2px solid var(--ag-warn, #e08030);
+    padding-left: 10px;
+}
+.agent-msg-note .agent-msg-label {
+    color: var(--ag-warn, #e08030);
+}
+.agent-msg-note .agent-msg-body {
+    font-size:   11px;
+    color:       var(--ag-text-muted);
+    line-height: 1.5;
+}
+
+/* Provider/model selects locked to a specific value for a task */
+.agent-select.preview-locked {
+    opacity:        0.55;
+    cursor:         not-allowed;
+    pointer-events: none;
+}
+.agent-provider-row-locked .agent-task-label::after {
+    content:        ' (locked)';
+    font-size:      9px;
+    opacity:        0.6;
+    letter-spacing: 0.06em;
+}
+
 .agent-reasoning-block {
     background:  var(--ag-code-bg);
     border:      1px dashed var(--ag-border-2);

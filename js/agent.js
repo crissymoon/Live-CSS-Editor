@@ -13,6 +13,101 @@
     var dom   = C.dom;
 
     // -----------------------------------------------------------------------
+    // Preview model lock
+    // When the task is set to "preview" the provider and model selects are
+    // forced to Anthropic + claude-haiku-4-5-20251001, which is the only
+    // validated model for preview generation. The selects are disabled so the
+    // user cannot accidentally switch to a model that breaks the workflow.
+    // The previous provider and model are restored when leaving the task.
+    // -----------------------------------------------------------------------
+
+    var _lockProv  = '';
+    var _lockModel = '';
+    var _isLocked  = false;
+
+    var PREVIEW_PROVIDER = 'anthropic';
+    var PREVIEW_MODEL    = 'claude-haiku-4-5-20251001';
+
+    // Apply lock immediately if providers are populated, otherwise poll.
+    function applyLockWhenReady() {
+        if (_isLocked) { return; }
+        if (Object.keys(state.providers).length > 0 &&
+            dom.provider.options.length > 0) {
+            lockForPreview();
+        } else {
+            var t = setInterval(function () {
+                if (Object.keys(state.providers).length > 0 &&
+                    dom.provider.options.length > 0) {
+                    clearInterval(t);
+                    if (state.task === 'preview') { lockForPreview(); }
+                }
+            }, 80);
+        }
+    }
+
+    function lockForPreview() {
+        if (_isLocked) { return; }
+        _isLocked  = true;
+        _lockProv  = state.provider;
+        _lockModel = state.model;
+
+        // Force the provider select to show Anthropic.
+        // Create the option if the server did not return it.
+        var provOpt = dom.provider.querySelector('option[value="' + PREVIEW_PROVIDER + '"]');
+        if (!provOpt) {
+            provOpt             = document.createElement('option');
+            provOpt.value       = PREVIEW_PROVIDER;
+            provOpt.textContent = 'Anthropic';
+            dom.provider.appendChild(provOpt);
+        }
+        dom.provider.value = PREVIEW_PROVIDER;
+        state.provider     = PREVIEW_PROVIDER;
+
+        // Force the model select to show haiku.
+        // Add the option if it is not already present.
+        var modelOpt = dom.model.querySelector('option[value="' + PREVIEW_MODEL + '"]');
+        if (!modelOpt) {
+            modelOpt             = document.createElement('option');
+            modelOpt.value       = PREVIEW_MODEL;
+            modelOpt.textContent = PREVIEW_MODEL;
+            dom.model.appendChild(modelOpt);
+        }
+        dom.model.value = PREVIEW_MODEL;
+        state.model     = PREVIEW_MODEL;
+
+        updateStreamBadge();
+
+        // Visually disable the selects and mark the label row.
+        dom.provider.classList.add('preview-locked');
+        dom.provider.disabled = true;
+        dom.model.classList.add('preview-locked');
+        dom.model.disabled = true;
+
+        var row = dom.provider.closest('.agent-task-row');
+        if (row) { row.classList.add('agent-provider-row-locked'); }
+    }
+
+    function unlockFromPreview() {
+        if (!_isLocked) { return; }
+        _isLocked = false;
+
+        dom.provider.disabled = false;
+        dom.provider.classList.remove('preview-locked');
+        dom.model.disabled = false;
+        dom.model.classList.remove('preview-locked');
+
+        var row = dom.provider.closest('.agent-task-row');
+        if (row) { row.classList.remove('agent-provider-row-locked'); }
+
+        // Restore state flags so populateProviders re-selects the right items.
+        state.provider = _lockProv || state.provider;
+        state.model    = _lockModel || state.model;
+
+        // Fully rebuild both selects from the server provider list.
+        populateProviders();
+    }
+
+    // -----------------------------------------------------------------------
     // Tab switching  (registered on C so other modules can call C.switchTab)
     // -----------------------------------------------------------------------
 
@@ -182,11 +277,23 @@
         dom.runCmdBtn.addEventListener('click', C.runCommand);
 
         dom.modeSelect.addEventListener('change', function () {
+            // Leaving a mode unlocks any model override that was active.
+            unlockFromPreview();
             C.switchMode(dom.modeSelect.value);
+            // switchMode rebuilds the task dropdown and sets state.task internally
+            // but does not fire dom.task change, so apply the lock here if needed.
+            if (state.task === 'preview') {
+                applyLockWhenReady();
+            }
             C.saveSettings();
         });
         dom.task.addEventListener('change', function () {
             state.task = dom.task.value;
+            if (state.task === 'preview') {
+                applyLockWhenReady();
+            } else {
+                unlockFromPreview();
+            }
             updateInstructionPlaceholder();
             C.saveSettings();
         });
@@ -229,6 +336,11 @@
         if (state.activeTab && state.activeTab !== 'run') {
             switchTab(state.activeTab);
         }
+        // If the restored task is preview, apply the model lock.
+        // Providers may still be loading so use applyLockWhenReady.
+        if (state.task === 'preview') {
+            applyLockWhenReady();
+        }
         // ------------------------------------------------------------------
 
         updateInstructionPlaceholder();
@@ -245,7 +357,8 @@
         'explain':        'What part of the code should be explained?',
         'review':         'Anything specific to focus the review on?',
         'optimize':       'Any specific performance goals?',
-        'security':       'Any areas of particular concern?'
+        'security':       'Any areas of particular concern?',
+        'preview':        'Optional hint for the preview layout or mood. Leave blank for a full auto-generated preview.'
     };
     var DEFAULT_PLACEHOLDER = 'Describe what you want the agent to do...';
 

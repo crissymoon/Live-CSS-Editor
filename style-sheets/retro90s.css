@@ -133,6 +133,7 @@
   -webkit-font-smoothing: none;
   font-smooth: never;
   image-rendering: pixelated;
+  scroll-behavior: smooth;
 }
 
 /* ==========================================================================
@@ -290,8 +291,7 @@
   border-left: 2px solid #404040;
   border-right: 2px solid #ffffff;
   border-bottom: 2px solid #ffffff;
-  padding-top: 3px;
-  padding-left: calc(var(--r9-pad-lg) + 1px);
+  transform: translate(1px, 1px);
 }
 
 .r9-btn:focus {
@@ -563,23 +563,47 @@
 }
 
 /* ==========================================================================
-   Tabs
+   Tabs  (CSS-only, radio-input switching, up to 6 tabs)
+
+   Required HTML structure:
+
+     <div class="r9-tabset">
+       <input type="radio" name="tabs" id="r9t-1" class="r9-ti" checked>
+       <input type="radio" name="tabs" id="r9t-2" class="r9-ti">
+       <nav class="r9-tabs">
+         <label class="r9-tab" for="r9t-1">Tab One</label>
+         <label class="r9-tab" for="r9t-2">Tab Two</label>
+       </nav>
+       <div class="r9-tab-panels">
+         <section class="r9-tab-panel">Content One</section>
+         <section class="r9-tab-panel">Content Two</section>
+       </div>
+     </div>
    ========================================================================== */
 
+/* Hide the actual radio inputs */
+.r9-tabset { position: relative; }
+.r9-ti { display: none; }
+
+/* Tab strip */
 .r9-tabs {
   display: flex;
   align-items: flex-end;
+  flex-wrap: wrap;
   gap: 2px;
+  padding: 0 var(--r9-pad-sm) 0;
   border-bottom: 2px solid var(--r9-silver-dark);
-  padding: 0 var(--r9-pad-sm);
+  position: relative;
+  z-index: 1;
 }
 
+/* Individual tab label */
 .r9-tab {
   background-color: var(--r9-silver);
   color: var(--r9-text);
   font-family: var(--r9-font);
   font-size: var(--r9-font-size-base);
-  padding: 3px var(--r9-pad-lg);
+  padding: 4px var(--r9-pad-lg) 2px;
   border-top: 2px solid #ffffff;
   border-left: 2px solid #ffffff;
   border-right: 2px solid #404040;
@@ -587,28 +611,48 @@
   cursor: default;
   user-select: none;
   position: relative;
-  bottom: -2px;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
 }
 
-.r9-tab.active {
-  background-color: var(--r9-bg-light);
-  z-index: 1;
-  padding-top: 4px;
-  border-bottom: 2px solid var(--r9-bg-light);
-}
-
-.r9-tab:hover:not(.active) {
+.r9-tab:hover {
   background-color: #d0cccc;
 }
 
-/* Tab Panel */
-.r9-tab-panel {
+/* All panels hidden by default */
+.r9-tab-panels .r9-tab-panel {
+  display: none;
   background-color: var(--r9-bg-light);
   border-top: 2px solid #ffffff;
   border-left: 2px solid #ffffff;
   border-right: 2px solid #404040;
   border-bottom: 2px solid #404040;
   padding: var(--r9-pad-lg);
+}
+
+/* CSS-only tab activation: show panel and mark label active via nth-of-type */
+.r9-tabset .r9-ti:nth-of-type(1):checked ~ .r9-tabs .r9-tab:nth-of-type(1),
+.r9-tabset .r9-ti:nth-of-type(2):checked ~ .r9-tabs .r9-tab:nth-of-type(2),
+.r9-tabset .r9-ti:nth-of-type(3):checked ~ .r9-tabs .r9-tab:nth-of-type(3),
+.r9-tabset .r9-ti:nth-of-type(4):checked ~ .r9-tabs .r9-tab:nth-of-type(4),
+.r9-tabset .r9-ti:nth-of-type(5):checked ~ .r9-tabs .r9-tab:nth-of-type(5),
+.r9-tabset .r9-ti:nth-of-type(6):checked ~ .r9-tabs .r9-tab:nth-of-type(6) {
+  background-color: var(--r9-bg-light);
+  border-bottom: 2px solid var(--r9-bg-light);
+  z-index: 2;
+  color: var(--r9-navy);
+  font-weight: bold;
+}
+
+.r9-tabset .r9-ti:nth-of-type(1):checked ~ .r9-tab-panels .r9-tab-panel:nth-of-type(1),
+.r9-tabset .r9-ti:nth-of-type(2):checked ~ .r9-tab-panels .r9-tab-panel:nth-of-type(2),
+.r9-tabset .r9-ti:nth-of-type(3):checked ~ .r9-tab-panels .r9-tab-panel:nth-of-type(3),
+.r9-tabset .r9-ti:nth-of-type(4):checked ~ .r9-tab-panels .r9-tab-panel:nth-of-type(4),
+.r9-tabset .r9-ti:nth-of-type(5):checked ~ .r9-tab-panels .r9-tab-panel:nth-of-type(5),
+.r9-tabset .r9-ti:nth-of-type(6):checked ~ .r9-tab-panels .r9-tab-panel:nth-of-type(6) {
+  display: block;
 }
 
 /* ==========================================================================
@@ -1054,3 +1098,153 @@
 .r9-font-mono    { font-family: var(--r9-font-mono); }
 .r9-font-display { font-family: var(--r9-font-display); }
 .r9-font-serif   { font-family: var(--r9-font-serif); }
+
+/* ==========================================================================
+   Top Navigation Bar
+
+   Sticky bar at the top of the page. Anchor links inside it
+   smooth-scroll to .r9-section elements on the page.
+
+   Usage:
+     <nav class="r9-topnav">
+       <a class="r9-topnav-brand" href="#">My Site</a>
+       <a class="r9-topnav-link" href="#about">About</a>
+       <a class="r9-topnav-link" href="#features">Features</a>
+     </nav>
+
+     <section class="r9-section" id="about">...</section>
+     <section class="r9-section" id="features">...</section>
+   ========================================================================== */
+
+.r9-topnav {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  background-color: var(--r9-silver);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+  box-shadow: var(--r9-shadow-window);
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0;
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  min-height: 28px;
+}
+
+.r9-topnav-brand {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px var(--r9-pad-lg);
+  background: var(--r9-titlebar-grad);
+  color: var(--r9-text-light);
+  font-family: var(--r9-font-display);
+  font-size: var(--r9-font-size-base);
+  font-weight: bold;
+  text-decoration: none;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  border-right: 2px solid #404040;
+  user-select: none;
+}
+
+.r9-topnav-brand:hover,
+.r9-topnav-brand:visited {
+  color: var(--r9-text-light);
+  text-decoration: none;
+}
+
+.r9-topnav-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px var(--r9-pad-md);
+  color: var(--r9-text);
+  text-decoration: none;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  border-right: 1px solid var(--r9-silver-dark);
+}
+
+.r9-topnav-link:hover {
+  background-color: var(--r9-navy);
+  color: var(--r9-text-light);
+  text-decoration: none;
+}
+
+.r9-topnav-link:visited {
+  color: var(--r9-text);
+}
+
+.r9-topnav-link.active {
+  background-color: var(--r9-navy);
+  color: var(--r9-text-light);
+  font-weight: bold;
+}
+
+/* Separator between nav groups */
+.r9-topnav-sep {
+  width: 2px;
+  align-self: stretch;
+  border-left: 1px solid var(--r9-silver-dark);
+  border-right: 1px solid #ffffff;
+  margin: 3px 4px;
+}
+
+/* Right-aligned items (push to end using a spacer) */
+.r9-topnav-spacer {
+  flex: 1;
+}
+
+/* ==========================================================================
+   Page Section  (scroll target for top nav anchor links)
+
+   scroll-margin-top accounts for the sticky topnav height so the
+   heading is not hidden under the bar after scrolling.
+   Adjust --r9-topnav-h if you change the nav height.
+   ========================================================================== */
+
+:root {
+  --r9-topnav-h: 32px;
+}
+
+.r9-section {
+  scroll-margin-top: calc(var(--r9-topnav-h) + var(--r9-pad-sm));
+  padding: var(--r9-pad-xl) var(--r9-pad-lg);
+}
+
+/* Page layout helper: wraps topnav + sections with smooth scroll */
+.r9-page {
+  scroll-behavior: smooth;
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* ==========================================================================
+   Grid Layout Helpers
+   ========================================================================== */
+
+.r9-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r9-pad-md);
+  align-items: flex-start;
+}
+
+.r9-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.r9-col-auto { flex: 0 0 auto; }
+.r9-col-full { flex: 0 0 100%; }
+
+.r9-col-1-2 { flex: 0 0 calc(50% - var(--r9-pad-md) / 2); }
+.r9-col-1-3 { flex: 0 0 calc(33.333% - var(--r9-pad-md) * 2 / 3); }
+.r9-col-2-3 { flex: 0 0 calc(66.666% - var(--r9-pad-md) / 3); }
+.r9-col-1-4 { flex: 0 0 calc(25% - var(--r9-pad-md) * 3 / 4); }
+.r9-col-3-4 { flex: 0 0 calc(75% - var(--r9-pad-md) / 4); }

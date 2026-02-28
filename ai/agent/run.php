@@ -72,9 +72,12 @@ $system     = ($modeConfig ? $modeConfig['system'] : null) ?? $promptsCfg['syste
 $persona    = ($modeConfig ? $modeConfig['persona'] : null) ?? $promptsCfg['persona'] ?? '';
 $taskPrompt = $promptsCfg['tasks'][$task] ?? $promptsCfg['tasks']['fix'];
 
-// Check model override for this task
+// Check model override for this task.
+// When a model_override is defined in prompts.json for this task it always
+// wins, regardless of what the client sent. This ensures preview always
+// uses claude-haiku-4-5-20251001 even when the UI has a different model selected.
 $modelOverride = $promptsCfg['model_overrides'][$task] ?? '';
-if ($modelOverride !== '' && $model === '') {
+if ($modelOverride !== '') {
     $model = $modelOverride;
 }
 

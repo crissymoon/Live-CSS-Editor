@@ -289,9 +289,12 @@
                 + '- Reference only CSS variables from the outline, no hardcoded colors\n\n'
                 + 'Return ONLY a single fenced html code block. No explanation, no other blocks.\n';
 
+            // Force anthropic + haiku 4.5 for preview generation.
+            // The preview pipeline is only validated against this model;
+            // using any other model or provider produces broken output.
             var payload = {
-                provider:    state.provider,
-                model:       state.model,
+                provider:    'anthropic',
+                model:       'claude-haiku-4-5-20251001',
                 task:        'preview',
                 file_path:   themeFile,
                 content:     '',
@@ -302,6 +305,12 @@
 
             var label = instruction ? instruction.slice(0, 50) : themeFile;
             C.appendUserMsg('Generate preview: ' + label);
+            C.appendNoteMsg(
+                'This workflow is locked to **Anthropic claude-haiku-4-5-20251001**. ' +
+                'Preview generation has only been validated against this model. ' +
+                'GPT models and other providers do not produce reliable preview HTML for this pipeline. ' +
+                'The provider and model selects are locked while the preview task is selected.'
+            );
 
             var isStream = (state.providers[state.provider] || {}).supports_streaming !== false;
             if (isStream) { streamRun(payload); }

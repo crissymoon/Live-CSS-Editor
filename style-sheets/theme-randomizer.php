@@ -211,8 +211,10 @@ function handlePreview(string $theme, array $body, ?int $seed): array
         $varOverrideBlock
     );
 
-    // Call AI
-    $model = $body['model'] ?? null;
+    // Call AI -- always force haiku 4.5 for previews regardless of any
+    // model field the client may have sent. Other models produce inconsistent
+    // or malformed preview HTML; haiku 4.5 is the only tested model here.
+    $model = 'claude-haiku-4-5-20251001';
     $html  = callAI($systemPrompt, $userMessage, $model);
 
     if ($html === null) {
