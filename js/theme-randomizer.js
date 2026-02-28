@@ -28,6 +28,7 @@
     var RANDOMIZER_DATA = 'ai/theme-randomizer.json';
     var SHEETS_API      = 'data/stylesheets.php?json';
     var CONTEXT_API     = 'ai/context-time.php';
+    var NUDGE_API       = 'style-sheets/theme-randomizer.php';
 
     // -----------------------------------------------------------------------
     // Storage key
@@ -36,6 +37,7 @@
     var SK_PALETTE   = 'lc-rand-palette';
     var SK_SHEET     = 'lc-rand-sheet';
     var SK_OPEN      = 'lc-rand-open';
+    var SK_NUDGE     = 'lc-rand-nudge';
 
     // -----------------------------------------------------------------------
     // State
@@ -47,6 +49,8 @@
     var activeSheet   = '';  // currently applied stylesheet filename
     var activePalette = '';  // currently applied palette id
     var panelOpen  = false;
+    var activeNudge     = null;   // { vars: {}, duration_vars: {} } from last nudge
+    var activeNudgeSeed = null;   // integer seed used by last nudge
 
     // -----------------------------------------------------------------------
     // DOM references
@@ -313,6 +317,20 @@
         randBtn.title    = 'Randomize palette';
         randBtn.textContent = 'Rand';
 
+        var nudgeBtn = mk('button', 'lc-ctx-btn lc-nudge-btn');
+        nudgeBtn.id      = 'lcNudgeBtn';
+        nudgeBtn.title   = 'Nudge active theme colors slightly';
+        nudgeBtn.textContent = 'Nudge';
+
+        var nudgeChip = mk('span', 'lc-ctx-chip lc-ctx-nudge');
+        nudgeChip.id  = 'lcCtxNudge';
+        nudgeChip.textContent = '';
+
+        var aiPreviewBtn = mk('button', 'lc-ctx-btn lc-ai-preview-btn');
+        aiPreviewBtn.id      = 'lcAiPreviewBtn';
+        aiPreviewBtn.title   = 'Ask AI to generate a unique modern preview and save a timestamped backup';
+        aiPreviewBtn.textContent = 'AI Preview';
+
         var settingsBtn = mk('button', 'lc-ctx-btn lc-settings-btn');
         settingsBtn.id       = 'lcSettingsBtn';
         settingsBtn.title    = 'Theme settings';
@@ -321,14 +339,20 @@
         bar.appendChild(localeChip);
         bar.appendChild(timeChip);
         bar.appendChild(paletteChip);
+        bar.appendChild(nudgeChip);
         bar.appendChild(randBtn);
+        bar.appendChild(nudgeBtn);
+        bar.appendChild(aiPreviewBtn);
         bar.appendChild(settingsBtn);
         document.body.appendChild(bar);
 
-        dom.contextBar  = bar;
-        dom.localeChip  = localeChip;
-        dom.timeChip    = timeChip;
-        dom.paletteChip = paletteChip;
+        dom.contextBar   = bar;
+        dom.localeChip   = localeChip;
+        dom.timeChip     = timeChip;
+        dom.paletteChip  = paletteChip;
+        dom.nudgeChip    = nudgeChip;
+        dom.nudgeBtn     = nudgeBtn;
+        dom.aiPreviewBtn = aiPreviewBtn;
 
         randBtn.addEventListener('click', function () {
             randomizePalette();
@@ -336,6 +360,14 @@
 
         settingsBtn.addEventListener('click', function () {
             toggleDrawer();
+        });
+
+        nudgeBtn.addEventListener('click', function () {
+            nudgeActiveTheme();
+        });
+
+        aiPreviewBtn.addEventListener('click', function () {
+            requestAiPreview();
         });
 
         renderContextBar();
@@ -372,12 +404,17 @@
         dom.drawer        = drawer;
 
         // Wire controls after building
-        dom.sheetSelect   = drawer.querySelector('#lcSheetSelect');
-        dom.paletteSelect = drawer.querySelector('#lcPaletteSelect');
-        dom.drawerRandBtn = drawer.querySelector('#lcDrawerRand');
-        dom.drawerClose   = drawer.querySelector('#lcDrawerClose');
-        dom.contextDetail = drawer.querySelector('#lcContextDetail');
-        dom.uxInfo        = drawer.querySelector('#lcUxInfo');
+        dom.sheetSelect     = drawer.querySelector('#lcSheetSelect');
+        dom.paletteSelect   = drawer.querySelector('#lcPaletteSelect');
+        dom.drawerRandBtn   = drawer.querySelector('#lcDrawerRand');
+        dom.drawerNudgeBtn  = drawer.querySelector('#lcDrawerNudge');
+        dom.drawerClearNudge = drawer.querySelector('#lcDrawerClearNudge');
+        dom.drawerAiPreview = drawer.querySelector('#lcDrawerAiPreview');
+        dom.drawerClose     = drawer.querySelector('#lcDrawerClose');
+        dom.contextDetail   = drawer.querySelector('#lcContextDetail');
+        dom.uxInfo          = drawer.querySelector('#lcUxInfo');
+        dom.nudgeStatus     = drawer.querySelector('#lcNudgeStatus');
+        dom.aiPreviewStatus = drawer.querySelector('#lcAiPreviewStatus');
 
         populateSheetSelect();
         populatePaletteSelect();
@@ -408,6 +445,24 @@
             randomizePalette();
         });
 
+        if (dom.drawerNudgeBtn) {
+            dom.drawerNudgeBtn.addEventListener('click', function () {
+                nudgeActiveTheme();
+            });
+        }
+
+        if (dom.drawerClearNudge) {
+            dom.drawerClearNudge.addEventListener('click', function () {
+                clearNudge();
+            });
+        }
+
+        if (dom.drawerAiPreview) {
+            dom.drawerAiPreview.addEventListener('click', function () {
+                requestAiPreview();
+            });
+        }
+
         dom.drawerClose.addEventListener('click', function () {
             closeDrawer();
         });
@@ -435,6 +490,19 @@
             '    <div class="lc-field-label">Color Palette</div>',
             '    <select id="lcPaletteSelect" class="lc-select"></select>',
             '    <button id="lcDrawerRand" class="lc-drawer-btn">Randomize Palette</button>',
+            '  </div>',
+            '  <div class="lc-drawer-section">',
+            '    <div class="lc-field-label">Harmony Nudge</div>',
+            '    <div class="lc-field-note">Apply a small color-harmony offset to the active theme variables. Each click produces a subtle variation that preserves the theme character.</div>',
+            '    <button id="lcDrawerNudge" class="lc-drawer-btn">Nudge Theme</button>',
+            '    <button id="lcDrawerClearNudge" class="lc-drawer-btn lc-drawer-btn-sm" style="margin-top:4px">Clear Nudge</button>',
+            '    <div id="lcNudgeStatus" class="lc-field-note lc-nudge-status"></div>',
+            '  </div>',
+            '  <div class="lc-drawer-section">',
+            '    <div class="lc-field-label">AI Unique Preview</div>',
+            '    <div class="lc-field-note">Generate a unique, modern HTML preview page using the active theme and current nudge state. The result is auto-saved to style-sheets/backups/ with a timestamp.</div>',
+            '    <button id="lcDrawerAiPreview" class="lc-drawer-btn">Generate + Backup Preview</button>',
+            '    <div id="lcAiPreviewStatus" class="lc-field-note lc-ai-status"></div>',
             '  </div>',
             '  <div class="lc-drawer-section">',
             '    <div class="lc-field-label">Current Context</div>',
@@ -559,6 +627,147 @@
     }
 
     // -----------------------------------------------------------------------
+    // Harmony Nudge
+    // -----------------------------------------------------------------------
+
+    /**
+     * Detect the slug of the currently active theme from activeSheet or <link> tags.
+     */
+    function detectActiveThemeSlug() {
+        if (activeSheet) {
+            return activeSheet.replace(/\.css(\?.*)?$/i, '');
+        }
+        var links = document.querySelectorAll('link[rel="stylesheet"]');
+        for (var i = 0; i < links.length; i++) {
+            var href  = links[i].getAttribute('href') || '';
+            var match = href.match(/([a-z0-9-]+)\.css(\?|$)/i);
+            if (match && match[1] && match[1] !== 'style') {
+                return match[1];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Fetch nudged CSS vars from the PHP endpoint and apply them to :root.
+     * Only affects CSS custom properties declared in the theme's randomizable_vars.
+     */
+    function nudgeActiveTheme() {
+        var slug = detectActiveThemeSlug();
+        if (!slug) {
+            if (dom.nudgeStatus) { dom.nudgeStatus.textContent = 'No active theme detected.'; }
+            return;
+        }
+        if (dom.nudgeStatus)     { dom.nudgeStatus.textContent = 'Nudging...'; }
+        if (dom.nudgeChip)       { dom.nudgeChip.textContent   = 'Nudging...'; }
+
+        fetch(NUDGE_API + '?mode=nudge&theme=' + encodeURIComponent(slug))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.error) {
+                    if (dom.nudgeStatus) { dom.nudgeStatus.textContent = 'Error: ' + d.error; }
+                    if (dom.nudgeChip)   { dom.nudgeChip.textContent   = ''; }
+                    return;
+                }
+                applyNudgedVars(d.vars, d.duration_vars);
+                activeNudge     = { vars: d.vars || {}, duration_vars: d.duration_vars || {} };
+                activeNudgeSeed = d.seed || null;
+                var label = slug + ' #' + (d.seed || '?');
+                if (dom.nudgeStatus) { dom.nudgeStatus.textContent = 'Applied: ' + label; }
+                if (dom.nudgeChip)   { dom.nudgeChip.textContent   = 'Nudge #' + (d.seed || '?'); }
+                try { savePref(SK_NUDGE, JSON.stringify({ seed: d.seed, theme: slug })); } catch (e) {}
+            })
+            .catch(function () {
+                if (dom.nudgeStatus) { dom.nudgeStatus.textContent = 'Nudge endpoint unavailable.'; }
+                if (dom.nudgeChip)   { dom.nudgeChip.textContent   = ''; }
+            });
+    }
+
+    /**
+     * Write nudged var values into :root CSS custom properties.
+     */
+    function applyNudgedVars(vars, durationVars) {
+        var root = document.documentElement;
+        if (vars) {
+            Object.keys(vars).forEach(function (k) {
+                root.style.setProperty(k, vars[k]);
+            });
+        }
+        if (durationVars) {
+            Object.keys(durationVars).forEach(function (k) {
+                root.style.setProperty(k, durationVars[k]);
+            });
+        }
+    }
+
+    /**
+     * Remove all nudge overrides from :root and reset state.
+     */
+    function clearNudge() {
+        var root = document.documentElement;
+        if (activeNudge) {
+            Object.keys(activeNudge.vars || {}).forEach(function (k) {
+                root.style.removeProperty(k);
+            });
+            Object.keys(activeNudge.duration_vars || {}).forEach(function (k) {
+                root.style.removeProperty(k);
+            });
+        }
+        activeNudge     = null;
+        activeNudgeSeed = null;
+        clearPref(SK_NUDGE);
+        if (dom.nudgeStatus) { dom.nudgeStatus.textContent = 'Nudge cleared.'; }
+        if (dom.nudgeChip)   { dom.nudgeChip.textContent   = ''; }
+    }
+
+    /**
+     * Ask the AI to generate a unique, modern HTML preview for the active theme.
+     * Passes the current nudge overrides so the AI incorporates them.
+     * The server saves the result to style-sheets/backups/ with a timestamp.
+     */
+    function requestAiPreview() {
+        var slug = detectActiveThemeSlug();
+        if (!slug) {
+            if (dom.aiPreviewStatus) { dom.aiPreviewStatus.textContent = 'No active theme detected.'; }
+            return;
+        }
+        if (dom.aiPreviewStatus) { dom.aiPreviewStatus.textContent = 'Sending to AI...'; }
+
+        var payload = JSON.stringify({
+            vars:          (activeNudge && activeNudge.vars)          || {},
+            duration_vars: (activeNudge && activeNudge.duration_vars) || {},
+        });
+
+        fetch(NUDGE_API + '?mode=preview&theme=' + encodeURIComponent(slug), {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    payload,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d.error) {
+                if (dom.aiPreviewStatus) { dom.aiPreviewStatus.textContent = 'Error: ' + d.error; }
+                return;
+            }
+            var msg = 'Saved: ' + (d.backup_file || 'unknown');
+            if (dom.aiPreviewStatus) { dom.aiPreviewStatus.textContent = msg; }
+            if (dom.nudgeChip)       { dom.nudgeChip.textContent += ' (AI preview saved)'; }
+            // Open the generated HTML in a new tab
+            if (d.html) {
+                var w = window.open('', '_blank');
+                if (w) {
+                    w.document.open();
+                    w.document.write(d.html);
+                    w.document.close();
+                }
+            }
+        })
+        .catch(function () {
+            if (dom.aiPreviewStatus) { dom.aiPreviewStatus.textContent = 'Request failed. Check console.'; }
+        });
+    }
+
+    // -----------------------------------------------------------------------
     // Persistence
     // -----------------------------------------------------------------------
 
@@ -620,8 +829,37 @@
             '.lc-rand-btn{',
             '  background:var(--clr-surface-alt,#22253a);',
             '}',
-
-            /* Drawer overlay */
+            '.lc-nudge-btn{',
+            '  background:var(--clr-surface-alt,#22253a);',
+            '  border-color:var(--clr-border,#2a2d3e);',
+            '}',
+            '.lc-nudge-btn:hover{',
+            '  color:var(--clr-accent,#3da8ff);',
+            '  border-color:var(--clr-accent,#3da8ff);',
+            '}',
+            '.lc-ai-preview-btn{',
+            '  background:var(--clr-surface,#1a1c28);',
+            '  border-color:var(--clr-border,#2a2d3e);',
+            '}',
+            '.lc-ai-preview-btn:hover{',
+            '  color:var(--clr-accent-light,#70c4ff);',
+            '  border-color:var(--clr-accent-light,#70c4ff);',
+            '}',
+            '.lc-ctx-nudge{',
+            '  font-size:10px;',
+            '  color:var(--clr-accent,#3da8ff);',
+            '  padding:0 5px;',
+            '  border-right:1px solid var(--clr-border,#2a2d3e);',
+            '  white-space:nowrap;',
+            '}',
+            '.lc-nudge-status,.lc-ai-status{',
+            '  font-size:10px;',
+            '  color:var(--clr-accent,#3da8ff);',
+            '  min-height:14px;',
+            '}',
+            '.lc-drawer-btn-sm{',
+            '  height:22px;font-size:10px;',
+            '}',
             '.lc-drawer-overlay{',
             '  position:fixed;inset:0;',
             '  background:var(--clr-overlay,rgba(0,0,0,0.60));',
@@ -756,6 +994,15 @@
 
         /** Trigger a new random palette selection. */
         randomize: randomizePalette,
+
+        /** Nudge the active theme's color variables with small harmony offsets. */
+        nudgeTheme: nudgeActiveTheme,
+
+        /** Clear the current harmony nudge and restore original theme variables. */
+        clearNudge: clearNudge,
+
+        /** Ask the AI to generate a unique preview and save a timestamped backup to style-sheets/backups/. */
+        requestAiPreview: requestAiPreview,
 
         /** Manually apply a palette by id (e.g. 'night-ink'). */
         applyPalette: function (id) {

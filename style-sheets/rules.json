@@ -14,7 +14,8 @@
         "dn": "dark-neu",
         "kb": "keyboard-ui",
         "ng": "neon-grid",
-        "neu": "neumorphism"
+        "neu": "neumorphism",
+        "qc": "quill-cartesian"
       },
       "exception": {
         "name": "clean-system",
@@ -32,6 +33,7 @@
         "keyboard-ui.css": "keyboard-ui",
         "neon-grid.css": "neon-grid",
         "neumorphism.css": "neumorphism",
+        "quill-cartesian.css": "quill-cartesian",
         "clean-system.css": null
       }
     },

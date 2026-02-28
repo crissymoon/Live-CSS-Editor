@@ -12,7 +12,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": false
       },
       "avatar": {
         "aa": false,
@@ -21,7 +22,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": false
+        "ng": false,
+        "qc": false
       },
       "badge": {
         "aa": true,
@@ -30,7 +32,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "breadcrumb": {
         "aa": true,
@@ -39,7 +42,8 @@
         "dn": false,
         "kb": false,
         "neu": false,
-        "ng": false
+        "ng": false,
+        "qc": true
       },
       "btn": {
         "aa": true,
@@ -48,7 +52,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "card": {
         "aa": true,
@@ -57,7 +62,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "checkbox": {
         "aa": false,
@@ -66,7 +72,8 @@
         "dn": false,
         "kb": false,
         "neu": true,
-        "ng": false
+        "ng": false,
+        "qc": true
       },
       "divider": {
         "aa": true,
@@ -75,7 +82,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "input": {
         "aa": true,
@@ -84,7 +92,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "modal": {
         "aa": false,
@@ -93,7 +102,8 @@
         "dn": true,
         "kb": false,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "nav": {
         "aa": true,
@@ -102,7 +112,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": false
       },
       "panel": {
         "aa": true,
@@ -111,7 +122,8 @@
         "dn": false,
         "kb": false,
         "neu": false,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "progress": {
         "aa": true,
@@ -120,7 +132,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "radio": {
         "aa": false,
@@ -129,7 +142,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": false
+        "ng": false,
+        "qc": false
       },
       "select": {
         "aa": true,
@@ -138,7 +152,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "skeleton": {
         "aa": false,
@@ -147,7 +162,8 @@
         "dn": true,
         "kb": false,
         "neu": true,
-        "ng": false
+        "ng": false,
+        "qc": false
       },
       "stat": {
         "aa": true,
@@ -156,7 +172,8 @@
         "dn": true,
         "kb": false,
         "neu": false,
-        "ng": true
+        "ng": true,
+        "qc": false
       },
       "table": {
         "aa": true,
@@ -165,7 +182,8 @@
         "dn": true,
         "kb": false,
         "neu": false,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "tabs": {
         "aa": false,
@@ -174,7 +192,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": false
+        "ng": false,
+        "qc": true
       },
       "textarea": {
         "aa": true,
@@ -183,7 +202,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "toggle": {
         "aa": true,
@@ -192,7 +212,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": true
+        "ng": true,
+        "qc": true
       },
       "tooltip": {
         "aa": false,
@@ -201,7 +222,8 @@
         "dn": true,
         "kb": true,
         "neu": true,
-        "ng": false
+        "ng": false,
+        "qc": true
       }
     }
   },
@@ -286,6 +308,43 @@
     ],
     "translucent": [
       "crystal-ui"
+    ],
+    "parchment": [
+      "quill-cartesian"
+    ],
+    "manuscript": [
+      "quill-cartesian"
+    ],
+    "gold": [
+      "quill-cartesian"
+    ],
+    "renaissance": [
+      "quill-cartesian"
+    ],
+    "scholar": [
+      "quill-cartesian"
+    ],
+    "warm": [
+      "quill-cartesian",
+      "atom-age"
+    ],
+    "ink": [
+      "quill-cartesian",
+      "dark-neu"
+    ],
+    "cartesian": [
+      "quill-cartesian"
+    ],
+    "geometric": [
+      "quill-cartesian",
+      "clean-system"
+    ],
+    "editorial": [
+      "quill-cartesian",
+      "clean-system"
+    ],
+    "literary": [
+      "quill-cartesian"
     ]
   },
   "themes": {
@@ -1245,6 +1304,81 @@
       "has_dark_mode": true,
       "body_class": "neumorphism",
       "file": "neumorphism.css"
+    },
+    "quill-cartesian": {
+      "theme_file": "themes/quill-cartesian.json",
+      "prefix": "qc",
+      "title": "Quill Cartesian - Renaissance Scholar Design System",
+      "description": "Aged parchment textures with gilt-gold accents, Cartesian coordinate grid geometry, quill-ink typography, and aged manuscript feel. Combines Shakespeare's Globe Theatre warmth with Descartes' geometric precision.",
+      "best_for": [
+        "scholarly or academic applications",
+        "editorial and publishing tools",
+        "document editors and writing apps",
+        "historical or literary themed sites",
+        "premium warm-aesthetic dashboards",
+        "design system showcases"
+      ],
+      "avoid_for": [
+        "real-time data dashboards requiring high density",
+        "consumer mobile apps",
+        "gaming interfaces",
+        "modern SaaS with cold corporate palette"
+      ],
+      "visual_identity": {
+        "animations": "ease 0.08s (micro), ease 0.2s (slow)",
+        "borders": "2px solid ink-brown, 1px gold accents",
+        "era": "Renaissance manuscript + Cartesian geometry",
+        "feel": "scholarly, warm, precise, aged-luxury",
+        "motifs": "ruled paper lines, coordinate grid axes, drop caps, ornamental dividers, wax-seal callouts",
+        "radius": "none (sharp corners throughout)",
+        "shadows": "hard offset shadows (5px/8px solid, no blur) in ink-dark tones",
+        "surfaces": "parchment (#f7f0dc), vellum (#faf5e8), ink-bg (#1c1408), navy (#1a2650)",
+        "typography": "Georgia, Palatino Linotype, Book Antiqua (serif display + body)"
+      },
+      "components_available": [
+        "badge", "badge-gold", "badge-navy", "badge-parchment", "badge-burgundy", "badge-forest",
+        "breadcrumb",
+        "btn", "btn-active", "btn-navy", "btn-gold", "btn-danger", "btn-success", "btn-sm", "btn-group", "btn-sep",
+        "card", "card-header", "card-body", "card-footer", "card-footer-text",
+        "checkbox",
+        "close",
+        "display", "display-expr", "display-value",
+        "divider",
+        "dropcap",
+        "fieldset",
+        "flourish",
+        "flex", "flex-col",
+        "form-group",
+        "grid", "grid-axes", "grid-5",
+        "inset",
+        "inscription",
+        "label",
+        "latin",
+        "list", "list-item",
+        "menu", "menu-item", "menu-sep",
+        "modal", "modal-backdrop", "modal-header", "modal-body", "modal-footer",
+        "navy-card", "navy-card-header",
+        "ornament-rule",
+        "progress", "progress-fill",
+        "raised",
+        "resize",
+        "ruled", "ruled-margin",
+        "small",
+        "spinner",
+        "tab", "tabs",
+        "table",
+        "textarea",
+        "toast", "toast-title", "toast-text",
+        "toggle", "toggle-track", "toggle-thumb",
+        "toolbar", "toolbar-select",
+        "tooltip",
+        "watermark",
+        "word-count"
+      ],
+      "is_dark_by_default": false,
+      "has_dark_mode": false,
+      "body_class": "quill-cartesian",
+      "file": "quill-cartesian.css"
     }
   }
 }

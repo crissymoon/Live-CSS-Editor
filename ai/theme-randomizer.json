@@ -302,6 +302,31 @@
                 "--clr-warn":          "#ddaa30",
                 "--clr-overlay":       "rgba(0,0,0,0.62)"
             }
+        },
+        {
+            "id": "quill-cartesian",
+            "name": "Quill Cartesian",
+            "description": "Aged parchment surfaces with gilt-gold accents and navy Cartesian grid geometry. Renaissance scholar meets geometric precision.",
+            "cultural_affinity": ["Western Europe / Germanic", "Western Europe / Latin", "North America / English"],
+            "time_of_day": ["Morning", "Afternoon", "Evening"],
+            "vars": {
+                "--clr-bg":            "#f7f0dc",
+                "--clr-bg-alt":        "#ede0bc",
+                "--clr-surface":       "#faf5e8",
+                "--clr-surface-alt":   "#e2d4a8",
+                "--clr-border":        "#5a3e1b",
+                "--clr-border-subtle": "#c8a050",
+                "--clr-text":          "#1a1008",
+                "--clr-text-muted":    "#7a6030",
+                "--clr-text-dim":      "rgba(100,76,30,0.38)",
+                "--clr-accent":        "#d4aa50",
+                "--clr-accent-dark":   "#a88018",
+                "--clr-accent-light":  "#e8c878",
+                "--clr-success":       "#4a8828",
+                "--clr-error":         "#822030",
+                "--clr-warn":          "#c8a030",
+                "--clr-overlay":       "rgba(26,16,8,0.55)"
+            }
         }
     ],
 
@@ -464,5 +489,66 @@
             "notes": "Broad acceptance of most styles. Functional clarity is the highest priority.",
             "preferred_palettes": ["night-ink", "bone-steel", "slate-sand", "arctic-dawn", "steel-violet"]
         }
+    },
+
+    "harmony_nudge": {
+        "_note": "Per-theme color harmony nudge configuration. Controls how theme-randomizer.php offsets colors when mode=nudge is invoked. Nudges are small HSL deltas that shift the palette slightly without destroying the theme character.",
+        "global_defaults": {
+            "hue_range":        8,
+            "sat_range":        5,
+            "light_range":      5,
+            "max_iterations":   1
+        },
+        "theme_overrides": {
+            "quill-cartesian": {
+                "hue_range":   8,
+                "sat_range":   5,
+                "light_range": 5,
+                "notes": "Warm analogous family (hue 30-50). Accent navy at 220-230. Drama burgundy at 345-355. Small nudges preserve Renaissance parchment feel."
+            },
+            "neon-grid": {
+                "hue_range":   12,
+                "sat_range":   4,
+                "light_range": 6,
+                "notes": "Neon palette tolerates slightly wider hue swings. Keep saturation tight to preserve the electric quality."
+            },
+            "atom-age": {
+                "hue_range":   6,
+                "sat_range":   4,
+                "light_range": 4,
+                "notes": "Retro-futurist aqua and chrome. Keep offsets very small to stay within 1950s palette range."
+            },
+            "dark-neu": {
+                "hue_range":   5,
+                "sat_range":   3,
+                "light_range": 4,
+                "notes": "Neumorphic surfaces need consistent lightness. Smaller ranges prevent breaking the soft-shadow illusion."
+            },
+            "neumorphism": {
+                "hue_range":   5,
+                "sat_range":   3,
+                "light_range": 4,
+                "notes": "Same considerations as dark-neu. Neumorphic depth effect is highly sensitive to lightness shifts."
+            },
+            "crystal-ui": {
+                "hue_range":   10,
+                "sat_range":   6,
+                "light_range": 6,
+                "notes": "Glass-crystal palette is flexible. Wider hue range is acceptable."
+            },
+            "keyboard-ui": {
+                "hue_range":   6,
+                "sat_range":   4,
+                "light_range": 5,
+                "notes": "Mechanical keyboard aesthetic uses precise off-whites and single accent. Keep tight."
+            },
+            "clean-system": {
+                "hue_range":   8,
+                "sat_range":   5,
+                "light_range": 5,
+                "notes": "Functional system palette. Standard nudge ranges work well here."
+            }
+        },
+        "preview_ai_directive": "When generating a unique, modern preview for any theme: go beyond a generic card grid. Identify the theme's cultural and aesthetic DNA. Use its signature components prominently. Create a layout that tells the story of the theme -- its era, its mood, its geometric logic. The result must feel like it was designed by someone who deeply understands both the source aesthetic and modern interface craft. Surprise the user with deliberate, opinionated design choices."
     }
 }
