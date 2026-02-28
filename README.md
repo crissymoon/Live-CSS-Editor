@@ -1,3 +1,5 @@
+# ADDING AI TO THIS
+
 # Crissy's Style Tool
 
 A desktop CSS/HTML/JavaScript live editor with real-time preview, built with Tauri v2 and PHP.
