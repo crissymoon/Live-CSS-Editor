@@ -384,6 +384,14 @@ sort($allPropertyNames);
     <script src="js/indent-guide.js"></script>
     <script src="js/wireframe.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/agent/agent-core.js"></script>
+    <script src="js/agent/agent-ui.js"></script>
+    <script src="js/agent/agent-run.js"></script>
+    <script src="js/agent/agent-diff.js"></script>
+    <script src="js/agent/agent-context.js"></script>
+    <script src="js/agent/agent-prompts.js"></script>
+    <script src="js/agent/agent-chat.js"></script>
+    <script src="js/agent/agent-window.js"></script>
     <script src="js/agent.js"></script>
     <!-- Dev/native bridge: file browse, refresh, debug overlay -->
     <script src="js/native-bridge.js"></script>
