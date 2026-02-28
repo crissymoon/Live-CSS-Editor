@@ -1,7 +1,7 @@
 <?php
 /**
  * Fuzzy Search Tool
- * Searches CSS files, rules.json, and learn.json for content related to a query.
+ * Searches CSS files, rules.json, and theme_handler.json for content related to a query.
  * Uses token-based fuzzy matching: the query is split into terms, and each source
  * is scored by how many terms appear (exact or partial match).
  *
@@ -63,10 +63,10 @@ class FuzzySearch
             }
         }
 
-        // 3. Search learn.json for theme metadata and palette keywords
-        $learnFile = $baseDir . '/learn.json';
-        if (file_exists($learnFile)) {
-            $learn = json_decode(file_get_contents($learnFile), true);
+        // 3. Search theme_handler.json for theme metadata and palette keywords
+        $handlerFile = $baseDir . '/theme_handler.json';
+        if (file_exists($handlerFile)) {
+            $learn = json_decode(file_get_contents($handlerFile), true);
             if ($learn) {
                 self::searchLearn($learn, $terms, $results);
             }

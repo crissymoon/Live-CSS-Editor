@@ -294,7 +294,7 @@ switch ($action) {
 
         $targets = [];
         if ($target === 'all' || $target === 'learn') {
-            $targets[] = 'learn.json';
+            $targets[] = 'theme_handler.json';
         }
         if ($target === 'all' || $target === 'rules') {
             $targets[] = 'rules.json';
@@ -306,6 +306,22 @@ switch ($action) {
                 $dst = $backupDir . '/' . pathinfo($file, PATHINFO_FILENAME) . '_' . $ts . '.json';
                 copy($src, $dst);
                 $backed[] = ['file' => $file, 'backup' => basename($dst)];
+            }
+        }
+
+        // Also back up individual theme detail files
+        if ($target === 'all' || $target === 'learn') {
+            $themesDir = $styleSheetsDir . '/themes';
+            $themeBackupDir = $backupDir . '/themes_' . $ts;
+            if (is_dir($themesDir)) {
+                if (!is_dir($themeBackupDir)) {
+                    mkdir($themeBackupDir, 0755, true);
+                }
+                foreach (glob($themesDir . '/*.json') as $tf) {
+                    $base = basename($tf);
+                    copy($tf, $themeBackupDir . '/' . $base);
+                    $backed[] = ['file' => 'themes/' . $base, 'backup' => 'themes_' . $ts . '/' . $base];
+                }
             }
         }
 

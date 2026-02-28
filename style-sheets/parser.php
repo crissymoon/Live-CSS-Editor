@@ -3,7 +3,7 @@
  * CSS Theme Parser / Router
  *
  * Takes a user request (description of what they want to build) and:
- *   1. Loads rules.json and learn.json
+ *   1. Loads rules.json and theme_handler.json (lightweight routing manifest)
  *   2. Matches the request to the best theme(s)
  *   3. Resolves naming (prefix, body class, available components)
  *   4. Returns structured context for an AI model to generate
@@ -27,8 +27,23 @@ class CSSRouter {
 
     public function __construct(string $baseDir) {
         $this->baseDir = rtrim($baseDir, '/');
-        $this->rules = json_decode(file_get_contents($this->baseDir . '/rules.json'), true);
-        $this->learn = json_decode(file_get_contents($this->baseDir . '/learn.json'), true);
+        $this->rules   = json_decode(file_get_contents($this->baseDir . '/rules.json'), true);
+        // Load lightweight routing manifest; full per-theme detail lives in themes/*.json
+        $this->learn   = json_decode(file_get_contents($this->baseDir . '/theme_handler.json'), true);
+    }
+
+    /**
+     * Lazy-load the full detail (palette, variables, etc.) for a theme.
+     * Merges the detail file into the handler stub and returns the complete theme array.
+     */
+    private function loadThemeDetail(string $key): array {
+        $stub = $this->learn['themes'][$key] ?? [];
+        $detailPath = $this->baseDir . '/' . ($stub['theme_file'] ?? "themes/{$key}.json");
+        if (file_exists($detailPath)) {
+            $detail = json_decode(file_get_contents($detailPath), true) ?? [];
+            return array_merge($stub, $detail);
+        }
+        return $stub;
     }
 
     /**
@@ -44,7 +59,7 @@ class CSSRouter {
             if ($themeKey === null) {
                 return ['error' => 'Unknown theme: ' . $forceTheme];
             }
-            $theme = $this->learn['themes'][$themeKey];
+            $theme = $this->loadThemeDetail($themeKey);
             return $this->buildContext($themeKey, $theme, $request, 1.0);
         }
 
@@ -56,7 +71,7 @@ class CSSRouter {
 
         $bestKey = array_key_first($scores);
         $bestScore = $scores[$bestKey];
-        $theme = $this->learn['themes'][$bestKey];
+        $theme = $this->loadThemeDetail($bestKey);
 
         $result = $this->buildContext($bestKey, $theme, $request, $bestScore);
 
@@ -495,7 +510,7 @@ class CSSRouter {
             'added' => date('Y-m-d H:i:s')
         ];
         file_put_contents(
-            $this->baseDir . '/learn.json',
+            $this->baseDir . '/theme_handler.json',
             json_encode($this->learn, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
         );
     }
