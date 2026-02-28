@@ -246,13 +246,15 @@
         C.setStatus('busy', 'Generating preview for ' + themeFile + '...');
         state.previewCss = '';
 
-        // Fetch actual theme CSS in parallel -- applied to CSS editor on "Apply"
-        fetch('style-sheets/' + themeFile)
+        // Fetch theme CSS first -- must be resolved before the AI call so
+        // applyToEditors always has state.previewCss when it runs.
+        var cssFetch = fetch('style-sheets/' + themeFile)
             .then(function (r) { return r.ok ? r.text() : ''; })
             .catch(function () { return ''; })
             .then(function (css) { state.previewCss = css; });
 
-        C.agentPost({ action: 'backup', target: 'all' }).then(function () {
+        cssFetch.then(function () {
+        return C.agentPost({ action: 'backup', target: 'all' }).then(function () {
             return C.agentPost({ action: 'css_outline', file_path: themeFile, format: 'text' });
         }).then(function (outlineData) {
             var outlineText = outlineData.outline || '';
@@ -315,6 +317,7 @@
             var isStream = (state.providers[state.provider] || {}).supports_streaming !== false;
             if (isStream) { streamRun(payload); }
             else          { blockingRun(payload); }
+        });
         }).catch(function (e) {
             C.setStatus('error', e.message);
             C.setBusy(false);
@@ -568,9 +571,15 @@
     function applyToEditors(rawText) {
         function extractLang(text, langs) {
             for (var i = 0; i < langs.length; i++) {
-                var re = new RegExp('```' + langs[i] + '\\s*\\n([\\s\\S]*?)```', 'i');
+                // Allow optional carriage-return before the newline (Windows line endings)
+                // and allow trailing whitespace on the closing fence line
+                var re = new RegExp('```' + langs[i] + '[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n[ \\t]*```', 'i');
                 var m  = text.match(re);
                 if (m) { return m[1]; }
+                // Fallback: closing fence directly after content with no preceding newline
+                var re2 = new RegExp('```' + langs[i] + '[ \\t]*\\r?\\n([\\s\\S]*?)```', 'i');
+                var m2  = text.match(re2);
+                if (m2) { return m2[1]; }
             }
             return null;
         }
@@ -578,6 +587,12 @@
         var isPreview = (state.mode === 'new_project' && state.task === 'preview');
 
         var html = extractLang(rawText, ['html']);
+        // For preview: if the fenced block regex failed, use the generic extractor as fallback
+        if (html === null && isPreview) {
+            var fallback = C.MD.extractCode(rawText);
+            // Only use it as HTML if it looks like actual markup
+            if (fallback && fallback.trim().charAt(0) === '<') { html = fallback; }
+        }
         // For preview: use the fetched theme CSS (not AI output); skip JS entirely
         var css  = isPreview ? (state.previewCss || null) : extractLang(rawText, ['css']);
         var js   = isPreview ? null : extractLang(rawText, ['javascript', 'js']);

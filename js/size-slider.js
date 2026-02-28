@@ -384,35 +384,33 @@ window.LiveCSS.sizeSlider = (function () {
         };
 
         /* ── live preview (CSS editor only) ── */
-        var cssOffset = null;
-        var cssLen    = null;
-        try {
-            var cssEd = LiveCSS.editor.getCssEditor && LiveCSS.editor.getCssEditor();
-            if (cm === cssEd && mark) {
-                var mp = mark.find();
-                if (mp) {
-                    cssOffset = cm.indexFromPos(mp.from);
-                    cssLen    = cm.indexFromPos(mp.to) - cssOffset;
-                }
-            }
-        } catch (ignore) { /* non-critical */ }
-
+        // livePreview patches the preview iframe user CSS style tag without
+        // rebuilding the entire srcdoc. The mark position is recomputed fresh
+        // on every call so it is always correct, even when updatePreview() has
+        // rebuilt the iframe between two drag events.
+        // This eliminates the cssLen / cssOffset drift race condition.
         function livePreview(newText) {
-            if (cssOffset === null) return;
             try {
-                var frame = document.getElementById('previewFrame');
-                if (!frame) return;
-                var fd = frame.contentDocument ||
-                         (frame.contentWindow && frame.contentWindow.document);
-                if (!fd) return;
-                var st = fd.querySelector('style');
-                if (!st) return;
-                var css = st.textContent;
-                st.textContent =
-                    css.slice(0, cssOffset) + newText +
-                    css.slice(cssOffset + cssLen);
-                cssLen = newText.length;
-            } catch (ignore) { /* sandbox */ }
+                var cssEd = LiveCSS.editor.getCssEditor && LiveCSS.editor.getCssEditor();
+                if (!cssEd || cm !== cssEd) { return; }
+                if (!mark) { console.warn('[sizeSlider] livePreview: no mark reference'); return; }
+                var mp = mark.find();
+                if (!mp) {
+                    console.warn('[sizeSlider] livePreview: mark was cleared -- rescan may have run while slider was open');
+                    return;
+                }
+                var from    = cm.indexFromPos(mp.from);
+                var to      = cm.indexFromPos(mp.to);
+                var curCss  = cm.getValue();
+                var patched = curCss.slice(0, from) + newText + curCss.slice(to);
+                if (LiveCSS.editor.setPreviewCss) {
+                    LiveCSS.editor.setPreviewCss(patched);
+                } else {
+                    console.warn('[sizeSlider] LiveCSS.editor.setPreviewCss not available -- upgrade editor.js');
+                }
+            } catch (e) {
+                console.error('[sizeSlider] livePreview failed:', e);
+            }
         }
 
         function fmt(v) {
@@ -549,15 +547,19 @@ window.LiveCSS.sizeSlider = (function () {
         }
 
         function addMark(displayText, numStr, unit, isBare, unitless, fromPos, toPos) {
-            var w  = createWidget(displayText, numStr, unit, isBare, unitless, cm);
-            var mk = cm.markText(fromPos, toPos, {
-                replacedWith:     w,
-                handleMouseEvents: false,
-                inclusiveLeft:    false,
-                inclusiveRight:   false
-            });
-            w._cmMark = mk;
-            marks.push(mk);
+            try {
+                var w  = createWidget(displayText, numStr, unit, isBare, unitless, cm);
+                var mk = cm.markText(fromPos, toPos, {
+                    replacedWith:     w,
+                    handleMouseEvents: false,
+                    inclusiveLeft:    false,
+                    inclusiveRight:   false
+                });
+                w._cmMark = mk;
+                marks.push(mk);
+            } catch (e) {
+                console.error('[sizeSlider] markText failed at', fromPos, toPos, e);
+            }
         }
 
         function scan() {
@@ -633,10 +635,19 @@ window.LiveCSS.sizeSlider = (function () {
        ================================================================ */
     function init() {
         var ed = LiveCSS.editor;
-        if (!ed) return;
-        try { if (ed.getCssEditor)  attachSizeSliders(ed.getCssEditor());  } catch (e) { /* */ }
-        try { if (ed.getHtmlEditor) attachSizeSliders(ed.getHtmlEditor()); } catch (e) { /* */ }
-        try { if (ed.getJsEditor)   attachSizeSliders(ed.getJsEditor());   } catch (e) { /* */ }
+        if (!ed) { console.error('[sizeSlider] LiveCSS.editor not available -- call init() after editor.init()'); return; }
+        try {
+            if (ed.getCssEditor)  { attachSizeSliders(ed.getCssEditor()); }
+            else                  { console.warn('[sizeSlider] getCssEditor not found on LiveCSS.editor'); }
+        } catch (e) { console.error('[sizeSlider] failed to attach to CSS editor:', e); }
+        try {
+            if (ed.getHtmlEditor) { attachSizeSliders(ed.getHtmlEditor()); }
+            else                  { console.warn('[sizeSlider] getHtmlEditor not found on LiveCSS.editor'); }
+        } catch (e) { console.error('[sizeSlider] failed to attach to HTML editor:', e); }
+        try {
+            if (ed.getJsEditor)   { attachSizeSliders(ed.getJsEditor()); }
+            else                  { console.warn('[sizeSlider] getJsEditor not found on LiveCSS.editor'); }
+        } catch (e) { console.error('[sizeSlider] failed to attach to JS editor:', e); }
     }
 
     return { init: init };

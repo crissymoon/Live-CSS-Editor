@@ -142,7 +142,9 @@ window.LiveCSS.colorSwatch = (function () {
 
     function closePopover() {
         if (activePopover && activePopover.parentNode) {
-            activePopover.parentNode.removeChild(activePopover);
+            try { activePopover.parentNode.removeChild(activePopover); } catch (e) {
+                console.warn('[colorSwatch] closePopover: removeChild failed:', e);
+            }
         }
         activePopover = null;
         activeDiamond = null;
@@ -152,11 +154,18 @@ window.LiveCSS.colorSwatch = (function () {
         if (pendingCommit) {
             var pc = pendingCommit;
             pendingCommit = null;
-            if (pc.mark) {
-                var pos = pc.mark.find();
-                if (pos) {
-                    pc.cm.replaceRange(pc.hex, pos.from, pos.to);
+            try {
+                if (pc.mark) {
+                    var pos = pc.mark.find();
+                    if (pos) {
+                        pc.cm.replaceRange(pc.hex, pos.from, pos.to);
+                        console.log('[colorSwatch] committed color', pc.hex);
+                    } else {
+                        console.warn('[colorSwatch] commit skipped -- mark was cleared before close');
+                    }
                 }
+            } catch (e) {
+                console.error('[colorSwatch] failed to commit color on close:', e);
             }
         }
 
@@ -269,36 +278,33 @@ window.LiveCSS.colorSwatch = (function () {
         // -- Live-update the preview iframe without touching the editor.
         // Use the exact character offset of this specific token so that
         // other properties sharing the same hex value are not affected.
-        var previewCssOffset = null;
-        var previewCssLen    = null;
-
-        // Only CSS editor content ends up in the iframe <style> tag.
-        if (cm === LiveCSS.editor.getCssEditor() && mark) {
-            var mpos = mark.find();
-            if (mpos) {
-                previewCssOffset = cm.indexFromPos(mpos.from);
-                // Length of actual token text (may be "red", "#f00", "#ff0000", etc.)
-                previewCssLen = cm.indexFromPos(mpos.to) - previewCssOffset;
-            }
-        }
-
+        // livePreview patches the preview iframe user CSS style tag without
+        // rebuilding the entire srcdoc. The mark position is recomputed fresh
+        // on every call so it is always correct, even when updatePreview() has
+        // rebuilt the iframe (and the style tag content) between two drag events.
+        // This eliminates the previewCssLen / offset drift race condition.
         function livePreview(newHex) {
-            if (previewCssOffset === null) { return; }
             try {
-                var frame = document.getElementById('previewFrame');
-                if (!frame) { return; }
-                var fdoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
-                if (!fdoc) { return; }
-                var styleEl = fdoc.querySelector('style');
-                if (!styleEl) { return; }
-                var css = styleEl.textContent;
-                // Splice only at the exact character position of this token
-                styleEl.textContent =
-                    css.slice(0, previewCssOffset) +
-                    newHex +
-                    css.slice(previewCssOffset + previewCssLen);
-                previewCssLen = newHex.length; // length changes on next drag
-            } catch (e) { /* cross-origin or missing iframe — ignore */ }
+                var cssEd = LiveCSS.editor.getCssEditor && LiveCSS.editor.getCssEditor();
+                if (!cssEd || cm !== cssEd) { return; }
+                if (!mark) { console.warn('[colorSwatch] livePreview: no mark reference'); return; }
+                var mpos = mark.find();
+                if (!mpos) {
+                    console.warn('[colorSwatch] livePreview: mark was cleared -- rescan may have run while picker was open');
+                    return;
+                }
+                var from    = cm.indexFromPos(mpos.from);
+                var to      = cm.indexFromPos(mpos.to);
+                var curCss  = cm.getValue();
+                var patched = curCss.slice(0, from) + newHex + curCss.slice(to);
+                if (LiveCSS.editor.setPreviewCss) {
+                    LiveCSS.editor.setPreviewCss(patched);
+                } else {
+                    console.warn('[colorSwatch] LiveCSS.editor.setPreviewCss not available -- upgrade editor.js');
+                }
+            } catch (e) {
+                console.error('[colorSwatch] livePreview failed:', e);
+            }
         }
 
         function applyColor() {
@@ -398,7 +404,9 @@ window.LiveCSS.colorSwatch = (function () {
 
         function clearMarks() {
             for (var i = 0; i < activeMarks.length; i++) {
-                try { activeMarks[i].clear(); } catch (e) { /* already cleared */ }
+                try { activeMarks[i].clear(); } catch (e) {
+                    console.warn('[colorSwatch] clearMarks: mark.clear() failed:', e);
+                }
             }
             activeMarks = [];
         }
@@ -431,16 +439,21 @@ window.LiveCSS.colorSwatch = (function () {
 
                     // IIFE to capture value of colorStr/hexVal/fromPos/toPos per iteration
                     activeMarks.push((function (cs, hv, fp, tp) {
-                        var widget = createWidget(cs, hv, cm);
-                        var mark   = cm.markText(fp, tp, {
-                            replacedWith:     widget,
-                            handleMouseEvents: false,
-                            inclusiveLeft:    false,
-                            inclusiveRight:   false
-                        });
-                        // Back-reference for the click handler
-                        widget._cmMark = mark;
-                        return mark;
+                        try {
+                            var widget = createWidget(cs, hv, cm);
+                            var mark   = cm.markText(fp, tp, {
+                                replacedWith:     widget,
+                                handleMouseEvents: false,
+                                inclusiveLeft:    false,
+                                inclusiveRight:   false
+                            });
+                            // Back-reference for the click handler
+                            widget._cmMark = mark;
+                            return mark;
+                        } catch (e) {
+                            console.error('[colorSwatch] markText failed at', fp, tp, e);
+                            return null;
+                        }
                     })(colorStr, hexVal, fromPos, toPos));
                 }
             }
@@ -459,10 +472,22 @@ window.LiveCSS.colorSwatch = (function () {
     // ── Public ────────────────────────────────────────────────────
 
     function init() {
+        if (!window.LiveCSS || !LiveCSS.editor) {
+            console.error('[colorSwatch] LiveCSS.editor not available -- call init() after editor.init()');
+            return;
+        }
         var fns = ['getCssEditor', 'getHtmlEditor', 'getJsEditor'];
         fns.forEach(function (fn) {
-            var cm = LiveCSS.editor[fn] && LiveCSS.editor[fn]();
-            if (cm) { attachSwatches(cm); }
+            try {
+                var cm = LiveCSS.editor[fn] && LiveCSS.editor[fn]();
+                if (cm) {
+                    attachSwatches(cm);
+                } else {
+                    console.warn('[colorSwatch] ' + fn + ' not available on LiveCSS.editor');
+                }
+            } catch (e) {
+                console.error('[colorSwatch] failed to attach swatches via ' + fn + ':', e);
+            }
         });
     }
 

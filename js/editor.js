@@ -19,6 +19,115 @@ window.LiveCSS.editor = (function () {
     var htmlEditor, cssEditor, jsEditor;
 
     /**
+     * Jump the CSS editor to the first rule that references part of `selector`.
+     * Search order: each class name, then the id, then the tag name.
+     * Also ensures the CSS panel is visible (restores it from minimized state if needed)
+     * and calls CodeMirror refresh so the selection is visible after a panel show.
+     */
+    function jumpToCssRule(selector) {
+        if (!cssEditor) {
+            console.warn('[GoToCSS] cssEditor not available');
+            return;
+        }
+        if (!selector || !selector.trim()) {
+            console.warn('[GoToCSS] empty selector -- nothing to search for');
+            return;
+        }
+
+        // Build an ordered list of search terms from most to least specific
+        var terms = [];
+        var classes = selector.match(/\.[^.#\s[\]()]+/g) || [];
+        for (var i = 0; i < classes.length; i++) { terms.push(classes[i]); }
+        var idMatch = selector.match(/#[^.#\s[\]()]+/);
+        if (idMatch) { terms.push(idMatch[0]); }
+        var tagMatch = selector.match(/^[a-zA-Z][a-zA-Z0-9]*/);
+        if (tagMatch && tagMatch[0] !== 'html' && tagMatch[0] !== 'body') {
+            terms.push(tagMatch[0]);
+        }
+
+        if (terms.length === 0) {
+            console.warn('[GoToCSS] no searchable terms extracted from selector:', selector);
+            return;
+        }
+        console.log('[GoToCSS] searching for selector:', selector, '-- terms:', terms);
+
+        var cssText = cssEditor.getValue();
+        var lines   = cssText.split('\n');
+        var foundLn = -1, foundCol = -1, foundLen = 0;
+
+        outer: for (var j = 0; j < terms.length; j++) {
+            var needle = terms[j].toLowerCase();
+            for (var ln = 0; ln < lines.length; ln++) {
+                var lower = lines[ln].toLowerCase();
+                var col   = lower.indexOf(needle);
+                if (col === -1) { continue; }
+                // Only match in selector portion (before any '{' on this line)
+                var bracePos = lower.indexOf('{');
+                if (bracePos !== -1 && col > bracePos) { continue; }
+                foundLn  = ln;
+                foundCol = col;
+                foundLen = terms[j].length;
+                console.log('[GoToCSS] found "' + terms[j] + '" at line ' + (ln + 1) + ' col ' + col);
+                break outer;
+            }
+        }
+
+        if (foundLn === -1) {
+            console.warn('[GoToCSS] selector not found in CSS editor content. Terms tried:', terms);
+            return;
+        }
+
+        var from = CodeMirror.Pos(foundLn, foundCol);
+        var to   = CodeMirror.Pos(foundLn, foundCol + foundLen);
+
+        function doScroll() {
+            try {
+                cssEditor.setSelection(from, to);
+                cssEditor.scrollIntoView({ from: from, to: to }, 80);
+                cssEditor.focus();
+                console.log('[GoToCSS] scrolled to line ' + (foundLn + 1));
+            } catch (e) {
+                console.error('[GoToCSS] setSelection/scrollIntoView failed:', e);
+            }
+        }
+
+        // Ensure the CSS panel is visible. If it has been minimized the panel's
+        // display is set to 'none' by gutter.js. We need to show it and remove
+        // its taskbar chip before CodeMirror can render the selection.
+        var cssPanel  = document.getElementById('cssPanel');
+        var isHidden  = cssPanel && cssPanel.style.display === 'none';
+
+        if (isHidden) {
+            console.log('[GoToCSS] CSS panel is minimized -- restoring it');
+            // Restore geometry that gutter.js saved before minimising
+            if (cssPanel.dataset.savedLeft)   { cssPanel.style.left   = cssPanel.dataset.savedLeft; }
+            if (cssPanel.dataset.savedTop)    { cssPanel.style.top    = cssPanel.dataset.savedTop; }
+            if (cssPanel.dataset.savedWidth)  { cssPanel.style.width  = cssPanel.dataset.savedWidth; }
+            if (cssPanel.dataset.savedHeight) { cssPanel.style.height = cssPanel.dataset.savedHeight; }
+            cssPanel.style.display = '';
+
+            // Remove the matching taskbar chip
+            try {
+                var taskbar = document.getElementById('panel-taskbar');
+                if (taskbar) {
+                    var chip = taskbar.querySelector('[data-panel-id="cssPanel"]');
+                    if (chip && chip.parentNode) { chip.parentNode.removeChild(chip); }
+                }
+            } catch (e) {
+                console.warn('[GoToCSS] could not remove taskbar chip:', e);
+            }
+
+            // Give CodeMirror time to re-render after the panel becomes visible
+            setTimeout(function () {
+                try { cssEditor.refresh(); } catch (e) { console.warn('[GoToCSS] refresh failed:', e); }
+                setTimeout(doScroll, 60);
+            }, 40);
+        } else {
+            doScroll();
+        }
+    }
+
+    /**
      * Build a right-click context-menu inspector script.
      * Always injected into the preview iframe.
      * Right-clicking any element shows selector, dimensions, and key styles.
@@ -42,6 +151,7 @@ window.LiveCSS.editor = (function () {
             document.body.appendChild(menu);
 
             var lastEl = null;
+            var lastSelector = '';
 
             function hideMenu() {
                 menu.style.display = 'none';
@@ -73,6 +183,7 @@ window.LiveCSS.editor = (function () {
                     clsStr = '.' + el.className.trim().replace(/\s+/g, '.');
                 }
                 var selector = tag + idStr + clsStr;
+                lastSelector = selector;
 
                 var rect = el.getBoundingClientRect();
                 var dims = Math.round(rect.width) + ' \u00D7 ' + Math.round(rect.height);
@@ -95,6 +206,7 @@ window.LiveCSS.editor = (function () {
                     h += '<div style="padding:2px 10px;"><span style="color:#7c6fb0;">' + esc(props[i][0]) + '</span><span style="color:#555;"> : </span><span style="color:#eceaf6;">' + esc(props[i][1]) + '</span></div>';
                 }
                 h += '<div data-copy="1" style="padding:5px 10px;margin-top:2px;border-top:1px solid #2a1f4e;cursor:pointer;color:#4d31bf;">Copy selector</div>';
+                h += '<div data-goto-css="1" style="padding:5px 10px;cursor:pointer;color:#7c6fb0;">Go to in CSS</div>';
                 menu.innerHTML = h;
 
                 menu.style.display = 'block';
@@ -111,14 +223,14 @@ window.LiveCSS.editor = (function () {
             menu.addEventListener('mouseover', function (e) {
                 var t = e.target;
                 while (t && t !== menu) {
-                    if (t.getAttribute && t.getAttribute('data-copy') === '1') { t.style.background = '#1a1130'; return; }
+                    if (t.getAttribute && (t.getAttribute('data-copy') === '1' || t.getAttribute('data-goto-css') === '1')) { t.style.background = '#1a1130'; return; }
                     t = t.parentNode;
                 }
             });
             menu.addEventListener('mouseout', function (e) {
                 var t = e.target;
                 while (t && t !== menu) {
-                    if (t.getAttribute && t.getAttribute('data-copy') === '1') { t.style.background = 'transparent'; return; }
+                    if (t.getAttribute && (t.getAttribute('data-copy') === '1' || t.getAttribute('data-goto-css') === '1')) { t.style.background = 'transparent'; return; }
                     t = t.parentNode;
                 }
             });
@@ -141,6 +253,12 @@ window.LiveCSS.editor = (function () {
                             t.textContent = 'Copied!';
                             setTimeout(function () { t.textContent = 'Copy selector'; }, 1200);
                         }
+                        return;
+                    }
+                    if (t.getAttribute && t.getAttribute('data-goto-css') === '1') {
+                        console.log('[GoToCSS] sending postMessage for selector:', lastSelector);
+                        window.parent.postMessage({ type: 'livecss-goto-css', selector: lastSelector }, '*');
+                        hideMenu();
                         return;
                     }
                     t = t.parentNode;
@@ -347,6 +465,17 @@ window.LiveCSS.editor = (function () {
         cssEditor.on('change',  debouncedUpdate);
         jsEditor.on('change',   debouncedUpdate);
 
+        // Listen for "Go to in CSS" messages from the preview iframe context menu
+        window.addEventListener('message', function (e) {
+            if (!e.data || e.data.type !== 'livecss-goto-css') { return; }
+            console.log('[GoToCSS] postMessage received, selector:', e.data.selector);
+            if (!cssEditor) {
+                console.error('[GoToCSS] message received but cssEditor is not initialised');
+                return;
+            }
+            jumpToCssRule(e.data.selector);
+        });
+
         // Ensure layout is correct before the first render
         setTimeout(function () {
             htmlEditor.refresh();
@@ -356,22 +485,91 @@ window.LiveCSS.editor = (function () {
         }, 200);
     }
 
+    /**
+     * Intercept anchor clicks inside the preview iframe so that:
+     *  - hash-only links (#section) smooth-scroll within the preview instead
+     *    of navigating the iframe (which would load the parent app URL + hash)
+     *  - external / full-URL links are suppressed entirely to keep the preview
+     *    self-contained
+     */
+    function buildNavFixScript() {
+        var fn = function () {
+            document.addEventListener('click', function (e) {
+                var a = e.target.closest ? e.target.closest('a[href]') : null;
+                if (!a) {
+                    // fallback for browsers without closest
+                    var el = e.target;
+                    while (el && el.tagName !== 'A') { el = el.parentElement; }
+                    if (el && el.hasAttribute('href')) { a = el; }
+                }
+                if (!a) { return; }
+                var href = a.getAttribute('href') || '';
+                // Always prevent default – keep preview contained
+                e.preventDefault();
+                if (href.charAt(0) === '#' && href.length > 1) {
+                    var target = document.querySelector(href);
+                    if (target) { target.scrollIntoView({ behavior: 'smooth' }); }
+                }
+                // All other links (external, relative) are intentionally blocked
+            });
+        };
+        return '<script>(' + fn.toString() + ')();<\/script>';
+    }
+
+    /**
+     * Base CSS reset injected before user CSS.
+     * Strips native OS form-control appearance (macOS forces its own styling
+     * on select/input/button/textarea without this).
+     */
+    var PREVIEW_BASE_CSS =
+        'select,input,button,textarea{' +
+            '-webkit-appearance:none;' +
+            '-moz-appearance:none;' +
+            'appearance:none;' +
+        '}' +
+        'select{background-image:none;}';
+
     /** Rebuild the iframe contents from all three editor values */
     function updatePreview() {
         if (!htmlEditor || !cssEditor || !jsEditor) { return; }
-        var frame  = document.getElementById('previewFrame');
-        var jsCode = jsEditor.getValue();
-        var safeJs = jsCode
+        var frame   = document.getElementById('previewFrame');
+        var htmlVal = htmlEditor.getValue();
+        var jsCode  = jsEditor.getValue();
+        var safeJs  = jsCode
             ? '<script>\ntry {\n' + jsCode + '\n} catch (e) { console.error("[preview]", e); }\n<\/script>'
             : '';
-        frame.srcdoc =
-            '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
-            cssEditor.getValue() +
-            '<\/style></head><body>' +
-            htmlEditor.getValue() +
-            safeJs +
-            buildContextMenuScript() +
-            '</body></html>';
+        var userCss = cssEditor.getValue();
+        var styleBlocks =
+            '<style>' + PREVIEW_BASE_CSS + '<\/style>' +
+            '<style data-livecss-user="1">' + (userCss || '') + '<\/style>';
+        var scriptBlocks = buildNavFixScript() + buildContextMenuScript() + safeJs;
+
+        // If the HTML editor contains a full document, inject our extras into its <head>
+        // rather than double-wrapping it in another HTML shell.
+        var isFullDoc = /^\s*<!doctype\s|^\s*<html[\s>]/i.test(htmlVal);
+        if (isFullDoc) {
+            var injected = htmlVal;
+            // Inject styles into <head>, scripts before </body>
+            if (/<\/head>/i.test(injected)) {
+                injected = injected.replace(/<\/head>/i, styleBlocks + '<\/head>');
+            } else {
+                injected = styleBlocks + injected;
+            }
+            if (/<\/body>/i.test(injected)) {
+                injected = injected.replace(/<\/body>/i, scriptBlocks + '<\/body>');
+            } else {
+                injected = injected + scriptBlocks;
+            }
+            frame.srcdoc = injected;
+        } else {
+            frame.srcdoc =
+                '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+                styleBlocks +
+                '<\/head><body>' +
+                htmlVal +
+                scriptBlocks +
+                '</body></html>';
+        }
     }
 
 
@@ -384,9 +582,34 @@ window.LiveCSS.editor = (function () {
     function setCssValue(val)  { if (cssEditor)  { cssEditor.setValue(val);  updatePreview(); } }
     function setJsValue(val)   { if (jsEditor)   { jsEditor.setValue(val);   updatePreview(); } }
 
+    /**
+     * Update only the user CSS in the live preview without rebuilding the
+     * entire srcdoc. Used by color-swatch and size-slider for real-time drag
+     * feedback. Rebuilding srcdoc on every drag is too slow and resets scroll.
+     */
+    function setPreviewCss(fullCss) {
+        try {
+            var frame = document.getElementById('previewFrame');
+            if (!frame) { console.warn('[editor] setPreviewCss: previewFrame not found'); return; }
+            var fdoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+            if (!fdoc) { console.warn('[editor] setPreviewCss: cannot access iframe document'); return; }
+            var styleEl = fdoc.querySelector('style[data-livecss-user]');
+            if (!styleEl) {
+                var all = fdoc.querySelectorAll('style');
+                styleEl = all.length > 1 ? all[all.length - 1] : (all[0] || null);
+                if (!styleEl) { console.warn('[editor] setPreviewCss: no style tag found in preview'); return; }
+                console.warn('[editor] setPreviewCss: falling back to last style tag -- preview may need refresh');
+            }
+            styleEl.textContent = fullCss;
+        } catch (e) {
+            console.error('[editor] setPreviewCss failed:', e);
+        }
+    }
+
     return {
         init:          init,
         updatePreview: updatePreview,
+        setPreviewCss: setPreviewCss,
         getHtmlEditor: getHtmlEditor,
         getCssEditor:  getCssEditor,
         getJsEditor:   getJsEditor,
