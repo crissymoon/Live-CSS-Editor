@@ -39,3 +39,8 @@ node_modules/
 src-tauri/target/
 src-tauri/www/
 src-tauri/gen/
+
+# Style-sheets test/backup artifacts
+style-sheets/test-preview-output.html
+style-sheets/backups/
+style-sheets/TESTING_DIR_4_LRN.TXT

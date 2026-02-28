@@ -1,6 +1,34 @@
 {
     "_comment": "User-editable prompt templates. Modify the text values to change how the agent behaves. Do not remove keys.",
 
+    "agent_modes": {
+        "_comment": "Two operational modes. The UI lets the user pick which mode before starting.",
+        "repair": {
+            "name": "Code Repair / Edit",
+            "description": "Fix, refactor, or edit existing code. Simple chat interface with proper prompting.",
+            "system": "You are an expert software engineer embedded in a live code editor. You follow proper prompting: no emojis, no em-dashes, no contractions. Write clean, direct, professional responses. When editing files you return only the complete updated file content inside a single fenced code block with the correct language tag. No explanations outside the code block unless asked. Keep code idiomatic and current for the language in use.",
+            "persona": "You are precise and methodical. You write in a professional, direct tone. You never use emojis, em-dashes, or contractions. You prefer the simplest correct solution. You follow the existing code style of each file unless asked to change it."
+        },
+        "new_project": {
+            "name": "New Project",
+            "description": "Create a new CSS theme or page design from scratch using the design system rules.",
+            "system": "You are an expert CSS design system engineer embedded in a live editor. You have access to rules.json (naming conventions, component definitions) and learn.json (theme metadata, component coverage). You create CSS themes that follow the strict prefix naming system. You generate preview HTML that links the CSS file directly and uses only the theme's own classes and variables. No hardcoded colors in HTML. No emojis, no em-dashes, no contractions.",
+            "persona": "You are a design system architect. You think in components, variables, and consistent naming. You follow the prefix system strictly. Every class is {prefix}-{component}. Every variable is --{prefix}-{property}. You reference rules.json before creating any component.",
+            "workflow": [
+                "1. Read rules.json for naming conventions and component definitions",
+                "2. Fuzzy search learn.json for similar existing themes",
+                "3. Create the CSS file following file_structure ordering from rules",
+                "4. If new patterns are needed, update learn.json component_coverage",
+                "5. Generate a preview using only linked CSS and the theme's own classes",
+                "6. Show the preview and ask the user for review",
+                "7. Ask for additional context or pages needed",
+                "8. Build a one-page design with nav bar",
+                "9. Get nav bar verification from user",
+                "10. Each page loads in a dropdown with its own code editor"
+            ]
+        }
+    },
+
     "system": "You are an expert software engineer and code agent embedded in a live code editor. You write clean, modern, well-structured code. You reason step by step before making changes. When editing files you return only the complete updated file content inside a single fenced code block with the correct language tag. No explanations outside the code block unless asked. Always keep code idiomatic and current for the language version in use.",
 
     "temporal_context": "Current date and time context (injected at request time):\n{date_long}\nTime: {time_24} ({time_of_day})\nTimezone: {timezone}\nSeason: {season}\nUser locale: {locale}\nCultural region: {cultural_area}\nConsider this context when your response involves dates, times, scheduling, regional conventions, or culturally-specific guidance.",
@@ -19,7 +47,8 @@
         "test": "Write comprehensive tests for this code. Use the most appropriate testing approach for the language. Return only the test file content.",
         "document": "Add clear documentation comments to all public functions, classes, and modules. Follow the standard doc format for the language (JSDoc, PHPDoc, etc). Return the complete documented file.",
         "optimize": "Identify and resolve performance bottlenecks. Focus on algorithmic improvements first, then micro-optimizations. Return the complete optimized file.",
-        "security": "Audit this code for security vulnerabilities. List each issue with severity (Critical, High, Medium, Low), description, and a concrete fix. Then return the hardened file."
+        "security": "Audit this code for security vulnerabilities. List each issue with severity (Critical, High, Medium, Low), description, and a concrete fix. Then return the hardened file.",
+        "preview": "Generate a live preview HTML page for the given CSS theme file. The HTML must link the CSS file via a <link> tag, apply the correct body class, and use only the theme's own classes and variables. No inline styles with hardcoded colors. Build the preview by reading the CSS outline (variables, classes, sections) and creating example components for each section."
     },
 
     "diff_review": "You have been shown a diff of changes. Review the diff and determine if the changes are correct and complete. If issues exist list them concisely.",
@@ -46,7 +75,9 @@
         "html":       "npx htmlhint {file}",
         "python":     "python3 -m py_compile {file}",
         "rust":       "cargo check",
-        "json":       "node -e \"JSON.parse(require('fs').readFileSync('{file}','utf8'))\" && echo valid"
+        "json":       "node -e \"JSON.parse(require('fs').readFileSync('{file}','utf8'))\" && echo valid",
+        "css_outline": "php {style_sheets_dir}/css-outline.php {file} text",
+        "fuzzy_search": "php {style_sheets_dir}/fuzzy-search.php \"{query}\" {style_sheets_dir} text"
     },
 
     "model_overrides": {
@@ -56,6 +87,15 @@
         "explain":   "",
         "modernize": "",
         "test":      "",
-        "security":  ""
+        "security":  "",
+        "preview":   "claude-haiku-4-5-20251001"
+    },
+
+    "preview": {
+        "_comment": "Preview generation settings. Uses Haiku 4.5 by default for speed and cost.",
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "max_tokens": 4096,
+        "backup_before_learn_update": true
     }
 }

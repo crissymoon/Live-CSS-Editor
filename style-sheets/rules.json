@@ -318,6 +318,6 @@
       "8. All preview shell borders/backgrounds reference theme variables with fallbacks"
     ],
     "preview_shell_styling": "The preview layout uses only var(--{prefix}-bg), var(--{prefix}-border), etc. with fallbacks to var(--clr-*) for clean-system. Zero hardcoded colors in the preview HTML.",
-    "when_ai_creates_css": "After generating a new CSS file, run 'go run preview.go {file}.css' to auto-generate the preview HTML and update learn.json with detected components and variables."
+    "when_ai_creates_css": "After generating a new CSS file, use the css_outline action to extract the structure, then use Haiku 4.5 with the preview task to auto-generate a live preview. Backup learn.json before updating it with detected components and variables."
   }
 }

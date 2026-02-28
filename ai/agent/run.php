@@ -51,18 +51,33 @@ $content     = $body['content']     ?? '';
 $instruction = $body['instruction'] ?? '';
 $model       = $body['model']       ?? '';
 $messages    = $body['messages']    ?? [];
+$mode        = $body['mode']        ?? 'repair';
 
-if ($filePath === '' || $content === '') {
-    jsonError('file_path and content are required.');
+if ($filePath === '') {
+    jsonError('file_path is required.');
+}
+
+// For preview task, content can be empty (we use CSS outline instead)
+if ($content === '' && $task !== 'preview') {
+    jsonError('content is required for non-preview tasks.');
 }
 
 // -------------------------------------------------------------------------
-// Build system + user prompt
+// Build system + user prompt (mode-aware)
 // -------------------------------------------------------------------------
 
-$system     = $promptsCfg['system']   ?? '';
-$persona    = $promptsCfg['persona']  ?? '';
+// Check for mode-specific system/persona overrides
+$modeConfig = $promptsCfg['agent_modes'][$mode] ?? null;
+$system     = ($modeConfig ? $modeConfig['system'] : null) ?? $promptsCfg['system'] ?? '';
+$persona    = ($modeConfig ? $modeConfig['persona'] : null) ?? $promptsCfg['persona'] ?? '';
 $taskPrompt = $promptsCfg['tasks'][$task] ?? $promptsCfg['tasks']['fix'];
+
+// Check model override for this task
+$modelOverride = $promptsCfg['model_overrides'][$task] ?? '';
+if ($modelOverride !== '' && $model === '') {
+    $model = $modelOverride;
+}
+
 $ctxText    = AgentContext::buildPromptContext($filePath);
 $ctxInject  = str_replace('{context}', $ctxText, $promptsCfg['context_injection'] ?? '{context}');
 
@@ -77,13 +92,16 @@ $temporalBlock = buildTemporalBlock($promptsCfg);
 $systemFull = implode("\n\n", array_filter([$system, $persona, $temporalBlock, $ctxInject]));
 
 $lang   = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-$userMsg = implode("\n\n", array_filter([
+$userMsgParts = array_filter([
     $promptsCfg['reasoning_prefix'] ?? '',
     $taskPrompt,
     $instruction,
     "File: `$filePath`",
-    "```$lang\n$content\n```",
-]));
+]);
+if ($content !== '') {
+    $userMsgParts[] = "```$lang\n$content\n```";
+}
+$userMsg = implode("\n\n", $userMsgParts);
 
 // Append current request to context
 AgentContext::addRequest($filePath, $task, $instruction ?: $taskPrompt, "$provider:$model");

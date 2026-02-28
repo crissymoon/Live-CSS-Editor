@@ -39,12 +39,25 @@
         { value: 'security',   label: 'Security Audit'}
     ];
 
+    var NEW_PROJECT_TASKS = [
+        { value: 'preview',    label: 'Generate Preview' },
+        { value: 'add_feature',label: 'Add Component'    },
+        { value: 'refactor',   label: 'Refactor Theme'   },
+        { value: 'review',     label: 'Review Theme'     }
+    ];
+
+    var AGENT_MODES = {
+        repair:      { name: 'Code Repair / Edit', tasks: TASK_OPTIONS },
+        new_project: { name: 'New Project',         tasks: NEW_PROJECT_TASKS }
+    };
+
     // -----------------------------------------------------------------------
     // State
     // -----------------------------------------------------------------------
 
     var state = {
         theme:      'ada',
+        mode:       'repair',
         filePath:   '',
         content:    '',
         provider:   'anthropic',
@@ -239,6 +252,10 @@
             '      </div>',
             '      <div class="agent-task-form">',
             '        <div class="agent-task-row">',
+            '          <span class="agent-task-label">Mode</span>',
+            '          <select class="agent-select" id="agentMode"><option value="repair" selected>Code Repair / Edit</option><option value="new_project">New Project</option></select>',
+            '        </div>',
+            '        <div class="agent-task-row">',
             '          <span class="agent-task-label">Provider</span>',
             '          <select class="agent-select" id="agentProvider"></select>',
             '          <select class="agent-select" id="agentModel"></select>',
@@ -247,6 +264,17 @@
             '        <div class="agent-task-row">',
             '          <span class="agent-task-label">Task</span>',
             '          <select class="agent-select" id="agentTask">' + TASK_OPTIONS.map(function(o){return '<option value="'+o.value+'">'+o.label+'</option>';}).join('') + '</select>',
+            '        </div>',
+            '        <div class="agent-task-row" id="agentFuzzyRow" style="display:none;">',
+            '          <span class="agent-task-label">Search</span>',
+            '          <input class="agent-input" id="agentFuzzyInput" placeholder="fuzzy search themes, variables, components..." style="flex:1;">',
+            '          <button class="agent-btn agent-btn-ghost" id="agentFuzzyBtn">Search</button>',
+            '        </div>',
+            '        <div class="agent-task-row" id="agentThemeRow" style="display:none;">',
+            '          <span class="agent-task-label">Theme</span>',
+            '          <select class="agent-select" id="agentThemeSelect"></select>',
+            '          <button class="agent-btn agent-btn-ghost" id="agentOutlineBtn">CSS Outline</button>',
+            '          <button class="agent-btn agent-btn-ghost" id="agentBackupBtn">Backup</button>',
             '        </div>',
             '        <div class="agent-task-row" style="flex-direction:column;align-items:flex-start;gap:4px;">',
             '          <span class="agent-task-label">Instruction</span>',
@@ -349,6 +377,14 @@
         dom.responseArea   = m.querySelector('#agentResponseArea');
         dom.runCmdOutput   = m.querySelector('#agentRunCmdOutput');
         dom.outline        = m.querySelector('#agentOutline');
+        dom.modeSelect     = m.querySelector('#agentMode');
+        dom.fuzzyRow       = m.querySelector('#agentFuzzyRow');
+        dom.fuzzyInput     = m.querySelector('#agentFuzzyInput');
+        dom.fuzzyBtn       = m.querySelector('#agentFuzzyBtn');
+        dom.themeRow       = m.querySelector('#agentThemeRow');
+        dom.themeSelect    = m.querySelector('#agentThemeSelect');
+        dom.outlineBtn     = m.querySelector('#agentOutlineBtn');
+        dom.backupBtn      = m.querySelector('#agentBackupBtn');
         dom.diffBtn        = m.querySelector('#agentDiffBtn');
         dom.diffSummary    = m.querySelector('#agentDiffSummary');
         dom.diffTable      = m.querySelector('#agentDiffTable tbody');
@@ -394,6 +430,12 @@
         dom.runBtn.addEventListener('click', runAgent);
         dom.abortBtn.addEventListener('click', abortStream);
         dom.runCmdBtn.addEventListener('click', runCommand);
+
+        dom.modeSelect.addEventListener('change', function () { switchMode(dom.modeSelect.value); });
+        dom.fuzzyBtn.addEventListener('click', runFuzzySearch);
+        dom.fuzzyInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { runFuzzySearch(); } });
+        dom.outlineBtn.addEventListener('click', runCSSOutline);
+        dom.backupBtn.addEventListener('click', runBackup);
 
         dom.diffBtn.addEventListener('click', showDiff);
         dom.refreshContext.addEventListener('click', loadContext);
@@ -620,17 +662,28 @@
     // -----------------------------------------------------------------------
 
     function runAgent() {
-        if (!state.filePath) { toast('Load a file first.', 'error'); return; }
         if (state.busy) { return; }
+
+        // In new_project mode with preview task, use theme file instead of requiring loaded file
+        var taskVal = dom.task.value;
+        if (state.mode === 'new_project' && taskVal === 'preview') {
+            var themeFile = dom.themeSelect ? dom.themeSelect.value : '';
+            if (!themeFile) { toast('Select a theme first.', 'error'); return; }
+            runPreviewGeneration(themeFile);
+            return;
+        }
+
+        if (!state.filePath) { toast('Load a file first.', 'error'); return; }
 
         var payload = {
             provider:    state.provider,
             model:       state.model,
-            task:        dom.task.value,
+            task:        taskVal,
             file_path:   state.filePath,
             content:     state.content,
             instruction: dom.instruction.value.trim(),
             messages:    state.conversation,
+            mode:        state.mode,
         };
 
         var isStream = (state.providers[state.provider] || {}).supports_streaming !== false;
@@ -644,6 +697,59 @@
         } else {
             blockingRun(payload);
         }
+    }
+
+    /**
+     * Generate a preview for a CSS theme using Haiku 4.5.
+     * Fetches the CSS outline and fuzzy search context, then sends to the model.
+     */
+    function runPreviewGeneration(themeFile) {
+        setBusy(true);
+        setStatus('busy', 'Generating preview for ' + themeFile + '...');
+
+        // Step 1: Backup first
+        agentPost({ action: 'backup', target: 'all' }).then(function () {
+            // Step 2: Get CSS outline
+            return agentPost({ action: 'css_outline', file_path: themeFile, format: 'text' });
+        }).then(function (outlineData) {
+            var outlineText = outlineData.outline || '';
+
+            // Step 3: Fuzzy search for related info
+            var themeName = themeFile.replace('.css', '');
+            return agentPost({ action: 'fuzzy_search', query: 'component preview ' + themeName, format: 'text' }).then(function (searchData) {
+                return { outline: outlineText, search: searchData.results || '' };
+            });
+        }).then(function (context) {
+            // Step 4: Send to model with outline + search as instruction context
+            var instruction = dom.instruction.value.trim();
+            var fullInstruction = 'Generate a preview HTML page for this CSS theme.\n\n'
+                + 'CSS Outline:\n' + context.outline + '\n\n'
+                + 'Related context:\n' + context.search + '\n\n'
+                + (instruction ? 'Additional instructions: ' + instruction + '\n' : '');
+
+            var payload = {
+                provider:    'anthropic',
+                model:       'claude-haiku-4-5-20251001',
+                task:        'preview',
+                file_path:   themeFile,
+                content:     '',
+                instruction: fullInstruction,
+                messages:    state.conversation,
+                mode:        'new_project',
+            };
+
+            appendUserMsg('preview: Generate preview for ' + themeFile);
+
+            var isStream = (state.providers['anthropic'] || {}).supports_streaming !== false;
+            if (isStream) {
+                streamRun(payload);
+            } else {
+                blockingRun(payload);
+            }
+        }).catch(function (e) {
+            setStatus('error', e.message);
+            setBusy(false);
+        });
     }
 
     function streamRun(payload) {
@@ -792,6 +898,101 @@
                 dom.runCmdOutput.textContent = data.output || '(no output)';
                 setStatus(data.exit_code === 0 ? 'ok' : 'error', 'Exit ' + data.exit_code);
             }).catch(function (e) { dom.runCmdOutput.textContent = 'Error: ' + e.message; });
+    }
+
+    // -----------------------------------------------------------------------
+    // Agent Mode Switching
+    // -----------------------------------------------------------------------
+
+    function switchMode(mode) {
+        state.mode = mode;
+        var modeInfo = AGENT_MODES[mode];
+        if (!modeInfo) { return; }
+
+        // Update task dropdown
+        var tasks = modeInfo.tasks;
+        dom.task.innerHTML = '';
+        tasks.forEach(function (o) {
+            var opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.label;
+            dom.task.appendChild(opt);
+        });
+        state.task = tasks[0].value;
+
+        // Show/hide new_project-specific rows
+        var isNewProject = mode === 'new_project';
+        dom.fuzzyRow.style.display = isNewProject ? 'flex' : 'none';
+        dom.themeRow.style.display = isNewProject ? 'flex' : 'none';
+
+        // Load theme list for new_project mode
+        if (isNewProject && dom.themeSelect.children.length === 0) {
+            loadThemeList();
+        }
+
+        setStatus('ok', 'Mode: ' + modeInfo.name);
+    }
+
+    function loadThemeList() {
+        agentPost({ action: 'list_themes' }).then(function (data) {
+            if (data.error) { return; }
+            dom.themeSelect.innerHTML = '';
+            (data.themes || []).forEach(function (t) {
+                var opt = document.createElement('option');
+                opt.value = t.file;
+                opt.textContent = t.name + ' (' + t.prefix + ') -- ' + t.stats.variables + ' vars, ' + t.stats.classes + ' classes';
+                dom.themeSelect.appendChild(opt);
+            });
+        }).catch(function () {});
+    }
+
+    // -----------------------------------------------------------------------
+    // Fuzzy Search
+    // -----------------------------------------------------------------------
+
+    function runFuzzySearch() {
+        var query = dom.fuzzyInput.value.trim();
+        if (!query) { toast('Enter a search query.', 'error'); return; }
+        setStatus('busy', 'Searching...');
+        agentPost({ action: 'fuzzy_search', query: query, format: 'text' })
+            .then(function (data) {
+                if (data.error) { setStatus('error', data.error); return; }
+                dom.runCmdOutput.style.display = 'block';
+                dom.runCmdOutput.textContent = data.results || '(no results)';
+                setStatus('ok', 'Search complete');
+            }).catch(function (e) { setStatus('error', e.message); });
+    }
+
+    // -----------------------------------------------------------------------
+    // CSS Outline
+    // -----------------------------------------------------------------------
+
+    function runCSSOutline() {
+        var themeFile = dom.themeSelect.value;
+        if (!themeFile) { toast('Select a theme first.', 'error'); return; }
+        setStatus('busy', 'Extracting outline...');
+        agentPost({ action: 'css_outline', file_path: themeFile, format: 'text' })
+            .then(function (data) {
+                if (data.error) { setStatus('error', data.error); return; }
+                dom.runCmdOutput.style.display = 'block';
+                dom.runCmdOutput.textContent = data.outline || '(no outline)';
+                setStatus('ok', 'Outline extracted');
+            }).catch(function (e) { setStatus('error', e.message); });
+    }
+
+    // -----------------------------------------------------------------------
+    // Backup
+    // -----------------------------------------------------------------------
+
+    function runBackup() {
+        setStatus('busy', 'Creating backups...');
+        agentPost({ action: 'backup', target: 'all' })
+            .then(function (data) {
+                if (data.error) { setStatus('error', data.error); return; }
+                var backed = (data.backups || []).map(function (b) { return b.file + ' -> ' + b.backup; });
+                toast('Backed up: ' + backed.join(', '), 'success');
+                setStatus('ok', 'Backup complete (' + data.timestamp + ')');
+            }).catch(function (e) { setStatus('error', e.message); });
     }
 
     // -----------------------------------------------------------------------

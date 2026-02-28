@@ -17,6 +17,8 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/diff.php';
 require_once __DIR__ . '/outline.php';
 require_once __DIR__ . '/context/context.php';
+require_once __DIR__ . '/../../style-sheets/css-outline.php';
+require_once __DIR__ . '/../../style-sheets/fuzzy-search.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -232,6 +234,115 @@ switch ($action) {
         unlink($tmpFile);
 
         respond(['output' => $output ?? '', 'exit_code' => $code, 'command' => $cmd]);
+    }
+
+    // -------------------------------------------------------------------------
+    // CSS Outline -- structured extraction for model consumption
+    // -------------------------------------------------------------------------
+
+    case 'css_outline': {
+        $path   = required($body, 'file_path');
+        $format = $body['format'] ?? 'json'; // json or text
+
+        $styleSheetsDir = realpath(__DIR__ . '/../../style-sheets');
+        $cssFile = $styleSheetsDir . '/' . basename($path);
+
+        if (!file_exists($cssFile)) {
+            abort('CSS file not found: ' . basename($path));
+        }
+
+        $css     = file_get_contents($cssFile);
+        $outline = CSSOutline::extract($css, basename($path));
+
+        if ($format === 'text') {
+            respond(['outline' => CSSOutline::toText($outline)]);
+        }
+        respond(['outline' => $outline]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Fuzzy Search -- find related info across themes, rules, learn
+    // -------------------------------------------------------------------------
+
+    case 'fuzzy_search': {
+        $query  = required($body, 'query');
+        $format = $body['format'] ?? 'json'; // json or text
+
+        $styleSheetsDir = realpath(__DIR__ . '/../../style-sheets');
+        $results = FuzzySearch::search($query, $styleSheetsDir);
+
+        if ($format === 'text') {
+            respond(['results' => FuzzySearch::toText($results)]);
+        }
+        respond(['results' => $results]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Backup -- create timestamped backups of learn.json and rules.json
+    // -------------------------------------------------------------------------
+
+    case 'backup': {
+        $target = $body['target'] ?? 'all'; // all, learn, rules
+        $styleSheetsDir = realpath(__DIR__ . '/../../style-sheets');
+        $backupDir = $styleSheetsDir . '/backups';
+        if (!is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+
+        $ts      = date('Y-m-d_His');
+        $backed  = [];
+
+        $targets = [];
+        if ($target === 'all' || $target === 'learn') {
+            $targets[] = 'learn.json';
+        }
+        if ($target === 'all' || $target === 'rules') {
+            $targets[] = 'rules.json';
+        }
+
+        foreach ($targets as $file) {
+            $src = $styleSheetsDir . '/' . $file;
+            if (file_exists($src)) {
+                $dst = $backupDir . '/' . pathinfo($file, PATHINFO_FILENAME) . '_' . $ts . '.json';
+                copy($src, $dst);
+                $backed[] = ['file' => $file, 'backup' => basename($dst)];
+            }
+        }
+
+        respond(['ok' => true, 'backups' => $backed, 'timestamp' => $ts]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Agent modes info
+    // -------------------------------------------------------------------------
+
+    case 'agent_modes': {
+        $prompts = json_decode(file_get_contents(__DIR__ . '/prompts.json'), true);
+        $modes   = $prompts['agent_modes'] ?? [];
+        respond(['modes' => $modes]);
+    }
+
+    // -------------------------------------------------------------------------
+    // List available CSS themes
+    // -------------------------------------------------------------------------
+
+    case 'list_themes': {
+        $styleSheetsDir = realpath(__DIR__ . '/../../style-sheets');
+        $cssFiles = glob($styleSheetsDir . '/*.css');
+        $themes = [];
+        foreach ($cssFiles as $f) {
+            $name = basename($f, '.css');
+            $css  = file_get_contents($f);
+            $outline = CSSOutline::extract($css, basename($f));
+            $themes[] = [
+                'name'       => $name,
+                'file'       => basename($f),
+                'prefix'     => $outline['prefix'],
+                'body_class' => $outline['body_class'],
+                'stats'      => $outline['stats'],
+            ];
+        }
+        respond(['themes' => $themes]);
     }
 
     default:
