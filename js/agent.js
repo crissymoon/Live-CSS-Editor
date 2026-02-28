@@ -158,15 +158,36 @@
     function populateProviders() {
         dom.provider.innerHTML = '';
         Object.keys(state.providers).forEach(function (slug) {
+            // Skip providers flagged as not available for the agent run tab.
+            if (state.providers[slug].agent_run === false) {
+                console.log('[agent] provider "' + slug + '" excluded from run tab (agent_run: false)');
+                return;
+            }
             var o = document.createElement('option');
             o.value       = slug;
             o.textContent = state.providers[slug].name;
             if (slug === state.provider) { o.selected = true; }
             dom.provider.appendChild(o);
         });
+        // If the previously saved provider was excluded, fall back to the first available.
+        if (!dom.provider.value && dom.provider.options.length > 0) {
+            dom.provider.value = dom.provider.options[0].value;
+            console.warn('[agent] saved provider was excluded from run tab -- defaulting to "' + dom.provider.value + '"');
+        }
         state.provider = dom.provider.value;
         populateModels();
         updateStreamBadge();
+
+        // state.providers is now populated -- refresh the chat tab model list so it
+        // has real model names instead of the placeholder set before the async fetch.
+        if (C.populateChatModels) {
+            try {
+                C.populateChatModels();
+                console.log('[agent] chat model list refreshed from state.providers');
+            } catch (e) {
+                console.warn('[agent] populateChatModels refresh failed:', e);
+            }
+        }
     }
 
     function populateModels() {

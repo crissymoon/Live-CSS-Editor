@@ -283,19 +283,21 @@
     padding: 0 2px;
 }
 
-/* Indent guide lines -- only within leading whitespace */
+/* Indent guide lines -- only within leading whitespace.
+   height is set inline via JS (one line-height) so that guides do not
+   stretch through wrapped visual lines when lineWrapping is on. */
 .cm-indent-guide {
     position: absolute;
     top: 0;
-    bottom: 0;
     width: 0;
     border-left: 1px solid rgba(90, 65, 180, 0.18);
     pointer-events: none;
 }
 
+/* Do NOT set overflow:hidden here -- CodeMirror stock is overflow:visible
+   and hidden breaks word-wrapped lines by clipping continuation text. */
 .CodeMirror-line {
     position: relative;
-    overflow: hidden;
 }
 
 /* -- Lint gutter & tooltip (dark theme overrides) -- */

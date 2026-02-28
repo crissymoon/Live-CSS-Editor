@@ -163,10 +163,11 @@ switch ($action) {
         $out    = [];
         foreach ($config['providers'] as $slug => $cfg) {
             $out[$slug] = [
-                'name'              => $cfg['name'],
-                'default_model'     => $cfg['default_model'],
-                'models'            => $cfg['models'] ?? [],
-                'supports_streaming'=> $cfg['supports_streaming'] ?? false,
+                'name'               => $cfg['name'],
+                'default_model'      => $cfg['default_model'],
+                'models'             => $cfg['models'] ?? [],
+                'supports_streaming' => $cfg['supports_streaming'] ?? false,
+                'agent_run'          => $cfg['agent_run'] ?? true,
             ];
         }
         respond(['providers' => $out]);

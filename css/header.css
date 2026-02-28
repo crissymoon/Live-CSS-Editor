@@ -96,6 +96,15 @@
     color:      #eceaf6;
 }
 
+/* Widgets / toggleable-feature active state */
+.menu-dropdown li > button.menu-btn-active {
+    color: #b39ddb;
+}
+.menu-dropdown li > button.menu-btn-active:hover {
+    color: #eceaf6;
+    background: #1a0f42;
+}
+
 .menu-sep {
     height:     1px;
     background: #2a1a55;
@@ -368,12 +377,63 @@
     border-color: #4d31bf;
 }
 
-/* CodeMirror highlight for all matches */
+/* CodeMirror highlight for all search matches (overlay layer).
+   CM5 addOverlay prefixes the token class with cm-, so the span is
+   cm-search-match.  The compound selector cm-overlay.search-match is
+   kept as a fallback in case a CM build behaves differently. */
 .cm-overlay.search-match,
+.cm-search-match,
 .cm-searching {
-    background: #ff9500;
-    color: #ffffff !important;
-    outline: none;
+    background: #ffb300 !important;
+    color: #15002e !important;
+    border-radius: 2px;
+    border-bottom: 2px solid #ff8c00;
+}
+
+/* Search outline -- enabled by toggling .search-outline-on on <body>.
+   Uses outline (never clipped by overflow) + a red glow so the border
+   is visible even over the amber background. */
+body.search-outline-on .cm-search-match,
+body.search-outline-on .cm-overlay.search-match,
+body.search-outline-on .cm-searching {
+    outline: 2px solid #cc0000 !important;
+    outline-offset: 1px !important;
+}
+
+/* Active CodeMirror selection -- makes the navigated-to match clearly stand out
+   against the dark material-darker theme. Applies in all editors. */
+.CodeMirror-focused .CodeMirror-selected {
+    background: rgba(160, 80, 255, 0.55) !important;
+}
+.CodeMirror .CodeMirror-selected {
+    background: rgba(130, 60, 220, 0.40) !important;
+}
+
+/* Search outline on: add a red border to the active CM selection too. */
+body.search-outline-on .CodeMirror-focused .CodeMirror-selected {
+    outline: 2px solid #cc0000 !important;
+}
+
+/* Temporary flash mark applied when jumping via Go-to-CSS or right-click.
+   Fades out over ~1.8s so the user can see exactly where they landed.
+   NOTE: background and color must NOT use !important here -- !important author
+   rules beat CSS animations in the cascade and would permanently block the fade. */
+.cm-jump-target {
+    background: #ffd700;
+    color: #15002e;
+    border-radius: 3px;
+    animation: cmJumpFade 1.8s ease-out forwards;
+}
+
+/* When search outline is on, add a red border to the jump-target too. */
+body.search-outline-on .cm-jump-target {
+    outline: 3px solid #cc0000 !important;
+    outline-offset: 2px !important;
+}
+
+@keyframes cmJumpFade {
+    0%,  45% { background: #ffd700; color: #15002e; outline-color: #ffd700; outline-offset: 1px; }
+    100%     { background: transparent; color: inherit; outline-color: transparent; }
 }
 
 /* =============================================================
@@ -460,10 +520,12 @@
 }
 
 /* Highlight all matching tokens in the active editor */
-.cm-overlay.search-match {
-    background: #ff9500;
-    color: #ffffff !important;
-    outline: none;
+.cm-overlay.search-match,
+.cm-search-match {
+    background: #ffb300 !important;
+    color: #15002e !important;
+    border-radius: 2px;
+    border-bottom: 2px solid #ff8c00;
 }
 
 /* =============================================================

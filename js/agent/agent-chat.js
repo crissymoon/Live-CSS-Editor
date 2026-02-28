@@ -31,14 +31,23 @@
 
     function populateChatModels() {
         var slug   = dom.chatProvider.value;
-        var config = window.LiveCSSAIConfig && window.LiveCSSAIConfig[slug];
+        // window.LiveCSSAIConfig is the injected config path but is not always present.
+        // Fall back to state.providers which is populated from agent.php on first open.
+        var config = (window.LiveCSSAIConfig && window.LiveCSSAIConfig[slug])
+                  || (state.providers        && state.providers[slug])
+                  || null;
+        if (!config) {
+            console.warn('[agentChat] populateChatModels: no config found for provider "' + slug + '" -- neither LiveCSSAIConfig nor state.providers has it yet');
+        }
         dom.chatModel.innerHTML = '';
-        var models = (config && config.models)        ? config.models        : [];
-        var def    = (config && config.default_model) ? config.default_model : '';
+        var models = (config && config.models        && config.models.length)        ? config.models        : [];
+        var def    = (config && config.default_model && config.default_model !== '') ? config.default_model : '';
 
         if (models.length === 0) {
             var opt = document.createElement('option');
-            opt.value = def || 'default';
+            // Never use the string 'default' as a model value -- APIs reject it.
+            // Use empty string so the PHP endpoint falls back to its configured default_model.
+            opt.value       = def || '';
             opt.textContent = def || 'Default';
             dom.chatModel.appendChild(opt);
             return;
@@ -85,6 +94,12 @@
         var ctrl     = new AbortController();
         var endpoint = C.CHAT_PROVIDERS[dom.chatProvider.value].endpoint;
 
+        // Never send the literal string 'default' as a model name -- it is not
+        // a real API model and will cause a 400 rejection from all providers.
+        // An empty string tells the PHP endpoint to use its configured default_model.
+        var modelVal = dom.chatModel.value;
+        if (!modelVal || modelVal === 'default') { modelVal = ''; }
+
         state.chatStream = { close: function () { ctrl.abort(); } };
 
         fetch(endpoint, {
@@ -92,7 +107,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages: state.chatHistory,
-                model:    dom.chatModel.value || '',
+                model:    modelVal,
                 system:   C.CHAT_SYSTEM
             }),
             signal: ctrl.signal
@@ -106,6 +121,41 @@
             function pump() {
                 return reader.read().then(function (r) {
                     if (r.done) {
+                        // Drain any SSE content left in buf that never received a
+                        // trailing \n\n before the stream closed.  Without this drain,
+                        // a final error or chunk block is silently discarded and the
+                        // chat shows "Empty response" even when the server sent data.
+                        if (buf.trim()) {
+                            try {
+                                var finalBlocks = (buf + '\n\n').split('\n\n');
+                                finalBlocks.pop(); // remove empty string after last \n\n
+                                finalBlocks.forEach(function (block) {
+                                    var fEv = ''; var fData = '';
+                                    block.split('\n').forEach(function (line) {
+                                        if (line.startsWith('event: ')) { fEv   = line.slice(7).trim(); }
+                                        if (line.startsWith('data: '))  { fData = line.slice(6).trim(); }
+                                    });
+                                    if (!fData) { return; }
+                                    var fd;
+                                    try { fd = JSON.parse(fData); } catch(e) {
+                                        console.warn('[agentChat] could not parse final buf block:', e);
+                                        return;
+                                    }
+                                    if (fEv === 'chunk' && fd.text) {
+                                        accum += fd.text;
+                                    } else if (fEv === 'error' && fd.error) {
+                                        console.error('[agentChat] server stream error:', fd.error);
+                                        // Surface the error in the chat message.
+                                        finalizeChatMsg(aBody, accum || ('_Server error: ' + fd.error + '_'));
+                                        if (accum) { state.chatHistory.push({ role: 'assistant', content: accum }); }
+                                        chatStreamDone();
+                                        return; // early exit -- finalizeChatMsg already called
+                                    }
+                                });
+                            } catch (e) {
+                                console.error('[agentChat] buf drain error:', e);
+                            }
+                        }
                         finalizeChatMsg(aBody, accum);
                         if (accum) { state.chatHistory.push({ role: 'assistant', content: accum }); }
                         chatStreamDone();

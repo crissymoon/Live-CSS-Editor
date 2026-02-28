@@ -26,16 +26,17 @@ window.LiveCSS.indentGuide = (function () {
 
     // Default options
     var defaults = {
-        visible:      true,
-        color:        '#5a41b4',
-        opacity:      18,
-        thickness:    1,
-        style:        'solid',
-        step:         2,
-        rulerOn:      true,
-        rulerCol:     96,
-        rulerColor:   '#4d31bf',
-        rulerOpacity: 30
+        visible:       true,
+        color:         '#5a41b4',
+        opacity:       18,
+        thickness:     1,
+        style:         'solid',
+        step:          2,
+        rulerOn:       true,
+        rulerCol:      96,
+        rulerColor:    '#4d31bf',
+        rulerOpacity:  30,
+        searchOutline: false
     };
 
     // Active options (merged with saved)
@@ -113,6 +114,15 @@ window.LiveCSS.indentGuide = (function () {
         } else {
             css += '.' + RULER_CLASS + ' { border-left: ' + rulerBorderVal() + ' !important; display: block; }\n';
         }
+        // Search outline is handled via a body class toggle (search-outline-on)
+        // so that static CSS rules in header.css do the visual work instead of
+        // injecting outline rules here (more reliable across browsers and CSSOM
+        // ordering).
+        try {
+            document.body.classList.toggle('search-outline-on', !!opts.searchOutline);
+        } catch (e) {
+            console.error('[indent-guide] updateDynamicStyle: body class toggle failed:', e);
+        }
         dynStyle.textContent = css;
     }
 
@@ -121,49 +131,129 @@ window.LiveCSS.indentGuide = (function () {
     function attach(cm) {
         editors.push(cm);
 
+        // Cache wrap width outside of renderLine so we never call
+        // getScrollInfo() (a forced DOM reflow) on every rendered line.
+        // Updated on viewportChange, refresh, and panel resize events.
+        var cachedWrapWidth = 0;
+        // Cache char width and line height so we don't re-read them every
+        // renderLine call either.
+        var cachedCharW = 0;
+        var cachedLineH = 0;
+
+        function updateMetrics() {
+            try {
+                var info = cm.getScrollInfo();
+                cachedWrapWidth = (info && info.clientWidth > 0) ? info.clientWidth : 0;
+            } catch (e) {
+                console.error('[indent-guide] updateMetrics (scrollInfo) error:', e);
+            }
+            try {
+                var cw = cm.defaultCharWidth();
+                if (cw && cw > 0) { cachedCharW = cw; }
+            } catch (e) {
+                console.error('[indent-guide] updateMetrics (charWidth) error:', e);
+            }
+            try {
+                var lh = cm.defaultTextHeight();
+                if (lh && lh > 0) { cachedLineH = lh; }
+            } catch (e) {
+                console.error('[indent-guide] updateMetrics (textHeight) error:', e);
+            }
+        }
+
+        updateMetrics();
+
+        // Update cached metrics on events that change the layout dimensions.
+        // These do NOT fire on every scroll position tick so they are cheap.
+        cm.on('viewportChange', updateMetrics);
+        cm.on('refresh',        updateMetrics);
+        // Also catch panel resize: the outer element fires a native resize.
+        try {
+            var scroller = cm.getScrollerElement && cm.getScrollerElement();
+            if (scroller && window.ResizeObserver) {
+                var ro = new ResizeObserver(function () { updateMetrics(); cm.refresh(); });
+                ro.observe(scroller);
+            }
+        } catch (e) {
+            console.warn('[indent-guide] ResizeObserver setup failed (non-fatal):', e);
+        }
+
         cm.on('renderLine', function (instance, line, el) {
-            var charW = instance.defaultCharWidth();
-            if (!charW || charW <= 0) return;
+            try {
+                var charW = cachedCharW;
+                var lineH = cachedLineH;
 
-            // -- Indent guides --
-            if (opts.visible) {
-                var text = line.text;
-                if (text.length) {
-                    var tabSize = instance.getOption('tabSize') || 2;
-                    var currentStep = opts.step || 2;
-
-                    var leadingCols = 0;
-                    for (var i = 0; i < text.length; i++) {
-                        if (text[i] === ' ') {
-                            leadingCols++;
-                        } else if (text[i] === '\t') {
-                            leadingCols += tabSize - (leadingCols % tabSize);
-                        } else {
-                            break;
-                        }
+                // Fallback: read live if cache is not yet populated.
+                if (!charW || charW <= 0) {
+                    charW = instance.defaultCharWidth();
+                    if (!charW || charW <= 0) {
+                        console.warn('[indent-guide] defaultCharWidth unavailable, skipping line');
+                        return;
                     }
+                }
+                if (!lineH || lineH <= 0) {
+                    lineH = instance.defaultTextHeight();
+                    if (!lineH || lineH <= 0) {
+                        console.warn('[indent-guide] defaultTextHeight unavailable, skipping line');
+                        return;
+                    }
+                }
 
-                    if (leadingCols >= currentStep) {
-                        var guideCount = Math.floor(leadingCols / currentStep);
-                        for (var g = 1; g <= guideCount; g++) {
-                            var col  = g * currentStep;
-                            var left = col * charW;
-                            var span = document.createElement('span');
-                            span.className = GUIDE_CLASS;
-                            span.style.left = left + 'px';
-                            el.appendChild(span);
+                // Guides must not render past the wrap boundary, otherwise they
+                // appear over word-wrapped continuation text.  Use cached value;
+                // no DOM read happens here at all.
+                var wrapCutoff = cachedWrapWidth > 0 ? cachedWrapWidth : Infinity;
+
+                // -- Indent guides --
+                if (opts.visible) {
+                    var text = line.text;
+                    if (text.length) {
+                        var tabSize = instance.getOption('tabSize') || 2;
+                        var currentStep = opts.step || 2;
+
+                        var leadingCols = 0;
+                        for (var i = 0; i < text.length; i++) {
+                            if (text[i] === ' ') {
+                                leadingCols++;
+                            } else if (text[i] === '\t') {
+                                leadingCols += tabSize - (leadingCols % tabSize);
+                            } else {
+                                break;
+                            }
+                        }
+
+                        if (leadingCols >= currentStep) {
+                            // guideCount is already capped by this line's own
+                            // indentation -- no extra maxIndent cutoff needed.
+                            var guideCount = Math.floor(leadingCols / currentStep);
+                            for (var g = 1; g <= guideCount; g++) {
+                                var col  = g * currentStep;
+                                var left = col * charW;
+
+                                // Stop at the wrap boundary so guides never
+                                // appear over wrapped continuation content.
+                                if (wrapCutoff < Infinity && left >= wrapCutoff) { break; }
+
+                                var span = document.createElement('span');
+                                span.className = GUIDE_CLASS;
+                                span.style.left = left + 'px';
+                                span.style.height = lineH + 'px';
+                                el.appendChild(span);
+                            }
                         }
                     }
                 }
-            }
 
-            // -- Column ruler --
-            if (opts.rulerOn && opts.rulerCol > 0) {
-                var rulerLeft = opts.rulerCol * charW;
-                var ruler = document.createElement('span');
-                ruler.className = RULER_CLASS;
-                ruler.style.left = rulerLeft + 'px';
-                el.appendChild(ruler);
+                // -- Column ruler --
+                if (opts.rulerOn && opts.rulerCol > 0) {
+                    var rulerLeft = opts.rulerCol * charW;
+                    var ruler = document.createElement('span');
+                    ruler.className = RULER_CLASS;
+                    ruler.style.left = rulerLeft + 'px';
+                    el.appendChild(ruler);
+                }
+            } catch (e) {
+                console.error('[indent-guide] renderLine error:', e);
             }
         });
     }
@@ -308,6 +398,28 @@ window.LiveCSS.indentGuide = (function () {
             saveOpts();
             refreshAll();
         });
+
+        // ── Search outline control ──────────────────────────
+        var searchOutlineEl = document.getElementById('guideSearchOutline');
+        if (!searchOutlineEl) {
+            console.warn('[indent-guide] guideSearchOutline checkbox not found in DOM');
+        } else {
+            try {
+                searchOutlineEl.checked = !!opts.searchOutline;
+            } catch (e) {
+                console.error('[indent-guide] guideSearchOutline sync failed:', e);
+            }
+            searchOutlineEl.addEventListener('change', function () {
+                try {
+                    opts.searchOutline = searchOutlineEl.checked;
+                    saveOpts();
+                    updateDynamicStyle();
+                    console.log('[indent-guide] searchOutline set to', opts.searchOutline);
+                } catch (e) {
+                    console.error('[indent-guide] guideSearchOutline change handler failed:', e);
+                }
+            });
+        }
     }
 
     // ── Simple drag helper (same pattern as harmony tool) ───

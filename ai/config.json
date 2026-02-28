@@ -37,7 +37,7 @@
         "openai": {
             "name": "OpenAI",
             "base_url": "https://api.openai.com/v1",
-            "default_model": "gpt-5.2",
+            "default_model": "gpt-4o",
             "timeout": 120,
             "max_retries": 3,
             "supports_streaming": true,
@@ -73,6 +73,7 @@
             "timeout": 120,
             "max_retries": 3,
             "supports_streaming": true,
+            "agent_run": false,
             "models": [
                 "deepseek-chat",
                 "deepseek-reasoner"

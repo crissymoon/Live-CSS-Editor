@@ -61,10 +61,10 @@ $openaiMessages = array_merge(
 );
 
 $payload = json_encode([
-    'model'      => $model,
-    'max_tokens' => (int) $maxTokens,
-    'stream'     => true,
-    'messages'   => $openaiMessages,
+    'model'                 => $model,
+    'max_completion_tokens' => (int) $maxTokens,
+    'stream'                => true,
+    'messages'              => $openaiMessages,
 ]);
 
 $ch = curl_init($baseUrl . '/chat/completions');

@@ -90,6 +90,47 @@
         // 7b. Inline size slider diamonds (CSS editor only)
         LiveCSS.sizeSlider.init();
 
+        // 7c. Widgets toggle button (color swatches + size sliders on/off)
+        (function () {
+            try {
+                var btn = document.getElementById('widgetsBtn');
+                if (!btn) { console.warn('[app] widgetsBtn not found in DOM'); return; }
+
+                // Restore persisted state -- default is enabled (true)
+                var uiState = LiveCSS.storage.loadUIState() || {};
+                var widgetsOn = uiState.widgetsEnabled !== false;
+
+                function applyWidgetState(on) {
+                    try { LiveCSS.colorSwatch.setEnabled(on); } catch (e) { console.error('[app] colorSwatch.setEnabled failed:', e); }
+                    try { LiveCSS.sizeSlider.setEnabled(on);  } catch (e) { console.error('[app] sizeSlider.setEnabled failed:', e); }
+                    btn.classList.toggle('menu-btn-active', on);
+                    console.log('[app] widgets ' + (on ? 'enabled' : 'disabled'));
+                }
+
+                // Apply initial state without triggering a redundant rescan on first load
+                // (both modules already queued their initial scans via setTimeout).
+                btn.classList.toggle('menu-btn-active', widgetsOn);
+                if (!widgetsOn) {
+                    // Widgets were persisted as off -- disable after the initial scan timeout
+                    setTimeout(function () { applyWidgetState(false); }, 700);
+                }
+
+                btn.addEventListener('click', function () {
+                    widgetsOn = !widgetsOn;
+                    applyWidgetState(widgetsOn);
+                    try {
+                        var s = LiveCSS.storage.loadUIState() || {};
+                        s.widgetsEnabled = widgetsOn;
+                        LiveCSS.storage.saveUIState(s);
+                    } catch (e) {
+                        console.error('[app] failed to save widgetsEnabled state:', e);
+                    }
+                });
+            } catch (e) {
+                console.error('[app] widgets toggle setup failed:', e);
+            }
+        }());
+
         // 8. Color harmony floating tool
         LiveCSS.colorHarmony.init();
 

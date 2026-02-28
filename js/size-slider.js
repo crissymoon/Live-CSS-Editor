@@ -175,6 +175,13 @@ window.LiveCSS.sizeSlider = (function () {
     /* ================================================================
        Popover state
        ================================================================ */
+    // Module-level enabled flag.  When false, all scans are no-ops and marks
+    // are cleared.  Toggled externally via setEnabled().
+    var enabled = true;
+
+    // Registry of per-editor scan helpers so setEnabled() can reach them all.
+    var allInstances = [];
+
     var activePopover  = null;
     var activeDiamond  = null;
     var popoverOpen    = false;
@@ -537,16 +544,34 @@ window.LiveCSS.sizeSlider = (function () {
     }
 
     function attachSizeSliders(cm) {
-        var marks = [];
+        // Per-line mark tracking to avoid clearing all marks on every
+        // viewport change, which caused a visible blank flash on scroll.
+        var marksByLine = {};
 
-        function clearAll() {
-            for (var i = 0; i < marks.length; i++) {
-                try { marks[i].clear(); } catch (e) { /* */ }
+        function clearLineMarks(lineNo) {
+            var arr = marksByLine[String(lineNo)];
+            if (!arr) { return; }
+            for (var i = 0; i < arr.length; i++) {
+                try { arr[i].clear(); } catch (e) {
+                    console.warn('[sizeSlider] clearLineMarks: mark.clear() failed on line ' + lineNo + ':', e);
+                }
             }
-            marks = [];
+            delete marksByLine[String(lineNo)];
         }
 
-        function addMark(displayText, numStr, unit, isBare, unitless, fromPos, toPos) {
+        function clearAllMarks() {
+            for (var key in marksByLine) {
+                var arr = marksByLine[key];
+                for (var i = 0; i < arr.length; i++) {
+                    try { arr[i].clear(); } catch (e) {
+                        console.warn('[sizeSlider] clearAllMarks: mark.clear() failed:', e);
+                    }
+                }
+            }
+            marksByLine = {};
+        }
+
+        function addMark(lineNo, displayText, numStr, unit, isBare, unitless, fromPos, toPos) {
             try {
                 var w  = createWidget(displayText, numStr, unit, isBare, unitless, cm);
                 var mk = cm.markText(fromPos, toPos, {
@@ -556,78 +581,149 @@ window.LiveCSS.sizeSlider = (function () {
                     inclusiveRight:   false
                 });
                 w._cmMark = mk;
-                marks.push(mk);
+                if (!marksByLine[String(lineNo)]) { marksByLine[String(lineNo)] = []; }
+                marksByLine[String(lineNo)].push(mk);
             } catch (e) {
                 console.error('[sizeSlider] markText failed at', fromPos, toPos, e);
             }
         }
 
-        function scan() {
-            if (popoverOpen) { pendingRescan = scan; return; }
-            clearAll();
+        function scanLine(ln) {
+            clearLineMarks(ln);
+            var text = cm.getLine(ln);
+            if (!text) { return; }
+            if (!isSizeLine(cm, ln, text)) { return; }
 
-            var vp   = cm.getViewport();
-            var from = Math.max(0, vp.from - 10);
-            var to   = Math.min(cm.lineCount(), vp.to + 10);
+            var unitless = isUnitlessPropLine(cm, ln, text);
 
-            for (var ln = from; ln < to; ln++) {
-                var text = cm.getLine(ln);
-                if (!text) continue;
-                if (!isSizeLine(cm, ln, text)) continue;
+            /* ── Pass 1: values WITH a unit ── */
+            var unitRanges = [];
+            UNIT_RE.lastIndex = 0;
+            var m;
+            while ((m = UNIT_RE.exec(text)) !== null) {
+                var prefix = m[1];
+                var numStr = m[2];
+                var unit   = m[3];
+                var full   = numStr + unit;
+                var ch0    = m.index + prefix.length;
+                var ch1    = ch0 + full.length;
 
-                var unitless = isUnitlessPropLine(cm, ln, text);
+                unitRanges.push({ from: ch0, to: ch1 });
+                addMark(ln, full, numStr, unit, false, false,
+                        { line: ln, ch: ch0 }, { line: ln, ch: ch1 });
+            }
 
-                /* ── Pass 1: values WITH a unit ── */
-                var unitRanges = [];   /* track columns already marked */
-                UNIT_RE.lastIndex = 0;
-                var m;
-                while ((m = UNIT_RE.exec(text)) !== null) {
-                    var prefix = m[1];
-                    var numStr = m[2];
-                    var unit   = m[3];
-                    var full   = numStr + unit;
-                    var ch0    = m.index + prefix.length;
-                    var ch1    = ch0 + full.length;
+            /* ── Pass 2: bare numbers (no unit) ── */
+            BARE_RE.lastIndex = 0;
+            while ((m = BARE_RE.exec(text)) !== null) {
+                var bPrefix = m[1];
+                var bNum    = m[2];
+                var bCh0    = m.index + bPrefix.length;
+                var bCh1    = bCh0 + bNum.length;
 
-                    unitRanges.push({ from: ch0, to: ch1 });
-                    addMark(full, numStr, unit, false, false,
-                            { line: ln, ch: ch0 }, { line: ln, ch: ch1 });
-                }
-
-                /* ── Pass 2: bare numbers (no unit) ── */
-                BARE_RE.lastIndex = 0;
-                while ((m = BARE_RE.exec(text)) !== null) {
-                    var bPrefix = m[1];
-                    var bNum    = m[2];
-                    var bCh0    = m.index + bPrefix.length;
-                    var bCh1    = bCh0 + bNum.length;
-
-                    /* Skip if already covered by a unit match */
-                    var overlap = false;
-                    for (var r = 0; r < unitRanges.length; r++) {
-                        if (bCh0 < unitRanges[r].to && bCh1 > unitRanges[r].from) {
-                            overlap = true;
-                            break;
-                        }
+                var overlap = false;
+                for (var r = 0; r < unitRanges.length; r++) {
+                    if (bCh0 < unitRanges[r].to && bCh1 > unitRanges[r].from) {
+                        overlap = true; break;
                     }
-                    if (overlap) continue;
-
-                    /* Skip numbers inside parentheses (rgb, rgba, calc args, var) */
-                    if (insideParens(text, bCh0)) continue;
-
-                    addMark(bNum, bNum, '', true, unitless,
-                            { line: ln, ch: bCh0 }, { line: ln, ch: bCh1 });
                 }
+                if (overlap) { continue; }
+                if (insideParens(text, bCh0)) { continue; }
+
+                addMark(ln, bNum, bNum, '', true, unitless,
+                        { line: ln, ch: bCh0 }, { line: ln, ch: bCh1 });
             }
         }
 
-        var debounced = LiveCSS.utils.debounce(scan, 300);
-        cm.on('change',         debounced);
-        cm.on('viewportChange', debounced);
-        cm.on('scroll',         debounced);
+        // Full rescan: clears all marks and rebuilds for the current viewport.
+        // Called after content changes where existing marks may be stale.
+        function fullScan() {
+            if (!enabled) { return; }
+            if (popoverOpen) { pendingRescan = fullScan; return; }
+            clearAllMarks();
+            try {
+                var vp   = cm.getViewport();
+                var from = Math.max(0, vp.from - 10);
+                var to   = Math.min(cm.lineCount(), vp.to + 10);
+                for (var ln = from; ln < to; ln++) {
+                    scanLine(ln);
+                }
+            } catch (e) {
+                console.error('[sizeSlider] fullScan error:', e);
+            }
+        }
+
+        // Incremental viewport scan: does NOT clear marks for lines still
+        // on screen, so there is no visible flash when the user scrolls.
+        function viewportScan() {
+            if (!enabled) { return; }
+            if (popoverOpen) { pendingRescan = viewportScan; return; }
+            try {
+                var vp   = cm.getViewport();
+                var from = Math.max(0, vp.from - 10);
+                var to   = Math.min(cm.lineCount(), vp.to + 10);
+
+                // Evict marks for lines well outside the viewport.
+                var evict = 30;
+                for (var key in marksByLine) {
+                    var n = parseInt(key, 10);
+                    if (n < from - evict || n >= to + evict) {
+                        clearLineMarks(n);
+                    }
+                }
+
+                // Add marks for newly visible lines.
+                for (var ln = from; ln < to; ln++) {
+                    if (!marksByLine[String(ln)]) {
+                        scanLine(ln);
+                    }
+                }
+            } catch (e) {
+                console.error('[sizeSlider] viewportScan error:', e);
+            }
+        }
+
+        var debouncedFullScan     = LiveCSS.utils.debounce(fullScan,     300);
+        var debouncedViewportScan = LiveCSS.utils.debounce(viewportScan,  80);
+
+        // Content changes: full rebuild (marks for changed lines are stale).
+        cm.on('change', debouncedFullScan);
+        // Viewport / scroll: incremental, non-destructive scan.
+        // The 'scroll' listener is omitted intentionally -- 'viewportChange'
+        // covers it without redundant double-fires.
+        cm.on('viewportChange', debouncedViewportScan);
 
         /* initial paint */
-        setTimeout(scan, 600);
+        setTimeout(fullScan, 600);
+
+        /* Register this instance so the global setEnabled() can reach it. */
+        allInstances.push({ clearAll: clearAllMarks, fullScan: fullScan });
+    }
+
+    /* ================================================================
+       Global enable / disable
+       ================================================================ */
+    function setEnabled(val) {
+        try {
+            enabled = !!val;
+            if (!enabled) {
+                /* Close any open slider popover so the user is not left with a dangling panel. */
+                try { closePopover(); } catch (e) { console.error('[sizeSlider] setEnabled: closePopover failed:', e); }
+                /* Remove all marks from every attached editor instance. */
+                allInstances.forEach(function (inst) {
+                    try { inst.clearAll(); } catch (e) { console.error('[sizeSlider] setEnabled: clearAll failed:', e); }
+                });
+                console.log('[sizeSlider] widgets disabled -- all marks cleared');
+            } else {
+                /* Trigger a full rescan on every attached editor instance. */
+                allInstances.forEach(function (inst) {
+                    try { inst.fullScan(); } catch (e) { console.error('[sizeSlider] setEnabled: fullScan failed:', e); }
+                });
+                console.log('[sizeSlider] widgets enabled -- rescanning all editors');
+            }
+        } catch (e) {
+            console.error('[sizeSlider] setEnabled error:', e);
+        }
     }
 
     /* ================================================================
@@ -650,6 +746,6 @@ window.LiveCSS.sizeSlider = (function () {
         } catch (e) { console.error('[sizeSlider] failed to attach to JS editor:', e); }
     }
 
-    return { init: init };
+    return { init: init, setEnabled: setEnabled };
 
 }());

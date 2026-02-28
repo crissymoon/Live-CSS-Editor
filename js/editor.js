@@ -24,6 +24,39 @@ window.LiveCSS.editor = (function () {
      * Also ensures the CSS panel is visible (restores it from minimized state if needed)
      * and calls CodeMirror refresh so the selection is visible after a panel show.
      */
+    /**
+     * Characters that may appear immediately after a valid selector token
+     * (class, id, or tag) inside a CSS rule. Used for word-boundary checks so
+     * that e.g. ".btn" does not falsely match ".btn-primary".
+     */
+    var SELECTOR_BOUNDARY = /[\s{,:.#\[>+~)\]]/;
+
+    /**
+     * Search a single line for `needle` with word-boundary awareness.
+     * Only matches inside the selector portion (before the first '{').
+     * Returns the column index or -1.
+     */
+    function findSelectorInLine(lineLower, needle) {
+        try {
+            var bracePos = lineLower.indexOf('{');
+            var searchArea = bracePos !== -1 ? lineLower.substring(0, bracePos) : lineLower;
+            var start = 0;
+            while (true) {
+                var col = searchArea.indexOf(needle, start);
+                if (col === -1) return -1;
+                // Check that the character after the match is a boundary or end-of-area
+                var afterIdx = col + needle.length;
+                if (afterIdx >= searchArea.length || SELECTOR_BOUNDARY.test(searchArea[afterIdx])) {
+                    return col;
+                }
+                start = col + 1;
+            }
+        } catch (e) {
+            console.error('[GoToCSS] findSelectorInLine error:', e);
+            return -1;
+        }
+    }
+
     function jumpToCssRule(selector) {
         if (!cssEditor) {
             console.warn('[GoToCSS] cssEditor not available');
@@ -34,16 +67,41 @@ window.LiveCSS.editor = (function () {
             return;
         }
 
-        // Build an ordered list of search terms from most to least specific
+        // Build an ordered list of search terms from most specific to least.
+        // Priority: full selector > ID > compound class (e.g. .a.b) > individual classes > tag
         var terms = [];
-        var classes = selector.match(/\.[^.#\s[\]()]+/g) || [];
-        for (var i = 0; i < classes.length; i++) { terms.push(classes[i]); }
+
+        // 1) Full selector (e.g. "div#main.card.active")
+        terms.push(selector);
+
+        // 2) ID selector (most specific single token)
         var idMatch = selector.match(/#[^.#\s[\]()]+/);
         if (idMatch) { terms.push(idMatch[0]); }
-        var tagMatch = selector.match(/^[a-zA-Z][a-zA-Z0-9]*/);
+
+        // 3) All classes combined (e.g. ".card.active")
+        var classes = selector.match(/\.[^.#\s[\]()]+/g) || [];
+        if (classes.length > 1) {
+            terms.push(classes.join(''));
+        }
+
+        // 4) Individual classes, longest first (longer names are more specific)
+        var sorted = classes.slice().sort(function (a, b) { return b.length - a.length; });
+        for (var i = 0; i < sorted.length; i++) { terms.push(sorted[i]); }
+
+        // 5) Tag name (least specific)
+        var tagMatch = selector.match(/^[a-zA-Z][a-zA-Z0-9-]*/);
         if (tagMatch && tagMatch[0] !== 'html' && tagMatch[0] !== 'body') {
             terms.push(tagMatch[0]);
         }
+
+        // De-duplicate while preserving order
+        var seen = {};
+        var unique = [];
+        for (var u = 0; u < terms.length; u++) {
+            var key = terms[u].toLowerCase();
+            if (!seen[key]) { seen[key] = true; unique.push(terms[u]); }
+        }
+        terms = unique;
 
         if (terms.length === 0) {
             console.warn('[GoToCSS] no searchable terms extracted from selector:', selector);
@@ -59,15 +117,12 @@ window.LiveCSS.editor = (function () {
             var needle = terms[j].toLowerCase();
             for (var ln = 0; ln < lines.length; ln++) {
                 var lower = lines[ln].toLowerCase();
-                var col   = lower.indexOf(needle);
+                var col = findSelectorInLine(lower, needle);
                 if (col === -1) { continue; }
-                // Only match in selector portion (before any '{' on this line)
-                var bracePos = lower.indexOf('{');
-                if (bracePos !== -1 && col > bracePos) { continue; }
                 foundLn  = ln;
                 foundCol = col;
                 foundLen = terms[j].length;
-                console.log('[GoToCSS] found "' + terms[j] + '" at line ' + (ln + 1) + ' col ' + col);
+                console.log('[GoToCSS] matched "' + terms[j] + '" at line ' + (ln + 1) + ' col ' + col);
                 break outer;
             }
         }
@@ -85,6 +140,25 @@ window.LiveCSS.editor = (function () {
                 cssEditor.setSelection(from, to);
                 cssEditor.scrollIntoView({ from: from, to: to }, 80);
                 cssEditor.focus();
+
+                // Bright flash mark so the target is unmissable.
+                // The CSS animation fades it out over ~1.8s.
+                var jumpMark = null;
+                try {
+                    jumpMark = cssEditor.markText(from, to, {
+                        className:    'cm-jump-target',
+                        clearOnEnter: false
+                    });
+                } catch (e) {
+                    console.warn('[GoToCSS] markText for jump-target failed:', e);
+                }
+                if (jumpMark) {
+                    setTimeout(function () {
+                        try { jumpMark.clear(); }
+                        catch (e) { console.warn('[GoToCSS] jumpMark.clear failed:', e); }
+                    }, 1900);
+                }
+
                 console.log('[GoToCSS] scrolled to line ' + (foundLn + 1));
             } catch (e) {
                 console.error('[GoToCSS] setSelection/scrollIntoView failed:', e);
@@ -461,8 +535,29 @@ window.LiveCSS.editor = (function () {
         });
 
         var debouncedUpdate = LiveCSS.utils.debounce(updatePreview, 150);
+
+        // CSS-only changes: patch the existing style element in-place so the
+        // preview scroll position is preserved. Fall back to a full srcdoc
+        // rebuild if the iframe is not yet ready (e.g. on first load).
+        var debouncedCssUpdate = LiveCSS.utils.debounce(function () {
+            try {
+                if (cssEditor) {
+                    var patched = setPreviewCss(cssEditor.getValue());
+                    if (!patched) {
+                        console.log('[editor] debouncedCssUpdate: in-place patch failed, running full updatePreview');
+                        updatePreview();
+                    }
+                } else {
+                    console.warn('[editor] debouncedCssUpdate: cssEditor not available');
+                }
+            } catch (e) {
+                console.error('[editor] debouncedCssUpdate error:', e);
+                updatePreview();
+            }
+        }, 150);
+
         htmlEditor.on('change', debouncedUpdate);
-        cssEditor.on('change',  debouncedUpdate);
+        cssEditor.on('change',  debouncedCssUpdate);
         jsEditor.on('change',   debouncedUpdate);
 
         // Listen for "Go to in CSS" messages from the preview iframe context menu
@@ -585,24 +680,33 @@ window.LiveCSS.editor = (function () {
     /**
      * Update only the user CSS in the live preview without rebuilding the
      * entire srcdoc. Used by color-swatch and size-slider for real-time drag
-     * feedback. Rebuilding srcdoc on every drag is too slow and resets scroll.
+     * feedback, and by the CSS editor change handler to avoid resetting scroll.
+     * Returns true on success, false if the patch could not be applied (caller
+     * can fall back to a full updatePreview in that case).
      */
     function setPreviewCss(fullCss) {
         try {
             var frame = document.getElementById('previewFrame');
-            if (!frame) { console.warn('[editor] setPreviewCss: previewFrame not found'); return; }
+            if (!frame) { console.warn('[editor] setPreviewCss: previewFrame not found'); return false; }
             var fdoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
-            if (!fdoc) { console.warn('[editor] setPreviewCss: cannot access iframe document'); return; }
+            if (!fdoc) { console.warn('[editor] setPreviewCss: cannot access iframe document'); return false; }
+            // Iframe may be mid-load (about:blank or blank srcdoc) -- check readyState
+            if (fdoc.readyState === 'loading' || !fdoc.body) {
+                console.warn('[editor] setPreviewCss: iframe not ready (readyState=' + fdoc.readyState + '), falling back to full rebuild');
+                return false;
+            }
             var styleEl = fdoc.querySelector('style[data-livecss-user]');
             if (!styleEl) {
                 var all = fdoc.querySelectorAll('style');
                 styleEl = all.length > 1 ? all[all.length - 1] : (all[0] || null);
-                if (!styleEl) { console.warn('[editor] setPreviewCss: no style tag found in preview'); return; }
+                if (!styleEl) { console.warn('[editor] setPreviewCss: no style tag found in preview, falling back to full rebuild'); return false; }
                 console.warn('[editor] setPreviewCss: falling back to last style tag -- preview may need refresh');
             }
             styleEl.textContent = fullCss;
+            return true;
         } catch (e) {
             console.error('[editor] setPreviewCss failed:', e);
+            return false;
         }
     }
 

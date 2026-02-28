@@ -23,6 +23,9 @@ window.LiveCSS.colorSwatch = (function () {
 
     var COLOR_RE = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b|rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+(?:\s*,\s*[\d.]+)?\s*\)|hsla?\(\s*[\d.]+\s*,\s*[\d.]+%\s*,\s*[\d.]+%(?:\s*,\s*[\d.]+)?\s*\)|\b(?:aqua|black|blue|fuchsia|gray|grey|green|lime|maroon|navy|olive|orange|purple|red|silver|teal|white|yellow|coral|salmon|crimson|gold|indigo|ivory|khaki|lavender|magenta|pink|plum|cyan|tan|violet|turquoise|beige|brown)\b/gi;
 
+    // Matches var(--property-name) tokens so they can be resolved and swatched.
+    var VAR_RE = /var\(\s*(--[a-zA-Z0-9_-]+)\s*\)/g;
+
     // Common named colors → hex
     var NAMED = {
         aqua:'#00ffff',black:'#000000',blue:'#0000ff',fuchsia:'#ff00ff',
@@ -129,10 +132,47 @@ window.LiveCSS.colorSwatch = (function () {
         return null;
     }
 
-    // ── Inline color popover ─────────────────────────────────────
+    // ── CSS variable map builder ──────────────────────────────────
+    // Scans every line of a CM instance for  --prop: <color>;  declarations.
+    // Returns a plain object keyed by property name, value = { hex, line }.
+    // Only single-token color values are resolved; var()-valued vars are skipped
+    // to avoid infinite-loop risk on circular references.
+
+    function buildVarMap(cm) {
+        var map = {};
+        try {
+            var count = cm.lineCount();
+            for (var i = 0; i < count; i++) {
+                var line = cm.getLine(i);
+                if (!line) { continue; }
+                // Match:  --property: <value>  (value may end at ; or end of line)
+                var vm = line.match(/^\s*(--[a-zA-Z0-9_-]+)\s*:\s*(.+?)\s*(?:;.*)?$/);
+                if (!vm) { continue; }
+                var prop = vm[1];
+                var val  = vm[2].trim();
+                // Only store if the value resolves to a concrete color.
+                // Ignore values that are themselves var() references.
+                if (/^var\(/.test(val)) { continue; }
+                var hex = colorToHex(val);
+                if (hex) { map[prop] = { hex: hex, line: i }; }
+            }
+        } catch (e) {
+            console.error('[colorSwatch] buildVarMap error:', e);
+        }
+        return map;
+    }
+
+    // ── Widget factory (literal colors) ──────────────────────────
     // Shows a small floating panel right beside the diamond with a
     // visible large color swatch and a hex text field.
     // Avoids relying on the native browser color-picker dialog entirely.
+
+    // Module-level enabled flag.  When false, all scans are no-ops and marks
+    // are cleared.  Toggled externally via setEnabled().
+    var enabled = true;
+
+    // Registry of per-editor scan helpers so setEnabled() can reach them all.
+    var allInstances = [];
 
     var activePopover  = null;
     var activeDiamond  = null;
@@ -397,76 +437,246 @@ window.LiveCSS.colorSwatch = (function () {
         return wrap;
     }
 
+    // ── Widget factory (var() references) ────────────────────────
+    // Shows a read-only swatch for a var(--property) token.
+    // Click jumps to the line where the variable is defined.
+
+    function createVarWidget(varStr, hexVal, defLine, cm) {
+        var wrap = document.createElement('span');
+        wrap.className = 'cm-color-wrap cm-color-wrap-var';
+
+        var diamond = document.createElement('span');
+        diamond.className = 'cm-color-diamond cm-color-diamond-var';
+        diamond.style.background = hexVal;
+        diamond.title = varStr + ' = ' + hexVal + '  (click to go to definition)';
+
+        var txt = document.createElement('span');
+        txt.className   = 'cm-color-text';
+        txt.textContent = varStr;
+
+        wrap.appendChild(diamond);
+        wrap.appendChild(txt);
+
+        diamond.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                var pos = { line: defLine, ch: 0 };
+                cm.setCursor(pos);
+                cm.scrollIntoView(pos, 80);
+                cm.focus();
+                console.log('[colorSwatch] var() definition jump to line', defLine + 1);
+            } catch (err) {
+                console.error('[colorSwatch] var() definition jump failed:', err);
+            }
+        });
+
+        return wrap;
+    }
+
     // ── Per-editor scanner ────────────────────────────────────────
 
     function attachSwatches(cm) {
-        var activeMarks = [];
+        // Per-line mark tracking: key = line number (string), value = mark[].
+        // This lets viewport-change scans ADD marks for newly visible lines
+        // WITHOUT clearing marks that are already visible, eliminating the
+        // "blank flash" that appeared on every scroll debounce.
+        var marksByLine = {};
 
-        function clearMarks() {
-            for (var i = 0; i < activeMarks.length; i++) {
-                try { activeMarks[i].clear(); } catch (e) {
-                    console.warn('[colorSwatch] clearMarks: mark.clear() failed:', e);
+        // Resolved CSS custom-property color map for this editor instance.
+        // Rebuilt by fullScan so it always reflects the current editor content.
+        var varMap = {};
+
+        function clearLineMarks(lineNo) {
+            var arr = marksByLine[String(lineNo)];
+            if (!arr) { return; }
+            for (var i = 0; i < arr.length; i++) {
+                try { arr[i].clear(); } catch (e) {
+                    console.warn('[colorSwatch] clearLineMarks: mark.clear() failed on line ' + lineNo + ':', e);
                 }
             }
-            activeMarks = [];
+            delete marksByLine[String(lineNo)];
         }
 
-        function scan() {
-            // While the color popover is open, skip rescanning because it
-            // would destroy the diamond the popover is attached to.
-            if (popoverOpen) {
-                pendingRescan = scan;
-                return;
-            }
-            clearMarks();
-            var vp   = cm.getViewport();
-            var from = Math.max(0, vp.from - 10);
-            var to   = Math.min(cm.lineCount(), vp.to + 10);
-
-            for (var lineNo = from; lineNo < to; lineNo++) {
-                var text = cm.getLine(lineNo);
-                if (!text) { continue; }
-
-                COLOR_RE.lastIndex = 0;
-                var m;
-                while ((m = COLOR_RE.exec(text)) !== null) {
-                    var colorStr = m[0];
-                    var hexVal   = colorToHex(colorStr);
-                    if (!hexVal) { continue; }
-
-                    var fromPos = { line: lineNo, ch: m.index };
-                    var toPos   = { line: lineNo, ch: m.index + colorStr.length };
-
-                    // IIFE to capture value of colorStr/hexVal/fromPos/toPos per iteration
-                    activeMarks.push((function (cs, hv, fp, tp) {
-                        try {
-                            var widget = createWidget(cs, hv, cm);
-                            var mark   = cm.markText(fp, tp, {
-                                replacedWith:     widget,
-                                handleMouseEvents: false,
-                                inclusiveLeft:    false,
-                                inclusiveRight:   false
-                            });
-                            // Back-reference for the click handler
-                            widget._cmMark = mark;
-                            return mark;
-                        } catch (e) {
-                            console.error('[colorSwatch] markText failed at', fp, tp, e);
-                            return null;
-                        }
-                    })(colorStr, hexVal, fromPos, toPos));
+        function clearAllMarks() {
+            for (var key in marksByLine) {
+                var arr = marksByLine[key];
+                for (var i = 0; i < arr.length; i++) {
+                    try { arr[i].clear(); } catch (e) {
+                        console.warn('[colorSwatch] clearAllMarks: mark.clear() failed:', e);
+                    }
                 }
             }
+            marksByLine = {};
         }
 
-        var debouncedScan = LiveCSS.utils.debounce(scan, 250);
+        function scanLine(lineNo) {
+            // Refresh this single line: clear any existing marks then rebuild.
+            clearLineMarks(lineNo);
+            var text = cm.getLine(lineNo);
+            if (!text) { return; }
 
-        cm.on('change',         debouncedScan);
-        cm.on('viewportChange', debouncedScan);
-        cm.on('scroll',         debouncedScan);
+            var lineMarks = [];
 
-        // Initial scan after editors have rendered
-        setTimeout(scan, 500);
+            // -- Literal colors (hex, rgb, hsl, named) --
+            COLOR_RE.lastIndex = 0;
+            var m;
+            while ((m = COLOR_RE.exec(text)) !== null) {
+                var colorStr = m[0];
+                var hexVal   = colorToHex(colorStr);
+                if (!hexVal) { continue; }
+
+                var fromPos = { line: lineNo, ch: m.index };
+                var toPos   = { line: lineNo, ch: m.index + colorStr.length };
+
+                (function (cs, hv, fp, tp) {
+                    try {
+                        var widget = createWidget(cs, hv, cm);
+                        var mark   = cm.markText(fp, tp, {
+                            replacedWith:      widget,
+                            handleMouseEvents: false,
+                            inclusiveLeft:     false,
+                            inclusiveRight:    false
+                        });
+                        widget._cmMark = mark;
+                        lineMarks.push(mark);
+                    } catch (e) {
+                        console.error('[colorSwatch] markText failed at', fp, tp, e);
+                    }
+                })(colorStr, hexVal, fromPos, toPos);
+            }
+
+            // -- var(--property) references resolved through varMap --
+            VAR_RE.lastIndex = 0;
+            var vm;
+            while ((vm = VAR_RE.exec(text)) !== null) {
+                var varName  = vm[1];          // '--kb-key-highlight'
+                var varStr   = vm[0];          // 'var(--kb-key-highlight)'
+                var varEntry = varMap[varName];
+                if (!varEntry) { continue; }   // unknown or non-color variable
+
+                var vFrom = { line: lineNo, ch: vm.index };
+                var vTo   = { line: lineNo, ch: vm.index + varStr.length };
+
+                (function (vs, ve, fp, tp) {
+                    try {
+                        var widget = createVarWidget(vs, ve.hex, ve.line, cm);
+                        var mark   = cm.markText(fp, tp, {
+                            replacedWith:      widget,
+                            handleMouseEvents: false,
+                            inclusiveLeft:     false,
+                            inclusiveRight:    false
+                        });
+                        widget._cmMark = mark;
+                        lineMarks.push(mark);
+                    } catch (e) {
+                        console.error('[colorSwatch] markText (var) failed at', fp, tp, e);
+                    }
+                })(varStr, varEntry, vFrom, vTo);
+            }
+
+            if (lineMarks.length) {
+                marksByLine[String(lineNo)] = lineMarks;
+            }
+        }
+
+        // Full rescan: called after content changes.  Clears everything and
+        // rebuilds marks for the current viewport.
+        function fullScan() {
+            if (!enabled) { return; }
+            if (popoverOpen) { pendingRescan = fullScan; return; }
+            // Rebuild the var map first so scanLine can resolve var() tokens.
+            try {
+                varMap = buildVarMap(cm);
+            } catch (e) {
+                console.error('[colorSwatch] fullScan: buildVarMap failed:', e);
+                varMap = {};
+            }
+            clearAllMarks();
+            try {
+                var vp   = cm.getViewport();
+                var from = Math.max(0, vp.from - 10);
+                var to   = Math.min(cm.lineCount(), vp.to + 10);
+                for (var ln = from; ln < to; ln++) {
+                    scanLine(ln);
+                }
+            } catch (e) {
+                console.error('[colorSwatch] fullScan error:', e);
+            }
+        }
+
+        // Incremental viewport scan: called on scroll / viewportChange.
+        // Only adds marks for newly visible lines; does NOT clear marks for
+        // lines still on screen, so there is no visible flash.
+        function viewportScan() {
+            if (!enabled) { return; }
+            if (popoverOpen) { pendingRescan = viewportScan; return; }
+            try {
+                var vp   = cm.getViewport();
+                var from = Math.max(0, vp.from - 10);
+                var to   = Math.min(cm.lineCount(), vp.to + 10);
+
+                // Remove marks for lines now well outside the viewport so
+                // we don't accumulate stale marks indefinitely.
+                var evict = 30;
+                for (var key in marksByLine) {
+                    var n = parseInt(key, 10);
+                    if (n < from - evict || n >= to + evict) {
+                        clearLineMarks(n);
+                    }
+                }
+
+                // Add marks for lines entering the viewport that are not yet marked.
+                for (var ln = from; ln < to; ln++) {
+                    if (!marksByLine[String(ln)]) {
+                        scanLine(ln);
+                    }
+                }
+            } catch (e) {
+                console.error('[colorSwatch] viewportScan error:', e);
+            }
+        }
+
+        var debouncedFullScan     = LiveCSS.utils.debounce(fullScan,     250);
+        var debouncedViewportScan = LiveCSS.utils.debounce(viewportScan,  80);
+
+        // Content changes need a full rescan (existing marks may be stale).
+        cm.on('change', debouncedFullScan);
+        // Viewport changes (including scroll) use the non-destructive incremental scan.
+        // The 'scroll' listener is intentionally omitted -- 'viewportChange' covers it
+        // and avoids redundant double-fires.
+        cm.on('viewportChange', debouncedViewportScan);
+
+        // Initial scan after editors have rendered.
+        setTimeout(fullScan, 500);
+
+        // Register this instance so the global setEnabled() can reach it.
+        allInstances.push({ clearAll: clearAllMarks, fullScan: fullScan });
+    }
+
+    // ── Global enable / disable ───────────────────────────────────
+
+    function setEnabled(val) {
+        try {
+            enabled = !!val;
+            if (!enabled) {
+                // Close any open popover so the user is not left with a dangling picker.
+                try { closePopover(); } catch (e) { console.error('[colorSwatch] setEnabled: closePopover failed:', e); }
+                // Remove all marks from every attached editor instance.
+                allInstances.forEach(function (inst) {
+                    try { inst.clearAll(); } catch (e) { console.error('[colorSwatch] setEnabled: clearAll failed:', e); }
+                });
+                console.log('[colorSwatch] widgets disabled -- all marks cleared');
+            } else {
+                // Trigger a full rescan on every attached editor instance.
+                allInstances.forEach(function (inst) {
+                    try { inst.fullScan(); } catch (e) { console.error('[colorSwatch] setEnabled: fullScan failed:', e); }
+                });
+                console.log('[colorSwatch] widgets enabled -- rescanning all editors');
+            }
+        } catch (e) {
+            console.error('[colorSwatch] setEnabled error:', e);
+        }
     }
 
     // ── Public ────────────────────────────────────────────────────
@@ -493,6 +703,7 @@ window.LiveCSS.colorSwatch = (function () {
 
     return {
         init:       init,
+        setEnabled: setEnabled,
         colorToHex: colorToHex,
         hslToHex:   hslToHex
     };

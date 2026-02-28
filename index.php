@@ -80,6 +80,7 @@ sort($allPropertyNames);
                     <li><button id="harmonyBtn">Harmony</button></li>
                     <li><button id="guidesBtn">Guides</button></li>
                     <li><button id="wireframeBtn">Wireframes</button></li>
+                    <li><button id="widgetsBtn" class="menu-btn-active">Widgets</button></li>
                 </ul>
             </div>
         </nav>
@@ -298,6 +299,11 @@ sort($allPropertyNames);
                 <span class="guide-label">Ruler opacity</span>
                 <input type="range" id="guideRulerOpacity" class="guide-slider" min="0" max="100" value="30">
                 <span class="guide-slider-val" id="guideRulerOpacityVal">30%</span>
+            </label>
+            <div style="border-top:1px solid #2a1a55;margin:4px 0 2px;"></div>
+            <label class="guide-row">
+                <span class="guide-label">Search outline</span>
+                <input type="checkbox" id="guideSearchOutline" class="guide-check">
             </label>
         </div>
     </div>
