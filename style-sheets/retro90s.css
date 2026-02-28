@@ -1,0 +1,1056 @@
+/* =============================================
+   RETRO 90S - Early Web and Windows-Era Light Theme
+   Inspired by Windows 95, early browser defaults,
+   GeoCities, and the dawn of the consumer internet.
+   ============================================= */
+
+/* CSS Custom Properties */
+:root {
+  /* Base Colors */
+  --r9-bg: #c0c0c0;
+  --r9-bg-alt: #d4d0c8;
+  --r9-bg-light: #ffffff;
+  --r9-surface: #ffffff;
+  --r9-surface-alt: #f0f0f0;
+  --r9-surface-inset: #a0a0a0;
+
+  /* Text */
+  --r9-text: #000000;
+  --r9-text-muted: #444444;
+  --r9-text-disabled: #808080;
+  --r9-text-light: #ffffff;
+  --r9-text-link: #0000ee;
+  --r9-text-visited: #551a8b;
+
+  /* Windows 95 System Palette */
+  --r9-navy: #000080;
+  --r9-navy-light: #1084d0;
+  --r9-teal: #008080;
+  --r9-teal-light: #00aaaa;
+  --r9-magenta: #cc0066;
+  --r9-magenta-bright: #ff00cc;
+  --r9-lime: #00aa00;
+  --r9-lime-bright: #00cc44;
+  --r9-yellow: #ffff00;
+  --r9-yellow-muted: #cccc00;
+  --r9-maroon: #800000;
+  --r9-silver: #c0c0c0;
+  --r9-silver-light: #d4d0c8;
+  --r9-silver-dark: #808080;
+
+  /* Semantic Colors */
+  --r9-primary: var(--r9-navy);
+  --r9-secondary: var(--r9-teal);
+  --r9-accent: var(--r9-magenta);
+  --r9-success: var(--r9-lime);
+  --r9-warning: var(--r9-yellow-muted);
+  --r9-danger: var(--r9-maroon);
+  --r9-info: var(--r9-navy-light);
+
+  /* Title Bar Gradient (classic Win95/98) */
+  --r9-titlebar-grad: linear-gradient(
+    90deg,
+    #000080 0%,
+    #1084d0 100%
+  );
+
+  /* Raised Border (3D button look) */
+  --r9-border-raised:
+    1px solid #ffffff inset,
+    1px solid #808080,
+    2px solid #000000,
+    2px solid #d4d0c8 inset;
+
+  /* Sunken / inset border */
+  --r9-border-sunken:
+    1px solid #808080 inset,
+    1px solid #ffffff,
+    2px solid #000000 inset,
+    2px solid #d4d0c8;
+
+  /* Simple flat border */
+  --r9-border: 2px solid #808080;
+  --r9-border-dark: 2px solid #000000;
+  --r9-border-navy: 2px solid var(--r9-navy);
+
+  /* Shadows */
+  --r9-shadow-hard: 2px 2px 0 #000000;
+  --r9-shadow-raised: 2px 2px 4px rgba(0,0,0,0.4), -1px -1px 2px rgba(255,255,255,0.9);
+  --r9-shadow-sunken: inset 2px 2px 4px rgba(0,0,0,0.3), inset -1px -1px 2px rgba(255,255,255,0.8);
+  --r9-shadow-window: 3px 3px 0 #000000;
+  --r9-shadow-dialog: 4px 4px 0 #404040;
+
+  /* Transitions (minimal -- keeps the retro feel) */
+  --r9-transition: all 0.1s step-end;
+  --r9-transition-fast: all 0.05s step-end;
+  --r9-transition-smooth: all 0.15s ease;
+
+  /* Typography */
+  --r9-font: 'MS Sans Serif', 'Tahoma', 'Arial', sans-serif;
+  --r9-font-display: 'Impact', 'Arial Black', 'Arial', sans-serif;
+  --r9-font-mono: 'Courier New', 'Courier', monospace;
+  --r9-font-serif: 'Times New Roman', 'Times', serif;
+  --r9-font-size-base: 13px;
+  --r9-font-size-sm: 11px;
+  --r9-font-size-xs: 10px;
+  --r9-font-size-lg: 15px;
+  --r9-font-size-h1: 24px;
+  --r9-font-size-h2: 20px;
+  --r9-font-size-h3: 16px;
+  --r9-line-height: 1.4;
+
+  /* Spacing */
+  --r9-pad-sm: 4px;
+  --r9-pad-md: 8px;
+  --r9-pad-lg: 16px;
+  --r9-pad-xl: 24px;
+
+  /* Component sizes */
+  --r9-titlebar-h: 22px;
+  --r9-button-h: 24px;
+  --r9-input-h: 22px;
+  --r9-scrollbar-w: 16px;
+  --r9-border-r: 0px;
+}
+
+/* ==========================================================================
+   Global Reset + Base
+   ========================================================================== */
+
+.retro90s *,
+.retro90s *::before,
+.retro90s *::after {
+  box-sizing: border-box;
+  border-radius: var(--r9-border-r);
+}
+
+.retro90s {
+  background-color: var(--r9-bg);
+  color: var(--r9-text);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  line-height: var(--r9-line-height);
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  image-rendering: pixelated;
+}
+
+/* ==========================================================================
+   Links
+   ========================================================================== */
+
+.retro90s a {
+  color: var(--r9-text-link);
+  text-decoration: underline;
+  transition: var(--r9-transition-fast);
+}
+
+.retro90s a:visited {
+  color: var(--r9-text-visited);
+}
+
+.retro90s a:hover {
+  color: var(--r9-magenta-bright);
+  text-decoration: underline;
+}
+
+.retro90s a:active {
+  color: var(--r9-danger);
+}
+
+/* ==========================================================================
+   Window / Dialog Container
+   ========================================================================== */
+
+.r9-window {
+  background-color: var(--r9-silver);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+  box-shadow: var(--r9-shadow-window);
+  padding: 0;
+  position: relative;
+}
+
+.r9-window-inner {
+  border-top: 1px solid var(--r9-silver-dark);
+  border-left: 1px solid var(--r9-silver-dark);
+  border-right: 1px solid var(--r9-silver-light);
+  border-bottom: 1px solid var(--r9-silver-light);
+}
+
+/* Title Bar */
+.r9-titlebar {
+  background: var(--r9-titlebar-grad);
+  color: var(--r9-text-light);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  font-weight: bold;
+  height: var(--r9-titlebar-h);
+  padding: 3px var(--r9-pad-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  letter-spacing: 0;
+}
+
+.r9-titlebar-title {
+  display: flex;
+  align-items: center;
+  gap: var(--r9-pad-sm);
+}
+
+.r9-titlebar-icon {
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+}
+
+/* Title bar buttons (close / minimize / maximize) */
+.r9-titlebar-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.r9-titlebar-btn {
+  width: 16px;
+  height: 14px;
+  background-color: var(--r9-silver);
+  border-top: 1px solid #ffffff;
+  border-left: 1px solid #ffffff;
+  border-right: 1px solid #404040;
+  border-bottom: 1px solid #404040;
+  color: var(--r9-text);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-xs);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  padding: 0;
+  transition: var(--r9-transition-fast);
+}
+
+.r9-titlebar-btn:active {
+  border-top: 1px solid #404040;
+  border-left: 1px solid #404040;
+  border-right: 1px solid #ffffff;
+  border-bottom: 1px solid #ffffff;
+}
+
+/* Window Body */
+.r9-window-body {
+  background-color: var(--r9-bg-light);
+  padding: var(--r9-pad-lg);
+  border-top: 2px solid var(--r9-silver-dark);
+  border-left: 2px solid var(--r9-silver-dark);
+  border-right: 2px solid var(--r9-silver-light);
+  border-bottom: 2px solid var(--r9-silver-light);
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.r9-btn {
+  background-color: var(--r9-silver);
+  color: var(--r9-text);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  font-weight: normal;
+  height: var(--r9-button-h);
+  min-width: 75px;
+  padding: 2px var(--r9-pad-lg);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+  outline: 1px solid var(--r9-text);
+  outline-offset: -2px;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--r9-pad-sm);
+  transition: var(--r9-transition-fast);
+  text-decoration: none;
+  user-select: none;
+}
+
+.r9-btn:hover {
+  background-color: #d0cccc;
+}
+
+.r9-btn:active,
+.r9-btn.active {
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  padding-top: 3px;
+  padding-left: calc(var(--r9-pad-lg) + 1px);
+}
+
+.r9-btn:focus {
+  outline: 1px dotted var(--r9-text);
+  outline-offset: -4px;
+}
+
+/* Primary Button (default/OK) */
+.r9-btn-primary {
+  outline: 2px solid var(--r9-text);
+  outline-offset: -2px;
+  font-weight: bold;
+}
+
+/* Danger */
+.r9-btn-danger {
+  color: var(--r9-maroon);
+  font-weight: bold;
+}
+
+/* Icon button (toolbar) */
+.r9-btn-icon {
+  min-width: unset;
+  width: var(--r9-button-h);
+  padding: 2px;
+}
+
+/* ==========================================================================
+   Inputs
+   ========================================================================== */
+
+.r9-input,
+.r9-textarea {
+  background-color: var(--r9-bg-light);
+  color: var(--r9-text);
+  font-family: var(--r9-font-mono);
+  font-size: var(--r9-font-size-base);
+  height: var(--r9-input-h);
+  padding: 1px var(--r9-pad-sm);
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  outline: none;
+  transition: var(--r9-transition-fast);
+  width: 100%;
+}
+
+.r9-textarea {
+  height: auto;
+  resize: vertical;
+  font-family: var(--r9-font-mono);
+  line-height: var(--r9-line-height);
+}
+
+.r9-input:focus,
+.r9-textarea:focus {
+  outline: 1px dotted var(--r9-text);
+  outline-offset: -3px;
+}
+
+.r9-input:disabled,
+.r9-textarea:disabled {
+  color: var(--r9-silver-dark);
+  background-color: var(--r9-silver);
+}
+
+/* ==========================================================================
+   Select / Dropdown
+   ========================================================================== */
+
+.r9-select {
+  background-color: var(--r9-bg-light);
+  color: var(--r9-text);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  height: var(--r9-input-h);
+  padding: 1px 20px 1px var(--r9-pad-sm);
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='16' height='16' fill='%23c0c0c0'/%3E%3Cpolygon points='4,5 12,5 8,11' fill='%23000000'/%3E%3C/svg%3E");
+  background-position: right 0;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  cursor: default;
+  width: 100%;
+}
+
+/* ==========================================================================
+   Checkbox and Radio
+   ========================================================================== */
+
+.r9-check-label,
+.r9-radio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r9-pad-sm);
+  cursor: default;
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  color: var(--r9-text);
+  user-select: none;
+}
+
+.r9-check,
+.r9-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  background-color: var(--r9-bg-light);
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  flex-shrink: 0;
+  position: relative;
+  cursor: default;
+}
+
+.r9-radio {
+  border-radius: 50%;
+}
+
+.r9-check:checked::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  width: 7px;
+  height: 5px;
+  border-left: 2px solid var(--r9-text);
+  border-bottom: 2px solid var(--r9-text);
+  transform: rotate(-45deg);
+}
+
+.r9-radio:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 5px;
+  height: 5px;
+  background-color: var(--r9-text);
+  border-radius: 50%;
+}
+
+/* ==========================================================================
+   Progress Bar
+   ========================================================================== */
+
+.r9-progress {
+  height: 16px;
+  background-color: var(--r9-bg-light);
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  padding: 2px;
+  overflow: hidden;
+}
+
+.r9-progress-bar {
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--r9-navy) 0px,
+    var(--r9-navy) 10px,
+    var(--r9-navy-light) 10px,
+    var(--r9-navy-light) 12px
+  );
+  transition: width 0.3s ease;
+}
+
+/* ==========================================================================
+   Toolbar
+   ========================================================================== */
+
+.r9-toolbar {
+  background-color: var(--r9-silver);
+  border-bottom: 1px solid var(--r9-silver-dark);
+  padding: 2px var(--r9-pad-sm);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.r9-toolbar-sep {
+  width: 2px;
+  height: 22px;
+  border-left: 1px solid var(--r9-silver-dark);
+  border-right: 1px solid #ffffff;
+  margin: 0 3px;
+}
+
+/* ==========================================================================
+   Menu Bar
+   ========================================================================== */
+
+.r9-menubar {
+  background-color: var(--r9-silver);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px 4px;
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  border-bottom: 1px solid var(--r9-silver-dark);
+}
+
+.r9-menu-item {
+  padding: 2px var(--r9-pad-sm);
+  cursor: default;
+  user-select: none;
+  color: var(--r9-text);
+}
+
+.r9-menu-item:hover,
+.r9-menu-item.active {
+  background-color: var(--r9-navy);
+  color: var(--r9-text-light);
+}
+
+/* Dropdown Menu */
+.r9-dropdown {
+  background-color: var(--r9-silver);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+  box-shadow: var(--r9-shadow-window);
+  padding: 2px 0;
+  min-width: 140px;
+  position: absolute;
+  z-index: 1000;
+}
+
+.r9-dropdown-item {
+  padding: 2px var(--r9-pad-lg);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  color: var(--r9-text);
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: var(--r9-pad-lg);
+  user-select: none;
+}
+
+.r9-dropdown-item:hover {
+  background-color: var(--r9-navy);
+  color: var(--r9-text-light);
+}
+
+.r9-dropdown-item.disabled {
+  color: var(--r9-text-disabled);
+}
+
+.r9-dropdown-sep {
+  height: 1px;
+  background-color: var(--r9-silver-dark);
+  margin: 3px var(--r9-pad-sm);
+  border-bottom: 1px solid #ffffff;
+}
+
+/* ==========================================================================
+   Tabs
+   ========================================================================== */
+
+.r9-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 2px solid var(--r9-silver-dark);
+  padding: 0 var(--r9-pad-sm);
+}
+
+.r9-tab {
+  background-color: var(--r9-silver);
+  color: var(--r9-text);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  padding: 3px var(--r9-pad-lg);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: none;
+  cursor: default;
+  user-select: none;
+  position: relative;
+  bottom: -2px;
+}
+
+.r9-tab.active {
+  background-color: var(--r9-bg-light);
+  z-index: 1;
+  padding-top: 4px;
+  border-bottom: 2px solid var(--r9-bg-light);
+}
+
+.r9-tab:hover:not(.active) {
+  background-color: #d0cccc;
+}
+
+/* Tab Panel */
+.r9-tab-panel {
+  background-color: var(--r9-bg-light);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+  padding: var(--r9-pad-lg);
+}
+
+/* ==========================================================================
+   Status Bar
+   ========================================================================== */
+
+.r9-statusbar {
+  background-color: var(--r9-silver);
+  border-top: 1px solid var(--r9-silver-dark);
+  padding: 2px var(--r9-pad-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--r9-pad-sm);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-sm);
+  color: var(--r9-text);
+}
+
+.r9-statusbar-panel {
+  padding: 1px var(--r9-pad-sm);
+  border-top: 1px solid #404040;
+  border-left: 1px solid #404040;
+  border-right: 1px solid #ffffff;
+  border-bottom: 1px solid #ffffff;
+}
+
+/* ==========================================================================
+   Scrollbar (Webkit)
+   ========================================================================== */
+
+.retro90s ::-webkit-scrollbar {
+  width: var(--r9-scrollbar-w);
+  height: var(--r9-scrollbar-w);
+}
+
+.retro90s ::-webkit-scrollbar-track {
+  background-color: var(--r9-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' x='0' y='0' fill='%23c0c0c0'/%3E%3Crect width='1' height='1' x='1' y='1' fill='%23c0c0c0'/%3E%3Crect width='1' height='1' x='1' y='0' fill='%23808080'/%3E%3Crect width='1' height='1' x='0' y='1' fill='%23808080'/%3E%3C/svg%3E");
+}
+
+.retro90s ::-webkit-scrollbar-thumb {
+  background-color: var(--r9-silver);
+  border-top: 1px solid #ffffff;
+  border-left: 1px solid #ffffff;
+  border-right: 1px solid #404040;
+  border-bottom: 1px solid #404040;
+  min-height: 20px;
+}
+
+.retro90s ::-webkit-scrollbar-button {
+  background-color: var(--r9-silver);
+  border-top: 1px solid #ffffff;
+  border-left: 1px solid #ffffff;
+  border-right: 1px solid #404040;
+  border-bottom: 1px solid #404040;
+  height: var(--r9-scrollbar-w);
+  width: var(--r9-scrollbar-w);
+}
+
+.retro90s ::-webkit-scrollbar-corner {
+  background-color: var(--r9-silver);
+}
+
+/* ==========================================================================
+   Panel / Group Box
+   ========================================================================== */
+
+.r9-panel {
+  background-color: var(--r9-silver);
+  border-top: 2px solid #808080;
+  border-left: 2px solid #808080;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  padding: var(--r9-pad-lg);
+}
+
+.r9-groupbox {
+  border: 2px solid var(--r9-silver-dark);
+  border-top-color: #ffffff;
+  padding: var(--r9-pad-lg);
+  position: relative;
+  margin-top: 10px;
+}
+
+.r9-groupbox-label {
+  position: absolute;
+  top: -9px;
+  left: var(--r9-pad-md);
+  background-color: var(--r9-silver);
+  padding: 0 var(--r9-pad-sm);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  color: var(--r9-text);
+}
+
+/* ==========================================================================
+   Table
+   ========================================================================== */
+
+.r9-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  background-color: var(--r9-bg-light);
+}
+
+.r9-table th {
+  background-color: var(--r9-silver);
+  color: var(--r9-text);
+  font-weight: bold;
+  padding: 3px var(--r9-pad-sm);
+  text-align: left;
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+}
+
+.r9-table td {
+  padding: 2px var(--r9-pad-sm);
+  border-bottom: 1px solid var(--r9-silver);
+  color: var(--r9-text);
+}
+
+.r9-table tr:nth-child(even) td {
+  background-color: var(--r9-surface-alt);
+}
+
+.r9-table tr:hover td {
+  background-color: var(--r9-navy);
+  color: var(--r9-text-light);
+}
+
+/* ==========================================================================
+   List Box
+   ========================================================================== */
+
+.r9-listbox {
+  background-color: var(--r9-bg-light);
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  overflow-y: auto;
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  color: var(--r9-text);
+}
+
+.r9-listbox-item {
+  padding: 1px var(--r9-pad-sm);
+  cursor: default;
+  user-select: none;
+}
+
+.r9-listbox-item:hover {
+  background-color: var(--r9-navy);
+  color: var(--r9-text-light);
+}
+
+.r9-listbox-item.selected {
+  background-color: var(--r9-navy);
+  color: var(--r9-text-light);
+}
+
+/* ==========================================================================
+   Tooltip
+   ========================================================================== */
+
+.r9-tooltip {
+  background-color: #ffffe1;
+  color: var(--r9-text);
+  border: 1px solid #808080;
+  padding: 2px var(--r9-pad-sm);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-sm);
+  box-shadow: var(--r9-shadow-hard);
+  pointer-events: none;
+  white-space: nowrap;
+  position: absolute;
+  z-index: 9999;
+}
+
+/* ==========================================================================
+   Dialog / Modal
+   ========================================================================== */
+
+.r9-dialog-backdrop {
+  background-color: transparent;
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+}
+
+.r9-dialog {
+  background-color: var(--r9-silver);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+  box-shadow: var(--r9-shadow-dialog);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 999;
+  min-width: 280px;
+  max-width: 460px;
+}
+
+.r9-dialog-body {
+  padding: var(--r9-pad-lg);
+  display: flex;
+  gap: var(--r9-pad-lg);
+  align-items: flex-start;
+  background-color: var(--r9-bg-light);
+  border: 2px solid var(--r9-silver-dark);
+  margin: var(--r9-pad-sm);
+}
+
+.r9-dialog-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.r9-dialog-message {
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-base);
+  color: var(--r9-text);
+  line-height: var(--r9-line-height);
+}
+
+.r9-dialog-actions {
+  padding: var(--r9-pad-sm) var(--r9-pad-lg) var(--r9-pad-lg);
+  display: flex;
+  justify-content: center;
+  gap: var(--r9-pad-md);
+}
+
+/* ==========================================================================
+   Marquee Banner (classic 90s flavor)
+   ========================================================================== */
+
+.r9-marquee-banner {
+  background-color: var(--r9-navy);
+  color: var(--r9-yellow);
+  font-family: var(--r9-font-display);
+  font-size: var(--r9-font-size-lg);
+  font-weight: bold;
+  padding: var(--r9-pad-sm) 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  border-top: 2px solid var(--r9-navy-light);
+  border-bottom: 2px solid var(--r9-navy-light);
+}
+
+.r9-marquee-inner {
+  display: inline-block;
+  animation: r9-marquee 18s linear infinite;
+}
+
+@keyframes r9-marquee {
+  from { transform: translateX(100vw); }
+  to   { transform: translateX(-100%); }
+}
+
+/* ==========================================================================
+   Under Construction Badge (obligatory 90s element)
+   ========================================================================== */
+
+.r9-under-construction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r9-pad-sm);
+  background-color: var(--r9-yellow);
+  color: var(--r9-text);
+  font-family: var(--r9-font-display);
+  font-size: var(--r9-font-size-sm);
+  font-weight: bold;
+  padding: 2px var(--r9-pad-md);
+  border: 2px solid #000000;
+  box-shadow: var(--r9-shadow-hard);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  animation: r9-blink 1s step-end infinite;
+}
+
+@keyframes r9-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ==========================================================================
+   Horizontal Rule
+   ========================================================================== */
+
+.retro90s hr,
+.r9-hr {
+  border: none;
+  border-top: 2px solid var(--r9-silver-dark);
+  border-bottom: 2px solid #ffffff;
+  margin: var(--r9-pad-md) 0;
+}
+
+/* ==========================================================================
+   Headings
+   ========================================================================== */
+
+.retro90s h1,
+.r9-h1 {
+  font-family: var(--r9-font-display);
+  font-size: var(--r9-font-size-h1);
+  font-weight: 900;
+  color: var(--r9-navy);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 3px solid var(--r9-navy);
+  padding-bottom: var(--r9-pad-sm);
+  margin-bottom: var(--r9-pad-md);
+}
+
+.retro90s h2,
+.r9-h2 {
+  font-family: var(--r9-font-display);
+  font-size: var(--r9-font-size-h2);
+  font-weight: bold;
+  color: var(--r9-teal);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: var(--r9-pad-sm);
+}
+
+.retro90s h3,
+.r9-h3 {
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-h3);
+  font-weight: bold;
+  color: var(--r9-maroon);
+  margin-bottom: var(--r9-pad-sm);
+}
+
+/* ==========================================================================
+   Badge / Tag
+   ========================================================================== */
+
+.r9-badge {
+  display: inline-block;
+  background-color: var(--r9-navy);
+  color: var(--r9-text-light);
+  font-family: var(--r9-font);
+  font-size: var(--r9-font-size-xs);
+  font-weight: bold;
+  padding: 1px var(--r9-pad-sm);
+  border: 1px solid #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.r9-badge-teal    { background-color: var(--r9-teal);    color: var(--r9-text-light); }
+.r9-badge-magenta { background-color: var(--r9-magenta); color: var(--r9-text-light); }
+.r9-badge-lime    { background-color: var(--r9-lime);    color: var(--r9-text); }
+.r9-badge-yellow  { background-color: var(--r9-yellow);  color: var(--r9-text); }
+.r9-badge-maroon  { background-color: var(--r9-maroon);  color: var(--r9-text-light); }
+
+/* ==========================================================================
+   Code Block
+   ========================================================================== */
+
+.retro90s code,
+.r9-code {
+  font-family: var(--r9-font-mono);
+  font-size: var(--r9-font-size-sm);
+  background-color: var(--r9-bg-light);
+  color: var(--r9-maroon);
+  padding: 0 3px;
+  border: 1px solid var(--r9-silver-dark);
+}
+
+.retro90s pre,
+.r9-pre {
+  font-family: var(--r9-font-mono);
+  font-size: var(--r9-font-size-sm);
+  background-color: var(--r9-bg-light);
+  color: var(--r9-text);
+  padding: var(--r9-pad-md);
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.r9-raised {
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+}
+
+.r9-sunken {
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+}
+
+.r9-flat {
+  border: 1px solid var(--r9-silver-dark);
+}
+
+.r9-text-navy    { color: var(--r9-navy); }
+.r9-text-teal    { color: var(--r9-teal); }
+.r9-text-magenta { color: var(--r9-magenta); }
+.r9-text-lime    { color: var(--r9-lime); }
+.r9-text-maroon  { color: var(--r9-maroon); }
+.r9-text-muted   { color: var(--r9-text-muted); }
+.r9-text-disabled { color: var(--r9-text-disabled); }
+
+.r9-bg-navy    { background-color: var(--r9-navy);    color: var(--r9-text-light); }
+.r9-bg-teal    { background-color: var(--r9-teal);    color: var(--r9-text-light); }
+.r9-bg-magenta { background-color: var(--r9-magenta); color: var(--r9-text-light); }
+.r9-bg-lime    { background-color: var(--r9-lime);    color: var(--r9-text); }
+.r9-bg-yellow  { background-color: var(--r9-yellow);  color: var(--r9-text); }
+.r9-bg-silver  { background-color: var(--r9-silver);  color: var(--r9-text); }
+.r9-bg-white   { background-color: var(--r9-bg-light); color: var(--r9-text); }
+
+.r9-shadow-hard   { box-shadow: var(--r9-shadow-hard); }
+.r9-shadow-raised { box-shadow: var(--r9-shadow-raised); }
+.r9-shadow-sunken { box-shadow: var(--r9-shadow-sunken); }
+
+.r9-font-mono    { font-family: var(--r9-font-mono); }
+.r9-font-display { font-family: var(--r9-font-display); }
+.r9-font-serif   { font-family: var(--r9-font-serif); }

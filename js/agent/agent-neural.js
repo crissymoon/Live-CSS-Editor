@@ -19,14 +19,35 @@
     // Phrase cache
     // -----------------------------------------------------------------------
 
-    var PHRASES    = [];
+    var PHRASES    = [
+        'Analyzing your design structure...',
+        'Mapping the component hierarchy...',
+        'Weaving the CSS threads together...',
+        'Exploring layout possibilities...',
+        'Crafting pixel-perfect adjustments...',
+        'Running pattern recognition...',
+        'Synthesizing style rules...',
+        'Tracing the cascade hierarchy...',
+        'Building the response...',
+        'Inspecting component boundaries...',
+        'Calculating visual weight...',
+        'Refining the color harmony...',
+        'Indexing style properties...',
+        'Discovering optimization paths...',
+        'Assembling the solution...',
+        'Threading through selectors...',
+        'Connecting design tokens...',
+        'Resolving inherited values...',
+        'Checking responsive breakpoints...',
+        'Painting the final output...'
+    ];
     var LOADED     = false;
     var LOADING    = false;
     var PHRASE_URL = 'ai/phrases.php?action=get';
 
     function loadPhrases(cb) {
-        if (LOADED && PHRASES.length) { if (cb) { cb(); } return; }
-        if (LOADING) { return; }
+        if (LOADED && PHRASES.length > 20) { if (cb) { cb(); } return; }
+        if (LOADING) { if (cb) { cb(); } return; }
         LOADING = true;
         fetch(PHRASE_URL)
             .then(function (r) { return r.json(); })
@@ -64,30 +85,44 @@
     var P_HOLD      = 2400;
     var P_FADE      = 400;
 
+    // Reference to the source container so the overlay can track its position
+    var anchorEl = null;
+
     // -----------------------------------------------------------------------
     // DOM helpers
     // -----------------------------------------------------------------------
 
     function createOverlay(container) {
+        anchorEl = container;
         overlay = document.createElement('div');
         overlay.className = 'agent-neural-overlay';
         canvas = document.createElement('canvas');
         canvas.className = 'agent-neural-canvas';
         overlay.appendChild(canvas);
-        container.appendChild(overlay);
+        // Append to document.body so scrolling the responseArea never moves it
+        document.body.appendChild(overlay);
         ctx = canvas.getContext('2d');
-        resize();
+        alignOverlay();
+    }
+
+    function alignOverlay() {
+        if (!overlay || !anchorEl) { return; }
+        var r = anchorEl.getBoundingClientRect();
+        overlay.style.left   = r.left   + 'px';
+        overlay.style.top    = r.top    + 'px';
+        overlay.style.width  = r.width  + 'px';
+        overlay.style.height = r.height + 'px';
+        canvas.width  = r.width  || 400;
+        canvas.height = r.height || 300;
     }
 
     function resize() {
-        if (!canvas || !overlay) { return; }
-        canvas.width  = overlay.clientWidth  || 400;
-        canvas.height = overlay.clientHeight || 300;
+        alignOverlay();
     }
 
     function dropOverlay() {
         if (overlay && overlay.parentNode) { overlay.parentNode.removeChild(overlay); }
-        overlay = null; canvas = null; ctx = null;
+        overlay = null; canvas = null; ctx = null; anchorEl = null;
     }
 
     // -----------------------------------------------------------------------
@@ -212,9 +247,27 @@
             var tw  = ctx.measureText(phrase).width;
             var px  = w / 2; var py = h / 2;
             var pad = 12;
-            ctx.beginPath();
-            ctx.roundRect(px - tw / 2 - pad, py - fs * 0.8, tw + pad * 2, fs * 1.6, 6);
+            var rx  = px - tw / 2 - pad;
+            var ry  = py - fs * 0.8;
+            var rw  = tw + pad * 2;
+            var rh  = fs * 1.6;
+            var r6  = 6;
             ctx.fillStyle = 'rgba(10,5,24,' + (pAlpha * 0.78) + ')';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(rx, ry, rw, rh, r6);
+            } else {
+                ctx.moveTo(rx + r6, ry);
+                ctx.lineTo(rx + rw - r6, ry);
+                ctx.arcTo(rx + rw, ry, rx + rw, ry + r6, r6);
+                ctx.lineTo(rx + rw, ry + rh - r6);
+                ctx.arcTo(rx + rw, ry + rh, rx + rw - r6, ry + rh, r6);
+                ctx.lineTo(rx + r6, ry + rh);
+                ctx.arcTo(rx, ry + rh, rx, ry + rh - r6, r6);
+                ctx.lineTo(rx, ry + r6);
+                ctx.arcTo(rx, ry, rx + r6, ry, r6);
+                ctx.closePath();
+            }
             ctx.fill();
             ctx.fillStyle = 'rgba(215,195,255,' + (pAlpha * 0.94) + ')';
             ctx.fillText(phrase, px, py);
@@ -277,6 +330,9 @@
 
     C.neuralPreload = function () { loadPhrases(null); };
 
+    // Keep overlay aligned if the window resizes while busy
+    function onWindowResize() { alignOverlay(); }
+
     C.neuralStart = function () {
         if (running) { return; }
         var container = C.dom.responseArea;
@@ -287,10 +343,13 @@
         pAlpha = 0; pState = 'in'; pTimer = 0; sigTimer = 0;
 
         createOverlay(container);
-        resize();
         initNodes();
         running = true; lastTime = 0;
-        setTimeout(function () { overlay && overlay.classList.add('neural-visible'); }, 20);
+        window.addEventListener('resize', onWindowResize);
+        setTimeout(function () {
+            alignOverlay(); // re-align after layout settles
+            overlay && overlay.classList.add('neural-visible');
+        }, 30);
         rafId = requestAnimationFrame(tick);
     };
 
@@ -298,12 +357,13 @@
         if (!running) { return; }
         running = false;
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        window.removeEventListener('resize', onWindowResize);
         var o = overlay;
         if (o) {
             o.classList.remove('neural-visible');
             setTimeout(function () {
                 if (o && o.parentNode) { o.parentNode.removeChild(o); }
-                if (overlay === o) { overlay = null; canvas = null; ctx = null; }
+                if (overlay === o) { overlay = null; canvas = null; ctx = null; anchorEl = null; }
             }, 450);
         }
     };

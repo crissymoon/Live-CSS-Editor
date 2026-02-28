@@ -45,24 +45,24 @@
 
 .theme-morphism {
     --ag-bg:             #0c0c18;
-    --ag-surface:        rgba(22, 22, 40, 0.72);
-    --ag-surface-2:      rgba(28, 28, 52, 0.80);
-    --ag-surface-3:      rgba(36, 36, 68, 0.88);
-    --ag-border:         rgba(80, 90, 160, 0.25);
-    --ag-border-2:       rgba(100, 110, 200, 0.35);
+    --ag-surface:        #161628;
+    --ag-surface-2:      #1c1c34;
+    --ag-surface-3:      #242444;
+    --ag-border:         #2a2a50;
+    --ag-border-2:       #383868;
     --ag-text:           #d0d8f0;
     --ag-text-muted:     #6878b0;
     --ag-text-dim:       #3a4480;
     --ag-accent:         #5a80e0;
     --ag-accent-2:       #3a60c0;
     --ag-accent-glow:    rgba(90, 128, 224, 0.22);
-    --ag-add:            rgba(30, 80, 30, 0.70);
+    --ag-add:            #1e501e;
     --ag-add-text:       #80e080;
-    --ag-remove:         rgba(80, 20, 20, 0.70);
+    --ag-remove:         #501414;
     --ag-remove-text:    #e08080;
-    --ag-warn:           rgba(90, 70, 0, 0.70);
+    --ag-warn:           #5a4600;
     --ag-warn-text:      #e0ba60;
-    --ag-code-bg:        rgba(8, 12, 28, 0.85);
+    --ag-code-bg:        #080c1c;
     --ag-code-text:      #90d8a0;
     --ag-shadow:         0 4px 24px rgba(0,0,0,0.5), 0 1px 6px rgba(0,0,0,0.3);
     --ag-shadow-soft:    0 8px 32px rgba(0,0,0,0.4);
@@ -75,24 +75,24 @@
 
 .theme-glassmorphic {
     --ag-bg:             #080c1a;
-    --ag-surface:        rgba(14, 18, 40, 0.55);
-    --ag-surface-2:      rgba(20, 26, 56, 0.65);
-    --ag-surface-3:      rgba(26, 34, 72, 0.75);
-    --ag-border:         rgba(140, 160, 255, 0.15);
-    --ag-border-2:       rgba(160, 180, 255, 0.25);
+    --ag-surface:        #0e1228;
+    --ag-surface-2:      #141a38;
+    --ag-surface-3:      #1a2248;
+    --ag-border:         #262c50;
+    --ag-border-2:       #343c68;
     --ag-text:           #e0e8ff;
     --ag-text-muted:     #7888cc;
     --ag-text-dim:       #404880;
     --ag-accent:         #7090ff;
     --ag-accent-2:       #4060e0;
     --ag-accent-glow:    rgba(112, 144, 255, 0.28);
-    --ag-add:            rgba(20, 60, 20, 0.60);
+    --ag-add:            #143c14;
     --ag-add-text:       #90ff90;
-    --ag-remove:         rgba(60, 10, 10, 0.60);
+    --ag-remove:         #3c0a0a;
     --ag-remove-text:    #ff9090;
-    --ag-warn:           rgba(60, 50, 0, 0.60);
+    --ag-warn:           #3c3200;
     --ag-warn-text:      #ffd070;
-    --ag-code-bg:        rgba(4, 8, 22, 0.90);
+    --ag-code-bg:        #040816;
     --ag-code-text:      #a0f0b0;
     --ag-shadow:         0 8px 40px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
     --ag-shadow-soft:    0 16px 48px rgba(0,0,0,0.5);
@@ -249,8 +249,6 @@
 
 .theme-glassmorphic .agent-modal,
 .theme-morphism .agent-modal {
-    backdrop-filter: blur(20px) saturate(1.5);
-    -webkit-backdrop-filter: blur(20px) saturate(1.5);
     background:     var(--ag-surface);
 }
 
@@ -460,8 +458,25 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 6px center;
+    min-width:     0;
+    max-width:     100%;
 }
 .agent-select:focus { border-color: var(--ag-accent); }
+
+/* Provider select: fixed width covers all provider names */
+#agentProvider {
+    flex-shrink: 0;
+    width:       108px;
+}
+
+/* Model select: fills remaining space, truncates long names */
+#agentModel {
+    flex:      1;
+    min-width: 0;
+    max-width: 220px;
+    overflow:  hidden;
+    text-overflow: ellipsis;
+}
 
 .agent-input {
     background:    var(--ag-surface-3);
@@ -784,6 +799,20 @@
     gap:        10px;
     flex-shrink: 0;
     border-bottom: 1px solid var(--ag-border);
+    /* prevent macOS WebKit autofill overlays */
+    -webkit-user-select: none;
+    user-select: text;
+}
+
+/* Instruction row: label above textarea full-width */
+.agent-instruction-row {
+    display:        flex;
+    flex-direction: column;
+    align-items:    stretch;
+    gap:            4px;
+}
+.agent-instruction-row .agent-task-label {
+    width: auto;
 }
 
 /* Source toggle bar */
@@ -826,7 +855,8 @@
     display:     flex;
     align-items: center;
     gap:         8px;
-    flex-wrap:   wrap;
+    flex-wrap:   nowrap;
+    min-width:   0;
 }
 
 .agent-task-label {
@@ -835,8 +865,9 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color:       var(--ag-text-muted);
-    min-width:   64px;
+    width:       86px;
     flex-shrink: 0;
+    white-space: nowrap;
 }
 
 /* Run output terminal */
@@ -920,6 +951,7 @@
     gap:            12px;
     scrollbar-width: thin;
     scrollbar-color: var(--ag-border-2) transparent;
+    position:       relative;
 }
 .agent-response-area::-webkit-scrollbar { width: 5px; }
 .agent-response-area::-webkit-scrollbar-thumb { background: var(--ag-border-2); }
@@ -1184,20 +1216,15 @@
    NEURAL OVERLAY
    ========================================================================= */
 
-.agent-response-area {
-    position: relative; /* anchor for the neural overlay */
-}
-
 .agent-neural-overlay {
-    position:      absolute;
-    inset:         0;
-    z-index:       20;
-    border-radius: 4px;
-    background:    rgba(10, 5, 24, 0.84);
-    opacity:       0;
-    transition:    opacity 0.42s ease;
+    position:       fixed;
+    z-index:        99999;
+    border-radius:  4px;
+    background:     rgba(10, 5, 24, 0.84);
+    opacity:        0;
+    transition:     opacity 0.42s ease;
     pointer-events: none;
-    overflow:      hidden;
+    overflow:       hidden;
 }
 
 .agent-neural-overlay.neural-visible {
