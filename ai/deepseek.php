@@ -39,7 +39,7 @@ if (json_last_error() !== JSON_ERROR_NONE || !isset($body['messages'])) {
 $provider  = AIConfig::provider('deepseek');
 $apiKey    = $provider['api_key'];
 $baseUrl   = rtrim($provider['base_url'], '/');
-$model     = $body['model']      ?? $provider['default_model'];
+$model     = ($body['model'] ?? '') ?: $provider['default_model'];
 $system    = $body['system']     ?? 'You are a helpful CSS and web development assistant.';
 $maxTokens = $body['max_tokens'] ?? 4096;
 $messages  = $body['messages'];

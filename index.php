@@ -392,6 +392,7 @@ sort($allPropertyNames);
     <script src="js/agent/agent-prompts.js"></script>
     <script src="js/agent/agent-chat.js"></script>
     <script src="js/agent/agent-window.js"></script>
+    <script src="js/agent/agent-neural.js"></script>
     <script src="js/agent.js"></script>
     <!-- Dev/native bridge: file browse, refresh, debug overlay -->
     <script src="js/native-bridge.js"></script>

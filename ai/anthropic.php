@@ -40,7 +40,7 @@ $provider   = AIConfig::provider('anthropic');
 $apiKey     = $provider['api_key'];
 $apiVersion = $provider['api_version'];
 $baseUrl    = rtrim($provider['base_url'], '/');
-$model      = $body['model']      ?? $provider['default_model'];
+$model      = ($body['model'] ?? '') ?: $provider['default_model'];
 $system     = $body['system']     ?? 'You are a helpful CSS and web development assistant.';
 $maxTokens  = $body['max_tokens'] ?? 4096;
 $messages   = $body['messages'];
@@ -66,6 +66,7 @@ $payload = json_encode([
 ]);
 
 // Open streaming cURL handle
+$rawResponse = '';
 $ch = curl_init($baseUrl . '/messages');
 curl_setopt_array($ch, [
     CURLOPT_POST           => true,
@@ -76,9 +77,9 @@ curl_setopt_array($ch, [
         'Content-Type: application/json',
         'x-api-key: ' . $apiKey,
         'anthropic-version: ' . $apiVersion,
-        'anthropic-beta: messages-2023-06-01',
     ],
-    CURLOPT_WRITEFUNCTION  => function ($curl, $chunk) {
+    CURLOPT_WRITEFUNCTION  => function ($curl, $chunk) use (&$rawResponse) {
+        $rawResponse .= $chunk;
         // Anthropic streams SSE events; forward relevant delta chunks
         $lines = explode("\n", $chunk);
         foreach ($lines as $line) {
@@ -120,7 +121,15 @@ if ($curlError) {
 }
 
 if ($httpCode >= 400) {
-    sseError('Anthropic API returned HTTP ' . $httpCode);
+    // Try to surface a meaningful message from the raw response body.
+    $detail = '';
+    $parsed = json_decode(trim($rawResponse), true);
+    if (isset($parsed['error']['message'])) {
+        $detail = $parsed['error']['message'];
+    } elseif ($rawResponse) {
+        $detail = substr(trim(strip_tags($rawResponse)), 0, 300);
+    }
+    sseError('Anthropic API HTTP ' . $httpCode . ($detail ? ': ' . $detail : ''));
 }
 
 // ---- SSE helpers --------------------------------------------------------

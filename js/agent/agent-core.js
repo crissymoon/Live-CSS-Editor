@@ -39,16 +39,17 @@
     };
 
     C.TASK_OPTIONS = [
-        { value: 'fix',         label: 'Fix Bug'        },
-        { value: 'refactor',    label: 'Refactor'       },
-        { value: 'modernize',   label: 'Modernize'      },
-        { value: 'add_feature', label: 'Add Feature'    },
-        { value: 'explain',     label: 'Explain'        },
-        { value: 'review',      label: 'Review'         },
-        { value: 'test',        label: 'Write Tests'    },
-        { value: 'document',    label: 'Document'       },
-        { value: 'optimize',    label: 'Optimize'       },
-        { value: 'security',    label: 'Security Audit' }
+        { value: 'request_change', label: 'Request Change'  },
+        { value: 'fix',            label: 'Fix Bug'         },
+        { value: 'refactor',       label: 'Refactor'        },
+        { value: 'modernize',      label: 'Modernize'       },
+        { value: 'add_feature',    label: 'Add Feature'     },
+        { value: 'explain',        label: 'Explain'         },
+        { value: 'review',         label: 'Review'          },
+        { value: 'test',           label: 'Write Tests'     },
+        { value: 'document',       label: 'Document'        },
+        { value: 'optimize',       label: 'Optimize'        },
+        { value: 'security',       label: 'Security Audit'  }
     ];
 
     C.NEW_PROJECT_TASKS = [
@@ -90,6 +91,34 @@
         chatStream:   null,
         minimized:    false
     };
+
+    // -----------------------------------------------------------------------
+    // Settings persistence (localStorage)
+    // -----------------------------------------------------------------------
+
+    C.PERSIST_KEYS = ['provider', 'model', 'task', 'mode', 'source', 'activeTab'];
+
+    C.saveSettings = function () {
+        var data = {};
+        C.PERSIST_KEYS.forEach(function (k) { data[k] = C.state[k]; });
+        try { localStorage.setItem('agentSettings', JSON.stringify(data)); } catch(e) {}
+    };
+
+    C.loadSettings = function () {
+        try {
+            var raw = localStorage.getItem('agentSettings');
+            if (!raw) { return; }
+            var saved = JSON.parse(raw);
+            C.PERSIST_KEYS.forEach(function (k) {
+                if (saved[k] !== undefined && saved[k] !== null && saved[k] !== '') {
+                    C.state[k] = saved[k];
+                }
+            });
+        } catch(e) {}
+    };
+
+    // Apply saved settings to state before any module initialises.
+    C.loadSettings();
 
     // -----------------------------------------------------------------------
     // Shared DOM reference object
@@ -214,7 +243,12 @@
         C.dom.runBtn.disabled   = busy;
         C.dom.abortBtn.disabled = !busy;
         C.dom.loadBtn.disabled  = busy;
-        if (busy) { C.setStatus('busy', 'Working...'); }
+        if (busy) {
+            C.setStatus('busy', 'Working...');
+            if (C.neuralStart) { C.neuralStart(); }
+        } else {
+            if (C.neuralStop) { C.neuralStop(); }
+        }
     };
 
     // -----------------------------------------------------------------------

@@ -198,24 +198,47 @@
             content  = state.content;
         }
 
+        var userInstruction = dom.instruction.value.trim();
+
+        // Request Change: require an instruction and build an action-oriented prompt
+        if (taskVal === 'request_change') {
+            if (!userInstruction) { C.toast('Describe the change you want to make.', 'error'); return; }
+            userInstruction = 'Make this change to the code: ' + userInstruction + '\n\n'
+                + 'Rules:\n'
+                + '- Do not ask clarifying questions. Make your best interpretation and apply it.\n'
+                + '- If the requested element or thing does not exist yet, add it.\n'
+                + '- Return the COMPLETE updated code using these exact three fenced code blocks (include all original code with changes applied):\n'
+                + '```html\n(full HTML here)\n```\n'
+                + '```css\n(full CSS here)\n```\n'
+                + '```javascript\n(full JS here)\n```';
+        }
+
         var payload = {
             provider:    state.provider,
             model:       state.model,
             task:        taskVal,
             file_path:   filePath,
             content:     content,
-            instruction: dom.instruction.value.trim(),
+            instruction: userInstruction,
             messages:    state.conversation,
             mode:        state.mode,
         };
 
         var isStream = (state.providers[state.provider] || {}).supports_streaming !== false;
 
-        C.appendUserMsg(payload.task + (payload.instruction ? ': ' + payload.instruction : ''));
+        C.appendUserMsg(payload.task + (dom.instruction.value.trim() ? ': ' + dom.instruction.value.trim() : ''));
         C.setBusy(true);
 
-        if (isStream) { streamRun(payload); }
-        else          { blockingRun(payload); }
+        // For editors source, go directly to the AI provider endpoint (not run.php).
+        // run.php is intended for file-based version management; editors content
+        // is in memory and needs a simple chat-style API call.
+        if (state.source === 'editors') {
+            streamRunDirect(payload);
+        } else if (isStream) {
+            streamRun(payload);
+        } else {
+            blockingRun(payload);
+        }
     }
 
     function runPreviewGeneration(themeFile) {
@@ -260,11 +283,24 @@
     }
 
     function streamRun(payload) {
-        var bodyEl   = C.appendAssistantPlaceholder();
-        var accum    = '';
-        var ctrl     = new AbortController();
+        var bodyEl    = C.appendAssistantPlaceholder();
+        var accum     = '';
+        var finalized = false;
+        var ctrl      = new AbortController();
 
         state.activeStream = { close: function () { ctrl.abort(); } };
+
+        function finish(text) {
+            if (finalized) { return; }
+            finalized = true;
+            C.finalizeMsg(bodyEl, text);
+            if (text) {
+                state.conversation.push({ role: 'assistant', content: text });
+                C.showApplyBar(bodyEl, text);
+            }
+            C.setBusy(false);
+            state.activeStream = null;
+        }
 
         fetch(C.RUN_URL, {
             method:  'POST',
@@ -280,14 +316,7 @@
 
             function pump() {
                 return reader.read().then(function (r) {
-                    if (r.done) {
-                        C.finalizeMsg(bodyEl, accum);
-                        if (accum) {
-                            state.conversation.push({ role: 'assistant', content: accum });
-                            C.showApplyBar(bodyEl, accum);
-                        }
-                        C.setBusy(false); state.activeStream = null; return;
-                    }
+                    if (r.done) { finish(accum); return; }
                     buf += decoder.decode(r.value, { stream: true });
                     var parts = buf.split('\n\n'); buf = parts.pop();
                     parts.forEach(function (block) {
@@ -305,16 +334,15 @@
                         } else if (evName === 'reasoning') {
                             C.updateReasoning(bodyEl, data.text || '');
                         } else if (evName === 'done') {
-                            C.finalizeMsg(bodyEl, accum);
-                            if (accum) {
-                                state.conversation.push({ role: 'assistant', content: accum });
-                                C.showApplyBar(bodyEl, accum);
-                            }
-                            C.setBusy(false); state.activeStream = null;
+                            finish(accum);
                         } else if (evName === 'error') {
-                            C.finalizeMsg(bodyEl, accum || '_Error_');
-                            C.setStatus('error', data.error || 'Error');
-                            C.setBusy(false); state.activeStream = null;
+                            if (!finalized) {
+                                finalized = true;
+                                C.finalizeMsg(bodyEl, accum || '_Error_');
+                                C.setStatus('error', data.error || 'Error');
+                                C.setBusy(false);
+                                state.activeStream = null;
+                            }
                         }
                     });
                     return pump();
@@ -325,8 +353,112 @@
         .catch(function (err) {
             if (err.name === 'AbortError') { C.setBusy(false); return; }
             C.setStatus('error', err.message);
-            C.finalizeMsg(bodyEl, accum || '_Request failed_');
-            C.setBusy(false); state.activeStream = null;
+            if (!finalized) {
+                finalized = true;
+                C.finalizeMsg(bodyEl, accum || '_Request failed_');
+                C.setBusy(false);
+                state.activeStream = null;
+            }
+        });
+    }
+
+    // -----------------------------------------------------------------------
+    // streamRunDirect -- posts content + instruction straight to the AI
+    // provider endpoint (ai/anthropic.php etc.).  Used when source=editors so
+    // we get real streaming without needing run.php / version management.
+    // -----------------------------------------------------------------------
+
+    function streamRunDirect(payload) {
+        var providerSlug = payload.provider || state.provider || 'anthropic';
+        var provCfg      = C.CHAT_PROVIDERS[providerSlug] || C.CHAT_PROVIDERS.anthropic;
+        var endpoint     = provCfg.endpoint;
+
+        var system = 'You are a web design editing assistant embedded in a live CSS editor. '
+            + 'The user will give you their current HTML, CSS, and JavaScript followed by an instruction. '
+            + 'Apply the instruction and respond with ONLY the three complete fenced code blocks below '
+            + '(no other text, no explanations, no questions):\n'
+            + '```html\n(full HTML here)\n```\n'
+            + '```css\n(full CSS here)\n```\n'
+            + '```javascript\n(full JS here)\n```';
+
+        var userMsg = payload.content + '\n\n---\n' + payload.instruction;
+
+        var messages = [{ role: 'user', content: userMsg }];
+
+        var bodyEl    = C.appendAssistantPlaceholder();
+        var accum     = '';
+        var finalized = false;
+        var ctrl      = new AbortController();
+
+        state.activeStream = { close: function () { ctrl.abort(); } };
+
+        function finish(text) {
+            if (finalized) { return; }
+            finalized = true;
+            C.finalizeMsg(bodyEl, text);
+            if (text) {
+                state.conversation.push({ role: 'assistant', content: text });
+                C.showApplyBar(bodyEl, text);
+            }
+            C.setBusy(false);
+            state.activeStream = null;
+        }
+
+        fetch(endpoint, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ messages: messages, model: payload.model || '', system: system }),
+            signal:  ctrl.signal
+        })
+        .then(function (resp) {
+            if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+            var reader  = resp.body.getReader();
+            var decoder = new TextDecoder();
+            var buf     = '';
+
+            function pump() {
+                return reader.read().then(function (r) {
+                    if (r.done) { finish(accum); return; }
+                    buf += decoder.decode(r.value, { stream: true });
+                    var parts = buf.split('\n\n'); buf = parts.pop();
+                    parts.forEach(function (block) {
+                        var evName = ''; var dataStr = '';
+                        block.split('\n').forEach(function (line) {
+                            if (line.startsWith('event: ')) { evName  = line.slice(7).trim(); }
+                            if (line.startsWith('data: '))  { dataStr = line.slice(6).trim(); }
+                        });
+                        if (!dataStr) { return; }
+                        var data;
+                        try { data = JSON.parse(dataStr); } catch(e) { return; }
+                        if (evName === 'chunk') {
+                            accum += data.text || '';
+                            C.updateMsg(bodyEl, accum);
+                        } else if (evName === 'done') {
+                            finish(accum);
+                        } else if (evName === 'error') {
+                            if (!finalized) {
+                                finalized = true;
+                                C.finalizeMsg(bodyEl, accum || '_Error: ' + (data.error || 'Unknown') + '_');
+                                C.setStatus('error', data.error || 'Error');
+                                C.setBusy(false);
+                                state.activeStream = null;
+                            }
+                        }
+                    });
+                    return pump();
+                });
+            }
+            return pump();
+        })
+        .catch(function (err) {
+            if (err.name === 'AbortError') { C.setBusy(false); return; }
+            C.setStatus('error', err.message);
+            if (!finalized) {
+                finalized = true;
+                C.finalizeMsg(bodyEl, accum || '_Request failed: ' + err.message + '_');
+                C.setBusy(false);
+                state.activeStream = null;
+            }
         });
     }
 
@@ -388,6 +520,58 @@
             C.toast('Applied and saved as version ' + data.version_id, 'success');
             C.setStatus('ok', 'Version ' + data.version_id + ' saved');
         }).catch(function (e) { C.toast(e.message, 'error'); });
+    }
+
+    // -----------------------------------------------------------------------
+    // Apply AI result to the three live editors
+    // -----------------------------------------------------------------------
+
+    function applyToEditors(rawText) {
+        function extractLang(text, langs) {
+            for (var i = 0; i < langs.length; i++) {
+                var re = new RegExp('```' + langs[i] + '\\s*\\n([\\s\\S]*?)```', 'i');
+                var m  = text.match(re);
+                if (m) { return m[1]; }
+            }
+            return null;
+        }
+
+        var html = extractLang(rawText, ['html']);
+        var css  = extractLang(rawText, ['css']);
+        var js   = extractLang(rawText, ['javascript', 'js']);
+
+        var applied = [];
+        try {
+            if (html !== null && LiveCSS.editor && LiveCSS.editor.getHtmlEditor) {
+                LiveCSS.editor.getHtmlEditor().setValue(html);
+                applied.push('HTML');
+            }
+            if (css !== null && LiveCSS.editor && LiveCSS.editor.getCssEditor) {
+                LiveCSS.editor.getCssEditor().setValue(css);
+                applied.push('CSS');
+            }
+            if (js !== null && LiveCSS.editor && LiveCSS.editor.getJsEditor) {
+                LiveCSS.editor.getJsEditor().setValue(js);
+                applied.push('JS');
+            }
+            if (applied.length && LiveCSS.editor && LiveCSS.editor.updatePreview) {
+                LiveCSS.editor.updatePreview();
+            }
+        } catch(e) {}
+
+        if (applied.length) {
+            C.toast('Applied to editors: ' + applied.join(', '), 'success');
+        } else {
+            // Fallback: push the first code block to the CSS editor
+            var anyCode = C.MD.extractCode(rawText);
+            if (anyCode && LiveCSS.editor && LiveCSS.editor.getCssEditor) {
+                LiveCSS.editor.getCssEditor().setValue(anyCode);
+                if (LiveCSS.editor.updatePreview) { LiveCSS.editor.updatePreview(); }
+                C.toast('Applied to CSS editor', 'success');
+            } else {
+                C.toast('No code blocks found in response.', 'error');
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -511,9 +695,11 @@
     C.runAgent           = runAgent;
     C.runPreviewGeneration = runPreviewGeneration;
     C.streamRun          = streamRun;
+    C.streamRunDirect    = streamRunDirect;
     C.blockingRun        = blockingRun;
     C.abortStream        = abortStream;
     C.applyAIResult      = applyAIResult;
+    C.applyToEditors     = applyToEditors;
     C.runCommand         = runCommand;
     C.switchMode         = switchMode;
     C.switchSource       = switchSource;

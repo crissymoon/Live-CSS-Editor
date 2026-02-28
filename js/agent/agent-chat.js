@@ -215,27 +215,44 @@
     }
 
     function showApplyBar(bodyEl, rawText) {
-        var bar      = C.el('div', 'agent-apply-bar');
-        var applyBtn = C.el('button', 'agent-btn agent-btn-primary');
-        applyBtn.textContent = 'Apply to Version';
-        applyBtn.addEventListener('click', function () { C.applyAIResult(rawText); bar.remove(); });
+        var bar = C.el('div', 'agent-apply-bar');
 
-        var diffBtn = C.el('button', 'agent-btn agent-btn-ghost');
-        diffBtn.textContent = 'Preview Diff';
-        diffBtn.addEventListener('click', function () {
-            var code = C.MD.extractCode(rawText);
-            C.agentPost({ action: 'diff', file_path: state.filePath, old_text: state.content, new_text: code })
-                .then(function (data) {
-                    dom.diffTable.innerHTML = data.html || '';
-                    var sum = data.summary || {};
-                    dom.diffSummary.style.display = 'flex';
-                    dom.diffSummary.innerHTML = '<span class="diff-added">+' + sum.added + '</span><span class="diff-removed">-' + sum.removed + '</span>';
-                    C.switchTab('diff');
-                });
-        });
+        if (state.source === 'editors') {
+            // Source is the live editors -- offer to push code back in
+            var applyEditorsBtn = C.el('button', 'agent-btn agent-btn-primary');
+            applyEditorsBtn.textContent = 'Apply to Editors';
+            applyEditorsBtn.addEventListener('click', function () { C.applyToEditors(rawText); bar.remove(); });
+            bar.appendChild(applyEditorsBtn);
+        } else {
+            // Source is a loaded file -- save as a version
+            var applyBtn = C.el('button', 'agent-btn agent-btn-primary');
+            applyBtn.textContent = 'Apply to Version';
+            applyBtn.addEventListener('click', function () { C.applyAIResult(rawText); bar.remove(); });
 
-        bar.appendChild(applyBtn);
-        bar.appendChild(diffBtn);
+            var diffBtn = C.el('button', 'agent-btn agent-btn-ghost');
+            diffBtn.textContent = 'Preview Diff';
+            diffBtn.addEventListener('click', function () {
+                var code = C.MD.extractCode(rawText);
+                C.agentPost({ action: 'diff', file_path: state.filePath, old_text: state.content, new_text: code })
+                    .then(function (data) {
+                        dom.diffTable.innerHTML = data.html || '';
+                        var sum = data.summary || {};
+                        dom.diffSummary.style.display = 'flex';
+                        dom.diffSummary.innerHTML = '<span class="diff-added">+' + sum.added + '</span><span class="diff-removed">-' + sum.removed + '</span>';
+                        C.switchTab('diff');
+                    });
+            });
+
+            bar.appendChild(applyBtn);
+            bar.appendChild(diffBtn);
+        }
+
+        // Always offer a dismiss
+        var dismissBtn = C.el('button', 'agent-btn agent-btn-ghost');
+        dismissBtn.textContent = 'Dismiss';
+        dismissBtn.addEventListener('click', function () { bar.remove(); });
+        bar.appendChild(dismissBtn);
+
         bodyEl.parentNode.appendChild(bar);
         scrollResponse();
     }

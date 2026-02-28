@@ -28,6 +28,7 @@
         if (name === 'context'  && state.filePath) { C.loadContext(); }
         if (name === 'versions' && state.filePath) { C.renderVersionList(); }
         if (name === 'diff'     && state.filePath) { C.refreshDiffSelectors(); }
+        C.saveSettings();
     }
     C.switchTab = switchTab;
 
@@ -44,6 +45,7 @@
             d.classList.toggle('dot-active', d.dataset.theme === name);
         });
         try { localStorage.setItem('agent-theme', name); } catch(e) {}
+        C.saveSettings();
     }
 
     // -----------------------------------------------------------------------
@@ -76,14 +78,16 @@
         var p   = state.providers[state.provider] || {};
         var ms  = p.models || (p.default_model ? [p.default_model] : []);
         var def = p.default_model || (ms[0] || '');
+        // Prefer the previously-saved model for this provider if it is still available.
+        var preferred = (state.model && ms.indexOf(state.model) !== -1) ? state.model : def;
         dom.model.innerHTML = '';
         ms.forEach(function (m) {
             var o = document.createElement('option');
             o.value = m; o.textContent = m;
-            if (m === def) { o.selected = true; }
+            if (m === preferred) { o.selected = true; }
             dom.model.appendChild(o);
         });
-        state.model = def;
+        state.model = preferred || def;
     }
 
     function updateStreamBadge() {
@@ -156,8 +160,8 @@
         dom.loadBtn.addEventListener('click', C.loadFile);
         dom.filePath.addEventListener('keydown', function (e) { if (e.key === 'Enter') { C.loadFile(); } });
 
-        dom.srcEditorsBtn.addEventListener('click', function () { C.switchSource('editors'); });
-        dom.srcFileBtn.addEventListener('click',    function () { C.switchSource('file'); });
+        dom.srcEditorsBtn.addEventListener('click', function () { C.switchSource('editors'); C.saveSettings(); });
+        dom.srcFileBtn.addEventListener('click',    function () { C.switchSource('file');    C.saveSettings(); });
 
         dom.backBtn.addEventListener('click', function () { C.navigate('back'); });
         dom.fwdBtn.addEventListener('click',  function () { C.navigate('forward'); });
@@ -166,14 +170,26 @@
             state.provider = dom.provider.value;
             populateModels();
             updateStreamBadge();
+            C.saveSettings();
         });
-        dom.model.addEventListener('change', function () { state.model = dom.model.value; });
+        dom.model.addEventListener('change', function () {
+            state.model = dom.model.value;
+            C.saveSettings();
+        });
 
         dom.runBtn.addEventListener('click',    C.runAgent);
         dom.abortBtn.addEventListener('click',  C.abortStream);
         dom.runCmdBtn.addEventListener('click', C.runCommand);
 
-        dom.modeSelect.addEventListener('change', function () { C.switchMode(dom.modeSelect.value); });
+        dom.modeSelect.addEventListener('change', function () {
+            C.switchMode(dom.modeSelect.value);
+            C.saveSettings();
+        });
+        dom.task.addEventListener('change', function () {
+            state.task = dom.task.value;
+            updateInstructionPlaceholder();
+            C.saveSettings();
+        });
         dom.fuzzyBtn.addEventListener('click', C.runFuzzySearch);
         dom.fuzzyInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { C.runFuzzySearch(); } });
         dom.outlineBtn.addEventListener('click', C.runCSSOutline);
@@ -195,6 +211,48 @@
 
         dom.minBtn.addEventListener('click', C.minimize);
         C.initDrag();
+
+        // ---- Restore persisted UI state -----------------------------------
+        // Mode: if saved mode differs from default, rebuild the task dropdown.
+        if (state.mode && state.mode !== 'repair') {
+            dom.modeSelect.value = state.mode;
+            C.switchMode(state.mode);  // rebuilds task dropdown for that mode
+        }
+        // Task: set the saved task in the (now-correct) dropdown.
+        if (state.task) {
+            dom.task.value = state.task;
+            state.task = dom.task.value; // snap to actual available value
+        }
+        // Source toggle.
+        C.switchSource(state.source || 'editors');
+        // Active tab.
+        if (state.activeTab && state.activeTab !== 'run') {
+            switchTab(state.activeTab);
+        }
+        // ------------------------------------------------------------------
+
+        updateInstructionPlaceholder();
+    }
+
+    // -----------------------------------------------------------------------
+    // Instruction placeholder
+    // -----------------------------------------------------------------------
+
+    var INSTRUCTION_PLACEHOLDERS = {
+        'request_change': 'e.g. make the cat image bigger, change the nav color to purple, add a border to the card...',
+        'fix':            'Describe the bug you want fixed...',
+        'add_feature':    'Describe the feature you want added...',
+        'explain':        'What part of the code should be explained?',
+        'review':         'Anything specific to focus the review on?',
+        'optimize':       'Any specific performance goals?',
+        'security':       'Any areas of particular concern?'
+    };
+    var DEFAULT_PLACEHOLDER = 'Describe what you want the agent to do...';
+
+    function updateInstructionPlaceholder() {
+        var task = dom.task.value;
+        dom.instruction.placeholder = INSTRUCTION_PLACEHOLDERS[task] || DEFAULT_PLACEHOLDER;
+        dom.runBtn.textContent = (task === 'request_change') ? 'Apply Change' : 'Run';
     }
 
     // -----------------------------------------------------------------------
@@ -221,6 +279,7 @@
             applyTheme(state.theme);
             loadProviders();
             C.populateChatProviders();
+            if (C.neuralPreload) { C.neuralPreload(); }
         },
 
         open:  open,
