@@ -244,6 +244,13 @@
     function runPreviewGeneration(themeFile) {
         C.setBusy(true);
         C.setStatus('busy', 'Generating preview for ' + themeFile + '...');
+        state.previewCss = '';
+
+        // Fetch actual theme CSS in parallel -- applied to CSS editor on "Apply"
+        fetch('style-sheets/' + themeFile)
+            .then(function (r) { return r.ok ? r.text() : ''; })
+            .catch(function () { return ''; })
+            .then(function (css) { state.previewCss = css; });
 
         C.agentPost({ action: 'backup', target: 'all' }).then(function () {
             return C.agentPost({ action: 'css_outline', file_path: themeFile, format: 'text' });
@@ -255,14 +262,20 @@
             });
         }).then(function (context) {
             var instruction     = dom.instruction.value.trim();
-            var fullInstruction = 'Generate a preview HTML page for this CSS theme.\n\n'
-                + 'CSS Outline:\n' + context.outline + '\n\n'
+            var fullInstruction = 'Generate a visually rich, complete preview HTML page for this CSS theme.\n\n'
+                + 'CSS Outline (available classes and variables):\n' + context.outline + '\n\n'
                 + 'Related context:\n' + context.search + '\n\n'
-                + (instruction ? 'Additional instructions: ' + instruction + '\n' : '');
+                + (instruction ? 'Additional instructions: ' + instruction + '\n\n' : '')
+                + 'Rules:\n'
+                + '- Do NOT include <link> or <style> tags -- CSS is injected by the editor\n'
+                + '- Use the theme body class and ALL component classes from the outline\n'
+                + '- Build a full one-page layout: nav, hero, cards, buttons, forms, footer\n'
+                + '- Reference only CSS variables from the outline, no hardcoded colors\n\n'
+                + 'Return ONLY a single fenced html code block. No explanation, no other blocks.\n';
 
             var payload = {
-                provider:    'anthropic',
-                model:       'claude-haiku-4-5-20251001',
+                provider:    state.provider,
+                model:       state.model,
                 task:        'preview',
                 file_path:   themeFile,
                 content:     '',
@@ -271,9 +284,10 @@
                 mode:        'new_project',
             };
 
-            C.appendUserMsg('preview: Generate preview for ' + themeFile);
+            var label = instruction ? instruction.slice(0, 50) : themeFile;
+            C.appendUserMsg('Generate preview: ' + label);
 
-            var isStream = (state.providers['anthropic'] || {}).supports_streaming !== false;
+            var isStream = (state.providers[state.provider] || {}).supports_streaming !== false;
             if (isStream) { streamRun(payload); }
             else          { blockingRun(payload); }
         }).catch(function (e) {
@@ -536,9 +550,12 @@
             return null;
         }
 
+        var isPreview = (state.mode === 'new_project' && state.task === 'preview');
+
         var html = extractLang(rawText, ['html']);
-        var css  = extractLang(rawText, ['css']);
-        var js   = extractLang(rawText, ['javascript', 'js']);
+        // For preview: use the fetched theme CSS (not AI output); skip JS entirely
+        var css  = isPreview ? (state.previewCss || null) : extractLang(rawText, ['css']);
+        var js   = isPreview ? null : extractLang(rawText, ['javascript', 'js']);
 
         var applied = [];
         try {
@@ -546,11 +563,11 @@
                 LiveCSS.editor.getHtmlEditor().setValue(html);
                 applied.push('HTML');
             }
-            if (css !== null && LiveCSS.editor && LiveCSS.editor.getCssEditor) {
+            if (css !== null && css !== '' && LiveCSS.editor && LiveCSS.editor.getCssEditor) {
                 LiveCSS.editor.getCssEditor().setValue(css);
                 applied.push('CSS');
             }
-            if (js !== null && LiveCSS.editor && LiveCSS.editor.getJsEditor) {
+            if (js !== null && js !== '' && LiveCSS.editor && LiveCSS.editor.getJsEditor) {
                 LiveCSS.editor.getJsEditor().setValue(js);
                 applied.push('JS');
             }
@@ -562,12 +579,12 @@
         if (applied.length) {
             C.toast('Applied to editors: ' + applied.join(', '), 'success');
         } else {
-            // Fallback: push the first code block to the CSS editor
+            // Fallback: push the first code block to the HTML editor
             var anyCode = C.MD.extractCode(rawText);
-            if (anyCode && LiveCSS.editor && LiveCSS.editor.getCssEditor) {
-                LiveCSS.editor.getCssEditor().setValue(anyCode);
+            if (anyCode && LiveCSS.editor && LiveCSS.editor.getHtmlEditor) {
+                LiveCSS.editor.getHtmlEditor().setValue(anyCode);
                 if (LiveCSS.editor.updatePreview) { LiveCSS.editor.updatePreview(); }
-                C.toast('Applied to CSS editor', 'success');
+                C.toast('Applied to HTML editor', 'success');
             } else {
                 C.toast('No code blocks found in response.', 'error');
             }

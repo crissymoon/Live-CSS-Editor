@@ -1209,3 +1209,10 @@
     width:   100%;
     height:  100%;
 }
+
+.ag-preview-streaming {
+    color:       var(--ag-text-muted);
+    font-size:   12px;
+    font-style:  italic;
+    letter-spacing: 0.02em;
+}

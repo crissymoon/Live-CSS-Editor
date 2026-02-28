@@ -192,11 +192,29 @@
     }
 
     function updateMsg(bodyEl, text) {
+        // During preview streaming, suppress the code wall -- neural overlay is visible
+        if (state.mode === 'new_project' && state.task === 'preview') {
+            bodyEl.innerHTML = '<span class="ag-preview-streaming">Building preview<span class="ag-cursor"></span></span>';
+            scrollResponse();
+            return;
+        }
         bodyEl.innerHTML = C.MD.toHtml(text) + '<span class="ag-cursor"></span>';
         scrollResponse();
     }
 
     function finalizeMsg(bodyEl, text) {
+        // For preview, show a compact summary instead of the raw code
+        if (state.mode === 'new_project' && state.task === 'preview') {
+            var lines = text ? (text.match(/\n/g) || []).length + 1 : 0;
+            if (lines > 0) {
+                bodyEl.innerHTML = '<span style="color:var(--ag-text-muted);font-size:12px;">Preview ready &mdash; '
+                    + lines + ' lines generated. Click <strong>Apply Preview to Editors</strong> below.</span>';
+            } else {
+                bodyEl.innerHTML = '<em style="color:var(--ag-text-muted)">Empty preview response</em>';
+            }
+            scrollResponse();
+            return;
+        }
         bodyEl.innerHTML = text ? C.MD.toHtml(text) : '<em style="color:var(--ag-text-muted)">Empty response</em>';
         scrollResponse();
     }
@@ -217,10 +235,13 @@
     function showApplyBar(bodyEl, rawText) {
         var bar = C.el('div', 'agent-apply-bar');
 
-        if (state.source === 'editors') {
-            // Source is the live editors -- offer to push code back in
+        // Preview task always targets the live editors (not a versioned file)
+        var isPreview = (state.mode === 'new_project' && state.task === 'preview');
+
+        if (state.source === 'editors' || isPreview) {
+            // Source is the live editors (or preview result) -- push code into editors
             var applyEditorsBtn = C.el('button', 'agent-btn agent-btn-primary');
-            applyEditorsBtn.textContent = 'Apply to Editors';
+            applyEditorsBtn.textContent = isPreview ? 'Apply Preview to Editors' : 'Apply to Editors';
             applyEditorsBtn.addEventListener('click', function () { C.applyToEditors(rawText); bar.remove(); });
             bar.appendChild(applyEditorsBtn);
         } else {
