@@ -1,0 +1,321 @@
+{
+  "version": "1.0.0",
+  "description": "Strict naming rules for CSS design system files. AI models must follow these rules when generating CSS or HTML for live previews. The prefix system ensures all classes and variables are namespaced, preventing collisions across themes.",
+
+  "naming": {
+    "prefix": {
+      "rule": "Every CSS file must use a short lowercase prefix (2-3 chars) derived from the theme name. All class names and custom properties start with this prefix followed by a hyphen.",
+      "format": "{prefix}-{component}",
+      "format_variant": "{prefix}-{component}-{variant}",
+      "format_variable": "--{prefix}-{property}",
+      "examples": {
+        "aa": "atom-age",
+        "cr": "crystal-ui",
+        "dn": "dark-neu",
+        "kb": "keyboard-ui",
+        "ng": "neon-grid",
+        "neu": "neumorphism"
+      },
+      "exception": {
+        "name": "clean-system",
+        "note": "Uses unprefixed class names (btn, card, input) and semantic variable prefixes (--clr-*, --sz-*, --type-*, --dur-*, --ease-*). This is the only file that does not prefix classes."
+      }
+    },
+
+    "body_class": {
+      "rule": "Each theme scopes its styles under a body class matching the CSS filename without extension, using the full hyphenated name.",
+      "format": "body.{theme-name}",
+      "map": {
+        "atom-age.css": "atom-age",
+        "crystal-ui.css": "crystal-ui",
+        "dark-neu.css": "dark-neu",
+        "keyboard-ui.css": "keyboard-ui",
+        "neon-grid.css": "neon-grid",
+        "neumorphism.css": "neumorphism",
+        "clean-system.css": null
+      }
+    },
+
+    "custom_properties": {
+      "rule": "All CSS custom properties must be prefixed. Variable categories follow a consistent pattern across themes.",
+      "categories": [
+        { "suffix": "bg",           "purpose": "Background colors" },
+        { "suffix": "bg-alt",       "purpose": "Alternate/secondary background" },
+        { "suffix": "surface",      "purpose": "Card/panel surface color" },
+        { "suffix": "text",         "purpose": "Primary text color" },
+        { "suffix": "text-muted",   "purpose": "Secondary/muted text" },
+        { "suffix": "primary",      "purpose": "Primary accent color" },
+        { "suffix": "success",      "purpose": "Success semantic color" },
+        { "suffix": "warning",      "purpose": "Warning semantic color" },
+        { "suffix": "danger",       "purpose": "Danger/error semantic color" },
+        { "suffix": "info",         "purpose": "Info semantic color" },
+        { "suffix": "border",       "purpose": "Default border style or color" },
+        { "suffix": "shadow-*",     "purpose": "Shadow values (sm, md, lg)" },
+        { "suffix": "transition",   "purpose": "Default transition timing" },
+        { "suffix": "font",         "purpose": "Primary font stack" },
+        { "suffix": "font-mono",    "purpose": "Monospace font stack" },
+        { "suffix": "pad-sm",       "purpose": "Small padding shorthand" },
+        { "suffix": "pad-md",       "purpose": "Medium padding shorthand" },
+        { "suffix": "pad-lg",       "purpose": "Large padding shorthand" }
+      ],
+      "clean_system_exception": {
+        "note": "clean-system uses category-based prefixes instead of theme prefix",
+        "prefixes": {
+          "--clr-": "color tokens",
+          "--sz-": "spacing tokens (4px base grid)",
+          "--type-": "typography tokens",
+          "--dur-": "animation duration tokens",
+          "--ease-": "animation easing tokens"
+        }
+      }
+    },
+
+    "segments": {
+      "rule": "Class names are built from hyphen-separated segments. The first segment is the prefix, the second is the component, and optional further segments are variants or modifiers.",
+      "pattern": "{prefix}-{component}[-{variant}][-{modifier}]",
+      "examples": [
+        "aa-btn",
+        "aa-btn-aqua",
+        "aa-btn-sm",
+        "cr-card-dark",
+        "dn-raised-lg",
+        "ng-glow-cyan-lg"
+      ]
+    }
+  },
+
+  "components": {
+    "description": "Standard component names that every theme should implement. The AI must use the correct prefix when generating HTML for a given theme.",
+    "core": [
+      {
+        "name": "btn",
+        "tag": "button",
+        "variants": ["primary", "sm", "lg", "ghost", "danger", "success", "warning"],
+        "note": "Variant classes always combine with the base class: class=\"{p}-btn {p}-btn-primary\""
+      },
+      {
+        "name": "card",
+        "tag": "div",
+        "children": ["card-header", "card-title", "card-footer"],
+        "variants": ["hover", "pressed", "dark"]
+      },
+      {
+        "name": "input",
+        "tag": "input",
+        "variants": ["sm", "lg", "error", "success"],
+        "note": "Variant classes combine with base: class=\"{p}-input {p}-input-error\""
+      },
+      {
+        "name": "textarea",
+        "tag": "textarea"
+      },
+      {
+        "name": "select",
+        "tag": "select"
+      },
+      {
+        "name": "label",
+        "tag": "span"
+      },
+      {
+        "name": "badge",
+        "tag": "span",
+        "variants": ["primary", "success", "danger", "warning"]
+      },
+      {
+        "name": "alert",
+        "tag": "div",
+        "children": ["alert-title", "alert-body|alert-message"],
+        "variants": ["success", "warning", "danger", "info"]
+      },
+      {
+        "name": "nav",
+        "tag": "nav",
+        "children": ["nav-brand", "nav-link|nav-item", "nav-end"]
+      },
+      {
+        "name": "table",
+        "tag": "table",
+        "wrappers": ["table-wrap"],
+        "variants": ["striped"]
+      },
+      {
+        "name": "progress",
+        "tag": "div",
+        "children": ["progress-bar"],
+        "variants": ["success", "danger", "warning"]
+      },
+      {
+        "name": "divider",
+        "tag": "hr",
+        "variants": ["label", "vertical"]
+      },
+      {
+        "name": "toggle",
+        "tag": "label",
+        "children": ["toggle-track|toggle-slider", "toggle-thumb|toggle-knob"]
+      },
+      {
+        "name": "form-group",
+        "tag": "div",
+        "children": ["label", "input"]
+      },
+      {
+        "name": "stat",
+        "tag": "div",
+        "children": ["stat-value", "stat-label"]
+      },
+      {
+        "name": "tag",
+        "tag": "span"
+      },
+      {
+        "name": "range",
+        "tag": "input",
+        "attrs": "type=\"range\""
+      }
+    ],
+
+    "extended": [
+      {
+        "name": "modal",
+        "tag": "div",
+        "children": ["modal-header", "modal-title", "modal-body", "modal-footer", "modal-close", "modal-overlay"],
+        "themes": ["dark-neu", "neumorphism", "crystal-ui", "neon-grid", "clean-system"]
+      },
+      {
+        "name": "tabs",
+        "tag": "div",
+        "children": ["tab"],
+        "themes": ["dark-neu", "neumorphism", "keyboard-ui", "clean-system"]
+      },
+      {
+        "name": "avatar",
+        "tag": "div",
+        "children": ["avatar-initials"],
+        "variants": ["sm", "lg", "xl"],
+        "themes": ["dark-neu", "neumorphism", "keyboard-ui"]
+      },
+      {
+        "name": "checkbox",
+        "tag": "input",
+        "wrappers": ["checkbox-wrapper"],
+        "themes": ["dark-neu", "neumorphism", "keyboard-ui"]
+      },
+      {
+        "name": "radio",
+        "tag": "input",
+        "wrappers": ["radio-wrapper"],
+        "themes": ["dark-neu", "neumorphism", "keyboard-ui"]
+      },
+      {
+        "name": "tooltip",
+        "tag": "span",
+        "children": ["tooltip-content"],
+        "themes": ["dark-neu", "neumorphism", "keyboard-ui"]
+      },
+      {
+        "name": "skeleton",
+        "tag": "div",
+        "variants": ["text", "title", "avatar", "image"],
+        "themes": ["dark-neu", "neumorphism", "clean-system"]
+      },
+      {
+        "name": "breadcrumb",
+        "tag": "nav",
+        "children": ["breadcrumb-item", "breadcrumb-sep"],
+        "themes": ["atom-age", "crystal-ui", "neon-grid"]
+      },
+      {
+        "name": "panel",
+        "tag": "div",
+        "children": ["panel-head", "panel-body"],
+        "themes": ["atom-age", "crystal-ui", "neon-grid"]
+      },
+      {
+        "name": "key",
+        "tag": "div",
+        "variants": ["sm", "lg", "xl", "wide", "wider", "widest", "backlit"],
+        "note": "Keyboard-ui only. Represents a physical key cap.",
+        "themes": ["keyboard-ui"]
+      },
+      {
+        "name": "terminal",
+        "tag": "div",
+        "children": ["terminal-header", "terminal-body", "terminal-line", "terminal-prompt"],
+        "themes": ["dark-neu"]
+      }
+    ]
+  },
+
+  "utilities": {
+    "description": "Utility classes that themes may provide. These follow the same prefix rule.",
+    "categories": {
+      "shadow": {
+        "names": ["raised", "raised-sm", "raised-lg", "pressed", "pressed-sm", "hard-shadow", "hard-shadow-lg"],
+        "note": "Neumorphic themes (neu, dn) use raised/pressed. Atom-age uses hard-shadow."
+      },
+      "glow": {
+        "names": ["glow-{color}"],
+        "note": "Color names depend on the theme palette."
+      },
+      "text": {
+        "names": ["text-muted", "text-{color}", "text-upper"],
+        "note": "Color names depend on the theme palette."
+      },
+      "layout": {
+        "names": ["container", "grid", "grid-2", "grid-3", "grid-4", "flex", "flex-center", "flex-between", "flex-col", "flex-wrap", "stack", "cluster"],
+        "note": "Not all themes define all layout utilities."
+      },
+      "typography": {
+        "names": ["h1", "h2", "h3", "h4", "display", "overline"]
+      }
+    }
+  },
+
+  "dark_mode": {
+    "rule": "Dark mode overrides are scoped under [data-theme=\"dark\"] using the same custom properties. The AI should never hardcode color values outside :root.",
+    "themes_with_dark_mode": ["atom-age", "neumorphism", "keyboard-ui"],
+    "themes_already_dark": ["dark-neu", "neon-grid", "crystal-ui", "clean-system"]
+  },
+
+  "file_structure": {
+    "rule": "Every CSS file must follow this section ordering. Section headers use block comments with at least 4 equal signs.",
+    "sections": [
+      "Header comment (theme name, description)",
+      "CSS Custom Properties (:root)",
+      "Dark mode overrides ([data-theme])",
+      "Base Reset and Body",
+      "Shadow/Effect Utility Classes",
+      "Typography",
+      "Buttons",
+      "Cards",
+      "Forms (inputs, selects, textareas, checkboxes, radios)",
+      "Navigation",
+      "Tables",
+      "Progress Bars",
+      "Alerts",
+      "Badges and Tags",
+      "Dividers",
+      "Modals (if applicable)",
+      "Theme-specific components",
+      "Layout Utilities",
+      "Responsive adjustments"
+    ],
+    "section_comment_format": "/* =============================================\n   SECTION TITLE\n   ============================================= */"
+  },
+
+  "html_generation": {
+    "rule": "When generating HTML that uses a theme, detect the prefix from the CSS filename or class names, then apply it to all class references. Never mix prefixes.",
+    "steps": [
+      "1. Identify the target CSS file",
+      "2. Look up the prefix in the prefix map (or detect from class names)",
+      "3. Look up the body class from the body_class map",
+      "4. Apply body class to <body> tag",
+      "5. Use {prefix}-{component} for all class names",
+      "6. Variant classes combine with base: class=\"{p}-btn {p}-btn-primary\"",
+      "7. Child classes use same prefix: class=\"{p}-card-header\"",
+      "8. CSS variables in inline styles use: var(--{prefix}-{token})"
+    ]
+  }
+}

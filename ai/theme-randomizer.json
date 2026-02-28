@@ -1,0 +1,468 @@
+{
+    "_version": "1.0.0",
+    "_note": "Color palettes and UX pattern bank used by js/theme-randomizer.js. All palette entries become CSS custom properties injected into :root. Add new palettes freely -- the randomizer picks them up automatically.",
+
+    "palettes": [
+        {
+            "id": "bone-steel",
+            "name": "Bone Steel",
+            "description": "Off-white surfaces with cold steel blue accents. Professional and restrained.",
+            "cultural_affinity": ["North America / English", "Western Europe / Germanic", "Northern Europe"],
+            "time_of_day": ["Morning", "Afternoon"],
+            "vars": {
+                "--clr-bg":            "#f5f4f0",
+                "--clr-bg-alt":        "#ebebeb",
+                "--clr-surface":       "#ffffff",
+                "--clr-surface-alt":   "#f0eff9",
+                "--clr-border":        "#d0cfc8",
+                "--clr-border-subtle": "#e2e1dc",
+                "--clr-text":          "#1a1a22",
+                "--clr-text-muted":    "#6a6a7a",
+                "--clr-text-dim":      "#9898a6",
+                "--clr-accent":        "#3b5bb5",
+                "--clr-accent-dark":   "#2a4295",
+                "--clr-accent-light":  "#6680cc",
+                "--clr-success":       "#2e7d52",
+                "--clr-error":         "#b53b3b",
+                "--clr-warn":          "#9a6a20",
+                "--clr-overlay":       "rgba(26,26,34,0.45)"
+            }
+        },
+        {
+            "id": "night-ink",
+            "name": "Night Ink",
+            "description": "Deep near-black with electric blue. High contrast developer aesthetic.",
+            "cultural_affinity": ["global"],
+            "time_of_day": ["Evening", "Night"],
+            "vars": {
+                "--clr-bg":            "#0d0e12",
+                "--clr-bg-alt":        "#141620",
+                "--clr-surface":       "#1a1c28",
+                "--clr-surface-alt":   "#22253a",
+                "--clr-border":        "#2a2d3e",
+                "--clr-border-subtle": "#1e2030",
+                "--clr-text":          "#e0e2f0",
+                "--clr-text-muted":    "#8890b0",
+                "--clr-text-dim":      "#50536a",
+                "--clr-accent":        "#3da8ff",
+                "--clr-accent-dark":   "#1a80e0",
+                "--clr-accent-light":  "#70c4ff",
+                "--clr-success":       "#34c274",
+                "--clr-error":         "#ff5050",
+                "--clr-warn":          "#ffc040",
+                "--clr-overlay":       "rgba(0,0,0,0.60)"
+            }
+        },
+        {
+            "id": "warm-cedar",
+            "name": "Warm Cedar",
+            "description": "Rich red-brown cedar tones with cream paper. Warm and grounded.",
+            "cultural_affinity": ["North America / English", "Western Europe / Latin", "Latin America / South"],
+            "time_of_day": ["Afternoon", "Evening"],
+            "vars": {
+                "--clr-bg":            "#f8f2ea",
+                "--clr-bg-alt":        "#eee5d6",
+                "--clr-surface":       "#ffffff",
+                "--clr-surface-alt":   "#faf5ee",
+                "--clr-border":        "#d4bfa0",
+                "--clr-border-subtle": "#e8dbc8",
+                "--clr-text":          "#2a1a0e",
+                "--clr-text-muted":    "#7a5a3a",
+                "--clr-text-dim":      "#b0906a",
+                "--clr-accent":        "#8b3a1a",
+                "--clr-accent-dark":   "#6a2a10",
+                "--clr-accent-light":  "#c05a30",
+                "--clr-success":       "#4a7a2a",
+                "--clr-error":         "#cc3030",
+                "--clr-warn":          "#aa7000",
+                "--clr-overlay":       "rgba(42,26,14,0.50)"
+            }
+        },
+        {
+            "id": "slate-sand",
+            "name": "Slate Sand",
+            "description": "Cool slate grey contrasted with warm sand highlights. Neutral and versatile.",
+            "cultural_affinity": ["global"],
+            "time_of_day": ["Morning", "Afternoon"],
+            "vars": {
+                "--clr-bg":            "#f2f3f5",
+                "--clr-bg-alt":        "#e8e9ec",
+                "--clr-surface":       "#ffffff",
+                "--clr-surface-alt":   "#f7f6f2",
+                "--clr-border":        "#d0d2d8",
+                "--clr-border-subtle": "#e2e3e8",
+                "--clr-text":          "#1e2028",
+                "--clr-text-muted":    "#686a78",
+                "--clr-text-dim":      "#9698a0",
+                "--clr-accent":        "#5a6aaa",
+                "--clr-accent-dark":   "#3a4888",
+                "--clr-accent-light":  "#7888cc",
+                "--clr-success":       "#3a7a50",
+                "--clr-error":         "#aa3838",
+                "--clr-warn":          "#9a7030",
+                "--clr-overlay":       "rgba(30,32,40,0.50)"
+            }
+        },
+        {
+            "id": "circuit-green",
+            "name": "Circuit Green",
+            "description": "Dark charcoal with terminal green. Classic developer tool aesthetic.",
+            "cultural_affinity": ["global"],
+            "time_of_day": ["Night", "Evening"],
+            "vars": {
+                "--clr-bg":            "#080c08",
+                "--clr-bg-alt":        "#0f140f",
+                "--clr-surface":       "#141e14",
+                "--clr-surface-alt":   "#1a261a",
+                "--clr-border":        "#1e3a1e",
+                "--clr-border-subtle": "#142014",
+                "--clr-text":          "#b0e0b0",
+                "--clr-text-muted":    "#609060",
+                "--clr-text-dim":      "#385838",
+                "--clr-accent":        "#00cc44",
+                "--clr-accent-dark":   "#009933",
+                "--clr-accent-light":  "#44ee88",
+                "--clr-success":       "#00cc44",
+                "--clr-error":         "#cc3344",
+                "--clr-warn":          "#ccaa00",
+                "--clr-overlay":       "rgba(0,0,0,0.70)"
+            }
+        },
+        {
+            "id": "rose-ash",
+            "name": "Rose Ash",
+            "description": "Dusty rose and soft charcoal. Refined and approachable.",
+            "cultural_affinity": ["Western Europe / Latin", "North America / English"],
+            "time_of_day": ["Morning", "Evening"],
+            "vars": {
+                "--clr-bg":            "#f5f0f0",
+                "--clr-bg-alt":        "#ece5e5",
+                "--clr-surface":       "#ffffff",
+                "--clr-surface-alt":   "#faf4f4",
+                "--clr-border":        "#d8c8c8",
+                "--clr-border-subtle": "#ece0e0",
+                "--clr-text":          "#281a1a",
+                "--clr-text-muted":    "#7a5a5a",
+                "--clr-text-dim":      "#a88888",
+                "--clr-accent":        "#aa4455",
+                "--clr-accent-dark":   "#882838",
+                "--clr-accent-light":  "#cc7080",
+                "--clr-success":       "#3a7a50",
+                "--clr-error":         "#cc3344",
+                "--clr-warn":          "#aa7020",
+                "--clr-overlay":       "rgba(40,26,26,0.50)"
+            }
+        },
+        {
+            "id": "brass-library",
+            "name": "Brass Library",
+            "description": "Dark espresso with brass and aged gold. Scholarly and authoritative.",
+            "cultural_affinity": ["Western Europe / Germanic", "North America / English", "Western Europe / Latin"],
+            "time_of_day": ["Evening", "Night"],
+            "vars": {
+                "--clr-bg":            "#120e08",
+                "--clr-bg-alt":        "#1c1608",
+                "--clr-surface":       "#221a0a",
+                "--clr-surface-alt":   "#2a2010",
+                "--clr-border":        "#3a2e14",
+                "--clr-border-subtle": "#281e0a",
+                "--clr-text":          "#e8d8a8",
+                "--clr-text-muted":    "#a89060",
+                "--clr-text-dim":      "#706040",
+                "--clr-accent":        "#c08040",
+                "--clr-accent-dark":   "#9a6020",
+                "--clr-accent-light":  "#e0aa60",
+                "--clr-success":       "#6a9a40",
+                "--clr-error":         "#cc4430",
+                "--clr-warn":          "#c09020",
+                "--clr-overlay":       "rgba(0,0,0,0.65)"
+            }
+        },
+        {
+            "id": "arctic-dawn",
+            "name": "Arctic Dawn",
+            "description": "Pale ice blue with white. Crisp and minimal. Scandinavian influence.",
+            "cultural_affinity": ["Northern Europe", "North America / English"],
+            "time_of_day": ["Morning"],
+            "vars": {
+                "--clr-bg":            "#eef3f8",
+                "--clr-bg-alt":        "#e2ecf4",
+                "--clr-surface":       "#ffffff",
+                "--clr-surface-alt":   "#f4f8fc",
+                "--clr-border":        "#c8d8e8",
+                "--clr-border-subtle": "#dce8f4",
+                "--clr-text":          "#1a2030",
+                "--clr-text-muted":    "#5a6a80",
+                "--clr-text-dim":      "#8898aa",
+                "--clr-accent":        "#2a68b0",
+                "--clr-accent-dark":   "#1a4e90",
+                "--clr-accent-light":  "#5888cc",
+                "--clr-success":       "#2a7850",
+                "--clr-error":         "#aa3030",
+                "--clr-warn":          "#8a6010",
+                "--clr-overlay":       "rgba(26,32,48,0.50)"
+            }
+        },
+        {
+            "id": "volcanic-red",
+            "name": "Volcanic Red",
+            "description": "Near-black with deep volcanic red. Bold and dramatic.",
+            "cultural_affinity": ["East Asia", "Latin America / South", "global"],
+            "time_of_day": ["Night", "Evening"],
+            "vars": {
+                "--clr-bg":            "#0e0808",
+                "--clr-bg-alt":        "#180a0a",
+                "--clr-surface":       "#200e0e",
+                "--clr-surface-alt":   "#2a1214",
+                "--clr-border":        "#401818",
+                "--clr-border-subtle": "#2e1010",
+                "--clr-text":          "#e8d0d0",
+                "--clr-text-muted":    "#a07070",
+                "--clr-text-dim":      "#704848",
+                "--clr-accent":        "#cc2222",
+                "--clr-accent-dark":   "#aa1010",
+                "--clr-accent-light":  "#ee5050",
+                "--clr-success":       "#44aa66",
+                "--clr-error":         "#ff4444",
+                "--clr-warn":          "#dd9922",
+                "--clr-overlay":       "rgba(0,0,0,0.70)"
+            }
+        },
+        {
+            "id": "muted-moss",
+            "name": "Muted Moss",
+            "description": "Dark surface with muted olive and moss green. Organic and understated.",
+            "cultural_affinity": ["Northern Europe", "North America / English", "Australasia"],
+            "time_of_day": ["Evening", "Afternoon"],
+            "vars": {
+                "--clr-bg":            "#0c0f0a",
+                "--clr-bg-alt":        "#14180f",
+                "--clr-surface":       "#1a1e12",
+                "--clr-surface-alt":   "#22271a",
+                "--clr-border":        "#2a321e",
+                "--clr-border-subtle": "#1e2614",
+                "--clr-text":          "#ccd4b0",
+                "--clr-text-muted":    "#7a8a60",
+                "--clr-text-dim":      "#50602a",
+                "--clr-accent":        "#8aaa40",
+                "--clr-accent-dark":   "#688830",
+                "--clr-accent-light":  "#aac860",
+                "--clr-success":       "#6aaa44",
+                "--clr-error":         "#aa3a30",
+                "--clr-warn":          "#aa9020",
+                "--clr-overlay":       "rgba(0,0,0,0.68)"
+            }
+        },
+        {
+            "id": "ink-sand",
+            "name": "Ink Sand",
+            "description": "Warm beige paper with deep ink. Editorial and print-influenced.",
+            "cultural_affinity": ["East Asia", "Western Europe / Latin", "North America / English"],
+            "time_of_day": ["Morning", "Afternoon", "Evening"],
+            "vars": {
+                "--clr-bg":            "#f4f0e8",
+                "--clr-bg-alt":        "#e8e4d8",
+                "--clr-surface":       "#faf8f4",
+                "--clr-surface-alt":   "#f0ece4",
+                "--clr-border":        "#c8c0a8",
+                "--clr-border-subtle": "#dcd8cc",
+                "--clr-text":          "#181410",
+                "--clr-text-muted":    "#605848",
+                "--clr-text-dim":      "#988878",
+                "--clr-accent":        "#2a3060",
+                "--clr-accent-dark":   "#181c48",
+                "--clr-accent-light":  "#4a5090",
+                "--clr-success":       "#2a6040",
+                "--clr-error":         "#aa2828",
+                "--clr-warn":          "#886020",
+                "--clr-overlay":       "rgba(24,20,16,0.55)"
+            }
+        },
+        {
+            "id": "steel-violet",
+            "name": "Steel Violet",
+            "description": "Dark steel blue-grey with violet accents. Sophisticated and modern.",
+            "cultural_affinity": ["North America / English", "Western Europe / Germanic", "Eastern Europe"],
+            "time_of_day": ["Night", "Evening"],
+            "vars": {
+                "--clr-bg":            "#0e0e14",
+                "--clr-bg-alt":        "#14141e",
+                "--clr-surface":       "#1a1a28",
+                "--clr-surface-alt":   "#202032",
+                "--clr-border":        "#2a2a40",
+                "--clr-border-subtle": "#1e1e32",
+                "--clr-text":          "#dcdce8",
+                "--clr-text-muted":    "#8888a8",
+                "--clr-text-dim":      "#505068",
+                "--clr-accent":        "#8860dd",
+                "--clr-accent-dark":   "#6a40cc",
+                "--clr-accent-light":  "#aa88ff",
+                "--clr-success":       "#40aa70",
+                "--clr-error":         "#ee4455",
+                "--clr-warn":          "#ddaa30",
+                "--clr-overlay":       "rgba(0,0,0,0.62)"
+            }
+        }
+    ],
+
+    "ux_patterns": {
+        "typography": {
+            "scale_ratio": 1.25,
+            "base_size_px": 14,
+            "line_height_body": 1.55,
+            "line_height_heading": 1.2,
+            "letter_spacing_label": "0.05em",
+            "max_line_length": "68ch",
+            "rules": [
+                "Use a modular type scale with a 1.25 ratio for consistent heading hierarchy.",
+                "Body text: 14px to 16px. Interface labels: 11px to 13px. Monospace code: 12px to 13px.",
+                "Limit fonts to two families maximum: one heading, one body. Monospace only for code output.",
+                "All uppercase or small-caps labels require letter-spacing of 0.04em to 0.08em.",
+                "Paragraph max-width: 60ch to 75ch for optimal readability."
+            ]
+        },
+        "spacing": {
+            "base_unit_px": 4,
+            "scale": [4, 8, 12, 16, 24, 32, 48, 64],
+            "rules": [
+                "Group related items with 4px to 8px gaps. Separate sections with 24px to 48px.",
+                "Component internal padding: 8px to 16px.",
+                "Minimum 16px safe margin from viewport edges at all times.",
+                "Toolbar heights: 36px compact, 44px standard, 54px relaxed."
+            ]
+        },
+        "layout": {
+            "z_layers": {
+                "base": 0,
+                "raised": 10,
+                "floating": 100,
+                "modals": 1000,
+                "toasts": 9999
+            },
+            "rules": [
+                "Left-align text and labels. Center only for hero content or very short labels.",
+                "Sidebar widths: 220px to 280px. Prioritize the content area.",
+                "Sticky toolbars are acceptable for editors. Avoid fixed headers on nested scrollable areas.",
+                "Grid: 12-column base. Collapse to 4 columns below 600px viewport width.",
+                "Panel minimum width: 240px. Panel maximum suggested width: 460px."
+            ]
+        },
+        "motion": {
+            "durations_ms": {
+                "micro": 100,
+                "interaction": 140,
+                "panel": 240,
+                "modal": 180
+            },
+            "easings": {
+                "enter": "cubic-bezier(0.0, 0.0, 0.2, 1)",
+                "exit": "cubic-bezier(0.4, 0.0, 1, 1)",
+                "standard": "cubic-bezier(0.4, 0.0, 0.2, 1)"
+            },
+            "rules": [
+                "Entrance: ease-out. Exit: ease-in. State transitions: ease-in-out.",
+                "Never animate two conflicting properties in opposite directions on the same element.",
+                "Always respect prefers-reduced-motion. Provide an instant fallback.",
+                "Do not animate color changes when color is the primary information carrier."
+            ]
+        },
+        "feedback": {
+            "rules": [
+                "Every click or keyboard action must produce a sub-100ms visible response.",
+                "Loading indicators: delay onset by 300ms to avoid flicker on fast operations.",
+                "Error messages belong inline near the cause, not only in a remote status bar.",
+                "Success feedback: brief (1500ms to 2000ms) and non-blocking.",
+                "Errors persist until explicitly dismissed or corrected.",
+                "Disabled elements must have 40 to 50 percent reduced opacity and cursor: not-allowed."
+            ]
+        },
+        "color_usage": {
+            "rules": [
+                "All color values must live in CSS custom properties. No hardcoded hex in component stylesheets.",
+                "Reserve the accent color for the single most important interactive element per view.",
+                "Error state: red hue only. Success: green only. Warning: amber only. Never reuse for decoration.",
+                "Minimum contrast ratios: 4.5:1 body text, 3:1 large text and UI components (WCAG AA).",
+                "Dark themes: avoid pure black (#000). Use near-black with a subtle hue (e.g. #0d0e12).",
+                "Background layers should differ by at least visible luminance steps to establish hierarchy."
+            ]
+        },
+        "density": {
+            "compact":  { "font_px": 11, "v_pad_px": 4,  "h_pad_px": 6  },
+            "standard": { "font_px": 13, "v_pad_px": 6,  "h_pad_px": 10 },
+            "relaxed":  { "font_px": 15, "v_pad_px": 10, "h_pad_px": 14 }
+        },
+        "accessibility": {
+            "rules": [
+                "All interactive elements must have a visible focus-visible outline. Never use outline: none alone.",
+                "Color must not be the sole means of conveying information. Pair with text, icon, or shape.",
+                "ARIA roles and labels are required on all custom widgets.",
+                "Touch targets: minimum 44x44px in any mobile context.",
+                "DOM reading order must match visual order."
+            ]
+        }
+    },
+
+    "cultural_adjustments": {
+        "East Asia": {
+            "font_stack": "system-ui, 'Hiragino Kaku Gothic Pro', 'Noto Sans JP', 'Noto Sans CJK SC', sans-serif",
+            "notes": "Higher UI density is acceptable and expected. Grid-heavy layouts are common. Red can carry positive connotations.",
+            "preferred_palettes": ["volcanic-red", "night-ink", "muted-moss", "ink-sand"]
+        },
+        "Middle East / North Africa": {
+            "direction": "rtl",
+            "font_stack": "system-ui, 'Segoe UI', 'Noto Sans Arabic', 'Arabic UI Text', sans-serif",
+            "notes": "RTL layout is required. Green carries strong positive association. Geometric ornament is culturally valued.",
+            "preferred_palettes": ["muted-moss", "circuit-green", "slate-sand"]
+        },
+        "South Asia": {
+            "font_stack": "system-ui, 'Noto Sans', 'Devanagari UI', sans-serif",
+            "notes": "Vibrant accent colors are accepted. High density is common. Warm palettes resonate.",
+            "preferred_palettes": ["volcanic-red", "warm-cedar", "brass-library"]
+        },
+        "Northern Europe": {
+            "font_stack": "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif",
+            "notes": "Minimalism and negative space are design values. Neutral palettes are strongly preferred.",
+            "preferred_palettes": ["arctic-dawn", "bone-steel", "muted-moss", "slate-sand"]
+        },
+        "Western Europe / Germanic": {
+            "font_stack": "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif",
+            "notes": "Clean typography and strong grid structure. Pragmatic over decorative.",
+            "preferred_palettes": ["bone-steel", "arctic-dawn", "brass-library", "slate-sand"]
+        },
+        "Western Europe / Latin": {
+            "font_stack": "system-ui, -apple-system, Georgia, 'Times New Roman', serif",
+            "notes": "Slightly warmer accents are acceptable. A degree of typographic ornament is appreciated.",
+            "preferred_palettes": ["warm-cedar", "rose-ash", "brass-library", "ink-sand"]
+        },
+        "Eastern Europe": {
+            "font_stack": "system-ui, -apple-system, 'Segoe UI', sans-serif",
+            "notes": "Dark themes are common in developer tools. High contrast and sharp edges are preferred.",
+            "preferred_palettes": ["night-ink", "volcanic-red", "circuit-green", "steel-violet"]
+        },
+        "Latin America / South": {
+            "font_stack": "system-ui, -apple-system, 'Segoe UI', sans-serif",
+            "notes": "Warm palettes are preferred. Contrast between UI layers should be high.",
+            "preferred_palettes": ["warm-cedar", "volcanic-red", "rose-ash"]
+        },
+        "Latin America / Caribbean": {
+            "font_stack": "system-ui, -apple-system, 'Segoe UI', sans-serif",
+            "notes": "Warm and approachable palette. Slightly higher saturation is accepted.",
+            "preferred_palettes": ["warm-cedar", "rose-ash", "volcanic-red"]
+        },
+        "Australasia": {
+            "font_stack": "system-ui, -apple-system, 'Segoe UI', sans-serif",
+            "notes": "Similar preferences to North American English. Earth tones carry cultural resonance.",
+            "preferred_palettes": ["muted-moss", "warm-cedar", "bone-steel"]
+        },
+        "Sub-Saharan Africa": {
+            "font_stack": "system-ui, -apple-system, 'Noto Sans', sans-serif",
+            "notes": "Bold, saturated accent colors are valued. Clear hierarchy with strong contrast.",
+            "preferred_palettes": ["volcanic-red", "circuit-green", "warm-cedar"]
+        },
+        "North America / English": {
+            "font_stack": "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+            "notes": "Broad acceptance of most styles. Functional clarity is the highest priority.",
+            "preferred_palettes": ["night-ink", "bone-steel", "slate-sand", "arctic-dawn", "steel-violet"]
+        }
+    }
+}

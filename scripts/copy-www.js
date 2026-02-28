@@ -23,6 +23,7 @@ const INCLUDE = [
     'data',
     'vendor',
     'style-sheets',
+    'ai',
 ];
 
 function rimraf(dir) {
