@@ -284,6 +284,15 @@
                 + '    .form-group, .field { margin-bottom: 1rem; }\n'
                 + '    h1, h2, h3, h4 { margin-bottom: 0.75rem; }\n'
                 + '    p { margin-bottom: 1rem; line-height: 1.6; }\n'
+                + '    /* Force macOS to respect custom styles on form elements */\n'
+                + '    input, textarea, select, button {\n'
+                + '      -webkit-appearance: none;\n'
+                + '      -moz-appearance: none;\n'
+                + '      appearance: none;\n'
+                + '      font-family: inherit;\n'
+                + '    }\n'
+                + '    textarea { resize: vertical; white-space: pre-wrap; word-wrap: break-word; }\n'
+                + '    select { background-image: none; }\n'
                 + '  </style>\n'
                 + '- Use the theme body class and ALL component classes from the outline\n'
                 + '- Build a full one-page layout: nav, hero, cards, buttons, forms, footer\n'
@@ -340,6 +349,7 @@
                 state.conversation.push({ role: 'assistant', content: text });
                 C.showApplyBar(bodyEl, text);
             }
+            C.setStatus('ok', 'Done');
             C.setBusy(false);
             state.activeStream = null;
         }
@@ -356,37 +366,52 @@
             var decoder = new TextDecoder();
             var buf     = '';
 
+            function processBlock(block) {
+                var evName = ''; var dataStr = '';
+                block.split('\n').forEach(function (line) {
+                    if (line.startsWith('event: ')) { evName  = line.slice(7).trim(); }
+                    if (line.startsWith('data: '))  { dataStr = line.slice(6).trim(); }
+                });
+                if (!dataStr) { return; }
+                var data;
+                try { data = JSON.parse(dataStr); } catch(e) {
+                    console.warn('[agent:streamRun] JSON parse failed for block:', block, e);
+                    return;
+                }
+                if (evName === 'chunk') {
+                    accum += data.text || '';
+                    C.updateMsg(bodyEl, accum);
+                } else if (evName === 'reasoning') {
+                    C.updateReasoning(bodyEl, data.text || '');
+                } else if (evName === 'done') {
+                    finish(accum);
+                } else if (evName === 'error') {
+                    if (!finalized) {
+                        finalized = true;
+                        C.finalizeMsg(bodyEl, accum || '_Error_');
+                        C.setStatus('error', data.error || 'Error');
+                        console.error('[agent:streamRun] server returned error event:', data.error);
+                        C.setBusy(false);
+                        state.activeStream = null;
+                    }
+                }
+            }
+
             function pump() {
                 return reader.read().then(function (r) {
-                    if (r.done) { finish(accum); return; }
+                    if (r.done) {
+                        // Flush any residual bytes that were not terminated by \n\n
+                        if (buf.trim()) {
+                            console.log('[agent:streamRun] flushing residual buffer on stream end, length:', buf.length);
+                            processBlock(buf);
+                            buf = '';
+                        }
+                        finish(accum);
+                        return;
+                    }
                     buf += decoder.decode(r.value, { stream: true });
                     var parts = buf.split('\n\n'); buf = parts.pop();
-                    parts.forEach(function (block) {
-                        var evName = ''; var dataStr = '';
-                        block.split('\n').forEach(function (line) {
-                            if (line.startsWith('event: ')) { evName  = line.slice(7).trim(); }
-                            if (line.startsWith('data: '))  { dataStr = line.slice(6).trim(); }
-                        });
-                        if (!dataStr) { return; }
-                        var data;
-                        try { data = JSON.parse(dataStr); } catch(e) { return; }
-                        if (evName === 'chunk') {
-                            accum += data.text || '';
-                            C.updateMsg(bodyEl, accum);
-                        } else if (evName === 'reasoning') {
-                            C.updateReasoning(bodyEl, data.text || '');
-                        } else if (evName === 'done') {
-                            finish(accum);
-                        } else if (evName === 'error') {
-                            if (!finalized) {
-                                finalized = true;
-                                C.finalizeMsg(bodyEl, accum || '_Error_');
-                                C.setStatus('error', data.error || 'Error');
-                                C.setBusy(false);
-                                state.activeStream = null;
-                            }
-                        }
-                    });
+                    parts.forEach(processBlock);
                     return pump();
                 });
             }
@@ -442,6 +467,7 @@
                 state.conversation.push({ role: 'assistant', content: text });
                 C.showApplyBar(bodyEl, text);
             }
+            C.setStatus('ok', 'Done');
             C.setBusy(false);
             state.activeStream = null;
         }
@@ -458,35 +484,50 @@
             var decoder = new TextDecoder();
             var buf     = '';
 
+            function processBlock(block) {
+                var evName = ''; var dataStr = '';
+                block.split('\n').forEach(function (line) {
+                    if (line.startsWith('event: ')) { evName  = line.slice(7).trim(); }
+                    if (line.startsWith('data: '))  { dataStr = line.slice(6).trim(); }
+                });
+                if (!dataStr) { return; }
+                var data;
+                try { data = JSON.parse(dataStr); } catch(e) {
+                    console.warn('[agent:streamRunDirect] JSON parse failed for block:', block, e);
+                    return;
+                }
+                if (evName === 'chunk') {
+                    accum += data.text || '';
+                    C.updateMsg(bodyEl, accum);
+                } else if (evName === 'done') {
+                    finish(accum);
+                } else if (evName === 'error') {
+                    if (!finalized) {
+                        finalized = true;
+                        C.finalizeMsg(bodyEl, accum || '_Error: ' + (data.error || 'Unknown') + '_');
+                        C.setStatus('error', data.error || 'Error');
+                        console.error('[agent:streamRunDirect] server returned error event:', data.error);
+                        C.setBusy(false);
+                        state.activeStream = null;
+                    }
+                }
+            }
+
             function pump() {
                 return reader.read().then(function (r) {
-                    if (r.done) { finish(accum); return; }
+                    if (r.done) {
+                        // Flush any residual bytes that were not terminated by \n\n
+                        if (buf.trim()) {
+                            console.log('[agent:streamRunDirect] flushing residual buffer on stream end, length:', buf.length);
+                            processBlock(buf);
+                            buf = '';
+                        }
+                        finish(accum);
+                        return;
+                    }
                     buf += decoder.decode(r.value, { stream: true });
                     var parts = buf.split('\n\n'); buf = parts.pop();
-                    parts.forEach(function (block) {
-                        var evName = ''; var dataStr = '';
-                        block.split('\n').forEach(function (line) {
-                            if (line.startsWith('event: ')) { evName  = line.slice(7).trim(); }
-                            if (line.startsWith('data: '))  { dataStr = line.slice(6).trim(); }
-                        });
-                        if (!dataStr) { return; }
-                        var data;
-                        try { data = JSON.parse(dataStr); } catch(e) { return; }
-                        if (evName === 'chunk') {
-                            accum += data.text || '';
-                            C.updateMsg(bodyEl, accum);
-                        } else if (evName === 'done') {
-                            finish(accum);
-                        } else if (evName === 'error') {
-                            if (!finalized) {
-                                finalized = true;
-                                C.finalizeMsg(bodyEl, accum || '_Error: ' + (data.error || 'Unknown') + '_');
-                                C.setStatus('error', data.error || 'Error');
-                                C.setBusy(false);
-                                state.activeStream = null;
-                            }
-                        }
-                    });
+                    parts.forEach(processBlock);
                     return pump();
                 });
             }
