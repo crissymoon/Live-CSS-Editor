@@ -282,7 +282,19 @@ function renderBlock(array $block, array $overrides): string {
                     . toStyle($s, ['marginTop']);
                 if (isset($s['marginTop'])) $style .= ';margin-top:' . htmlspecialchars($s['marginTop'], ENT_QUOTES);
                 $text = overrideText($id, $block['text'] ?? 'Button', $overrides);
-                return '<a href="' . htmlspecialchars($block['href'] ?? '#', ENT_QUOTES) . '"'
+                /*
+                 * If the button's href is "#" or empty, render as a <button type="submit">
+                 * so it works as a form submit button when placed inside a <form>.
+                 * Otherwise render as an <a> link as before.
+                 */
+                $href = $block['href'] ?? '#';
+                if ($href === '#' || $href === '') {
+                    return '<button type="submit"'
+                        . ' style="' . $style . ';border:none;-webkit-appearance:none;-moz-appearance:none;appearance:none;"'
+                        . ' ' . pbAttrs($id, ['bg', 'color', 'border', 'padding', 'fontSize', 'text']) . '>'
+                        . htmlspecialchars($text) . '</button>';
+                }
+                return '<a href="' . htmlspecialchars($href, ENT_QUOTES) . '"'
                     . ' style="' . $style . '"'
                     . ' ' . pbAttrs($id, ['bg', 'color', 'border', 'padding', 'fontSize', 'text']) . '>'
                     . htmlspecialchars($text) . '</a>';
@@ -310,6 +322,128 @@ function renderBlock(array $block, array $overrides): string {
                 }
                 return '<div style="' . $cardStyle . '" ' . pbAttrs($id, ['bg', 'border', 'padding']) . '>'
                     . $inner . '</div>';
+            }
+            /*
+             * FORM BLOCK
+             * Renders a <form> element containing child blocks (inputs, textareas,
+             * buttons). The form action and method are configurable. When no action
+             * is provided the built-in JS handler catches the submit event and logs
+             * the data to the console for debugging.
+             */
+            case 'form': {
+                $formAction = htmlspecialchars($block['action'] ?? '', ENT_QUOTES);
+                $formMethod = htmlspecialchars($block['method'] ?? 'POST', ENT_QUOTES);
+                $formStyle  = 'display:flex;flex-direction:column;'
+                    . 'gap:' . ($s['gap'] ?? '16px') . ';'
+                    . 'width:100%;'
+                    . toStyle($s, ['gap', 'maxWidth']);
+                if (isset($s['maxWidth'])) {
+                    $formStyle .= ';max-width:' . htmlspecialchars($s['maxWidth'], ENT_QUOTES);
+                }
+                $inner = '';
+                foreach ($block['children'] ?? [] as $child) {
+                    if (!is_array($child)) {
+                        error_log('[renderBlock] form child is not an array, skipping');
+                        continue;
+                    }
+                    $inner .= renderBlock($child, $overrides);
+                }
+                return '<form class="pb-form" id="' . htmlspecialchars($id, ENT_QUOTES) . '"'
+                    . ' action="' . $formAction . '"'
+                    . ' method="' . $formMethod . '"'
+                    . ' style="' . $formStyle . '"'
+                    . ' ' . pbAttrs($id, ['bg', 'padding', 'border', 'borderRadius']) . '>'
+                    . $inner . '</form>';
+            }
+            /*
+             * INPUT BLOCK
+             * Renders a labeled <input> or <textarea>. Supports types: text, email,
+             * tel, url, number, password, textarea, select, checkbox, hidden.
+             * Each input gets a unique name derived from its block id.
+             */
+            case 'input': {
+                $inputType   = $block['inputType'] ?? 'text';
+                $inputName   = htmlspecialchars($block['name'] ?? $id, ENT_QUOTES);
+                $placeholder = htmlspecialchars(
+                    overrideText($id . '-placeholder', $block['placeholder'] ?? '', $overrides),
+                    ENT_QUOTES
+                );
+                $labelText = overrideText($id, $block['label'] ?? '', $overrides);
+                $required  = !empty($block['required']) ? ' required' : '';
+                $inputStyle = 'width:100%;font-family:inherit;'
+                    . 'background:' . ($s['bg'] ?? 'rgba(255,255,255,0.04)') . ';'
+                    . 'color:' . ($s['color'] ?? '#e0e0f0') . ';'
+                    . 'border:' . ($s['border'] ?? '1px solid rgba(255,255,255,0.1)') . ';'
+                    . 'border-radius:' . ($s['borderRadius'] ?? '4px') . ';'
+                    . 'padding:' . ($s['padding'] ?? '10px 14px') . ';'
+                    . 'font-size:' . ($s['fontSize'] ?? '14px') . ';'
+                    . 'letter-spacing:0.02em;'
+                    . '-webkit-appearance:none;-moz-appearance:none;appearance:none;';
+                $labelStyle = 'display:flex;flex-direction:column;gap:6px;width:100%;';
+                $labelSpanStyle = 'color:' . ($s['labelColor'] ?? '#8888a0') . ';'
+                    . 'font-size:' . ($s['labelFontSize'] ?? '12px') . ';'
+                    . 'letter-spacing:0.04em;font-family:inherit;';
+                $html = '<label style="' . $labelStyle . '">';
+                if ($labelText !== '') {
+                    $html .= '<span style="' . $labelSpanStyle . '"'
+                        . ' ' . pbAttrs($id, ['labelColor', 'labelFontSize', 'text']) . '>'
+                        . htmlspecialchars($labelText) . '</span>';
+                }
+                if ($inputType === 'textarea') {
+                    $rows = (int)($block['rows'] ?? 4);
+                    $html .= '<textarea name="' . $inputName . '"'
+                        . ' placeholder="' . $placeholder . '"'
+                        . ' rows="' . $rows . '"'
+                        . ' style="' . $inputStyle . 'resize:vertical;min-height:80px;"'
+                        . ' class="pb-input"'
+                        . $required
+                        . ' ' . pbAttrs($id, ['bg', 'color', 'border', 'borderRadius', 'padding', 'fontSize']) . '>'
+                        . '</textarea>';
+                } elseif ($inputType === 'select') {
+                    $options = $block['options'] ?? [];
+                    $html .= '<select name="' . $inputName . '"'
+                        . ' style="' . $inputStyle . 'cursor:pointer;"'
+                        . ' class="pb-input"'
+                        . $required
+                        . ' ' . pbAttrs($id, ['bg', 'color', 'border', 'borderRadius', 'padding', 'fontSize']) . '>';
+                    if ($placeholder) {
+                        $html .= '<option value="" disabled selected>'
+                            . htmlspecialchars($placeholder) . '</option>';
+                    }
+                    foreach ($options as $opt) {
+                        if (!is_array($opt)) {
+                            error_log('[renderBlock] select option is not an array, skipping');
+                            continue;
+                        }
+                        $html .= '<option value="' . htmlspecialchars($opt['value'] ?? '', ENT_QUOTES) . '">'
+                            . htmlspecialchars($opt['label'] ?? $opt['value'] ?? '') . '</option>';
+                    }
+                    $html .= '</select>';
+                } elseif ($inputType === 'checkbox') {
+                    $cbStyle = 'display:flex;flex-direction:row;align-items:center;gap:8px;width:100%;cursor:pointer;';
+                    $html = '<label style="' . $cbStyle . '">'
+                        . '<input type="checkbox" name="' . $inputName . '"'
+                        . ' style="width:auto;accent-color:' . ($s['accentColor'] ?? '#6366f1') . ';"'
+                        . ' class="pb-input"'
+                        . $required . '>'
+                        . '<span style="' . $labelSpanStyle . '"'
+                        . ' ' . pbAttrs($id, ['labelColor', 'labelFontSize', 'text']) . '>'
+                        . htmlspecialchars($labelText) . '</span>';
+                } elseif ($inputType === 'hidden') {
+                    $val = htmlspecialchars($block['value'] ?? '', ENT_QUOTES);
+                    return '<input type="hidden" name="' . $inputName . '" value="' . $val . '">';
+                } else {
+                    $safeType = in_array($inputType, ['text','email','tel','url','number','password','date']) ? $inputType : 'text';
+                    $html .= '<input type="' . $safeType . '"'
+                        . ' name="' . $inputName . '"'
+                        . ' placeholder="' . $placeholder . '"'
+                        . ' style="' . $inputStyle . '"'
+                        . ' class="pb-input"'
+                        . $required
+                        . ' ' . pbAttrs($id, ['bg', 'color', 'border', 'borderRadius', 'padding', 'fontSize']) . '>';
+                }
+                $html .= '</label>';
+                return $html;
             }
             default:
                 return '<!-- unknown block type: ' . htmlspecialchars($type) . ' -->';
@@ -704,6 +838,57 @@ header nav > ul > li > .pb-dropdown > li > a {
 }
 header nav > ul > li > .pb-dropdown > li > a:hover { background: rgba(99,102,241,0.12); }
 header nav > ul > li > .pb-dropdown > li > a:focus-visible { background: rgba(99,102,241,0.12); outline: 2px solid #6366f1; outline-offset: -2px; }
+/* ------------------------------------------------------------------ */
+/* Form fields                                                         */
+/* ------------------------------------------------------------------ */
+.pb-form {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+.pb-input {
+  -webkit-transition: border-color 0.16s, box-shadow 0.16s;
+  -moz-transition: border-color 0.16s, box-shadow 0.16s;
+  transition: border-color 0.16s, box-shadow 0.16s;
+  outline: none;
+}
+.pb-input:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+}
+.pb-input:focus-visible {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+  outline: none;
+}
+.pb-input::placeholder {
+  color: rgba(136,136,160,0.5);
+  opacity: 1; /* Firefox */
+}
+.pb-input::-webkit-input-placeholder { color: rgba(136,136,160,0.5); }
+.pb-input::-moz-placeholder { color: rgba(136,136,160,0.5); opacity: 1; }
+.pb-input:-ms-input-placeholder { color: rgba(136,136,160,0.5); }
+/* Form status messages */
+.pb-form-status {
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  display: none;
+}
+.pb-form-status.pb-form-success {
+  display: block;
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.3);
+  color: #34d399;
+}
+.pb-form-status.pb-form-error {
+  display: block;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #ef4444;
+}
 /* ------------------------------------------------------------------  */
 </style>
 </head>
@@ -876,6 +1061,97 @@ header nav > ul > li > .pb-dropdown > li > a:focus-visible { background: rgba(99
     console.log('[pb-dropdown] initialized, breakAt:', breakAt);
   } catch (e) {
     console.error('[pb-dropdown] init failed:', e);
+  }
+})();
+
+/* ------------------------------------------------------------------
+ * Form submission handler
+ * If the form has a non-empty action URL, submit normally via fetch.
+ * Otherwise, collect the data and log it to the console for debugging.
+ * A .pb-form-status element is appended to show success/error feedback.
+ * ------------------------------------------------------------------ */
+(function () {
+  try {
+    var forms = document.querySelectorAll('.pb-form');
+    if (!forms.length) { console.log('[pb-form] no forms found on page'); return; }
+
+    forms.forEach(function (form) {
+      try {
+        /* Append a status element if not already present */
+        var status = form.querySelector('.pb-form-status');
+        if (!status) {
+          status = document.createElement('div');
+          status.className = 'pb-form-status';
+          status.setAttribute('role', 'alert');
+          status.setAttribute('aria-live', 'polite');
+          form.appendChild(status);
+        }
+
+        form.addEventListener('submit', function (e) {
+          try {
+            var action = form.getAttribute('action') || '';
+            var method = (form.getAttribute('method') || 'POST').toUpperCase();
+            var formData = new FormData(form);
+            var dataObj = {};
+            formData.forEach(function (val, key) { dataObj[key] = val; });
+
+            console.log('[pb-form] submit id=' + form.id, 'action=' + action, 'method=' + method, dataObj);
+
+            /* If no action URL, prevent default and just log */
+            if (!action) {
+              e.preventDefault();
+              status.className = 'pb-form-status pb-form-success';
+              status.textContent = 'Form data captured (no action URL configured). Check browser console.';
+              console.log('[pb-form] No action URL -- data logged to console:', JSON.stringify(dataObj, null, 2));
+              return;
+            }
+
+            /* Has action URL -- submit via fetch for better UX */
+            e.preventDefault();
+            status.className = 'pb-form-status';
+            status.style.display = 'none';
+            status.textContent = '';
+
+            var fetchOpts = { method: method, mode: 'cors' };
+            if (method === 'GET') {
+              var params = new URLSearchParams(formData).toString();
+              action = action + (action.indexOf('?') === -1 ? '?' : '&') + params;
+            } else {
+              fetchOpts.body = formData;
+            }
+
+            fetch(action, fetchOpts)
+              .then(function (res) {
+                console.log('[pb-form] response status:', res.status);
+                if (res.ok) {
+                  status.className = 'pb-form-status pb-form-success';
+                  status.textContent = 'Submitted successfully.';
+                  form.reset();
+                } else {
+                  status.className = 'pb-form-status pb-form-error';
+                  status.textContent = 'Submission failed (status ' + res.status + '). Please try again.';
+                  console.error('[pb-form] server returned', res.status);
+                }
+              })
+              .catch(function (err) {
+                status.className = 'pb-form-status pb-form-error';
+                status.textContent = 'Network error. Please check your connection and try again.';
+                console.error('[pb-form] fetch error:', err);
+              });
+          } catch (submitErr) {
+            console.error('[pb-form] submit handler error:', submitErr);
+          }
+        });
+
+        console.log('[pb-form] handler attached to form id=' + form.id);
+      } catch (formErr) {
+        console.error('[pb-form] error attaching handler:', formErr);
+      }
+    });
+
+    console.log('[pb-form] initialized,', forms.length, 'form(s) found');
+  } catch (e) {
+    console.error('[pb-form] init failed:', e);
   }
 })();
 </script>

@@ -1,0 +1,125 @@
+{
+    "_meta": {
+        "name": "Form - Feedback Survey",
+        "type": "section",
+        "description": "Short feedback form with select dropdown, rating, and comment textarea"
+    },
+    "type": "section",
+    "id": "feedback-form",
+    "layout": "column",
+    "settings": {
+        "bg":       "#0a0a14",
+        "padding":  "80px 24px",
+        "maxWidth": "580px",
+        "align":    "center",
+        "gap":      "24px"
+    },
+    "blocks": [
+        {
+            "type": "heading",
+            "id":   "feedback-heading",
+            "text": "We Value Your Feedback",
+            "tag":  "h2",
+            "settings": {
+                "color":      "#e8e8f0",
+                "fontSize":   "32px",
+                "fontWeight": "600",
+                "textAlign":  "center"
+            }
+        },
+        {
+            "type": "text",
+            "id":   "feedback-sub",
+            "text": "Help us improve by sharing your experience.",
+            "settings": {
+                "color":      "#8888a0",
+                "fontSize":   "15px",
+                "lineHeight": "1.55",
+                "textAlign":  "center"
+            }
+        },
+        {
+            "type":   "form",
+            "id":     "feedback-form-el",
+            "action": "",
+            "method": "POST",
+            "settings": {
+                "gap":      "18px",
+                "maxWidth": "100%"
+            },
+            "children": [
+                {
+                    "type":        "input",
+                    "id":          "feedback-topic",
+                    "inputType":   "select",
+                    "name":        "topic",
+                    "label":       "Topic",
+                    "placeholder": "Select a topic",
+                    "required":    true,
+                    "options": [
+                        { "value": "general",  "label": "General" },
+                        { "value": "bug",      "label": "Bug Report" },
+                        { "value": "feature",  "label": "Feature Request" },
+                        { "value": "support",  "label": "Support" }
+                    ],
+                    "settings": {}
+                },
+                {
+                    "type":        "input",
+                    "id":          "feedback-name",
+                    "inputType":   "text",
+                    "name":        "name",
+                    "label":       "Name (optional)",
+                    "placeholder": "Your name",
+                    "required":    false,
+                    "settings": {}
+                },
+                {
+                    "type":        "input",
+                    "id":          "feedback-email",
+                    "inputType":   "email",
+                    "name":        "email",
+                    "label":       "Email",
+                    "placeholder": "you@example.com",
+                    "required":    true,
+                    "settings": {}
+                },
+                {
+                    "type":        "input",
+                    "id":          "feedback-comment",
+                    "inputType":   "textarea",
+                    "name":        "comment",
+                    "label":       "Your Feedback",
+                    "placeholder": "Tell us what you think...",
+                    "rows":        4,
+                    "required":    true,
+                    "settings": {}
+                },
+                {
+                    "type":        "input",
+                    "id":          "feedback-agree",
+                    "inputType":   "checkbox",
+                    "name":        "agree_terms",
+                    "label":       "I agree to the privacy policy",
+                    "required":    true,
+                    "settings": {}
+                },
+                {
+                    "type": "button",
+                    "id":   "feedback-submit",
+                    "text": "Submit Feedback",
+                    "href": "#",
+                    "settings": {
+                        "bg":           "#6366f1",
+                        "color":        "#ffffff",
+                        "padding":      "13px 36px",
+                        "fontSize":     "14px",
+                        "fontWeight":   "600",
+                        "borderRadius": "4px",
+                        "letterSpacing": "0.06em"
+                    }
+                }
+            ]
+        }
+    ]
+}

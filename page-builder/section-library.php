@@ -112,7 +112,7 @@ foreach ($it as $file) {
 
 // Sort by type then name
 usort($templates, function ($a, $b) {
-    $typePriority = ['header' => 0, 'section' => 1, 'panel' => 2, 'footer' => 3];
+    $typePriority = ['header' => 0, 'section' => 1, 'form' => 2, 'panel' => 3, 'footer' => 4];
     $ta = $typePriority[$a['type']] ?? 10;
     $tb = $typePriority[$b['type']] ?? 10;
     if ($ta !== $tb) return $ta - $tb;
