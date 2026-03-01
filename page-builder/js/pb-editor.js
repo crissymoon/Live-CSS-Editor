@@ -214,6 +214,11 @@
     //  Apply live DOM change + schedule persist
     // ------------------------------------------------------------------ //
     function applyChange(el, prop, value) {
+        // saveValue is what gets persisted - normally equals value, but for
+        // CSS props that get a unit appended we must persist the unit too so
+        // build.php emits valid CSS (e.g. "480px" not "480")
+        var saveValue = value;
+
         try {
             if (prop === 'text') {
                 if (el.childElementCount > 0) {
@@ -239,13 +244,15 @@
                     v = v + 'px';
                 }
                 el.style[cssProp] = v;
+                // Persist the value WITH the unit so build.php emits valid CSS
+                saveValue = v;
             }
         } catch (e) {
             err('applyChange failed for element', el.dataset && el.dataset.pbId, 'prop', prop, '-', e);
             return;
         }
 
-        debouncedSave(PB_CONFIG.page, el.dataset.pbId, prop, value);
+        debouncedSave(PB_CONFIG.page, el.dataset.pbId, prop, saveValue);
     }
 
     // ------------------------------------------------------------------ //
