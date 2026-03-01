@@ -1,0 +1,97 @@
+{
+    "_meta": {
+        "name": "Blog - Post Body",
+        "type": "section",
+        "description": "Long-form article body: intro paragraph, subheading, body copy, pull quote, and a closing paragraph"
+    },
+    "type": "section",
+    "id": "blog-post-body",
+    "layout": "column",
+    "settings": {
+        "bg":       "#0a0a14",
+        "padding":  "0 24px 80px",
+        "maxWidth": "720px",
+        "align":    "center",
+        "gap":      "20px"
+    },
+    "blocks": [
+        {
+            "type": "text",
+            "id":   "bpb-intro",
+            "text": "Every design system starts with the same problem: inconsistency. Colors drift. Spacing values multiply. Component names diverge across files. The system is the solution, but only if you build it deliberately.",
+            "settings": {
+                "color":      "#c7c7f0",
+                "fontSize":   "17px",
+                "lineHeight": "1.75"
+            }
+        },
+        {
+            "type": "heading",
+            "id":   "bpb-h2-1",
+            "text": "Start with tokens, not components",
+            "tag":  "h2",
+            "settings": {
+                "color":        "#e8e8f0",
+                "fontSize":     "24px",
+                "fontWeight":   "600",
+                "lineHeight":   "1.3",
+                "marginBottom": "0"
+            }
+        },
+        {
+            "type": "text",
+            "id":   "bpb-para-1",
+            "text": "Tokens are the primitive values your system is built on: color, spacing, typography, radius, shadow. When you define those first, every component that references them stays consistent automatically. Change a token and everything composed from it updates.",
+            "settings": {
+                "color":      "#8888a0",
+                "fontSize":   "15px",
+                "lineHeight": "1.75"
+            }
+        },
+        {
+            "type": "text",
+            "id":   "bpb-pull-quote",
+            "text": "\"Define the primitives first. The components will follow.\"",
+            "settings": {
+                "color":         "#a5a5c0",
+                "fontSize":      "20px",
+                "fontWeight":    "500",
+                "lineHeight":    "1.5",
+                "letterSpacing": "0.01em"
+            }
+        },
+        {
+            "type": "heading",
+            "id":   "bpb-h2-2",
+            "text": "Name things before you build them",
+            "tag":  "h2",
+            "settings": {
+                "color":        "#e8e8f0",
+                "fontSize":     "24px",
+                "fontWeight":   "600",
+                "lineHeight":   "1.3",
+                "marginBottom": "0"
+            }
+        },
+        {
+            "type": "text",
+            "id":   "bpb-para-2",
+            "text": "Naming is architecture. A button named btn-primary tells you what role it plays. A color named color-accent tells you where it belongs. Before writing a single line of CSS or building a single component, write down your naming rules and stick to them.",
+            "settings": {
+                "color":      "#8888a0",
+                "fontSize":   "15px",
+                "lineHeight": "1.75"
+            }
+        },
+        {
+            "type": "text",
+            "id":   "bpb-closing",
+            "text": "The best design systems are not the most complete ones. They are the ones people actually use. Start small, stay consistent, and document as you go.",
+            "settings": {
+                "color":      "#c7c7f0",
+                "fontSize":   "16px",
+                "lineHeight": "1.75"
+            }
+        }
+    ]
+}

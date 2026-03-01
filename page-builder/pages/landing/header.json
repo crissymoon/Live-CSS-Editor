@@ -1,0 +1,49 @@
+{
+    "type": "header",
+    "settings": {
+        "bg": "#1a1a2e",
+        "borderColor": "rgba(255,255,255,0.06)",
+        "height": "56px",
+        "maxWidth": "1100px",
+        "padding": "0 32px"
+    },
+    "brand": {
+        "text": "XCaliburMoon WebDev",
+        "href": "\/",
+        "color": "#6366f1",
+        "fontSize": "13px",
+        "fontWeight": "bold",
+        "letterSpacing": "0.08em"
+    },
+    "nav": [
+        {
+            "label": "Home",
+            "href": "#",
+            "cta": false
+        },
+        {
+            "label": "Work",
+            "href": "#work",
+            "cta": false
+        },
+        {
+            "label": "About",
+            "href": "#about",
+            "cta": false
+        },
+        {
+            "label": "Contact",
+            "href": "#contact",
+            "cta": true
+        }
+    ],
+    "navSettings": {
+        "linkColor": "#8888a0",
+        "linkHover": "#e8e8f0",
+        "ctaColor": "#6366f1",
+        "ctaBorder": "#6366f1",
+        "ctaHoverBg": "#6366f1",
+        "fontSize": "12px",
+        "gap": "6px"
+    }
+}

@@ -1,0 +1,58 @@
+{
+    "_meta": {
+        "name": "Header with Dropdowns",
+        "type": "header",
+        "description": "Sticky nav bar with brand, regular links, and dropdown sub-menus"
+    },
+    "type": "header",
+    "settings": {
+        "bg":          "#0d0d18",
+        "borderColor": "rgba(99,102,241,0.2)",
+        "height":      "56px",
+        "maxWidth":    "1100px",
+        "padding":     "0 28px"
+    },
+    "brand": {
+        "text":          "Brand",
+        "href":          "#",
+        "color":         "#6366f1",
+        "fontSize":      "15px",
+        "fontWeight":    "700",
+        "letterSpacing": "0.08em"
+    },
+    "nav": [
+        { "label": "Home", "href": "#" },
+        {
+            "label": "Services",
+            "href": "#",
+            "dropdown": [
+                { "label": "Web Design",     "href": "#web-design" },
+                { "label": "Development",    "href": "#development" },
+                { "label": "SEO",            "href": "#seo" },
+                { "separator": true },
+                { "label": "View All",       "href": "#services" }
+            ]
+        },
+        {
+            "label": "Work",
+            "href": "#",
+            "dropdown": [
+                { "label": "Case Studies",   "href": "#case-studies" },
+                { "label": "Portfolio",      "href": "#portfolio" }
+            ]
+        },
+        { "label": "About",   "href": "#" },
+        { "label": "Contact", "href": "#", "cta": true }
+    ],
+    "navSettings": {
+        "linkColor":        "#a5a5c0",
+        "ctaColor":         "#6366f1",
+        "ctaBorder":        "rgba(99,102,241,0.5)",
+        "dropdownBg":       "#12121f",
+        "dropdownColor":    "#a5a5c0",
+        "dropdownFontSize": "12px",
+        "gap":              "4px",
+        "fontSize":         "12px",
+        "navCollapseAt":    640
+    }
+}

@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><meta name="description" content="STUDIO"><meta name="theme-color" content="#0a0a14"><meta name="color-scheme" content="dark"><title>STUDIO</title><link rel="preconnect" href="https://fonts.bunny.net" crossorigin><link rel="dns-prefetch" href="https://fonts.bunny.net">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { background: #0a0a14; color: #e0e0f0; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; -webkit-font-smoothing: antialiased; }
+a { transition: color 0.16s, background 0.16s, border-color 0.16s; }
+ul { list-style: none; }
+img { max-width: 100%; height: auto; display: block; }
+/* Apply content-visibility to off-screen sections for faster paint */
+[data-pb-section] + [data-pb-section] { content-visibility: auto; contain-intrinsic-size: 0 400px; }
+@media (max-width: 900px) {
+  .pb-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 640px) {
+  .pb-grid { grid-template-columns: 1fr !important; }
+  [data-pb-section] { padding-left: 16px !important; padding-right: 16px !important; }
+  .pb-hamburger { display: flex !important; }
+  header nav > ul { display: none; }
+  header.pb-nav-open nav > ul { display: flex !important; flex-direction: column; position: absolute; top: 56px; left: 0; right: 0; background: #0d0d18; border-bottom: 1px solid rgba(99,102,241,0.25); padding: 8px 0; z-index: 200; }
+  header.pb-nav-open nav > ul > li > a { display: block; padding: 10px 20px !important; border: none !important; }
+  header { position: relative !important; }
+  h1 { font-size: clamp(28px, 8vw, 48px) !important; line-height: 1.2 !important; }
+  p  { font-size: clamp(14px, 4vw, 18px)  !important; }
+  footer .footer-inner { flex-direction: column; align-items: flex-start; }
+  /* Dropdowns flat on mobile */
+  header nav > ul > li > .pb-dropdown { position: static; border: none; box-shadow: none; background: transparent !important; padding: 0 0 4px 12px; display: none; }
+  header.pb-nav-open nav > ul > li.pb-dd-open > .pb-dropdown { display: block !important; }
+  header nav > ul > li > a.pb-has-dropdown::after { display: none; }
+}
+/* Nav dropdowns ----------------------------------------------------- */
+header nav > ul > li { position: relative; }
+header nav > ul > li > .pb-dropdown {
+  display: none; list-style: none;
+  position: absolute; top: calc(100% + 4px); left: 0;
+  min-width: 190px;
+  border: 1px solid rgba(99,102,241,0.22);
+  padding: 6px 0; z-index: 300;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.48);
+}
+header nav > ul > li:hover > .pb-dropdown,
+header nav > ul > li.pb-dd-open > .pb-dropdown { display: block; }
+header nav > ul > li > a.pb-has-dropdown::after {
+  content: ' be'; font-size: 0.75em; opacity: 0.55; margin-left: 2px;
+}
+header nav > ul > li > .pb-dropdown > li > a {
+  display: block; padding: 8px 18px;
+  white-space: nowrap; font-family: inherit;
+  text-decoration: none;
+  transition: background 0.13s, color 0.13s;
+}
+header nav > ul > li > .pb-dropdown > li > a:hover { background: rgba(99,102,241,0.12); }
+/* ------------------------------------------------------------------  */
+</style>
+</head><body><header data-pb-section="header" data-pb-nav-collapse="600" data-pb-id="__header" data-pb-props="bg,borderColor,height" style="background:#0a0a14;border-bottom:1px solid rgba(255,255,255,0.06);position:sticky;top:0;z-index:100;"><div style="max-width:900px;margin:0 auto;padding:0 24px;height:72px;display:flex;align-items:center;justify-content:space-between;"><a href="#" style="color:#e8e8f0;font-size:18px;font-weight:600;letter-spacing:0.2em;text-decoration:none;text-transform:uppercase;font-family:inherit;" data-pb-id="header-brand" data-pb-props="color,fontSize,text">STUDIO</a><nav><ul style="list-style:none;display:flex;gap:8px;margin:0;padding:0;"><li><a href="#" style="color:#8888a0;font-size:11px;text-decoration:none;font-family:inherit;padding:6px 12px;letter-spacing:0.06em;" data-pb-id="nav-projects" data-pb-props="color,fontSize,text">Projects</a></li><li><a href="#" style="color:#8888a0;font-size:11px;text-decoration:none;font-family:inherit;padding:6px 12px;letter-spacing:0.06em;" data-pb-id="nav-about" data-pb-props="color,fontSize,text">About</a></li><li><a href="#" style="color:#8888a0;font-size:11px;text-decoration:none;font-family:inherit;padding:6px 12px;letter-spacing:0.06em;" data-pb-id="nav-blog" data-pb-props="color,fontSize,text">Blog</a></li><li><a href="#" style="color:#c7c7f0;font-size:11px;text-decoration:none;font-family:inherit;padding:6px 12px;letter-spacing:0.06em;border:1px solid rgba(199,199,240,0.4);" data-pb-id="nav-hire-us" data-pb-props="color,fontSize,text">Hire Us</a></li></ul></nav><button class="pb-hamburger" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button></div></header><section id="pb-sec-582e77d1-hero" data-pb-section="pb-sec-582e77d1-hero" data-pb-id="pb-sec-582e77d1-hero" data-pb-props="bg,padding" style="background:#0a0a14;"><div style="max-width:760px;margin:0 auto;padding:100px 24px;"><div style="display:flex;flex-direction:column;align-items:center;gap:24px;"><h1 style="color: #e8e8f0; font-size: 52px; font-weight: 700; text-align: center; line-height: 1.15" data-pb-id="hero-heading" data-pb-props="color,fontSize,fontWeight,text">Build Something Beautiful</h1><p style="color: #8888a0; font-size: 18px; line-height: 1.6; text-align: center" data-pb-id="hero-sub" data-pb-props="color,fontSize,lineHeight,text">A clean, focused way to craft fast, lightweight pages.</p><a href="#" style="display:inline-block;cursor:pointer;text-decoration:none;font-family:inherit;background: #6366f1; color: #ffffff; padding: 13px 32px; font-size: 14px; font-weight: 600; border-radius: 4px; letter-spacing: 0.06em" data-pb-id="hero-cta" data-pb-props="bg,color,border,padding,fontSize,text">Get Started</a></div></div></section><footer data-pb-section="footer" data-pb-id="__footer" data-pb-props="bg,borderTop,padding" style="background:#0d0d18;border-top:1px solid #1a1a2e;"><div style="max-width:1100px;margin:0 auto;padding:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;"><span style="color:#5555a0;font-size:13px;letter-spacing:0.08em;font-family:inherit;" data-pb-id="test-page-copy" data-pb-props="color,fontSize,text">© 2026 Test-page</span><ul style="list-style:none;display:flex;gap:16px;margin:0;padding:0;"></ul></div></footer>
+<script>
+/* Hamburger nav toggle -- needed when pb-responsive.js is not loaded */
+(function () {
+  try {
+    var hdr = document.querySelector('header[data-pb-nav-collapse]');
+    if (!hdr) { console.warn('[pb-nav] no header with data-pb-nav-collapse found'); return; }
+    var btn = hdr.querySelector('.pb-hamburger');
+    if (!btn) { console.warn('[pb-nav] .pb-hamburger not found inside header'); return; }
+    var collapseAt = parseInt(hdr.getAttribute('data-pb-nav-collapse') || '640', 10);
+    function updateNav() {
+      try {
+        var w = hdr.getBoundingClientRect().width || window.innerWidth;
+        var shouldShow = w < collapseAt;
+        btn.style.display = shouldShow ? 'flex' : 'none';
+        if (!shouldShow && hdr.classList.contains('pb-nav-open')) {
+          hdr.classList.remove('pb-nav-open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      } catch (e) { console.error('[pb-nav] updateNav error:', e); }
+    }
+    btn.addEventListener('click', function () {
+      try {
+        var open = hdr.classList.toggle('pb-nav-open');
+        btn.setAttribute('aria-expanded', String(open));
+        console.log('[pb-nav] hamburger toggled, open:', open);
+      } catch (e) { console.error('[pb-nav] hamburger click error:', e); }
+    });
+    updateNav();
+    window.addEventListener('resize', updateNav);
+    if (typeof ResizeObserver !== 'undefined') {
+      try { new ResizeObserver(updateNav).observe(hdr); } catch (e) { console.warn('[pb-nav] ResizeObserver failed:', e); }
+    }
+    console.log('[pb-nav] hamburger initialized, collapseAt:', collapseAt);
+  } catch (e) {
+    console.error('[pb-nav] init failed:', e);
+  }
+})();
+
+/* Lazy-load images: defer offscreen images */
+(function () {
+  try {
+    if ('loading' in HTMLImageElement.prototype) {
+      document.querySelectorAll('img:not([loading])').forEach(function (img) { img.setAttribute('loading', 'lazy'); });
+    } else if (typeof IntersectionObserver !== 'undefined') {
+      var lazyImgs = [];
+      document.querySelectorAll('img:not([loading])').forEach(function (img) {
+        img.dataset.pbSrc = img.src;
+        img.src = '';
+        lazyImgs.push(img);
+      });
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            try { e.target.src = e.target.dataset.pbSrc || ''; io.unobserve(e.target); } catch (ie) { console.error('[pb-lazy] swap error:', ie); }
+          }
+        });
+      }, { rootMargin: '200px' });
+      lazyImgs.forEach(function (img) { io.observe(img); });
+    }
+  } catch (e) { console.error('[pb-lazy] init failed:', e); }
+})();
+
+/* pb-dropdown: click/touch toggle for nav sub-menus */
+(function () {
+  try {
+    document.addEventListener('click', function (e) {
+      try {
+        var link = e.target.closest('header nav a.pb-has-dropdown');
+        if (link) {
+          e.preventDefault();
+          var li = link.parentElement;
+          var isOpen = li.classList.contains('pb-dd-open');
+          document.querySelectorAll('header nav li.pb-dd-open').forEach(function (el) {
+            el.classList.remove('pb-dd-open');
+          });
+          if (!isOpen) {
+            li.classList.add('pb-dd-open');
+            console.log('[pb-dropdown] opened dropdown for:', link.textContent.trim());
+          }
+        } else if (!e.target.closest('header nav li.pb-dd-open')) {
+          document.querySelectorAll('header nav li.pb-dd-open').forEach(function (el) {
+            el.classList.remove('pb-dd-open');
+          });
+        }
+      } catch (inner) {
+        console.error('[pb-dropdown] click handler error:', inner);
+      }
+    });
+    /* Keyboard: Escape closes open dropdown */
+    document.addEventListener('keydown', function (e) {
+      try {
+        if (e.key === 'Escape') {
+          document.querySelectorAll('header nav li.pb-dd-open').forEach(function (el) {
+            el.classList.remove('pb-dd-open');
+          });
+        }
+      } catch (ke) {
+        console.error('[pb-dropdown] keydown handler error:', ke);
+      }
+    });
+    console.log('[pb-dropdown] initialized');
+  } catch (e) {
+    console.error('[pb-dropdown] init failed:', e);
+  }
+})();
+</script>
+</body></html>

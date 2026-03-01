@@ -175,6 +175,30 @@
             navCollapseAt = 600;
         }
 
+        /* Sync --pb-nav-bg CSS custom property from the header's actual computed
+           background so the mobile nav panel always matches the header color.
+           This handles pages already built before --pb-nav-bg was stamped inline. */
+        try {
+            if (!header.style.getPropertyValue('--pb-nav-bg')) {
+                var computedBg = window.getComputedStyle(header).backgroundColor;
+                if (computedBg && computedBg !== 'rgba(0, 0, 0, 0)' && computedBg !== 'transparent') {
+                    header.style.setProperty('--pb-nav-bg', computedBg);
+                    log('observeHeader: synced --pb-nav-bg from computed background:', computedBg);
+                } else {
+                    /* Fall back to inline background if computed is transparent */
+                    var inlineBg = header.style.background || header.style.backgroundColor;
+                    if (inlineBg) {
+                        header.style.setProperty('--pb-nav-bg', inlineBg);
+                        log('observeHeader: synced --pb-nav-bg from inline style:', inlineBg);
+                    } else {
+                        warn('observeHeader: could not determine header background for --pb-nav-bg');
+                    }
+                }
+            }
+        } catch (e) {
+            err('observeHeader: --pb-nav-bg sync failed:', e);
+        }
+
         var hamburger = buildHamburger(header);
 
         function update(width) {

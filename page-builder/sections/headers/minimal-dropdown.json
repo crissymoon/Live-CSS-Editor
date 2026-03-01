@@ -1,0 +1,57 @@
+{
+    "_meta": {
+        "name": "Minimal Header with Dropdowns",
+        "type": "header",
+        "description": "Clean minimal nav with slim accent-bordered dropdown menus"
+    },
+    "type": "header",
+    "settings": {
+        "bg":          "#111118",
+        "borderColor": "rgba(255,255,255,0.05)",
+        "height":      "52px",
+        "maxWidth":    "1000px",
+        "padding":     "0 24px"
+    },
+    "brand": {
+        "text":          "Studio",
+        "href":          "/",
+        "color":         "#ffffff",
+        "fontSize":      "13px",
+        "fontWeight":    "600",
+        "letterSpacing": "0.12em"
+    },
+    "nav": [
+        { "label": "Home", "href": "#" },
+        {
+            "label": "Products",
+            "href": "#",
+            "dropdown": [
+                { "label": "Overview",       "href": "#overview" },
+                { "label": "Pricing",        "href": "#pricing" },
+                { "label": "Changelog",      "href": "#changelog" }
+            ]
+        },
+        {
+            "label": "Solutions",
+            "href": "#",
+            "dropdown": [
+                { "label": "For Startups",   "href": "#startups" },
+                { "label": "For Enterprise", "href": "#enterprise" },
+                { "label": "For Agencies",   "href": "#agencies" }
+            ]
+        },
+        { "label": "Blog",    "href": "#blog" },
+        { "label": "Sign Up", "href": "#signup", "cta": true }
+    ],
+    "navSettings": {
+        "linkColor":        "#707090",
+        "ctaColor":         "#ffffff",
+        "ctaBorder":        "rgba(255,255,255,0.3)",
+        "dropdownBg":       "#16161e",
+        "dropdownColor":    "#909090",
+        "dropdownFontSize": "11px",
+        "gap":              "0px",
+        "fontSize":         "11px",
+        "navCollapseAt":    600
+    }
+}

@@ -112,15 +112,42 @@ function pbAttrs(string $id, array $editableProps): string {
 // Section renderers
 // ---------------------------------------------------------------------------
 
-function renderHeader(array $h, array $overrides): string {
+/**
+ * Resolve a nav/button href using the project slug map.
+ * Rules:
+ *   - href starts with #, /, or contains :// -> returned as-is (anchor, abs path, full URL)
+ *   - href exactly matches a key in $slugMap -> replaced with slug value
+ *   - otherwise returned unchanged
+ *
+ * Logs a debug note when a resolution happens so developers can trace it.
+ */
+function resolveHref(string $href, array $slugMap): string {
+    if ($href === '' || $href === '#') return $href;
+    // Anchors, absolute paths, and full URLs are never touched
+    if ($href[0] === '#' || $href[0] === '/') return $href;
+    if (strpos($href, '://') !== false)        return $href;
+    // Plain page-name reference: try slug map
+    if (isset($slugMap[$href])) {
+        error_log('[resolveHref] resolved "' . $href . '" -> "' . $slugMap[$href] . '"');
+        return $slugMap[$href];
+    }
+    return $href;
+}
+
+function renderHeader(array $h, array $overrides, array $slugMap = []): string {
     $s   = mergeSettings('__header', $h['settings'] ?? [], $overrides);
     $b   = $h['brand'] ?? [];
     $nav = $h['nav']   ?? [];
     $ns  = $h['navSettings'] ?? [];
 
-    $headerStyle = 'background:' . ($s['bg'] ?? '#1a1a2e') . ';'
-        . 'border-bottom:1px solid ' . ($s['borderColor'] ?? 'rgba(255,255,255,0.06)') . ';'
-        . 'position:sticky;top:0;z-index:100;';
+    $navBg       = $s['bg'] ?? '#1a1a2e';
+    $navBorder   = $s['borderColor'] ?? 'rgba(255,255,255,0.06)';
+    $headerStyle = 'background:' . $navBg . ';'
+        . 'border-bottom:1px solid ' . $navBorder . ';'
+        . 'position:sticky;top:0;z-index:100;'
+        . '--pb-nav-bg:' . $navBg . ';'
+        . '--pb-nav-border:' . $navBorder . ';';
+    error_log('[renderHeader] --pb-nav-bg=' . $navBg . ' --pb-nav-border=' . $navBorder);
 
     $innerStyle = 'max-width:' . ($s['maxWidth'] ?? '1100px') . ';'
         . 'margin:0 auto;padding:' . ($s['padding'] ?? '0 32px') . ';'
@@ -138,23 +165,73 @@ function renderHeader(array $h, array $overrides): string {
 
     $navItems = '';
     foreach ($nav as $item) {
-        $iid      = 'nav-' . strtolower(preg_replace('/[^a-z0-9]/i', '-', $item['label']));
-        $itext    = overrideText($iid, $item['label'], $overrides);
-        $iSettings = mergeSettings($iid, [], $overrides);
-        $isCta    = !empty($item['cta']);
-        $color    = $overrides[$iid]['color'] ?? ($isCta ? ($ns['ctaColor'] ?? '#6366f1') : ($ns['linkColor'] ?? '#8888a0'));
-        $istyle   = 'color:' . $color . ';'
+        if (!is_array($item) || empty($item['label'])) {
+            error_log('[renderHeader] nav item missing label, skipping');
+            continue;
+        }
+        $iid         = 'nav-' . strtolower(preg_replace('/[^a-z0-9]/i', '-', $item['label']));
+        $itext       = overrideText($iid, $item['label'], $overrides);
+        $iSettings   = mergeSettings($iid, [], $overrides);
+        $isCta       = !empty($item['cta']);
+        $hasDropdown = !empty($item['dropdown']) && is_array($item['dropdown']);
+        $color       = $overrides[$iid]['color'] ?? ($isCta ? ($ns['ctaColor'] ?? '#6366f1') : ($ns['linkColor'] ?? '#8888a0'));
+        $istyle      = 'color:' . $color . ';'
             . 'font-size:' . ($ns['fontSize'] ?? '12px') . ';'
             . 'text-decoration:none;font-family:inherit;padding:6px 12px;'
             . 'letter-spacing:0.06em;';
         if ($isCta) {
-            $border = $overrides[$iid]['border'] ?? 'rgba(255,255,255,0.06)';
             $istyle .= 'border:1px solid ' . ($overrides[$iid]['borderColor'] ?? ($ns['ctaBorder'] ?? '#6366f1')) . ';';
         }
-        $navItems .= '<li><a href="' . htmlspecialchars($item['href'] ?? '#', ENT_QUOTES) . '"'
+
+        $ddClass  = $hasDropdown ? ' class="pb-has-dropdown"' : '';
+        $itemHref = resolveHref($item['href'] ?? '#', $slugMap);
+        $liHtml  = '<a href="' . htmlspecialchars($itemHref, ENT_QUOTES) . '"'
+            . $ddClass
             . ' style="' . $istyle . '"'
             . ' ' . pbAttrs($iid, ['color', 'fontSize', 'text']) . '>'
-            . htmlspecialchars($itext) . '</a></li>';
+            . htmlspecialchars($itext) . '</a>';
+
+        // Sub-menu (dropdown)
+        if ($hasDropdown) {
+            $ddBg       = $ns['dropdownBg']      ?? ($h['settings']['bg'] ?? '#0d0d18');
+            $ddColor    = $ns['dropdownColor']   ?? ($ns['linkColor']     ?? '#8888a0');
+            $ddFontSize = $ns['dropdownFontSize'] ?? ($ns['fontSize']      ?? '12px');
+            $ddItems    = '';
+
+            foreach ($item['dropdown'] as $sub) {
+                if (!is_array($sub)) {
+                    error_log('[renderHeader] dropdown entry is not an array, skipping');
+                    continue;
+                }
+                // Separator divider
+                if (!empty($sub['separator'])) {
+                    $ddItems .= '<li style="border-top:1px solid rgba(255,255,255,0.08);margin:4px 0;" role="separator"></li>';
+                    continue;
+                }
+                if (empty($sub['label'])) {
+                    error_log('[renderHeader] dropdown item missing label, skipping');
+                    continue;
+                }
+                $sid    = $iid . '-' . strtolower(preg_replace('/[^a-z0-9]/i', '-', $sub['label']));
+                $stext  = overrideText($sid, $sub['label'], $overrides);
+                $scolor = $overrides[$sid]['color'] ?? ($sub['color'] ?? $ddColor);
+                $sstyle = 'color:' . $scolor . ';'
+                    . 'font-size:' . $ddFontSize . ';'
+                    . 'text-decoration:none;font-family:inherit;'
+                    . 'letter-spacing:0.05em;';
+                $subHref  = resolveHref($sub['href'] ?? '#', $slugMap);
+                $ddItems .= '<li><a href="' . htmlspecialchars($subHref, ENT_QUOTES) . '"'
+                    . ' style="' . $sstyle . '"'
+                    . ' ' . pbAttrs($sid, ['color', 'fontSize', 'text']) . '>'
+                    . htmlspecialchars($stext) . '</a></li>';
+            }
+
+            $liHtml .= '<ul class="pb-dropdown"'
+                . ' style="background:' . htmlspecialchars($ddBg, ENT_QUOTES) . ';">'
+                . $ddItems . '</ul>';
+        }
+
+        $navItems .= '<li>' . $liHtml . '</li>';
     }
 
     $navCollapseAt = (int)($h['navSettings']['navCollapseAt'] ?? 640);
@@ -167,7 +244,7 @@ function renderHeader(array $h, array $overrides): string {
     return '<header data-pb-section="header" data-pb-nav-collapse="' . $navCollapseAt . '"'
         . ' ' . pbAttrs('__header', ['bg', 'borderColor', 'height']) . ' style="' . $headerStyle . '">'
         . '<div style="' . $innerStyle . '">'
-        . '<a href="' . htmlspecialchars($b['href'] ?? '/', ENT_QUOTES) . '"'
+        . '<a href="' . htmlspecialchars(resolveHref($b['href'] ?? '/', $slugMap), ENT_QUOTES) . '"'
         . ' style="' . $brandStyle . '"'
         . ' ' . pbAttrs('header-brand', ['color', 'fontSize', 'text']) . '>'
         . htmlspecialchars($brandText) . '</a>'
@@ -350,51 +427,417 @@ function renderFooter(array $f, array $overrides): string {
 }
 
 // ---------------------------------------------------------------------------
+// HTML minifier  (safe - preserves <script>/<style>/<pre> content)
+// ---------------------------------------------------------------------------
+
+function minifyHtml(string $html): string {
+    try {
+        $preserved = [];
+        $idx = 0;
+        // Preserve <script>, <style>, <pre> verbatim so we never mangle JS/CSS/PRE content
+        $html = preg_replace_callback(
+            '/<(script|style|pre)(\s[^>]*)?>.*?<\/\1>/si',
+            function ($m) use (&$preserved, &$idx) {
+                $key = "\x00PB_PRESERVE_{$idx}\x00";
+                $preserved[$key] = $m[0];
+                $idx++;
+                return $key;
+            },
+            $html
+        );
+        if ($html === null) {
+            error_log('[minifyHtml] preg_replace_callback failed for preserve step, returning original');
+            return func_get_args()[0];
+        }
+        // Remove HTML comments (keep IE conditional and downlevel-hidden blocks)
+        $html = preg_replace('/<!--(?!\[if\s)(?!>)(?!<![^>]*>).*?-->/s', '', $html) ?? $html;
+        // Collapse whitespace between tags
+        $html = preg_replace('/>\s+</', '><', $html) ?? $html;
+        // Collapse runs of spaces / tabs on the same line
+        $html = preg_replace('/[ \t]{2,}/', ' ', $html) ?? $html;
+        // Remove blank lines
+        $html = preg_replace('/^[ \t]*[\r\n]/m', '', $html) ?? $html;
+        // Restore preserved blocks
+        foreach ($preserved as $k => $v) {
+            $html = str_replace($k, $v, $html);
+        }
+        return trim($html);
+    } catch (Throwable $e) {
+        error_log('[minifyHtml] error: ' . $e->getMessage() . ' - returning original HTML');
+        return func_get_args()[0];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Extract page build data from a page directory (used by stage.php)
+// Returns ['html'=>string, 'title'=>string, 'bytes_raw'=>int] or throws.
+// ---------------------------------------------------------------------------
+
+function buildPageData(string $page, string $pagesRoot, array $slugMap = []): array {
+    $pageDir   = $pagesRoot . '/' . $page;
+    $overrides = loadOverrides($pageDir);
+    $header    = null;
+    $footer    = null;
+    $sections  = [];
+    $manifest  = $pageDir . '/page.json';
+
+    if (file_exists($manifest)) {
+        $man = loadJson($manifest);
+        foreach ($man['sections'] ?? [] as $entry) {
+            $type = $entry['type'] ?? 'section';
+            $file = $entry['file'] ?? '';
+            if (!$file || !preg_match('/^[a-z0-9_.\-]+$/i', $file)) continue;
+            $fp   = $pageDir . '/' . $file;
+            if (!file_exists($fp)) continue;
+            $data = loadJson($fp);
+            switch ($type) {
+                case 'header': $header = $data; break;
+                case 'footer': $footer = $data; break;
+                default:       $sections[] = $data; break;
+            }
+        }
+        if ($header === null && file_exists($pageDir . '/header.json')) {
+            $header = loadJson($pageDir . '/header.json');
+        }
+        if ($footer === null && file_exists($pageDir . '/footer.json')) {
+            $footer = loadJson($pageDir . '/footer.json');
+        }
+    } else {
+        if (!file_exists($pageDir . '/header.json')) {
+            throw new RuntimeException('header.json not found for page: ' . $page);
+        }
+        if (!file_exists($pageDir . '/footer.json')) {
+            throw new RuntimeException('footer.json not found for page: ' . $page);
+        }
+        $header = loadJson($pageDir . '/header.json');
+        $footer = loadJson($pageDir . '/footer.json');
+        $files  = glob($pageDir . '/section-*.json') ?: [];
+        natsort($files);
+        foreach ($files as $sf) {
+            $sections[] = loadJson($sf);
+        }
+    }
+
+    if ($header === null) throw new RuntimeException('No header for page: ' . $page);
+    if ($footer === null) throw new RuntimeException('No footer for page: ' . $page);
+
+    $body = '';
+    $body .= renderHeader($header, $overrides, $slugMap);
+    foreach ($sections as $sec) {
+        $body .= renderSection($sec, $overrides);
+    }
+    $body .= renderFooter($footer, $overrides);
+
+    $title = $header['brand']['text'] ?? ucfirst($page);
+    $html  = buildHtmlShell($body, $title, [
+        'headerBg'      => $header['settings']['bg'] ?? '#1a1a2e',
+        'navCollapseAt' => (int)($header['navSettings']['navCollapseAt'] ?? 640),
+    ]);
+
+    return ['html' => $html, 'title' => $title, 'bytes_raw' => strlen($html)];
+}
+
+// ---------------------------------------------------------------------------
 // HTML shell
 // ---------------------------------------------------------------------------
 
 function buildHtmlShell(string $body, string $pageTitle, array $allSettings): string {
     $headerBg = $allSettings['headerBg'] ?? '#1a1a2e';
+    $bp       = (int)($allSettings['navCollapseAt'] ?? 640); /* mobile nav breakpoint in px */
+    $desc     = htmlspecialchars($allSettings['description'] ?? $pageTitle, ENT_QUOTES);
     return <<<HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="{$desc}">
+<meta name="theme-color" content="{$headerBg}">
+<meta name="color-scheme" content="dark">
 <title>{$pageTitle}</title>
+<!-- Preconnect to font CDN used by monospace stack -->
+<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+<link rel="dns-prefetch" href="https://fonts.bunny.net">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: {$headerBg}; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { background: {$headerBg}; color: #e0e0f0; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; -webkit-font-smoothing: antialiased; }
 a { transition: color 0.16s, background 0.16s, border-color 0.16s; }
 ul { list-style: none; }
+img { max-width: 100%; height: auto; display: block; }
+/* Apply content-visibility to off-screen sections for faster paint */
+[data-pb-section] + [data-pb-section] { content-visibility: auto; contain-intrinsic-size: 0 400px; }
 @media (max-width: 900px) {
   .pb-grid { grid-template-columns: repeat(2, 1fr) !important; }
 }
-@media (max-width: 640px) {
+@media (max-width: {$bp}px) {
   .pb-grid { grid-template-columns: 1fr !important; }
-  [data-pb-section] { padding-left: 16px !important; padding-right: 16px !important; }
+  [data-pb-section] { padding-left: -1px !important; padding-right: 16px !important; }
   .pb-hamburger { display: flex !important; }
-  header nav ul { display: none; }
-  header.pb-nav-open nav ul { display: flex !important; flex-direction: column; position: absolute; top: 56px; left: 0; right: 0; background: #0d0d18; border-bottom: 1px solid rgba(99,102,241,0.25); padding: 8px 0; z-index: 200; }
-  header.pb-nav-open nav ul li a { display: block; padding: 10px 20px !important; border: none !important; }
+  /* Brand logo on the left with 16px breathing room from screen edge.
+     Dropdown menu item padding-left matches so text lines up. */
+  header[data-pb-nav-collapse] > div { padding-left: -5px !important; padding-right: 16px !important; }
+  /* !important required: the inline style on nav>ul is display:flex which
+     beats stylesheet rules without !important, leaving nav visible on mobile */
+  header nav > ul { display: none !important; }
+  header.pb-nav-open nav > ul {
+    display: flex !important; flex-direction: column;
+    position: absolute; top: 100%; left: 0; right: 0;
+    /* background and border auto-inherit from header CSS variables */
+    background: var(--pb-nav-bg, #0d0d18); border-bottom: 1px solid var(--pb-nav-border, rgba(99,102,241,0.25));
+    padding: 8px 0; z-index: 200;
+  }
+  /* 16px left padding matches the brand container padding-left */
+  header.pb-nav-open nav > ul > li > a { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px !important; border: none !important; }
   header { position: relative !important; }
   h1 { font-size: clamp(28px, 8vw, 48px) !important; line-height: 1.2 !important; }
   p  { font-size: clamp(14px, 4vw, 18px)  !important; }
   footer .footer-inner { flex-direction: column; align-items: flex-start; }
+  /* Accordion dropdowns on mobile */
+  header nav > ul > li > .pb-dropdown {
+    position: static !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-left: 2px solid var(--pb-nav-border, rgba(99,102,241,0.25)) !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 0 2px 16px; /* matches 16px brand left-start */
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease;
+  }
+  header nav > ul > li.pb-dd-open > .pb-dropdown { /* max-height set inline by JS */ }
+  header nav > ul > li > .pb-dropdown > li > a {
+    padding: 12px 20px !important;
+    opacity: 0.85;
+    font-size: 10px !important;
+  }
+  /* Chevron: visible on mobile, rotates when open */
+  header nav > ul > li > a.pb-has-dropdown::after {
+    display: inline-block !important;
+    content: '▾' !important;
+    font-size: 12px;
+    opacity: 0.55;
+    margin-left: 0;
+    margin-right: 4px;
+    transition: transform 0.22s ease;
+    float: right;
+  }
+  header nav > ul > li.pb-dd-open > a.pb-has-dropdown::after {
+    transform: rotate(180deg);
+    opacity: 0.85;
+  }
 }
+/* Nav dropdowns ----------------------------------------------------- */
+@keyframes pbDdIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+header nav > ul > li { position: relative; }
+header nav > ul > li > .pb-dropdown {
+  display: none; list-style: none;
+  position: absolute; top: calc(100% + 4px); left: 0;
+  min-width: 190px;
+  border: 1px solid rgba(99,102,241,0.22);
+  padding: 6px 0; z-index: 300;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.48);
+}
+header nav > ul > li:hover > .pb-dropdown,
+header nav > ul > li.pb-dd-open > .pb-dropdown { display: block; animation: pbDdIn 0.14s ease; }
+header nav > ul > li > a.pb-has-dropdown::after {
+  content: ' ▾'; font-size: 0.75em; opacity: 0.55; margin-left: 2px;
+}
+header nav > ul > li > .pb-dropdown > li > a {
+  display: block; padding: 8px 18px;
+  white-space: nowrap; font-family: inherit;
+  text-decoration: none;
+  transition: background 0.13s, color 0.13s;
+}
+header nav > ul > li > .pb-dropdown > li > a:hover { background: rgba(99,102,241,0.12); }
+/* ------------------------------------------------------------------  */
 </style>
 </head>
 <body>
 {$body}
 <!-- Built by page-builder/build.php | DO NOT EDIT MANUALLY -->
+<script>
+/* Hamburger nav toggle -- needed when pb-responsive.js is not loaded */
+(function () {
+  try {
+    var hdr = document.querySelector('header[data-pb-nav-collapse]');
+    if (!hdr) { console.warn('[pb-nav] no header with data-pb-nav-collapse found'); return; }
+    var btn = hdr.querySelector('.pb-hamburger');
+    if (!btn) { console.warn('[pb-nav] .pb-hamburger not found inside header'); return; }
+    var collapseAt = parseInt(hdr.getAttribute('data-pb-nav-collapse') || '640', 10);
+    function updateNav() {
+      try {
+        var w = hdr.getBoundingClientRect().width || window.innerWidth;
+        var shouldShow = w < collapseAt;
+        btn.style.display = shouldShow ? 'flex' : 'none';
+        if (!shouldShow && hdr.classList.contains('pb-nav-open')) {
+          hdr.classList.remove('pb-nav-open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      } catch (e) { console.error('[pb-nav] updateNav error:', e); }
+    }
+    btn.addEventListener('click', function () {
+      try {
+        var open = hdr.classList.toggle('pb-nav-open');
+        btn.setAttribute('aria-expanded', String(open));
+        console.log('[pb-nav] hamburger toggled, open:', open);
+      } catch (e) { console.error('[pb-nav] hamburger click error:', e); }
+    });
+    updateNav();
+    window.addEventListener('resize', updateNav);
+    if (typeof ResizeObserver !== 'undefined') {
+      try { new ResizeObserver(updateNav).observe(hdr); } catch (e) { console.warn('[pb-nav] ResizeObserver failed:', e); }
+    }
+    console.log('[pb-nav] hamburger initialized, collapseAt:', collapseAt);
+  } catch (e) {
+    console.error('[pb-nav] init failed:', e);
+  }
+})();
+
+/* Lazy-load images: defer offscreen images */
+(function () {
+  try {
+    if ('loading' in HTMLImageElement.prototype) {
+      document.querySelectorAll('img:not([loading])').forEach(function (img) { img.setAttribute('loading', 'lazy'); });
+    } else if (typeof IntersectionObserver !== 'undefined') {
+      var lazyImgs = [];
+      document.querySelectorAll('img:not([loading])').forEach(function (img) {
+        img.dataset.pbSrc = img.src;
+        img.src = '';
+        lazyImgs.push(img);
+      });
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            try { e.target.src = e.target.dataset.pbSrc || ''; io.unobserve(e.target); } catch (ie) { console.error('[pb-lazy] swap error:', ie); }
+          }
+        });
+      }, { rootMargin: '200px' });
+      lazyImgs.forEach(function (img) { io.observe(img); });
+    }
+  } catch (e) { console.error('[pb-lazy] init failed:', e); }
+})();
+
+/* pb-dropdown: animated accordion on mobile, hover/click on desktop */
+(function () {
+  try {
+    var hdrDD = document.querySelector('header[data-pb-nav-collapse]');
+    var breakAt = hdrDD ? parseInt(hdrDD.getAttribute('data-pb-nav-collapse') || '640', 10) : 640;
+
+    function isMobileDD() {
+      /* Use the smaller of viewport width and header element width.
+         In watcher.php the editor panel narrows the header below the
+         viewport width, so checking element width gives accurate results. */
+      var vw = window.innerWidth;
+      var hw = hdrDD ? (hdrDD.getBoundingClientRect().width || vw) : vw;
+      var effective = Math.min(vw, hw);
+      return effective < breakAt;
+    }
+
+    /* Close a single <li> that has pb-dd-open, resetting max-height on mobile */
+    function closeLi(li) {
+      try {
+        li.classList.remove('pb-dd-open');
+        if (isMobileDD()) {
+          var dd = li.querySelector(':scope > .pb-dropdown');
+          if (dd) dd.style.maxHeight = '0';
+        }
+      } catch (e) { console.error('[pb-dropdown] closeLi error:', e); }
+    }
+
+    /* Close all open dropdowns, optionally skip one */
+    function closeAll(skip) {
+      try {
+        document.querySelectorAll('header nav li.pb-dd-open').forEach(function (li) {
+          if (li !== skip) closeLi(li);
+        });
+      } catch (e) { console.error('[pb-dropdown] closeAll error:', e); }
+    }
+
+    document.addEventListener('click', function (e) {
+      try {
+        var link = e.target.closest('header nav a.pb-has-dropdown');
+        if (link) {
+          e.preventDefault();
+          var li = link.parentElement;
+          var dd = li ? li.querySelector(':scope > .pb-dropdown') : null;
+          var wasOpen = li && li.classList.contains('pb-dd-open');
+          closeAll(null);
+          if (!wasOpen) {
+            if (li) li.classList.add('pb-dd-open');
+            if (dd && isMobileDD()) {
+              /* Force a reflow so transition fires from 0 */
+              dd.style.maxHeight = '0';
+              void dd.offsetHeight;
+              dd.style.maxHeight = dd.scrollHeight + 'px';
+              console.log('[pb-dropdown] mobile accordion open, scrollHeight:', dd.scrollHeight);
+            }
+            console.log('[pb-dropdown] opened:', link.textContent.trim());
+          } else {
+            if (li) li.classList.remove('pb-dd-open');
+            if (dd && isMobileDD()) dd.style.maxHeight = '0';
+          }
+        } else if (!e.target.closest('header nav li.pb-dd-open')) {
+          closeAll(null);
+        }
+      } catch (inner) {
+        console.error('[pb-dropdown] click handler error:', inner);
+      }
+    });
+
+    /* Keyboard: Escape closes open dropdown */
+    document.addEventListener('keydown', function (e) {
+      try {
+        if (e.key === 'Escape') closeAll(null);
+      } catch (ke) {
+        console.error('[pb-dropdown] keydown handler error:', ke);
+      }
+    });
+
+    /* On resize: reset inline max-height so nothing stays stuck */
+    window.addEventListener('resize', function () {
+      try {
+        document.querySelectorAll('header nav li > .pb-dropdown').forEach(function (dd) {
+          var li = dd.parentElement;
+          if (!li) return;
+          if (isMobileDD()) {
+            /* keep accordion state consistent */
+            if (!li.classList.contains('pb-dd-open')) dd.style.maxHeight = '0';
+            else dd.style.maxHeight = dd.scrollHeight + 'px';
+          } else {
+            /* desktop: clear inline style, let CSS position:absolute handle display */
+            dd.style.maxHeight = '';
+          }
+        });
+      } catch (e) { console.error('[pb-dropdown] resize handler error:', e); }
+    });
+
+    /* Init: set max-height 0 on all dropdowns so first open animates cleanly */
+    if (isMobileDD()) {
+      document.querySelectorAll('header nav li > .pb-dropdown').forEach(function (dd) {
+        try { dd.style.maxHeight = '0'; } catch (e) { console.error('[pb-dropdown] init maxHeight error:', e); }
+      });
+    }
+
+    console.log('[pb-dropdown] initialized, breakAt:', breakAt);
+  } catch (e) {
+    console.error('[pb-dropdown] init failed:', e);
+  }
+})();
+</script>
 </body>
 </html>
 HTML;
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Main  (skipped when included by stage.php via define('PB_STAGE_INCLUDE',1))
 // ---------------------------------------------------------------------------
+if (!defined('PB_STAGE_INCLUDE')):
 
 // Resolve page name
 $page = '';
@@ -527,7 +970,10 @@ try {
 // Get page title from header brand or first section heading
 $pageTitle = $header['brand']['text'] ?? ucfirst($page);
 
-$allSettings = ['headerBg' => $header['settings']['bg'] ?? '#1a1a2e'];
+$allSettings = [
+    'headerBg'      => $header['settings']['bg'] ?? '#1a1a2e',
+    'navCollapseAt' => (int)($header['navSettings']['navCollapseAt'] ?? 640),
+];
 $html = buildHtmlShell($body, $pageTitle, $allSettings);
 
 // Write output
@@ -542,3 +988,5 @@ if (PHP_SAPI !== 'cli') {
     header('Content-Type: application/json');
     echo json_encode(['ok' => true, 'page' => $page, 'file' => $outFile, 'bytes' => $size]);
 }
+
+endif; // PB_STAGE_INCLUDE

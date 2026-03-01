@@ -5,13 +5,25 @@
             "id": "pb-header",
             "file": "header.json",
             "type": "header",
-            "label": "Centered Header"
+            "label": "Header"
         },
         {
             "id": "pb-sec-582e77d1",
             "file": "pb-sec-582e77d1.json",
             "type": "section",
             "label": "Hero - Centered"
+        },
+        {
+            "id": "pb-sec-abf5acbc",
+            "file": "pb-sec-abf5acbc.json",
+            "type": "section",
+            "label": "Blog - Post Hero"
+        },
+        {
+            "id": "pb-sec-8abcd212",
+            "file": "pb-sec-8abcd212.json",
+            "type": "panel",
+            "label": "Blog - Content with Sidebar"
         },
         {
             "id": "pb-footer",

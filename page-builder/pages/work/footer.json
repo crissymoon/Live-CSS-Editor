@@ -1,0 +1,42 @@
+{
+    "type": "footer",
+    "settings": {
+        "bg": "#16162b",
+        "borderTop": "1px solid rgba(255,255,255,0.06)",
+        "padding": "28px 32px",
+        "maxWidth": "1100px"
+    },
+    "copy": {
+        "id": "footer-copy",
+        "text": "2026 XCaliburMoon Web Development",
+        "settings": {
+            "color": "#8888a0",
+            "fontSize": "11px",
+            "letterSpacing": "0.08em"
+        }
+    },
+    "links": [
+        {
+            "id": "footer-link-privacy",
+            "label": "Privacy",
+            "href": "#"
+        },
+        {
+            "id": "footer-link-terms",
+            "label": "Terms",
+            "href": "#"
+        },
+        {
+            "id": "footer-link-github",
+            "label": "GitHub",
+            "href": "#"
+        }
+    ],
+    "linkSettings": {
+        "color": "#8888a0",
+        "hoverColor": "#6366f1",
+        "fontSize": "11px",
+        "letterSpacing": "0.06em",
+        "gap": "4px"
+    }
+}

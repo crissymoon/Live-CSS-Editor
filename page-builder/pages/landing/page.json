@@ -1,0 +1,29 @@
+{
+    "title": "Demo",
+    "sections": [
+        {
+            "id": "pb-header",
+            "file": "header.json",
+            "type": "header",
+            "label": "Header"
+        },
+        {
+            "id": "pb-section-1",
+            "file": "section-1.json",
+            "type": "section",
+            "label": "Section"
+        },
+        {
+            "id": "pb-section-2",
+            "file": "section-2.json",
+            "type": "section",
+            "label": "Section"
+        },
+        {
+            "id": "pb-footer",
+            "file": "footer.json",
+            "type": "footer",
+            "label": "Footer"
+        }
+    ]
+}

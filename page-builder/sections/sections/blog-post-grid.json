@@ -1,0 +1,97 @@
+{
+    "_meta": {
+        "name": "Blog - Post Grid",
+        "type": "section",
+        "description": "Three-column grid of blog post cards with category, title, date, excerpt, and read more link"
+    },
+    "type": "section",
+    "id": "blog-grid",
+    "layout": "row",
+    "settings": {
+        "bg":       "#0a0a14",
+        "padding":  "80px 24px",
+        "maxWidth": "1100px",
+        "gap":      "28px",
+        "columns":  3
+    },
+    "heading": {
+        "id":   "blog-grid-heading",
+        "text": "Latest Posts",
+        "tag":  "h2",
+        "settings": {
+            "color":         "#c7c7f0",
+            "fontSize":      "28px",
+            "fontWeight":    "600",
+            "marginBottom":  "0",
+            "letterSpacing": "0.02em"
+        }
+    },
+    "blocks": [
+        {
+            "type": "card",
+            "id":   "blog-card-1",
+            "settings": {
+                "bg":     "#0d0d18",
+                "border": "1px solid rgba(255,255,255,0.07)",
+                "padding": "24px"
+            },
+            "children": [
+                { "type": "text",    "id": "blog-c1-cat",     "text": "Design",
+                  "settings": { "color": "#6366f1", "fontSize": "10px", "fontWeight": "700", "letterSpacing": "0.12em", "textTransform": "uppercase", "marginBottom": "10px" }},
+                { "type": "heading", "id": "blog-c1-title",   "text": "How to build a design system from scratch",
+                  "tag": "h3", "settings": { "color": "#e8e8f0", "fontSize": "16px", "fontWeight": "600", "lineHeight": "1.4", "marginBottom": "10px" }},
+                { "type": "text",    "id": "blog-c1-date",    "text": "February 20, 2026",
+                  "settings": { "color": "#5555a0", "fontSize": "11px", "marginBottom": "12px", "letterSpacing": "0.04em" }},
+                { "type": "text",    "id": "blog-c1-excerpt", "text": "A practical guide to defining tokens, components, and documentation that scales with your team.",
+                  "settings": { "color": "#8888a0", "fontSize": "13px", "lineHeight": "1.65", "marginBottom": "18px" }},
+                { "type": "button",  "id": "blog-c1-link",    "text": "Read More",
+                  "href": "#",
+                  "settings": { "bg": "transparent", "color": "#6366f1", "padding": "0", "fontSize": "12px", "fontWeight": "600", "letterSpacing": "0.06em", "borderRadius": "0" }}
+            ]
+        },
+        {
+            "type": "card",
+            "id":   "blog-card-2",
+            "settings": {
+                "bg":      "#0d0d18",
+                "border":  "1px solid rgba(255,255,255,0.07)",
+                "padding": "24px"
+            },
+            "children": [
+                { "type": "text",    "id": "blog-c2-cat",     "text": "Code",
+                  "settings": { "color": "#6366f1", "fontSize": "10px", "fontWeight": "700", "letterSpacing": "0.12em", "textTransform": "uppercase", "marginBottom": "10px" }},
+                { "type": "heading", "id": "blog-c2-title",   "text": "Vanilla JavaScript patterns that still matter in 2026",
+                  "tag": "h3", "settings": { "color": "#e8e8f0", "fontSize": "16px", "fontWeight": "600", "lineHeight": "1.4", "marginBottom": "10px" }},
+                { "type": "text",    "id": "blog-c2-date",    "text": "February 14, 2026",
+                  "settings": { "color": "#5555a0", "fontSize": "11px", "marginBottom": "12px", "letterSpacing": "0.04em" }},
+                { "type": "text",    "id": "blog-c2-excerpt", "text": "Closures, modules, and event delegation -- three patterns worth keeping regardless of what framework you reach for.",
+                  "settings": { "color": "#8888a0", "fontSize": "13px", "lineHeight": "1.65", "marginBottom": "18px" }},
+                { "type": "button",  "id": "blog-c2-link",    "text": "Read More",
+                  "href": "#",
+                  "settings": { "bg": "transparent", "color": "#6366f1", "padding": "0", "fontSize": "12px", "fontWeight": "600", "letterSpacing": "0.06em", "borderRadius": "0" }}
+            ]
+        },
+        {
+            "type": "card",
+            "id":   "blog-card-3",
+            "settings": {
+                "bg":      "#0d0d18",
+                "border":  "1px solid rgba(255,255,255,0.07)",
+                "padding": "24px"
+            },
+            "children": [
+                { "type": "text",    "id": "blog-c3-cat",     "text": "Tools",
+                  "settings": { "color": "#6366f1", "fontSize": "10px", "fontWeight": "700", "letterSpacing": "0.12em", "textTransform": "uppercase", "marginBottom": "10px" }},
+                { "type": "heading", "id": "blog-c3-title",   "text": "The case for keeping your local dev environment simple",
+                  "tag": "h3", "settings": { "color": "#e8e8f0", "fontSize": "16px", "fontWeight": "600", "lineHeight": "1.4", "marginBottom": "10px" }},
+                { "type": "text",    "id": "blog-c3-date",    "text": "February 7, 2026",
+                  "settings": { "color": "#5555a0", "fontSize": "11px", "marginBottom": "12px", "letterSpacing": "0.04em" }},
+                { "type": "text",    "id": "blog-c3-excerpt", "text": "PHP built-in server, a text editor, and a browser tab. Sometimes the simplest setup is the most productive.",
+                  "settings": { "color": "#8888a0", "fontSize": "13px", "lineHeight": "1.65", "marginBottom": "18px" }},
+                { "type": "button",  "id": "blog-c3-link",    "text": "Read More",
+                  "href": "#",
+                  "settings": { "bg": "transparent", "color": "#6366f1", "padding": "0", "fontSize": "12px", "fontWeight": "600", "letterSpacing": "0.06em", "borderRadius": "0" }}
+            ]
+        }
+    ]
+}

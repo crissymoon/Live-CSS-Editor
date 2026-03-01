@@ -1,0 +1,41 @@
+{
+    "_meta": {
+        "name": "Blog - Author Bio",
+        "type": "section",
+        "description": "Author bio card with name, title, short bio, and a link to all posts by this author"
+    },
+    "type": "section",
+    "id": "blog-author-bio",
+    "layout": "column",
+    "settings": {
+        "bg":       "#0a0a14",
+        "padding":  "0 24px 80px",
+        "maxWidth": "720px",
+        "align":    "center",
+        "gap":      "0"
+    },
+    "blocks": [
+        {
+            "type": "card",
+            "id":   "bio-card",
+            "settings": {
+                "bg":     "#0d0d18",
+                "border": "1px solid rgba(99,102,241,0.18)",
+                "padding": "28px 32px"
+            },
+            "children": [
+                { "type": "text",    "id": "bio-label",  "text": "About the author",
+                  "settings": { "color": "#5555a0", "fontSize": "10px", "fontWeight": "700", "letterSpacing": "0.14em", "textTransform": "uppercase", "marginBottom": "14px" }},
+                { "type": "heading", "id": "bio-name",   "text": "Crissy Deutsch",
+                  "tag": "h3", "settings": { "color": "#e8e8f0", "fontSize": "18px", "fontWeight": "700", "marginBottom": "4px" }},
+                { "type": "text",    "id": "bio-title",  "text": "Design and front-end development at XcaliburMoon",
+                  "settings": { "color": "#6366f1", "fontSize": "12px", "letterSpacing": "0.04em", "marginBottom": "14px" }},
+                { "type": "text",    "id": "bio-copy",   "text": "Crissy builds tools for designers and developers who prefer plain files over bloated frameworks. She writes about CSS, workflow, and building things that last.",
+                  "settings": { "color": "#8888a0", "fontSize": "13px", "lineHeight": "1.7", "marginBottom": "18px" }},
+                { "type": "button",  "id": "bio-link",   "text": "All posts by this author",
+                  "href": "#",
+                  "settings": { "bg": "transparent", "color": "#6366f1", "padding": "0", "fontSize": "12px", "fontWeight": "600", "letterSpacing": "0.06em", "borderRadius": "0" }}
+            ]
+        }
+    ]
+}

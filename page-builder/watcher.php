@@ -112,7 +112,13 @@ HTML;
 // Inject assets before </head>
 $editorCssTag    = '<link rel="stylesheet" href="' . $scriptBase . '/css/pb-editor.css">';
 $responsiveCssTag = '<link rel="stylesheet" href="' . $scriptBase . '/css/pb-responsive.css">';
-$html = str_replace('</head>', $editorCssTag . "\n" . $responsiveCssTag . "\n</head>", $html);
+// Push sticky header below the fixed watcher toolbar (42px) so the mobile
+// nav menu does not open behind or under the toolbar text.
+$watcherOffsetCss = '<style>
+/* Watcher: push sticky header below the fixed toolbar */
+header[data-pb-nav-collapse] { top: 42px !important; }
+</style>';
+$html = str_replace('</head>', $editorCssTag . "\n" . $responsiveCssTag . "\n" . $watcherOffsetCss . "\n</head>", $html);
 
 // Inject toolbar and editor + responsive scripts before </body>
 $editorJsTag    = '<script src="' . $scriptBase . '/js/pb-editor.js"></script>';
