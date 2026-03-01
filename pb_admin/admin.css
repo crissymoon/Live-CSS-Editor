@@ -1,0 +1,150 @@
+/**
+ * pb_admin/admin.css
+ * Shared CSS custom properties for dark and light themes.
+ * All pb_admin pages link this file first, then define layout-specific rules
+ * inline. Theme is toggled by setting data-theme="light" on <html>.
+ * Preference is persisted in localStorage key "pb_admin_theme".
+ */
+
+/* ---- Dark theme (default) ------------------------------------------------- */
+:root,
+html[data-theme="dark"] {
+    --c-bg:          #0a0a14;
+    --c-bg-1:        #0d0d18;
+    --c-bg-2:        #0b0b16;
+    --c-bg-3:        #13131f;
+
+    --c-border:      rgba(255, 255, 255, 0.05);
+    --c-border-2:    rgba(255, 255, 255, 0.04);
+    --c-border-3:    rgba(255, 255, 255, 0.03);
+    --c-border-acc:  rgba(99, 102, 241, 0.25);
+    --c-border-acc2: rgba(99, 102, 241, 0.18);
+
+    --c-text:        #e8e8f0;
+    --c-text-1:      #c7c7f0;
+    --c-text-2:      #a5a5c0;
+    --c-text-dim:    #8888a0;
+    --c-text-muted:  #6666a0;
+    --c-text-faint:  #5555a0;
+    --c-text-ghost:  #3a3a58;
+    --c-text-deep:   #333356;
+
+    --c-acc:         #6366f1;
+    --c-acc-bg:      rgba(99, 102, 241, 0.10);
+    --c-acc-bg2:     rgba(99, 102, 241, 0.08);
+    --c-acc-bg3:     rgba(99, 102, 241, 0.06);
+    --c-acc-border:  rgba(99, 102, 241, 0.40);
+    --c-acc-border2: rgba(99, 102, 241, 0.22);
+
+    --c-sidebar-label: #3b3b60;
+    --c-sidebar-link:  #6666a0;
+    --c-ctrl-btn:      #444460;
+    --c-skeleton:      rgba(99, 102, 241, 0.06);
+
+    --c-ok:         #10b981;
+    --c-ok-bg:      rgba(16, 185, 129, 0.08);
+    --c-ok-border:  rgba(16, 185, 129, 0.20);
+    --c-err:        #ef4444;
+    --c-err-bg:     rgba(239, 68, 68, 0.08);
+    --c-err-border: rgba(239, 68, 68, 0.25);
+    --c-warn:       #f59e0b;
+    --c-warn-bg:    rgba(245, 158, 11, 0.08);
+    --c-warn-border:rgba(245, 158, 11, 0.20);
+
+    --c-dev-badge:        #f59e0b;
+    --c-dev-badge-bg:     rgba(245, 158, 11, 0.08);
+    --c-dev-badge-border: rgba(245, 158, 11, 0.20);
+
+    /* theme toggle button */
+    --c-toggle-bg:     rgba(99, 102, 241, 0.10);
+    --c-toggle-border: rgba(99, 102, 241, 0.22);
+    --c-toggle-color:  #6666a0;
+    --c-toggle-label:  "light";
+
+    color-scheme: dark;
+}
+
+/* ---- Light theme ---------------------------------------------------------- */
+html[data-theme="light"] {
+    --c-bg:          #f2f2f8;
+    --c-bg-1:        #ffffff;
+    --c-bg-2:        #ebebf5;
+    --c-bg-3:        #e3e3ef;
+
+    --c-border:      rgba(0, 0, 0, 0.07);
+    --c-border-2:    rgba(0, 0, 0, 0.05);
+    --c-border-3:    rgba(0, 0, 0, 0.04);
+    --c-border-acc:  rgba(99, 102, 241, 0.35);
+    --c-border-acc2: rgba(99, 102, 241, 0.22);
+
+    --c-text:        #111122;
+    --c-text-1:      #2a2a44;
+    --c-text-2:      #3a3a58;
+    --c-text-dim:    #555578;
+    --c-text-muted:  #7070a0;
+    --c-text-faint:  #8888b0;
+    --c-text-ghost:  #aaaac8;
+    --c-text-deep:   #9999bb;
+
+    --c-acc:         #4f52d4;
+    --c-acc-bg:      rgba(79, 82, 212, 0.10);
+    --c-acc-bg2:     rgba(79, 82, 212, 0.07);
+    --c-acc-bg3:     rgba(79, 82, 212, 0.04);
+    --c-acc-border:  rgba(79, 82, 212, 0.45);
+    --c-acc-border2: rgba(79, 82, 212, 0.28);
+
+    --c-sidebar-label: #9999bb;
+    --c-sidebar-link:  #7070a8;
+    --c-ctrl-btn:      #8888b0;
+    --c-skeleton:      rgba(79, 82, 212, 0.07);
+
+    --c-ok:         #059669;
+    --c-ok-bg:      rgba(5, 150, 105, 0.07);
+    --c-ok-border:  rgba(5, 150, 105, 0.22);
+    --c-err:        #dc2626;
+    --c-err-bg:     rgba(220, 38, 38, 0.07);
+    --c-err-border: rgba(220, 38, 38, 0.28);
+    --c-warn:       #b45309;
+    --c-warn-bg:    rgba(180, 83, 9, 0.07);
+    --c-warn-border:rgba(180, 83, 9, 0.22);
+
+    --c-dev-badge:        #b45309;
+    --c-dev-badge-bg:     rgba(180, 83, 9, 0.07);
+    --c-dev-badge-border: rgba(180, 83, 9, 0.22);
+
+    --c-toggle-bg:     rgba(79, 82, 212, 0.08);
+    --c-toggle-border: rgba(79, 82, 212, 0.30);
+    --c-toggle-color:  #7070a8;
+    --c-toggle-label:  "dark";
+
+    color-scheme: light;
+}
+
+/* ---- Theme toggle button -------------------------------------------------- */
+/* Used on all pages. The button text is set from JS. */
+.theme-toggle {
+    background: var(--c-toggle-bg);
+    border: 1px solid var(--c-toggle-border);
+    color: var(--c-toggle-color);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+    background: var(--c-acc-bg);
+    color: var(--c-text-dim);
+}
+
+/* Floating toggle for pages without a header (login, setup) */
+.theme-toggle-float {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 100;
+}

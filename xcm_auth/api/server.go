@@ -100,7 +100,10 @@ func (s *Server) mountRoutes() {
 	// ── /admin ── admin-only endpoints ────────────────────────────────────
 	r.Route("/admin", func(r chi.Router) {
 		r.Use(requireAdmin)
-		r.Get("/users", userH.ListUsers)
+		r.Get("/users",         userH.ListUsers)
+		r.Post("/users",        userH.AdminCreateUser)
+		r.Patch("/users/{id}",  userH.AdminUpdateUser)
+		r.Delete("/users/{id}", userH.AdminDeactivateUser)
 	})
 }
 

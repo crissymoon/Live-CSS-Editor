@@ -1,12 +1,17 @@
 package api
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/go-chi/chi/v5"
+	"xcaliburmoon.net/xcm_auth/auth"
 	"xcaliburmoon.net/xcm_auth/config"
 	"xcaliburmoon.net/xcm_auth/db"
+	"xcaliburmoon.net/xcm_auth/models"
 )
 
 // UserHandlers provides authenticated user management endpoints.
@@ -126,6 +131,138 @@ func (h *UserHandlers) ListUsers(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	jsonOK(w, out)
+}
+
+// ── POST /admin/users (admin only) ───────────────────────────────────────────
+
+type adminCreateUserReq struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+}
+
+// AdminCreateUser creates a new user account. Admin role required.
+// Admin-created accounts are marked verified immediately (no email step needed).
+func (h *UserHandlers) AdminCreateUser(w http.ResponseWriter, r *http.Request) {
+	var req adminCreateUserReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[api/user] AdminCreateUser: decode body: %v", err)
+		jsonErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Username = strings.TrimSpace(req.Username)
+	req.Email    = strings.TrimSpace(strings.ToLower(req.Email))
+	req.Role     = strings.TrimSpace(req.Role)
+	if req.Username == "" || req.Email == "" || req.Password == "" {
+		jsonErr(w, http.StatusBadRequest, "username, email, and password are required")
+		return
+	}
+	if req.Role != models.RoleAdmin && req.Role != models.RoleUser {
+		req.Role = models.RoleUser
+	}
+	if existing, _ := h.store.GetUserByEmail(r.Context(), req.Email); existing != nil {
+		jsonErr(w, http.StatusConflict, "email already registered")
+		return
+	}
+	if existing, _ := h.store.GetUserByUsername(r.Context(), req.Username); existing != nil {
+		jsonErr(w, http.StatusConflict, "username already registered")
+		return
+	}
+	hash, err := auth.HashPassword(req.Password, h.cfg.Security.BcryptCost)
+	if err != nil {
+		log.Printf("[api/user] AdminCreateUser: HashPassword: %v", err)
+		jsonErr(w, http.StatusInternalServerError, "could not hash password")
+		return
+	}
+	user := &models.User{
+		Username:     req.Username,
+		Email:        req.Email,
+		PasswordHash: hash,
+		Role:         req.Role,
+		IsActive:     true,
+		IsVerified:   true,
+	}
+	id, err := h.store.CreateUser(r.Context(), user)
+	if err != nil {
+		log.Printf("[api/user] AdminCreateUser: CreateUser: %v", err)
+		jsonErr(w, http.StatusInternalServerError, "could not create user")
+		return
+	}
+	user.ID = id
+	log.Printf("[api/user] AdminCreateUser: created id=%d username=%q role=%s", id, req.Username, req.Role)
+	jsonOK(w, user.Safe())
+}
+
+// ── PATCH /admin/users/{id} (admin only) ──────────────────────────────────────
+
+type adminUpdateUserReq struct {
+	Role     *string `json:"role"`
+	IsActive *bool   `json:"is_active"`
+}
+
+// AdminUpdateUser lets an admin change a user's role or active status.
+func (h *UserHandlers) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		jsonErr(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	var req adminUpdateUserReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[api/user] AdminUpdateUser: decode body: %v", err)
+		jsonErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	user, err := h.store.GetUserByID(r.Context(), id)
+	if err != nil || user == nil {
+		log.Printf("[api/user] AdminUpdateUser: GetUserByID %d: %v", id, err)
+		jsonErr(w, http.StatusNotFound, "user not found")
+		return
+	}
+	if req.Role != nil {
+		if *req.Role != models.RoleAdmin && *req.Role != models.RoleUser {
+			jsonErr(w, http.StatusBadRequest, "role must be admin or user")
+			return
+		}
+		user.Role = *req.Role
+	}
+	if req.IsActive != nil {
+		user.IsActive = *req.IsActive
+	}
+	if err := h.store.UpdateUser(r.Context(), user); err != nil {
+		log.Printf("[api/user] AdminUpdateUser: UpdateUser %d: %v", id, err)
+		jsonErr(w, http.StatusInternalServerError, "could not update user")
+		return
+	}
+	log.Printf("[api/user] AdminUpdateUser: id=%d role=%s active=%v", id, user.Role, user.IsActive)
+	jsonOK(w, user.Safe())
+}
+
+// ── DELETE /admin/users/{id} (admin only) ─────────────────────────────────────
+
+// AdminDeactivateUser sets is_active=false (soft delete).
+// An admin cannot deactivate their own account.
+func (h *UserHandlers) AdminDeactivateUser(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		jsonErr(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	claims := claimsFromCtx(r)
+	if claims != nil && claims.UserID == id {
+		jsonErr(w, http.StatusForbidden, "cannot deactivate your own account")
+		return
+	}
+	if err := h.store.SetUserActive(r.Context(), id, false); err != nil {
+		log.Printf("[api/user] AdminDeactivateUser: SetUserActive %d: %v", id, err)
+		jsonErr(w, http.StatusInternalServerError, "could not deactivate user")
+		return
+	}
+	log.Printf("[api/user] AdminDeactivateUser: deactivated id=%d", id)
+	jsonOK(w, map[string]any{"id": id, "is_active": false})
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
