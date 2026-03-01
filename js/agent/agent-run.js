@@ -684,7 +684,7 @@
         dom.historyBar.style.display = (isFile && state.filePath) ? '' : 'none';
 
         dom.srcEditorsBtn.classList.toggle('agent-source-btn-active', src === 'editors');
-        dom.srcFileBtn.classList.toggle('agent-source-btn-active',    src === 'file');
+        if (dom.srcFileBtn) { dom.srcFileBtn.classList.toggle('agent-source-btn-active', src === 'file'); }
 
         if (src === 'editors') {
             loadOutlineFromEditors();

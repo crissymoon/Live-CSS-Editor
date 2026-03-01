@@ -93,7 +93,6 @@
             '      <div class="agent-source-toggle">',
             '        <span class="agent-task-label">Source</span>',
             '        <button class="agent-source-btn agent-source-btn-active" id="agentSrcEditors">Crissy\'s Editors</button>',
-            '        <button class="agent-source-btn" id="agentSrcFile">Load a File</button>',
             '      </div>',
             '      <div class="agent-toolbar" id="agentFileRow" style="display:none;">',
             '        <span class="agent-toolbar-label">File</span>',
@@ -112,10 +111,14 @@
             '          <select class="agent-select" id="agentMode" aria-label="Mode" autocomplete="off"><option value="repair" selected>Fix / Edit</option><option value="new_project">New Project</option></select>',
             '        </div>',
             '        <div class="agent-task-row">',
-            '          <span class="agent-task-label">AI Provider</span>',
-            '          <select class="agent-select" id="agentProvider" aria-label="AI Provider" autocomplete="off"></select>',
-            '          <select class="agent-select" id="agentModel" aria-label="Model" autocomplete="off"></select>',
+            '          <span class="agent-task-label">Model</span>',
+            '          <select class="agent-select" id="agentModelPick" aria-label="Model" autocomplete="off">',
+            '            <option value="anthropic:claude-haiku-4-5-20251001">Claude Haiku 4.5</option>',
+            '            <option value="openai:gpt-4o-mini">GPT-4 Mini</option>',
+            '          </select>',
             '          <span id="agentStreamBadge" class="agent-badge agent-badge-stream">stream</span>',
+            '          <select id="agentProvider" style="display:none;" aria-hidden="true" tabindex="-1" autocomplete="off"></select>',
+            '          <select id="agentModel"    style="display:none;" aria-hidden="true" tabindex="-1" autocomplete="off"></select>',
             '        </div>',
             '        <div class="agent-task-row">',
             '          <span class="agent-task-label">Task</span>',
@@ -254,6 +257,7 @@
         dom.fwdBtn         = m.querySelector('#agentFwdBtn');
         dom.provider       = m.querySelector('#agentProvider');
         dom.model          = m.querySelector('#agentModel');
+        dom.modelPick      = m.querySelector('#agentModelPick');
         dom.streamBadge    = m.querySelector('#agentStreamBadge');
         dom.task           = m.querySelector('#agentTask');
         dom.instruction    = m.querySelector('#agentInstruction');

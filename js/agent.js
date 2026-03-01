@@ -21,9 +21,10 @@
     // The previous provider and model are restored when leaving the task.
     // -----------------------------------------------------------------------
 
-    var _lockProv  = '';
-    var _lockModel = '';
-    var _isLocked  = false;
+    var _lockProv       = '';
+    var _lockModel      = '';
+    var _lockPickValue  = '';
+    var _isLocked       = false;
 
     var PREVIEW_PROVIDER = 'anthropic';
     var PREVIEW_MODEL    = 'claude-haiku-4-5-20251001';
@@ -83,6 +84,17 @@
         dom.model.classList.add('preview-locked');
         dom.model.disabled = true;
 
+        // Also lock the visible model picker.
+        if (dom.modelPick) {
+            _lockPickValue        = dom.modelPick.value;
+            dom.modelPick.value   = 'anthropic:' + PREVIEW_MODEL;
+            dom.modelPick.classList.add('preview-locked');
+            dom.modelPick.disabled = true;
+            console.log('[agent] lockForPreview: modelPick locked, saved previous: ' + _lockPickValue);
+        } else {
+            console.warn('[agent] lockForPreview: dom.modelPick not found -- modelPick lock skipped');
+        }
+
         var row = dom.provider.closest('.agent-task-row');
         if (row) { row.classList.add('agent-provider-row-locked'); }
     }
@@ -102,6 +114,19 @@
         // Restore state flags so populateProviders re-selects the right items.
         state.provider = _lockProv || state.provider;
         state.model    = _lockModel || state.model;
+
+        // Restore the visible model picker.
+        if (dom.modelPick) {
+            dom.modelPick.disabled = false;
+            dom.modelPick.classList.remove('preview-locked');
+            if (_lockPickValue) {
+                dom.modelPick.value = _lockPickValue;
+                console.log('[agent] unlockFromPreview: modelPick restored to ' + _lockPickValue);
+            }
+        } else {
+            console.warn('[agent] unlockFromPreview: dom.modelPick not found -- unlock skipped');
+        }
+        _lockPickValue = '';
 
         // Fully rebuild both selects from the server provider list.
         populateProviders();
@@ -147,6 +172,30 @@
     // Providers
     // -----------------------------------------------------------------------
 
+    // Sync state.provider + state.model from the visible hardcoded model picker.
+    // Called after populateProviders so the picker wins over hidden-select state.
+    function syncStateFromModelPick() {
+        if (!dom.modelPick) {
+            console.warn('[agent] syncStateFromModelPick: dom.modelPick not available');
+            return;
+        }
+        try {
+            var val   = dom.modelPick.value || '';
+            var parts = val.split(':');
+            if (parts.length === 2 && parts[0] && parts[1]) {
+                state.provider = parts[0];
+                state.model    = parts[1];
+                if (dom.provider) { dom.provider.value = state.provider; }
+                if (dom.model)    { dom.model.value    = state.model;    }
+                console.log('[agent] syncStateFromModelPick: provider=' + state.provider + ' model=' + state.model);
+            } else {
+                console.warn('[agent] syncStateFromModelPick: unexpected value format "' + val + '"');
+            }
+        } catch (e) {
+            console.error('[agent] syncStateFromModelPick failed:', e);
+        }
+    }
+
     function loadProviders() {
         C.agentPost({ action: 'providers' }).then(function (data) {
             if (data.error) { C.setStatus('error', data.error); return; }
@@ -188,6 +237,10 @@
                 console.warn('[agent] populateChatModels refresh failed:', e);
             }
         }
+        // The visible model picker has hardcoded options and should win over the
+        // hidden select state set by populateModels() above.
+        syncStateFromModelPick();
+        updateStreamBadge();
     }
 
     function populateModels() {
@@ -277,21 +330,23 @@
         dom.filePath.addEventListener('keydown', function (e) { if (e.key === 'Enter') { C.loadFile(); } });
 
         dom.srcEditorsBtn.addEventListener('click', function () { C.switchSource('editors'); C.saveSettings(); });
-        dom.srcFileBtn.addEventListener('click',    function () { C.switchSource('file');    C.saveSettings(); });
 
         dom.backBtn.addEventListener('click', function () { C.navigate('back'); });
         dom.fwdBtn.addEventListener('click',  function () { C.navigate('forward'); });
 
-        dom.provider.addEventListener('change', function () {
-            state.provider = dom.provider.value;
-            populateModels();
-            updateStreamBadge();
-            C.saveSettings();
-        });
-        dom.model.addEventListener('change', function () {
-            state.model = dom.model.value;
-            C.saveSettings();
-        });
+        if (dom.modelPick) {
+            dom.modelPick.addEventListener('change', function () {
+                try {
+                    syncStateFromModelPick();
+                    updateStreamBadge();
+                    C.saveSettings();
+                } catch (e) {
+                    console.error('[agent] modelPick change handler failed:', e);
+                }
+            });
+        } else {
+            console.error('[agent] bindEvents: dom.modelPick not found -- model selection unavailable');
+        }
 
         dom.runBtn.addEventListener('click',    C.runAgent);
         dom.abortBtn.addEventListener('click',  C.abortStream);
@@ -411,6 +466,7 @@
             C.buildUI();
             bindEvents();
             applyTheme(state.theme);
+            syncStateFromModelPick();  // set state.provider + state.model from hardcoded picker
             loadProviders();
             C.populateChatProviders();
             if (C.neuralPreload) { C.neuralPreload(); }
