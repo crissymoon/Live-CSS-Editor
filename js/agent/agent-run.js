@@ -213,6 +213,34 @@
                 + '```javascript\n(full JS here)\n```';
         }
 
+        // For editors mode on any other task: inject the task description and the
+        // three-block format requirement. Without this the AI follows the default
+        // system prompt ("single fenced code block") and returns one merged block
+        // that extractLang cannot split, causing CSS and JS to never get updated.
+        if (state.source === 'editors' && taskVal !== 'request_change') {
+            var EDITOR_TASK_DESC = {
+                fix:         'Find and fix all bugs and problems in this code.',
+                refactor:    'Refactor this code for clarity, performance, and maintainability. Do not change behavior.',
+                modernize:   'Update this code to use modern syntax and best practices. Remove deprecated patterns.',
+                add_feature: 'Implement the requested feature cleanly, integrated with the existing code. Follow existing patterns.',
+                optimize:    'Identify and resolve performance bottlenecks in this code.',
+                security:    'Fix all security vulnerabilities in this code.',
+                document:    'Add clear documentation comments to all functions and key sections.',
+                explain:     'Explain what this code does with inline comments on key sections.',
+                review:      'Review this code and apply fixes for all issues found.',
+                test:        'Review this code and fix any logic problems so all behavior is correct.'
+            };
+            var taskDesc = EDITOR_TASK_DESC[taskVal] || 'Apply the appropriate edits to this code.';
+            userInstruction = taskDesc
+                + (userInstruction ? '\n\nAdditional instruction: ' + userInstruction : '')
+                + '\n\nReturn the COMPLETE updated code using exactly these three fenced code blocks '
+                + '(include all original code with all changes applied -- never truncate):'
+                + '\n```html\n(full HTML here)\n```\n'
+                + '```css\n(full CSS here)\n```\n'
+                + '```javascript\n(full JS here)\n```';
+            console.log('[agent:runAgent] editors mode task "' + taskVal + '" -- three-block instruction injected');
+        }
+
         var payload = {
             provider:    state.provider,
             model:       state.model,
@@ -602,6 +630,43 @@
             loadOutline();
             C.toast('Applied and saved as version ' + data.version_id, 'success');
             C.setStatus('ok', 'Version ' + data.version_id + ' saved');
+
+            // Write the fixed content back to the file on disk.
+            C.agentPost({ action: 'write_file', file_path: state.filePath, content: code })
+                .then(function (wr) {
+                    if (wr && wr.error) {
+                        console.warn('[agent:applyAIResult] write_file error:', wr.error);
+                    } else {
+                        console.log('[agent:applyAIResult] wrote ' + (wr && wr.bytes) + ' bytes to ' + state.filePath);
+                    }
+                })
+                .catch(function (e) {
+                    console.error('[agent:applyAIResult] write_file failed:', e.message);
+                });
+
+            // Push the fixed content into the matching live editor so the change
+            // is immediately visible without requiring a manual reload.
+            var extMatch = (state.filePath || '').match(/\.(css|js|html?)$/i);
+            if (extMatch) {
+                var ext = extMatch[1].toLowerCase();
+                try {
+                    if (ext === 'css' && LiveCSS.editor && LiveCSS.editor.getCssEditor) {
+                        LiveCSS.editor.getCssEditor().setValue(code);
+                        if (LiveCSS.editor.updatePreview) { LiveCSS.editor.updatePreview(); }
+                        console.log('[agent:applyAIResult] pushed fix to CSS editor');
+                    } else if (ext === 'js' && LiveCSS.editor && LiveCSS.editor.getJsEditor) {
+                        LiveCSS.editor.getJsEditor().setValue(code);
+                        if (LiveCSS.editor.updatePreview) { LiveCSS.editor.updatePreview(); }
+                        console.log('[agent:applyAIResult] pushed fix to JS editor');
+                    } else if ((ext === 'html' || ext === 'htm') && LiveCSS.editor && LiveCSS.editor.getHtmlEditor) {
+                        LiveCSS.editor.getHtmlEditor().setValue(code);
+                        if (LiveCSS.editor.updatePreview) { LiveCSS.editor.updatePreview(); }
+                        console.log('[agent:applyAIResult] pushed fix to HTML editor');
+                    }
+                } catch (e) {
+                    console.error('[agent:applyAIResult] editor setValue failed:', e);
+                }
+            }
         }).catch(function (e) { C.toast(e.message, 'error'); });
     }
 
@@ -655,7 +720,9 @@
             if (applied.length && LiveCSS.editor && LiveCSS.editor.updatePreview) {
                 LiveCSS.editor.updatePreview();
             }
-        } catch(e) {}
+        } catch(e) {
+            console.error('[agent:applyToEditors] editor setValue failed:', e);
+        }
 
         if (applied.length) {
             C.toast('Applied to editors: ' + applied.join(', '), 'success');

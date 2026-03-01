@@ -253,7 +253,7 @@ function buildPayload(
     array  $conversation,
     bool   $stream
 ): array {
-    $base = ['model' => $model, 'stream' => $stream, 'max_tokens' => 8192];
+    $base = ['model' => $model, 'stream' => $stream, 'max_tokens' => 16000];
 
     if ($provider === 'anthropic') {
         return array_merge($base, [

@@ -362,6 +362,48 @@ switch ($action) {
         respond(['themes' => $themes]);
     }
 
+    // -------------------------------------------------------------------------
+    // Write file to disk (used after AI applies a fix to a real file)
+    // -------------------------------------------------------------------------
+
+    case 'write_file': {
+        $relPath = $body['file_path'] ?? '';
+        $content = $body['content']   ?? null;
+
+        if ($relPath === '') {
+            abort('file_path is required.');
+        }
+        if ($content === null) {
+            abort('content is required.');
+        }
+
+        // Resolve against the project root (two levels up from ai/agent/).
+        $root  = realpath(__DIR__ . '/../../');
+        // Strip leading slashes so the path is always treated as relative.
+        $clean = ltrim(str_replace('\\', '/', $relPath), '/');
+
+        // Prevent path traversal: reject any ".." segments before resolving.
+        if (strpos($clean, '..') !== false) {
+            abort('Path traversal detected in file_path.');
+        }
+
+        $abs = $root . '/' . $clean;
+
+        // Verify the target is inside the project root.
+        $realAbs  = realpath(dirname($abs));
+        $realRoot = $root;
+        if ($realAbs === false || strpos($realAbs . '/', $realRoot . '/') !== 0) {
+            abort('File path resolves outside the project root.');
+        }
+
+        $bytes = file_put_contents($abs, $content);
+        if ($bytes === false) {
+            abort('Failed to write file: ' . htmlspecialchars($relPath, ENT_QUOTES, 'UTF-8'));
+        }
+
+        respond(['ok' => true, 'path' => $relPath, 'bytes' => $bytes]);
+    }
+
     default:
         abort('Unknown action: ' . htmlspecialchars($action, ENT_QUOTES, 'UTF-8'));
 }

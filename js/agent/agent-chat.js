@@ -37,7 +37,15 @@
                   || (state.providers        && state.providers[slug])
                   || null;
         if (!config) {
-            console.warn('[agentChat] populateChatModels: no config found for provider "' + slug + '" -- neither LiveCSSAIConfig nor state.providers has it yet');
+            // Determine whether providers have been loaded at all yet.
+            var providersLoaded = state.providers && Object.keys(state.providers).length > 0;
+            if (providersLoaded) {
+                // Providers are loaded but this slug is genuinely absent -- real problem.
+                console.warn('[agentChat] populateChatModels: no config for provider "' + slug + '" in state.providers (loaded: ' + Object.keys(state.providers).join(', ') + ')');
+            } else {
+                // Expected pre-load state -- loadProviders() will call populateChatModels() again when done.
+                console.log('[agentChat] populateChatModels: providers not yet loaded for "' + slug + '" -- will refresh after loadProviders() completes');
+            }
         }
         dom.chatModel.innerHTML = '';
         var models = (config && config.models        && config.models.length)        ? config.models        : [];
@@ -174,8 +182,23 @@
                         try { data = JSON.parse(dataStr); } catch(e) { return; }
                         if (evName === 'chunk') {
                             accum += data.text || '';
-                            aBody.innerHTML = C.MD.toHtml(accum) + '<span class="ag-cursor"></span>';
-                            scrollChat();
+                            // Throttle DOM writes to one per animation frame.
+                            // Multiple tokens arriving in the same frame are coalesced
+                            // into a single innerHTML update, preventing layout thrash.
+                            if (aBody._rafId) {
+                                aBody._rafLatest = accum;
+                            } else {
+                                aBody._rafLatest = accum;
+                                aBody._rafId = requestAnimationFrame(function () {
+                                    aBody._rafId = null;
+                                    try {
+                                        aBody.innerHTML = C.MD.toHtml(aBody._rafLatest) + '<span class="ag-cursor"></span>';
+                                        scrollChat();
+                                    } catch (e) {
+                                        console.error('[agentChat] rAF render error:', e);
+                                    }
+                                });
+                            }
                         } else if (evName === 'done') {
                             finalizeChatMsg(aBody, accum);
                             if (accum) { state.chatHistory.push({ role: 'assistant', content: accum }); }
@@ -198,6 +221,11 @@
     }
 
     function finalizeChatMsg(bodyEl, text) {
+        // Cancel any queued animation frame so it does not overwrite the final render.
+        if (bodyEl._rafId) {
+            cancelAnimationFrame(bodyEl._rafId);
+            bodyEl._rafId = null;
+        }
         bodyEl.innerHTML = text ? C.MD.toHtml(text) : '<em style="color:var(--ag-text-muted)">Empty response</em>';
         scrollChat();
     }
@@ -242,17 +270,37 @@
     }
 
     function updateMsg(bodyEl, text) {
-        // During preview streaming, suppress the code wall -- neural overlay is visible
+        // During preview streaming, suppress the code wall -- neural overlay is visible.
         if (state.mode === 'new_project' && state.task === 'preview') {
             bodyEl.innerHTML = '<span class="ag-preview-streaming">Building preview<span class="ag-cursor"></span></span>';
             scrollResponse();
             return;
         }
-        bodyEl.innerHTML = C.MD.toHtml(text) + '<span class="ag-cursor"></span>';
-        scrollResponse();
+        // Throttle DOM writes to one per animation frame to prevent layout thrashing
+        // from rapid SSE token delivery. Multiple tokens that arrive between frames
+        // are coalesced into a single innerHTML write.
+        if (bodyEl._rafId) {
+            bodyEl._rafLatest = text; // updated; current rAF will use this value
+            return;
+        }
+        bodyEl._rafLatest = text;
+        bodyEl._rafId = requestAnimationFrame(function () {
+            bodyEl._rafId = null;
+            try {
+                bodyEl.innerHTML = C.MD.toHtml(bodyEl._rafLatest) + '<span class="ag-cursor"></span>';
+                scrollResponse();
+            } catch (e) {
+                console.error('[agentChat] updateMsg rAF render error:', e);
+            }
+        });
     }
 
     function finalizeMsg(bodyEl, text) {
+        // Cancel any queued animation frame so it does not overwrite the final render.
+        if (bodyEl._rafId) {
+            cancelAnimationFrame(bodyEl._rafId);
+            bodyEl._rafId = null;
+        }
         // For preview, show a compact summary instead of the raw code
         if (state.mode === 'new_project' && state.task === 'preview') {
             var lines = text ? (text.match(/\n/g) || []).length + 1 : 0;

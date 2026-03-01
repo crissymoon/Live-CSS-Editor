@@ -42,7 +42,7 @@ $apiVersion = $provider['api_version'];
 $baseUrl    = rtrim($provider['base_url'], '/');
 $model      = ($body['model'] ?? '') ?: $provider['default_model'];
 $system     = $body['system']     ?? 'You are a helpful CSS and web development assistant.';
-$maxTokens  = $body['max_tokens'] ?? 4096;
+$maxTokens  = $body['max_tokens'] ?? 8192;
 $messages   = $body['messages'];
 
 // Validate messages contain at least one entry
