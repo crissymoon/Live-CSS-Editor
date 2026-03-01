@@ -40,6 +40,12 @@ src-tauri/target/
 src-tauri/www/
 src-tauri/gen/
 
+# External project symlinks - worked on locally but not part of this repo
+moon-lang
+moon-lang/
+gram-model
+gram-model/
+
 # Style-sheets test/backup artifacts
 style-sheets/test-preview-output.html
 style-sheets/test-preview-debug.log
