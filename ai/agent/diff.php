@@ -40,7 +40,8 @@ class AgentDiff
             $oldNo  = $hunk['old_no'] !== null ? $hunk['old_no'] : '';
             $newNo  = $hunk['new_no'] !== null ? $hunk['new_no'] : '';
             $sign   = $hunk['type'] === 'add' ? '+' : ($hunk['type'] === 'remove' ? '-' : ' ');
-            $html  .= '<tr class="diff-line diff-' . $type . '">'
+            // Class format matches the CSS selectors diff-line-add / diff-line-remove / diff-line-context.
+            $html  .= '<tr class="diff-line-' . $type . '">'
                     . '<td class="diff-old-no">'  . $oldNo . '</td>'
                     . '<td class="diff-new-no">'  . $newNo . '</td>'
                     . '<td class="diff-sign">'    . $sign  . '</td>'

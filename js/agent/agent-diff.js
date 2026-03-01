@@ -16,12 +16,26 @@
     }
 
     function showDiff() {
-        if (!state.filePath) { C.toast('Load a file first.', 'error'); return; }
+        if (!state.filePath) {
+            dom.diffTable.innerHTML = '<tr><td colspan="4" style="padding:20px;color:var(--ag-text-muted);text-align:center;">Load a file on the Run tab first.</td></tr>';
+            dom.diffSummary.style.display = 'none';
+            return;
+        }
         C.setStatus('busy', 'Computing diff...');
         C.agentPost({ action: 'diff', file_path: state.filePath })
             .then(function (data) {
                 if (data.error) { C.setStatus('error', data.error); return; }
-                dom.diffTable.innerHTML = data.html || '';
+                if (data.message || !data.html) {
+                    // Not enough versions -- show a readable explanation.
+                    dom.diffTable.innerHTML = '<tr><td colspan="4" style="padding:20px;color:var(--ag-text-muted);text-align:center;">'
+                        + (data.message || 'No diff available yet. Apply at least two AI results to compare versions.')
+                        + '</td></tr>';
+                    dom.diffSummary.style.display = 'none';
+                    C.setStatus('ok', data.message || 'No diff');
+                    console.log('[agentDiff] showDiff: no diff data --', data.message);
+                    return;
+                }
+                dom.diffTable.innerHTML = data.html;
                 var sum = data.summary || {};
                 dom.diffSummary.style.display = 'flex';
                 dom.diffSummary.innerHTML = [
@@ -32,8 +46,12 @@
                     dom.diffSummary.innerHTML += '<span style="color:var(--ag-text-muted)">' + data.message + '</span>';
                 }
                 C.setStatus('ok', 'Diff ready');
-                C.switchTab('diff');
-            }).catch(function (e) { C.setStatus('error', e.message); });
+                console.log('[agentDiff] showDiff: +' + (sum.added || 0) + ' -' + (sum.removed || 0));
+            })
+            .catch(function (e) {
+                C.setStatus('error', e.message);
+                console.error('[agentDiff] showDiff fetch failed:', e);
+            });
     }
 
     function renderVersionList() {
@@ -72,16 +90,30 @@
 
     function showDiffForVersion(vid, versions) {
         var idx = versions.findIndex(function (v) { return v.id === vid; });
-        if (idx < 0 || idx >= versions.length - 1) { C.toast('No previous version to diff against.'); return; }
+        if (idx < 0 || idx >= versions.length - 1) {
+            C.toast('No previous version to diff against.');
+            console.warn('[agentDiff] showDiffForVersion: no previous version for id', vid);
+            return;
+        }
         var newer = versions[idx].content;
         var older = versions[idx + 1].content;
         C.agentPost({ action: 'diff', file_path: state.filePath, old_text: older, new_text: newer })
             .then(function (data) {
-                dom.diffTable.innerHTML = data.html || '';
+                if (data.error) {
+                    console.error('[agentDiff] showDiffForVersion error:', data.error);
+                    C.toast(data.error, 'error');
+                    return;
+                }
+                dom.diffTable.innerHTML = data.html || '<tr><td colspan="4" style="padding:14px;color:var(--ag-text-muted);text-align:center;">No differences found.</td></tr>';
                 var sum = data.summary || {};
                 dom.diffSummary.style.display = 'flex';
-                dom.diffSummary.innerHTML = '<span class="diff-added">+' + sum.added + '</span><span class="diff-removed">-' + sum.removed + '</span>';
+                dom.diffSummary.innerHTML = '<span class="diff-added">+' + (sum.added || 0) + '</span><span class="diff-removed">-' + (sum.removed || 0) + '</span>';
+                console.log('[agentDiff] showDiffForVersion: +' + (sum.added || 0) + ' -' + (sum.removed || 0));
                 C.switchTab('diff');
+            })
+            .catch(function (e) {
+                console.error('[agentDiff] showDiffForVersion fetch failed:', e);
+                C.toast('Diff failed: ' + e.message, 'error');
             });
     }
 

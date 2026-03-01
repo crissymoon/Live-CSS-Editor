@@ -342,6 +342,71 @@
             applyEditorsBtn.textContent = isPreview ? 'Apply Preview to Editors' : 'Apply to Editors';
             applyEditorsBtn.addEventListener('click', function () { C.applyToEditors(rawText); bar.remove(); });
             bar.appendChild(applyEditorsBtn);
+
+            // Diff button for editors mode: capture old editor state immediately so
+            // the diff reflects exactly what was in the editors when the AI responded.
+            if (!isPreview) {
+                var oldHtml = '', oldCss = '', oldJs = '';
+                try {
+                    if (LiveCSS.editor) {
+                        oldHtml = LiveCSS.editor.getHtmlEditor ? LiveCSS.editor.getHtmlEditor().getValue() : '';
+                        oldCss  = LiveCSS.editor.getCssEditor  ? LiveCSS.editor.getCssEditor().getValue()  : '';
+                        oldJs   = LiveCSS.editor.getJsEditor   ? LiveCSS.editor.getJsEditor().getValue()   : '';
+                    }
+                } catch (e) {
+                    console.error('[agentChat:showApplyBar] failed to capture editor state for diff:', e);
+                }
+
+                var editorsDiffBtn = C.el('button', 'agent-btn agent-btn-ghost');
+                editorsDiffBtn.textContent = 'Preview Diff';
+                editorsDiffBtn.addEventListener('click', function () {
+                    function extractLang(text, langs) {
+                        for (var i = 0; i < langs.length; i++) {
+                            var re  = new RegExp('```' + langs[i] + '[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n[ \\t]*```', 'i');
+                            var re2 = new RegExp('```' + langs[i] + '[ \\t]*\\r?\\n([\\s\\S]*?)```', 'i');
+                            var m   = text.match(re) || text.match(re2);
+                            if (m) { return m[1]; }
+                        }
+                        return null;
+                    }
+                    var newHtml = extractLang(rawText, ['html']) || '';
+                    var newCss  = extractLang(rawText, ['css'])  || '';
+                    var newJs   = extractLang(rawText, ['javascript', 'js']) || '';
+
+                    // Build section-labelled combined strings so the diff shows
+                    // HTML / CSS / JS blocks side-by-side in a readable way.
+                    var OLD_SEP = '/* === {sec} === */';
+                    var oldFull = OLD_SEP.replace('{sec}', 'HTML') + '\n' + oldHtml
+                                + '\n\n' + OLD_SEP.replace('{sec}', 'CSS')  + '\n' + oldCss
+                                + '\n\n' + OLD_SEP.replace('{sec}', 'JS')   + '\n' + oldJs;
+                    var newFull = OLD_SEP.replace('{sec}', 'HTML') + '\n' + newHtml
+                                + '\n\n' + OLD_SEP.replace('{sec}', 'CSS')  + '\n' + newCss
+                                + '\n\n' + OLD_SEP.replace('{sec}', 'JS')   + '\n' + newJs;
+
+                    console.log('[agentChat] editors diff: old=' + oldFull.length + ' chars, new=' + newFull.length + ' chars');
+
+                    C.agentPost({ action: 'diff', file_path: '_editors', old_text: oldFull, new_text: newFull })
+                        .then(function (data) {
+                            if (data.error) {
+                                console.error('[agentChat] diff error:', data.error);
+                                C.toast(data.error, 'error');
+                                return;
+                            }
+                            dom.diffTable.innerHTML = data.html || '<tr><td colspan="4" style="padding:14px;color:var(--ag-text-muted);text-align:center;">No differences found.</td></tr>';
+                            var sum = data.summary || {};
+                            dom.diffSummary.style.display = 'flex';
+                            dom.diffSummary.innerHTML = '<span class="diff-added">+' + (sum.added || 0) + ' added</span>'
+                                                      + '<span class="diff-removed">-' + (sum.removed || 0) + ' removed</span>';
+                            C.switchTab('diff');
+                            console.log('[agentChat] editors diff rendered: +' + (sum.added || 0) + ' -' + (sum.removed || 0));
+                        })
+                        .catch(function (e) {
+                            console.error('[agentChat] diff fetch failed:', e);
+                            C.toast('Diff failed: ' + e.message, 'error');
+                        });
+                });
+                bar.appendChild(editorsDiffBtn);
+            }
         } else {
             // Source is a loaded file -- save as a version
             var applyBtn = C.el('button', 'agent-btn agent-btn-primary');
@@ -352,13 +417,29 @@
             diffBtn.textContent = 'Preview Diff';
             diffBtn.addEventListener('click', function () {
                 var code = C.MD.extractCode(rawText);
+                if (!code.trim()) {
+                    console.warn('[agentChat] Preview Diff: no code block found in response');
+                    C.toast('No code block found in response to diff.', 'error');
+                    return;
+                }
+                console.log('[agentChat] file diff: old=' + (state.content || '').length + ' chars, new=' + code.length + ' chars');
                 C.agentPost({ action: 'diff', file_path: state.filePath, old_text: state.content, new_text: code })
                     .then(function (data) {
-                        dom.diffTable.innerHTML = data.html || '';
+                        if (data.error) {
+                            console.error('[agentChat] diff error:', data.error);
+                            C.toast(data.error, 'error');
+                            return;
+                        }
+                        dom.diffTable.innerHTML = data.html || '<tr><td colspan="4" style="padding:14px;color:var(--ag-text-muted);text-align:center;">No differences found.</td></tr>';
                         var sum = data.summary || {};
                         dom.diffSummary.style.display = 'flex';
                         dom.diffSummary.innerHTML = '<span class="diff-added">+' + sum.added + '</span><span class="diff-removed">-' + sum.removed + '</span>';
                         C.switchTab('diff');
+                        console.log('[agentChat] file diff rendered: +' + sum.added + ' -' + sum.removed);
+                    })
+                    .catch(function (e) {
+                        console.error('[agentChat] diff fetch failed:', e);
+                        C.toast('Diff failed: ' + e.message, 'error');
                     });
             });
 
