@@ -478,6 +478,25 @@
     text-overflow: ellipsis;
 }
 
+/* Fixed model display label used on the Run tab -- not selectable. */
+.agent-model-label {
+    display:        inline-flex;
+    align-items:    center;
+    height:         24px;
+    padding:        0 8px;
+    background:     var(--ag-surface-3);
+    border:         1px solid var(--ag-border);
+    color:          var(--ag-text-muted);
+    font-family:    inherit;
+    font-size:      11px;
+    font-style:     italic;
+    white-space:    nowrap;
+    box-shadow:     var(--ag-inset);
+    pointer-events: none;
+    user-select:    none;
+    -webkit-user-select: none;
+}
+
 .agent-input {
     background:    var(--ag-surface-3);
     color:         var(--ag-text);

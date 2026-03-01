@@ -84,17 +84,6 @@
         dom.model.classList.add('preview-locked');
         dom.model.disabled = true;
 
-        // Also lock the visible model picker.
-        if (dom.modelPick) {
-            _lockPickValue        = dom.modelPick.value;
-            dom.modelPick.value   = 'anthropic:' + PREVIEW_MODEL;
-            dom.modelPick.classList.add('preview-locked');
-            dom.modelPick.disabled = true;
-            console.log('[agent] lockForPreview: modelPick locked, saved previous: ' + _lockPickValue);
-        } else {
-            console.warn('[agent] lockForPreview: dom.modelPick not found -- modelPick lock skipped');
-        }
-
         var row = dom.provider.closest('.agent-task-row');
         if (row) { row.classList.add('agent-provider-row-locked'); }
     }
@@ -114,18 +103,6 @@
         // Restore state flags so populateProviders re-selects the right items.
         state.provider = _lockProv || state.provider;
         state.model    = _lockModel || state.model;
-
-        // Restore the visible model picker.
-        if (dom.modelPick) {
-            dom.modelPick.disabled = false;
-            dom.modelPick.classList.remove('preview-locked');
-            if (_lockPickValue) {
-                dom.modelPick.value = _lockPickValue;
-                console.log('[agent] unlockFromPreview: modelPick restored to ' + _lockPickValue);
-            }
-        } else {
-            console.warn('[agent] unlockFromPreview: dom.modelPick not found -- unlock skipped');
-        }
         _lockPickValue = '';
 
         // Fully rebuild both selects from the server provider list.
@@ -172,25 +149,15 @@
     // Providers
     // -----------------------------------------------------------------------
 
-    // Sync state.provider + state.model from the visible hardcoded model picker.
-    // Called after populateProviders so the picker wins over hidden-select state.
+    // Sync state.provider + state.model to the hardcoded workflow values.
+    // These two models are fixed -- the run tab has no selectable picker.
     function syncStateFromModelPick() {
-        if (!dom.modelPick) {
-            console.warn('[agent] syncStateFromModelPick: dom.modelPick not available');
-            return;
-        }
         try {
-            var val   = dom.modelPick.value || '';
-            var parts = val.split(':');
-            if (parts.length === 2 && parts[0] && parts[1]) {
-                state.provider = parts[0];
-                state.model    = parts[1];
-                if (dom.provider) { dom.provider.value = state.provider; }
-                if (dom.model)    { dom.model.value    = state.model;    }
-                console.log('[agent] syncStateFromModelPick: provider=' + state.provider + ' model=' + state.model);
-            } else {
-                console.warn('[agent] syncStateFromModelPick: unexpected value format "' + val + '"');
-            }
+            state.provider = 'anthropic';
+            state.model    = 'claude-haiku-4-5-20251001';
+            if (dom.provider) { dom.provider.value = state.provider; }
+            if (dom.model)    { dom.model.value    = state.model;    }
+            console.log('[agent] syncStateFromModelPick: hardcoded workflow -- provider=anthropic model=claude-haiku-4-5-20251001 (GPT-4 Mini used in parallel by backend)');
         } catch (e) {
             console.error('[agent] syncStateFromModelPick failed:', e);
         }
@@ -334,19 +301,7 @@
         dom.backBtn.addEventListener('click', function () { C.navigate('back'); });
         dom.fwdBtn.addEventListener('click',  function () { C.navigate('forward'); });
 
-        if (dom.modelPick) {
-            dom.modelPick.addEventListener('change', function () {
-                try {
-                    syncStateFromModelPick();
-                    updateStreamBadge();
-                    C.saveSettings();
-                } catch (e) {
-                    console.error('[agent] modelPick change handler failed:', e);
-                }
-            });
-        } else {
-            console.error('[agent] bindEvents: dom.modelPick not found -- model selection unavailable');
-        }
+        // No model picker change listener needed -- the run tab uses a fixed workflow.
 
         dom.runBtn.addEventListener('click',    C.runAgent);
         dom.abortBtn.addEventListener('click',  C.abortStream);
