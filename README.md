@@ -1,94 +1,115 @@
 # Crissy's Style Tool
 
-A desktop CSS/HTML/JavaScript live editor with real-time preview and an integrated AI agent, built with Tauri v2 and PHP.
+A live CSS/HTML/JavaScript editor with real-time preview, an integrated AI agent, a page builder, a VSCode Copilot bridge, and a built-in admin panel. Runs as a desktop app via Tauri v2 or directly through the PHP built-in server.
 
-**Author:** Crissy Deutsch  
-**Company:** XcaliburMoon Web Development  
-**Website:** https://xcaliburmoon.net/  
+**Author:** Crissy Deutsch
+**Company:** XcaliburMoon Web Development
+**Website:** https://xcaliburmoon.net/
 **License:** MIT
 
 ---
 
 ## Overview
 
-Crissy's Style Tool is a floating-panel code editor designed for rapid CSS prototyping and front-end development. Three resizable CodeMirror editors (CSS, HTML, JS) sit alongside a live preview iframe. All panels are freely draggable, minimizable, and restore their positions between sessions.
+Crissy's Style Tool is a multi-panel coding environment designed for rapid CSS prototyping, page composition, and AI-assisted front-end development. Three resizable CodeMirror editors (CSS, HTML, JS) sit alongside a live preview iframe. All panels are freely draggable, minimizable, and restore their positions between sessions.
 
-An AI Agent window is built into the app. It connects to Anthropic, OpenAI, or DeepSeek and can generate HTML/CSS from scratch, apply targeted changes to the current editor content, or have an open-ended chat. Generated code can be reviewed in a diff view and applied directly to the editors with one click.
+The tool ships with a page builder, a section library, a drag-and-drop composer, a VSCode Copilot bridge (MCP server), an AI agent with streaming output, an AI chat interface, a color harmony tool, a wireframe prototyping tool, an admin panel with user management, and a debug/ticket tracking tool.
 
 ---
 
 ## Features
 
 ### Editors
+
 - Three independent CodeMirror 5 editors: CSS, HTML, JavaScript
 - Syntax highlighting and linting (CSSLint, JSHint, HTMLHint)
 - Code folding with fold gutter
-- Per-panel inline search with match count and orange highlights
-- Undo/redo buttons in each panel header
-- Custom indent guides with color, opacity, thickness, style, and step settings
-- Column ruler with configurable position and color
+- Per-panel inline search with match count and highlighted results
+- Undo/redo buttons in every panel header
 - Autosave every 1.5 seconds to localStorage
 
 ### Fuzzy Autocomplete
-- Context-aware CSS completions: property names before `:`, value keywords after `:`
+
+- Context-aware completions: property names before `:`, value keywords after `:`
 - JavaScript and HTML completions
-- Dropdown flips above cursor when near the bottom of the editor
+- Dropdown flips above the cursor when near the bottom of the viewport
 - Arrow key navigation with scroll-into-view
-- Capture-phase keyboard interception so arrow keys never move the editor cursor while the dropdown is open
+- Capture-phase keyboard interception so arrow keys do not move the cursor while the dropdown is open
 
 ### Inline Widgets
-- Color swatch diamonds next to every color value -- click to open a color picker
-- Size slider diamonds next to every numeric measurement -- drag to adjust values live
-- Supports all CSS units: px, em, rem, %, vh, vw, vmin, vmax, pt, pc, ch, ex, cm, mm, in, fr, s, ms, deg, turn
-- Bare numbers (flex: 1, gap: 0) are also detected
+
+- **Color swatches** -- a small diamond appears beside every color value; click it to open a native color picker that updates the value live
+- **Size sliders** -- a small diamond appears beside every numeric CSS measurement; drag left or right to adjust the value live
+- Supported units: px, em, rem, %, vh, vw, vmin, vmax, pt, pc, ch, ex, cm, mm, in, fr, s, ms, deg, turn
+- Bare unitless numbers (flex: 1, z-index: 10) are also detected
+
+### Indent Guides
+
+- Floating settings panel: toggle visibility, color, opacity (0-100%), thickness (1-4 px), style (solid/dashed/dotted), step (every 2/4/8 columns)
+- Optional column ruler at a configurable column width with its own color and opacity
+- Optional search outline that draws a box around the current CodeMirror search match
+- Settings persist to localStorage
 
 ### Color Harmony Tool
+
 - Floating panel with seven harmony modes: Complementary, Analogous, Triadic, Split-Comp, Tetradic, Square, Monochromatic
-- Base color picker with hex readout
-- Click any swatch to insert it into the active editor
+- Base color picker with live hex readout
+- Click any swatch to insert the hex value at the cursor in the active editor
 
 ### Wireframe Tool
-- Full-canvas layout prototyping tool (1200x900 canvas)
-- Add, move, and resize rectangles with mouse drag or arrow keys (1px; Shift+arrow for 10px)
-- Adjust per-element label, position, size, margin, padding, background color, border color, border width, and border radius
-- Nest elements inside each other via Parent selector
-- Anti-overlap enforcement: siblings cannot touch or overlap (including margin areas)
-- Children are constrained inside parent padding
-- Horizontal and vertical ruler strips with tick marks every 25px, labels every 100px
-- Drag from a ruler strip to create guide lines; drag guides to reposition; double-click to delete
-- Save wireframe as JSON, load from JSON, and Copy Context (CSS comment block for AI or documentation use)
+
+- Full-canvas layout prototyping (1200x900 px canvas) accessible from the View menu
+- Add, move, and resize rectangle elements with mouse drag or arrow keys (1 px; Shift+arrow for 10 px)
+- Per-element properties: label, position, size, margins, padding, background color, border color, border width, border radius
+- Nest elements with a Parent selector; children are constrained inside parent padding bounds
+- Anti-overlap enforcement: sibling elements cannot touch or overlap including margin areas
+- Horizontal and vertical ruler strips with tick marks every 25 px and labels every 100 px
+- Drag from a ruler to create guide lines; drag guides to reposition; double-click to delete
+- Save wireframe as JSON, load from JSON, Copy Context (generates a CSS comment block for AI or documentation use)
 - Auto-saves to localStorage on every change
 
+### Properties Reference Tool
+
+- Floating searchable panel listing CSS properties, JavaScript APIs, and HTML elements
+- Three tabs: CSS / JS / HTML
+- Type to filter; accepted values for the selected property appear in the footer
+- Insert button pushes the property name into the active editor at the cursor
+
 ### Session Management
-- Save/load named projects to localStorage
-- Session history restore bar on startup (last 10 sessions)
-- Manual save and load modals
-- Reset Layout button restores default panel positions
+
+- Save and load named projects to localStorage
+- Session history restore bar on page load (last 10 sessions)
+- Named save/load modals
+- Reset Layout button restores default panel positions and sizes
 
 ---
 
 ## AI Agent
 
-The Agent is a floating, resizable window (860x580px) that launches from the header toolbar. It persists its settings (provider, model, task, source, active tab) to localStorage between sessions.
+The Agent is a floating, resizable window (860x580 px) launched from the header toolbar. Provider, model, task mode, source mode, and active tab all persist to localStorage between sessions.
 
-### Tasks
-- **Build Something New** -- describe a component or layout; the agent picks the best CSS theme and generates complete, correct HTML
-- **Request a Change** -- send the current editor content as context and describe modifications; the agent returns a targeted diff
+### Task Modes
+
+- **Build Something New** -- describe a component or layout; the agent selects the best CSS theme and generates complete HTML applied to the editors
+- **Request a Change** -- sends current editor content as context; describe an edit and the agent returns a targeted diff
 - **Chat** -- open-ended conversation with the selected AI provider
 
 ### Source Modes
-- **Crissy's Editors** -- uses the live CSS and HTML content from the three CodeMirror editors as context
-- **Load a File** -- paste or load an external file as the source context
+
+- **Crissy's Editors** -- uses the live CSS and HTML from the three CodeMirror editors as context
+- **Load a File** -- paste or load external file content as context
 
 ### Apply Bar
-- After a generation finishes, a diff view shows the before/after
+
+- After generation a diff view shows the before/after for each modified block
 - Apply to Editors patches the CSS and HTML editors in place with no copy/paste required
 
 ### Neural Animation
-- While the agent is working, a canvas overlay shows a drifting neural network with animated signal pulses
-- Conversational phrases are displayed over the animation; the phrase pool is seeded from GPT-4o-mini on first use and stored in a local SQLite database (ai/data/phrases.db)
 
-### Providers
+- While generating, a canvas overlay shows a drifting neural network with animated signal pulses
+- Conversational phrases are displayed over the animation; the phrase pool is seeded from GPT-4o-mini on first use and stored in a local SQLite database
+
+### AI Providers
 
 | Provider | Endpoint | Default Model |
 |----------|----------|---------------|
@@ -96,15 +117,33 @@ The Agent is a floating, resizable window (860x580px) that launches from the hea
 | OpenAI | ai/openai.php | gpt-4o |
 | DeepSeek | ai/deepseek.php | deepseek-chat |
 
-Provider API keys are stored in ai/config.json (not committed to version control).
+API keys are stored in `ai/config.json` (not committed to version control).
+
+---
+
+## AI Chat
+
+A persistent chat panel separate from the Agent window for multi-turn conversation with the configured AI provider. Chat history is kept in the session and the interface uses the same provider configuration as the Agent.
+
+---
+
+## Copilot Section Help
+
+A help button in the top-right of the main header opens a panel of quick-copy prompts for using VSCode Copilot to work on page builder sections. Five prompt templates are available:
+
+- **Create a new section template** -- builds a reusable template and saves it to the section library
+- **Add a section to a specific page** -- reads the page manifest, writes the file, and patches page.json
+- **Preview a section in the browser** -- generates a standalone HTML preview file for a single section
+- **Audit a section file for errors** -- validates JSON structure against the full schema
+- **Convert active stylesheet to section defaults** -- extracts colors and typography from a stylesheet and applies them to a new section template
+
+Each prompt auto-references `vscode-bridge/context/section-schema.md` so Copilot has full schema context. Copy buttons use the Clipboard API with an execCommand fallback.
 
 ---
 
 ## CSS Theme System
 
-The style-sheets/ folder contains seven production-ready CSS design systems. The agent uses the theme system to pick the right one for any request and to resolve correct class names, prefixes, and variables.
-
-### Themes
+The `style-sheets/` directory contains seven production-ready CSS design systems used by the AI agent when generating components.
 
 | Key | Prefix | File | Description |
 |-----|--------|------|-------------|
@@ -116,14 +155,162 @@ The style-sheets/ folder contains seven production-ready CSS design systems. The
 | neon-grid | ng | neon-grid.css | Cyberpunk neon on dark grid |
 | neumorphism | neu | neumorphism.css | Classic soft neumorphism |
 
-### Theme Data Structure
+Theme metadata is split for performance:
 
-Theme metadata is split across two locations for fast lookup:
+- `style-sheets/theme_handler.json` -- lightweight routing manifest with scoring data (description, best_for, avoid_for, palette_keywords, component_coverage) for all seven themes
+- `style-sheets/themes/{key}.json` -- heavy per-theme detail (palette, variables, line counts) loaded on demand only for the winning theme
 
-- style-sheets/theme_handler.json -- lightweight routing manifest containing scoring data (description, best_for, avoid_for, visual_identity, components_available, palette_keywords, component_coverage) for all seven themes
-- style-sheets/themes/{key}.json -- heavy per-theme detail (palette, variables, line counts) loaded on demand only for the winning theme
+`style-sheets/parser.php` loads the routing manifest at startup and lazy-loads per-theme files only when building the AI context block. `style-sheets/fuzzy-search.php` searches the manifest for fast component and keyword lookups.
 
-style-sheets/parser.php reads theme_handler.json at startup and lazy-loads the per-theme file only when building the full AI context object. style-sheets/fuzzy-search.php searches against theme_handler.json for fast component and keyword lookups.
+### Theme Randomizer
+
+A JavaScript module (`js/theme-randomizer.js`) lets the agent propose random theme combinations. Configuration is stored in `ai/theme-randomizer.json`.
+
+---
+
+## Page Builder
+
+A JSON-driven page composition tool at `/page-builder/`. Pages are built from modular section files authored by developers or AI.
+
+### How It Works
+
+1. Pages are stored as directories under `page-builder/pages/{page-name}/`
+2. Each page has a `page.json` manifest listing section files and their order
+3. `build.php` reads the manifest and renders all sections into a complete `index.html`
+4. Live edits are stored in `overrides.json` per page; the builder merges them at render time
+
+### Composer (3-panel UI)
+
+Open the composer at `/page-builder/composer.php?page={name}`.
+
+**Library panel (left)** -- browse reusable section templates by type: headers, sections, panels, footers. Tabs filter by type; a search field filters by name. Click a card to add the section to the page.
+
+**Canvas panel (center)** -- lists every section in the page. Drag handles reorder sections. Each row has rename, edit JSON, and remove actions. A status bar shows save/build feedback.
+
+**JSON panel (right)** -- click a section on the canvas to open its raw JSON. Save, format, and cancel actions. Validation errors surface inline.
+
+Top-bar actions: Build Page (write index.html), Preview, Save Order, Back to page index.
+
+### New Page Creation
+
+`create-page.php` scaffolds a new page directory with default header, hero section, footer, and a `page.json` manifest in one step. The header and footer are auto-selected but can be removed in the composer.
+
+### Section Types
+
+| Type | Description |
+|------|-------------|
+| header | Sticky navigation bar with brand and nav links |
+| footer | Copyright line with optional links |
+| section | Content block (column or row layout) |
+| panel | Two-column layout with main content and sidebar |
+
+### Built-In Section Templates
+
+| File | Description |
+|------|-------------|
+| headers/basic.json | Sticky nav with brand and four links |
+| headers/centered.json | Wide centered brand nav |
+| footers/basic.json | Copyright line with Privacy and Terms links |
+| footers/minimal.json | Copyright line only |
+| sections/hero.json | Centered hero with heading, sub-copy, and CTA button |
+| sections/features-3col.json | Three-column feature card grid |
+| sections/text-image.json | Two-column text and image row |
+| sections/cta-centered.json | Call-to-action band with heading and button |
+| panels/with-sidebar.json | Main content area with right sticky sidebar |
+
+### Section Schema (JSON format)
+
+All section files follow a documented schema in `vscode-bridge/context/section-schema.md`. The schema covers block types (heading, text, button, card), all settings key-to-CSS-property mappings, ID uniqueness rules, the page.json manifest format, and the project color palette. New templates dropped into the correct subdirectory under `page-builder/sections/` appear in the library without any registration step.
+
+### Page Index
+
+The page builder index (`/page-builder/index.php`) lists all pages with build status and override count. Includes light/dark mode toggle and links back to the admin dashboard and main style tool.
+
+---
+
+## VSCode Copilot Bridge (MCP Server)
+
+A Model Context Protocol server that connects VSCode GitHub Copilot directly to the style tool. Copilot can read stylesheets, write changes that reflect live in the browser, read the active edit session, search CSS, and check open debug tickets.
+
+### How It Works
+
+```
+Browser (Style Tool) <-- bridge.php <-- session.json
+                                             ^
+VSCode Copilot <-- MCP Server (Node.js) -----+
+                        |
+                        v
+                 style-sheets/*.css  (read + write directly)
+```
+
+1. The browser pushes its state (active sheet, CSS content) to `bridge.php` every 5 seconds via `vscode-bridge/js/bridge-sync.js`
+2. The MCP server exposes tools that Copilot calls
+3. When Copilot writes a stylesheet a notification file is set; the browser polls every 3 seconds and reloads the stylesheet link tag without a full page reload
+
+### MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| list_stylesheets | List all CSS files in style-sheets/ with sizes |
+| read_stylesheet | Read the full content of a named CSS file |
+| update_stylesheet | Write updated CSS to disk (auto-backup before writing) |
+| read_active_session | Read the CSS currently open in the browser editor |
+| search_css | Search all sheets for a selector, property, or value |
+| describe_tool | Get full project context for new feature work |
+| list_debug_tickets | Show open error tickets from the debug tool database |
+
+### Backups
+
+Every `update_stylesheet` call backs up the original to `style-sheets/backups/{filename}.{timestamp}.bak`.
+
+### Context Folder
+
+`vscode-bridge/context/` contains:
+
+- `section-schema.md` -- complete JSON schema for all section types, block types, settings key mappings, color palette, and file placement rules
+- `copilot-prompt.md` -- ready-to-paste Copilot prompts for section creation, page editing, auditing, and stylesheet conversion
+
+---
+
+## Admin Panel
+
+A PHP admin panel at `/pb_admin/` backed by a Go authentication API (`xcm_auth`) on port 9100.
+
+### Features
+
+- Login with session token validation via the Go API
+- Dashboard with links to all admin tools
+- Light/dark mode across all admin pages (persisted to localStorage)
+- Logout with session invalidation
+
+### Admin Tools
+
+| Tool | File | Description |
+|------|------|-------------|
+| Auth Status | tools/01-auth-status.php | Go auth server status, active session count, token details |
+| Sessions | tools/02-sessions.php | List and invalidate active user sessions |
+| Audit Log | tools/03-audit-log.php | Login attempts, logouts, token events |
+| User Management | tools/04-users.php | Create users, set role (admin/user), deactivate, reactivate |
+
+### Go Auth Server
+
+```bash
+./pb_admin/start-auth.sh
+```
+
+Runs on port 9100. Handles login, session validation, logout, and user management over a JSON API. `pb_admin/api_proxy.php` proxies requests from the PHP admin pages to the Go API.
+
+---
+
+## Debug Tool
+
+A standalone error ticket tracking tool at `/debug-tool/`. Used to log, triage, and resolve bugs during development.
+
+- AI-assisted error analysis (`debug-tool/ai/analyze.php`)
+- REST API for submitting and reading tickets (`debug-tool/api/`)
+- SQLite ticket database
+- CLI tools for querying tickets
+- The VSCode Bridge MCP server exposes `list_debug_tickets` so Copilot can see open tickets when working on fixes
 
 ---
 
@@ -133,10 +320,12 @@ style-sheets/parser.php reads theme_handler.json at startup and lazy-loads the p
 |-------|-----------|
 | Desktop shell | Tauri v2 (Rust) |
 | Backend | PHP 8.x built-in server |
+| Auth API | Go (xcm_auth) |
 | Editors | CodeMirror 5.65.16 (local vendor) |
 | Linters | CSSLint 1.0.5, JSHint 2.13.6, HTMLHint 0.16.3 |
-| AI streaming | Server-Sent Events via PHP, consumed by the agent JS modules |
-| Phrase storage | SQLite via PHP (ai/data/phrases.db) |
+| AI streaming | Server-Sent Events via PHP |
+| Phrase storage | SQLite via PHP |
+| MCP server | Node.js 18+ with @modelcontextprotocol/sdk |
 | JS modules | Vanilla ES5/ES6, namespaced under window.LiveCSS |
 | CSS | Custom dark theme, no framework |
 
@@ -148,75 +337,81 @@ style-sheets/parser.php reads theme_handler.json at startup and lazy-loads the p
 live-css/
   index.php                    Main HTML shell and PHP data bridge
   style.css                    Global styles
-  css/                         Modular CSS files
+  style-context.txt            Active project color/typography tokens
+
+  css/                         Modular CSS
     base.css
-    layout.css                 Panel layout
-    agent.css                  AI agent floating window
-    ai-chat.css                Chat tab styles
-    fuzzy.css                  Autocomplete dropdown
-    wireframe.css              Wireframe tool
+    layout.css
+    agent.css
+    ai-chat.css
+    fuzzy.css
+    wireframe.css
     color-tools.css
-    ...
-  js/                          Modular JavaScript files
+    header.css
+    info-bar.css
+    modal.css
+    native-bridge.css
+    responsive.css
+    scrollbar.css
+
+  js/                          Modular JavaScript
     app.js                     Boot and wiring
-    agent.js                   Agent entry point (loads agent/ modules)
-    agent/                     AI agent modules
-      agent-core.js            State, settings persistence, busy/idle
-      agent-ui.js              DOM rendering and panel construction
-      agent-run.js             SSE streaming runner (run.php mode)
-      agent-diff.js            Diff view and apply-to-editors
-      agent-context.js         Context building from editors
-      agent-prompts.js         Prompt assembly
-      agent-chat.js            Chat tab logic
-      agent-window.js          Floating window drag, resize, minimize
-      agent-neural.js          Neural network canvas animation + phrases
-    editor.js                  CodeMirror setup and live preview
-    fuzzy.js                   Fuzzy autocomplete
-    color-swatch.js            Inline color swatch diamonds
-    size-slider.js             Inline size slider diamonds
-    color-harmony.js           Color harmony tool
-    wireframe.js               Wireframe / layout prototyping tool
-    gutter.js                  Resizable/draggable panel system
-    editor-search.js           Per-panel inline search
-    indent-guide.js            Custom indent guides
-    storage.js                 localStorage persistence
+    agent.js                   Agent entry point
+    agent/
+      agent-core.js
+      agent-ui.js
+      agent-run.js
+      agent-diff.js
+      agent-context.js
+      agent-prompts.js
+      agent-chat.js
+      agent-window.js
+      agent-neural.js
+    ai-chat.js
+    editor.js
+    fuzzy.js
+    color-swatch.js
+    size-slider.js
+    color-harmony.js
+    wireframe.js
+    gutter.js
+    editor-search.js
+    indent-guide.js
+    storage.js
     modal-save.js
     modal-load.js
-    property-lookup.js         CSS properties reference
-    native-bridge.js           Tauri native file/bridge integration
-    cdn-loader.js              Local-first CodeMirror loader with CDN fallback
-    utils.js                   Shared utilities
+    property-lookup.js
+    theme-randomizer.js
+    native-bridge.js
+    cdn-loader.js
+    utils.js
+
   ai/                          PHP AI backend
     config.json                API keys (not committed)
-    config.php                 Key loader
-    anthropic.php              Anthropic SSE endpoint
-    openai.php                 OpenAI SSE endpoint
-    deepseek.php               DeepSeek SSE endpoint
-    phrases.php                Phrase pool (SQLite + GPT-4o-mini seed)
+    config.php
+    anthropic.php
+    openai.php
+    deepseek.php
+    phrases.php
+    theme-randomizer.json
     data/
-      phrases.db               SQLite database for agent phrases
+      phrases.db
     agent/
-      agent.php                Agent action router
-      run.php                  Full agent run with parser context
-      diff.php                 Diff utilities
-      outline.php              CSS outline extractor
-      db.php                   Database helpers
-      prompts.json             Agent and mode prompt templates
+      agent.php
+      run.php
+      diff.php
+      outline.php
+      db.php
+      prompts.json
       context/
-        context.php            Context assembler
-  style-sheets/                CSS theme system
-    theme_handler.json         Routing manifest for all 7 themes
-    themes/                    Per-theme detail files (lazy-loaded)
-      atom-age.json
-      clean-system.json
-      crystal-ui.json
-      dark-neu.json
-      keyboard-ui.json
-      neon-grid.json
-      neumorphism.json
-    parser.php                 Theme router and AI context builder
-    fuzzy-search.php           Cross-source fuzzy search
-    rules.json                 Component and naming rules
+        context.php
+
+  style-sheets/                CSS design systems
+    theme_handler.json
+    themes/
+    parser.php
+    fuzzy-search.php
+    rules.json
     atom-age.css
     clean-system.css
     crystal-ui.css
@@ -224,29 +419,121 @@ live-css/
     keyboard-ui.css
     neon-grid.css
     neumorphism.css
+    backups/
+
+  page-builder/                Page composition tool
+    index.php
+    composer.php
+    build.php
+    create-page.php
+    section-api.php
+    section-library.php
+    css/
+      pb-theme.css
+      pb-composer.css
+    js/
+      pb-composer.js
+    sections/
+      headers/
+      footers/
+      sections/
+      panels/
+    pages/
+
+  vscode-bridge/               VSCode Copilot MCP integration
+    server/
+      mcp-server.js
+      package.json
+    api/
+      bridge.php
+    js/
+      bridge-sync.js
+    data/
+      session.json
+      pending-changes.json
+    context/
+      section-schema.md
+      copilot-prompt.md
+
+  pb_admin/                    Admin panel
+    index.php
+    login.php
+    dashboard.php
+    auth.php
+    api_proxy.php
+    router.php
+    start-auth.sh
+    tools/
+      01-auth-status.php
+      02-sessions.php
+      03-audit-log.php
+      04-users.php
+
+  debug-tool/                  Error ticket tracker
+    ai/
+    api/
+    cli/
+    db/
+    js/
+
   data/
-    css-properties.php         CSS property reference data
-    property-values.php        CSS property value keyword map
-    default-content.php        Default editor content
+    css-properties.php
+    property-values.php
+    default-content.php
+
   vendor/
-    codemirror/                CodeMirror 5.65.16 (local copy)
-    linters/                   CSSLint, JSHint, HTMLHint
-  src-tauri/                   Tauri Rust application
-  scripts/                     Build and deploy scripts
-    copy-www.js                Copies web assets to src-tauri/www
-    split-learn-json.js        Splits theme metadata into per-theme files
-    gen-icon.js                App icon generator
+    codemirror/
+    linters/
+
+  src-tauri/                   Tauri desktop app shell (Rust)
+  scripts/
+    copy-www.js
+    split-learn-json.js
+    gen-icon.js
+    write-readme.js
+    write-neural.js
+    refresh-preview.sh
 ```
 
 ---
 
-## Running Locally (PHP server)
+## Running Locally
+
+### PHP server (browser only)
 
 ```bash
-php -S 127.0.0.1:7777 -t src-tauri/www
+php -S 127.0.0.1:8080 index.php
 ```
 
-Then open http://127.0.0.1:7777 in a browser.
+Open http://127.0.0.1:8080.
+
+### PHP server with admin panel and page builder
+
+```bash
+php -S 127.0.0.1:8080 pb_admin/router.php
+```
+
+Serves the full app including `/pb_admin/` and `/page-builder/` on the same port.
+
+### Go auth server (required for admin panel)
+
+```bash
+./pb_admin/start-auth.sh
+```
+
+Runs on port 9100.
+
+### VSCode Copilot Bridge
+
+```bash
+cd vscode-bridge/server && npm install
+```
+
+The MCP server starts automatically when VSCode opens the workspace (configured in `.vscode/mcp.json`). To start manually:
+
+```bash
+node vscode-bridge/server/mcp-server.js
+```
 
 ---
 
@@ -257,7 +544,7 @@ node scripts/copy-www.js
 npm run tauri build
 ```
 
-Requires Rust, Cargo, and the Tauri CLI. copy-www.js must be run before each build to sync the web assets into src-tauri/www/.
+Requires Rust, Cargo, and the Tauri CLI. `copy-www.js` must run before every build to sync web assets into `src-tauri/www/`.
 
 For live development:
 
@@ -271,5 +558,5 @@ npx tauri dev
 
 MIT License -- see [LICENSE](LICENSE) for full text.
 
-Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development  
+Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
 https://xcaliburmoon.net/

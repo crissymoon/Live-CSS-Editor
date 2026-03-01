@@ -652,6 +652,7 @@ After saving, list which CSS rule or variable each extracted value came from.</p
         color: #8888a0;
         font-size: 13px;
         padding: 6px 12px;
+        margin-right: 8px;
     }
     .btn-help:hover {
         background: #2d1c6e;
