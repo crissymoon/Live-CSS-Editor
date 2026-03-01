@@ -124,6 +124,9 @@ if ($supportsStream) {
     header('Content-Type: text/event-stream');
     header('Cache-Control: no-cache');
     header('X-Accel-Buffering: no');
+    // Disable PHP output buffering so SSE events reach the client immediately.
+    ob_implicit_flush(true);
+    if (ob_get_level() > 0) { ob_end_clean(); }
     runStreaming($provider, $model, $systemFull, $conversation);
 } else {
     header('Content-Type: application/json');
@@ -142,7 +145,8 @@ function runStreaming(
     string $system,
     array  $conversation
 ): void {
-    $cfg     = AIConfig::provider($provider);
+    $residualBuf = '';
+    $cfg         = AIConfig::provider($provider);
     $apiKey  = $cfg['api_key'];
     $baseUrl = rtrim($cfg['base_url'], '/');
     $model   = $model ?: $cfg['default_model'];
@@ -156,7 +160,7 @@ function runStreaming(
         CURLOPT_RETURNTRANSFER => false,
         CURLOPT_TIMEOUT        => $cfg['timeout'] ?? 120,
         CURLOPT_HTTPHEADER     => headers($provider, $apiKey, $cfg),
-        CURLOPT_WRITEFUNCTION  => streamHandler($provider),
+        CURLOPT_WRITEFUNCTION  => streamHandler($provider, $residualBuf),
     ]);
 
     curl_exec($ch);
@@ -164,8 +168,21 @@ function runStreaming(
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    if ($err)       { sseError('cURL: ' . $err); }
-    if ($code >= 400) { sseError('API HTTP ' . $code); }
+    // Flush any residual SSE bytes that were not terminated by \n\n.
+    if (trim($residualBuf) !== '') {
+        $residualParts = explode("\n\n", $residualBuf);
+        foreach ($residualParts as $block) {
+            processStreamBlock($provider, $block);
+        }
+    }
+
+    if ($err)         { sseError('cURL: ' . $err); return; }
+    if ($code >= 400) { sseError('API HTTP ' . $code); return; }
+
+    // Fallback: guarantee the client always receives a done event even when
+    // message_stop / finish_reason was missed due to buffering. The JS
+    // client guards against double-processing with its finalized flag.
+    sseDone();
 }
 
 function runBlocking(
@@ -259,44 +276,52 @@ function buildPayload(
     return array_merge($base, ['messages' => $msgs]);
 }
 
-function streamHandler(string $provider): callable
+/**
+ * Process a single SSE block from the upstream provider and emit the
+ * appropriate sseChunk / sseDone / sseError event to the browser.
+ */
+function processStreamBlock(string $provider, string $block): void
 {
-    $buffer = '';
-    return function ($curl, $chunk) use ($provider, &$buffer) {
-        $buffer .= $chunk;
-        $parts   = explode("\n\n", $buffer);
-        $buffer  = array_pop($parts);
+    foreach (explode("\n", $block) as $line) {
+        $line = trim($line);
+        if (!str_starts_with($line, 'data: ')) { continue; }
+        $json = substr($line, 6);
+        if ($json === '[DONE]') { sseDone(); continue; }
+        $ev = json_decode($json, true);
+        if (!$ev) { continue; }
+
+        if ($provider === 'anthropic') {
+            $type = $ev['type'] ?? '';
+            if ($type === 'content_block_delta') {
+                $delta = $ev['delta'] ?? [];
+                if (($delta['type'] ?? '') === 'text_delta') {
+                    sseChunk($delta['text'] ?? '');
+                }
+            } elseif ($type === 'message_stop') {
+                sseDone();
+            } elseif ($type === 'error') {
+                sseError($ev['error']['message'] ?? 'Anthropic error');
+            }
+        } else {
+            $delta   = $ev['choices'][0]['delta'] ?? [];
+            $content = $delta['content']          ?? null;
+            $reason  = $delta['reasoning_content'] ?? null;
+            if ($reason !== null && $reason !== '') { sseReasoning($reason); }
+            if ($content !== null && $content !== '') { sseChunk($content); }
+            if (($ev['choices'][0]['finish_reason'] ?? null) === 'stop') { sseDone(); }
+        }
+    }
+}
+
+function streamHandler(string $provider, string &$residual): callable
+{
+    return function ($curl, $chunk) use ($provider, &$residual) {
+        $residual .= $chunk;
+        $parts    = explode("\n\n", $residual);
+        $residual = array_pop($parts);
 
         foreach ($parts as $block) {
-            foreach (explode("\n", $block) as $line) {
-                $line = trim($line);
-                if (!str_starts_with($line, 'data: ')) { continue; }
-                $json = substr($line, 6);
-                if ($json === '[DONE]') { sseDone(); continue; }
-                $ev = json_decode($json, true);
-                if (!$ev) { continue; }
-
-                if ($provider === 'anthropic') {
-                    $type = $ev['type'] ?? '';
-                    if ($type === 'content_block_delta') {
-                        $delta = $ev['delta'] ?? [];
-                        if (($delta['type'] ?? '') === 'text_delta') {
-                            sseChunk($delta['text'] ?? '');
-                        }
-                    } elseif ($type === 'message_stop') {
-                        sseDone();
-                    } elseif ($type === 'error') {
-                        sseError($ev['error']['message'] ?? 'Anthropic error');
-                    }
-                } else {
-                    $delta   = $ev['choices'][0]['delta'] ?? [];
-                    $content = $delta['content']          ?? null;
-                    $reason  = $delta['reasoning_content'] ?? null;
-                    if ($reason !== null && $reason !== '') { sseReasoning($reason); }
-                    if ($content !== null && $content !== '') { sseChunk($content); }
-                    if (($ev['choices'][0]['finish_reason'] ?? null) === 'stop') { sseDone(); }
-                }
-            }
+            processStreamBlock($provider, $block);
         }
         return strlen($chunk);
     };
