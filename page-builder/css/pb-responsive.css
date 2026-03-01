@@ -53,12 +53,20 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     padding: 6px 8px;
     cursor: pointer;
+    -webkit-flex-direction: column;
     flex-direction: column;
     gap: 4px;
+    -webkit-align-items: center;
     align-items: center;
+    -webkit-justify-content: center;
     justify-content: center;
     width: 36px;
     height: 36px;
+}
+
+.pb-hamburger:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
 }
 
 .pb-hamburger span {
@@ -66,17 +74,23 @@
     width: 18px;
     height: 2px;
     background: #a5a5c0;
+    -webkit-transition: -webkit-transform 0.18s, opacity 0.18s;
+    -moz-transition: -moz-transform 0.18s, opacity 0.18s;
     transition: transform 0.18s, opacity 0.18s;
 }
 
 /* Animate to X when open */
 header.pb-nav-open .pb-hamburger span:nth-child(1) {
+    -webkit-transform: translateY(6px) rotate(45deg);
+    -moz-transform: translateY(6px) rotate(45deg);
     transform: translateY(6px) rotate(45deg);
 }
 header.pb-nav-open .pb-hamburger span:nth-child(2) {
     opacity: 0;
 }
 header.pb-nav-open .pb-hamburger span:nth-child(3) {
+    -webkit-transform: translateY(-6px) rotate(-45deg);
+    -moz-transform: translateY(-6px) rotate(-45deg);
     transform: translateY(-6px) rotate(-45deg);
 }
 
@@ -86,6 +100,7 @@ header.pb-nav-open .pb-hamburger span:nth-child(3) {
 
 /* When the header is narrow, show the hamburger and hide inline nav */
 header.pb-nav-collapsed .pb-hamburger {
+    display: -webkit-flex;
     display: flex;
 }
 
@@ -94,6 +109,7 @@ header.pb-nav-collapsed nav > ul {
     /* !important required: the inline style on nav>ul is display:flex which
        beats stylesheet rules without !important, leaving nav visible */
     display: none !important;
+    -webkit-flex-direction: column;
     flex-direction: column;
     position: absolute;
     top: 100%;     /* always open from the actual bottom of the header element */
@@ -102,20 +118,29 @@ header.pb-nav-collapsed nav > ul {
     /* background and border inherit from header CSS variables so custom themes auto-match */
     background: var(--pb-nav-bg, #0d0d18);
     border-bottom: 1px solid var(--pb-nav-border, rgba(99, 102, 241, 0.25));
-    padding: 8px 0;
+    padding: 4px 0;
     z-index: 200;
     gap: 0 !important;
 }
 
 header.pb-nav-collapsed nav > ul > li > a {
+    display: -webkit-flex;
     display: flex;
+    -webkit-align-items: center;
     align-items: center;
+    -webkit-justify-content: space-between;
     justify-content: space-between;
     /* 16px left padding matches the brand container padding-left */
-    padding: 10px 16px !important;
+    padding: 8px 16px !important;
     border: none !important;
     font-size: 13px !important;
     letter-spacing: 0.06em;
+}
+
+header.pb-nav-collapsed nav > ul > li > a:focus-visible {
+    background: rgba(99, 102, 241, 0.08);
+    outline: 2px solid #6366f1;
+    outline-offset: -2px;
 }
 
 header.pb-nav-collapsed nav > ul > li > a:hover {
@@ -134,15 +159,16 @@ header.pb-nav-collapsed nav > ul > li > .pb-dropdown {
     margin: 0 0 2px 16px; /* matches 16px brand left-start */
     overflow: hidden;
     max-height: 0;
+    -webkit-transition: max-height 0.3s ease;
+    -moz-transition: max-height 0.3s ease;
     transition: max-height 0.3s ease;
     display: block !important; /* never display:none -- accordion uses max-height */
 }
 
 header.pb-nav-collapsed nav > ul > li > .pb-dropdown > li > a {
-    padding: 9px 16px !important;
+    padding: 7px 16px !important;
     opacity: 0.85;
     font-size: 10px !important;
-
 }
 
 /* Show nav when menu is open.
@@ -153,6 +179,7 @@ header.pb-nav-collapsed nav > ul > li > .pb-dropdown > li > a {
    brand logo. If nav were the containing block the dropdown would
    collapse to nav's near-zero flex width. */
 header.pb-nav-collapsed.pb-nav-open nav > ul {
+    display: -webkit-flex !important;
     display: flex !important;
 }
 
