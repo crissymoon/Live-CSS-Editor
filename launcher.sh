@@ -277,9 +277,27 @@ _push_repo() {
     cd "$repo_dir" || { printf "  ${C_RED}ERROR: cannot cd to %s${R}\n" "$repo_dir" >&2; return 1; }
 
     printf "  ${C_GREY}Staging %s ...${R}\n" "$stage_path"
-    if ! git add "$stage_path" 2>&1; then
-        printf "  ${C_RED}ERROR: git add failed for %s${R}\n" "$stage_path" >&2
-        cd "$prev_dir"; return 1
+    local _add_out _add_rc
+    _add_out="$(git add "$stage_path" 2>&1)"
+    _add_rc=$?
+    if [[ -n "$_add_out" ]]; then
+        printf '%s\n' "$_add_out" | while IFS= read -r _l; do
+            printf "    ${C_GREY}%s${R}\n" "$_l"
+        done
+    fi
+    if [[ $_add_rc -ne 0 ]]; then
+        # Check if the ONLY failures are gitignore advisories (not real errors)
+        local _hard
+        _hard="$(printf '%s\n' "$_add_out" \
+            | grep -v 'ignored by one of your .gitignore' \
+            | grep -v '^hint:' \
+            | grep -v '^$')"
+        if [[ -n "$_hard" ]]; then
+            printf "  ${C_RED}ERROR: git add failed for %s (exit %d)${R}\n" "$stage_path" "$_add_rc" >&2
+            cd "$prev_dir"; return 1
+        else
+            printf "  ${C_YELLOW}WARN: some paths in %s are gitignored and were skipped -- continuing${R}\n" "$stage_path" >&2
+        fi
     fi
 
     if git diff --cached --quiet; then
@@ -484,12 +502,10 @@ case "$CHOICE" in
                 "Update gramcheck" \
                 "gram-model"
         else
-            printf "  ${C_YELLOW}WARN: literature-in-ascii not a git repo -- trying xcm-editor fallback${R}\n" >&2
-            _push_repo \
-                "/Users/mac/Desktop/xcm-editor" \
-                "moon-lang/gramcheck" \
-                "Update gramcheck" \
-                "gram-model (xcm-editor)"
+            printf "  ${C_RED}ERROR: literature-in-ascii is not a git repo${R}\n" >&2
+            printf "  ${C_GREY}gramcheck source lives at: /Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck${R}\n" >&2
+            printf "  ${C_GREY}Run: cd /Users/mac/Documents/literature-in-ascii && git init  to initialise it${R}\n" >&2
+            printf "  ${C_YELLOW}Skipping gram-model push -- moon-lang/gramcheck in xcm-editor is gitignored (binary)${R}\n" >&2
         fi
         printf "\n"; read -r "?Press ENTER to return..."; exec "$0"
         ;;
@@ -544,13 +560,10 @@ case "$CHOICE" in
                 "gram-model" \
                 "no" || PUSH_ERRORS=$((PUSH_ERRORS + 1))
         else
-            printf "  ${C_YELLOW}WARN: literature-in-ascii not a git repo -- xcm-editor fallback${R}\n" >&2
-            _push_repo \
-                "/Users/mac/Desktop/xcm-editor" \
-                "moon-lang/gramcheck" \
-                "${ALL_MSG:-Update gramcheck}" \
-                "gram-model (xcm-editor)" \
-                "no" || PUSH_ERRORS=$((PUSH_ERRORS + 1))
+            printf "  ${C_RED}ERROR: literature-in-ascii is not a git repo -- skipping gram-model${R}\n" >&2
+            printf "  ${C_GREY}gramcheck source: /Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck${R}\n" >&2
+            printf "  ${C_GREY}moon-lang/gramcheck in xcm-editor is gitignored (binary) -- nothing to commit there${R}\n" >&2
+            PUSH_ERRORS=$((PUSH_ERRORS + 1))
         fi
 
         printf "\n"
