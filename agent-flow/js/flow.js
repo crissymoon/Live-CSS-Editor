@@ -31,7 +31,7 @@ const NODE_TYPES = {
 /* Default extra props per node type */
 const TYPE_DEFAULTS = {
     prompt:    { varName: 'prompt', text: '' },
-    'ai-call': { provider: 'anthropic', varName: 'response', inputVar: 'prompt' },
+    'ai-call': { provider: 'openai', model: 'gpt-4o-mini', varName: 'response', inputVar: 'prompt', system: 'You are a helpful assistant.' },
     condition: { varName: '', trueLabel: 'yes', falseLabel: 'no' },
     loop:      { count: 5, indexVar: 'i' },
     memory:    { op: 'keep', varName: 'result', inputVar: '' },
@@ -461,8 +461,10 @@ function buildDynamicProps(node) {
                 break;
             case 'ai-call':
                 field('Provider', `<select data-prop="provider">
-                    ${['anthropic','openai','gemini'].map(v => `<option value="${v}"${p.provider===v?' selected':''}>${v}</option>`).join('')}
+                    ${['openai','anthropic','gemini'].map(v => `<option value="${v}"${p.provider===v?' selected':''}>${v}</option>`).join('')}
                 </select>`);
+                field('Model', `<input type="text" data-prop="model" value="${escAttr(p.model||'gpt-4o-mini')}" placeholder="gpt-4o-mini">`);
+                field('System prompt', `<textarea data-prop="system">${escHtml(p.system||'You are a helpful assistant.')}</textarea>`);
                 field('Input variable', `<input type="text" data-prop="inputVar" value="${escAttr(p.inputVar||'prompt')}">`);
                 field('Output variable', `<input type="text" data-prop="varName" value="${escAttr(p.varName||'response')}">`);
                 break;
@@ -701,6 +703,80 @@ async function runFlow() {
 }
 
 /* ============================================================
+   Run directly via AI provider (no moon binary)
+   ============================================================ */
+
+async function runAiDirect() {
+    try {
+        if (state.nodes.length === 0) {
+            setStatus('no nodes -- load a flow first', 'err');
+            return;
+        }
+
+        // Warn if any ai-call node uses a provider other than openai.
+        const unsupported = state.nodes.filter(
+            n => n.type === 'ai-call' && (n.props.provider || 'openai') !== 'openai'
+        );
+        if (unsupported.length) {
+            const labels = unsupported.map(n => n.label).join(', ');
+            console.warn('agent-flow: runAiDirect -- node(s) use a provider other than openai and will be skipped:', labels);
+        }
+
+        setStatus('running AI...', '');
+        showOutput();
+        outputStdout.textContent = 'Waiting for GPT-4o-mini...';
+        outputStderr.textContent = '';
+        outputStderr.classList.add('hidden');
+        outputMoon.textContent   = '(direct AI run -- no moon source)';
+
+        const resp = await fetch('api/ai_run.php', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ nodes: state.nodes, edges: state.edges }),
+        }).catch(err => { throw new Error('Network error: ' + err.message); });
+
+        if (!resp.ok) {
+            const text = await resp.text().catch(() => '(no body)');
+            throw new Error('HTTP ' + resp.status + ': ' + text);
+        }
+
+        const data = await resp.json().catch(err => {
+            throw new Error('Invalid JSON from api/ai_run.php: ' + err.message);
+        });
+
+        if (!data.ok) {
+            throw new Error(data.error || 'ai_run.php returned ok:false');
+        }
+
+        // Main output pane.
+        outputStdout.textContent = data.output || '(no output node in flow)';
+
+        // Steps detail in the stderr/detail pane.
+        const stepsText = (data.steps || []).map((s, i) => {
+            const num    = String(i + 1).padStart(2, ' ');
+            const header = `[${num}] ${s.type.toUpperCase().padEnd(10)} ${s.label}`;
+            const result = s.error
+                ? 'ERROR: ' + s.error
+                : (s.result ? s.result.slice(0, 200) + (s.result.length > 200 ? '...' : '') : '(empty)');
+            return header + '\n     ' + result;
+        }).join('\n\n');
+
+        outputStderr.textContent = stepsText || '(no steps)';
+        const hasErrors = (data.steps || []).some(s => s.error);
+        outputStderr.classList.toggle('hidden', !stepsText.trim());
+
+        setStatus(hasErrors ? 'AI done (with errors)' : 'AI done', hasErrors ? 'err' : 'ok');
+
+    } catch(err) {
+        console.error('agent-flow: runAiDirect failed', err);
+        outputStdout.textContent = '';
+        outputStderr.textContent = 'AI run error: ' + err.message + '\n\nCheck the browser console for details.';
+        outputStderr.classList.remove('hidden');
+        setStatus('AI error', 'err');
+    }
+}
+
+/* ============================================================
    Save / load flows
    ============================================================ */
 
@@ -816,6 +892,7 @@ function exportMoon() {
    ============================================================ */
 
 document.getElementById('btn-run').addEventListener('click', runFlow);
+document.getElementById('btn-run-ai').addEventListener('click', runAiDirect);
 document.getElementById('btn-export').addEventListener('click', exportMoon);
 document.getElementById('btn-save').addEventListener('click', saveFlow);
 document.getElementById('btn-clear').addEventListener('click', () => {

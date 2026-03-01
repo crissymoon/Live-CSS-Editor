@@ -1,0 +1,341 @@
+<?php
+/**
+ * agent-flow/api/ai_run.php
+ *
+ * Directly executes a flow against a real AI provider (no moon binary needed).
+ * Walks nodes in topological order and calls the provider API for ai-call nodes.
+ *
+ * POST JSON: { nodes: [...], edges: [...] }
+ *
+ * Node types handled:
+ *   prompt    -- stores props.text into vars[props.varName]
+ *   ai-call   -- calls provider API (openai default gpt-4o-mini); stores reply
+ *                into vars[props.varName]; reads input from vars[props.inputVar]
+ *   condition -- evaluates vars[props.varName]; passes non-empty value through
+ *   output    -- appends vars[props.varName] to $outputs[]
+ *   loop      -- logs iteration count; no nested execution in this runner
+ *   memory    -- stores/recalls a value in a session-scoped $memory map
+ *   tool      -- emits the command string as a step result (no shell exec)
+ *
+ * Returns JSON:
+ *   { ok: bool, output: string, steps: [{id, type, label, result, error?}], error? }
+ *
+ * Fallback error handling: every failure path writes to error_log and returns
+ * a structured JSON body so the browser always has context.
+ */
+
+header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+// Load shared AI config (relative to this file: agent-flow/api/ -> ../../ai/).
+$configPath = __DIR__ . '/../../ai/config.php';
+if (!file_exists($configPath)) {
+    jsonErr('AI config not found at: ' . realpath(__DIR__ . '/../../ai') . '/config.php', 500);
+}
+require_once $configPath;
+
+define('AI_RUN_TIMEOUT', 60);
+
+// ---- helpers ---------------------------------------------------------------
+
+function jsonErr(string $msg, int $http = 400): void {
+    http_response_code($http);
+    error_log('agent-flow/ai_run.php: ' . $msg);
+    echo json_encode(['ok' => false, 'error' => $msg, 'output' => '', 'steps' => []]);
+    exit;
+}
+
+/**
+ * Topological sort (Kahn's algorithm).
+ * Returns an ordered array of node IDs.
+ * Any disconnected nodes are appended at the end.
+ */
+function topoSort(array $nodes, array $edges): array {
+    $ids        = array_column($nodes, 'id');
+    $inDegree   = array_fill_keys($ids, 0);
+    $successors = array_fill_keys($ids, []);
+
+    foreach ($edges as $e) {
+        $from = $e['from']['nodeId'] ?? null;
+        $to   = $e['to']['nodeId']   ?? null;
+        if ($from && $to && isset($inDegree[$to])) {
+            $inDegree[$to]++;
+            $successors[$from][] = $to;
+        }
+    }
+
+    $queue   = array_keys(array_filter($inDegree, fn($d) => $d === 0));
+    $ordered = [];
+    $visited = [];
+
+    while (!empty($queue)) {
+        $id = array_shift($queue);
+        if (isset($visited[$id])) continue;
+        $visited[$id] = true;
+        $ordered[]    = $id;
+        foreach (($successors[$id] ?? []) as $sid) {
+            $inDegree[$sid]--;
+            if ($inDegree[$sid] === 0) {
+                $queue[] = $sid;
+            }
+        }
+    }
+
+    foreach ($ids as $id) {
+        if (!isset($visited[$id])) {
+            $ordered[] = $id;
+        }
+    }
+
+    return $ordered;
+}
+
+/**
+ * Call OpenAI chat completions (non-streaming).
+ * Returns the assistant reply string, or throws RuntimeException on error.
+ */
+function callOpenAI(string $apiKey, string $baseUrl, string $model, array $messages, int $timeout): string {
+    $payload = json_encode([
+        'model'    => $model,
+        'messages' => $messages,
+        'max_completion_tokens' => 2048,
+        'stream'   => false,
+    ]);
+
+    $ch = curl_init(rtrim($baseUrl, '/') . '/chat/completions');
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => $timeout,
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiKey,
+        ],
+    ]);
+
+    $resp      = curl_exec($ch);
+    $curlErr   = curl_error($ch);
+    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($curlErr) {
+        throw new RuntimeException('cURL error: ' . $curlErr);
+    }
+
+    if ($httpCode >= 400) {
+        $decoded = json_decode($resp, true);
+        $apiMsg  = $decoded['error']['message'] ?? $resp;
+        throw new RuntimeException('OpenAI HTTP ' . $httpCode . ': ' . $apiMsg);
+    }
+
+    $decoded = json_decode($resp, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new RuntimeException('OpenAI returned non-JSON: ' . substr($resp, 0, 200));
+    }
+
+    $content = $decoded['choices'][0]['message']['content'] ?? null;
+    if ($content === null) {
+        throw new RuntimeException('OpenAI response missing choices[0].message.content. Raw: ' . substr($resp, 0, 300));
+    }
+
+    return $content;
+}
+
+// ---- request validation ----------------------------------------------------
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    jsonErr('Method not allowed -- use POST', 405);
+}
+
+$raw = file_get_contents('php://input');
+if (!$raw) {
+    jsonErr('Empty request body', 400);
+}
+
+$body = json_decode($raw, true);
+if (json_last_error() !== JSON_ERROR_NONE) {
+    jsonErr('Invalid JSON body: ' . json_last_error_msg(), 400);
+}
+
+$nodes = $body['nodes'] ?? [];
+$edges = $body['edges'] ?? [];
+
+if (!is_array($nodes) || empty($nodes)) {
+    jsonErr('No nodes in flow', 400);
+}
+
+// ---- prepare provider (openai) ---------------------------------------------
+
+try {
+    $openaiCfg = AIConfig::provider('openai');
+} catch (Throwable $e) {
+    jsonErr('Could not load OpenAI config: ' . $e->getMessage(), 500);
+}
+
+$apiKey  = $openaiCfg['api_key'];
+$baseUrl = $openaiCfg['base_url'];
+$timeout = $openaiCfg['timeout'] ?? AI_RUN_TIMEOUT;
+
+// ---- execute flow ----------------------------------------------------------
+
+$nodeMap = [];
+foreach ($nodes as $n) {
+    $nodeMap[$n['id']] = $n;
+}
+
+$ordered = topoSort($nodes, $edges);
+
+$vars    = [];   // variable name -> value
+$memory  = [];   // memory store for memory nodes
+$outputs = [];   // collected output values
+$steps   = [];   // step log
+
+foreach ($ordered as $nodeId) {
+    $node  = $nodeMap[$nodeId] ?? null;
+    if (!$node) continue;
+
+    $type  = $node['type']  ?? 'unknown';
+    $label = $node['label'] ?? $type;
+    $props = $node['props'] ?? [];
+
+    $step = ['id' => $nodeId, 'type' => $type, 'label' => $label, 'result' => ''];
+
+    try {
+        switch ($type) {
+
+            case 'prompt': {
+                $varName = $props['varName'] ?? 'prompt';
+                $text    = $props['text']    ?? '';
+                $vars[$varName] = $text;
+                $step['result'] = 'set $' . $varName . ' = "' . substr($text, 0, 80) . (strlen($text) > 80 ? '...' : '') . '"';
+                break;
+            }
+
+            case 'ai-call': {
+                $provider  = strtolower($props['provider'] ?? 'openai');
+                $model     = $props['model']     ?? 'gpt-4o-mini';
+                $varName   = $props['varName']   ?? 'response';
+                $inputVar  = $props['inputVar']  ?? 'prompt';
+                $systemMsg = $props['system']    ?? 'You are a helpful assistant.';
+
+                // Resolve input text from the variable map.
+                $inputText = $vars[$inputVar] ?? '';
+                if ($inputText === '' && isset($vars['prompt'])) {
+                    $inputText = $vars['prompt'];  // fallback to 'prompt' if inputVar unset
+                }
+
+                if ($inputText === '') {
+                    $step['result'] = 'skipped -- inputVar $' . $inputVar . ' is empty';
+                    $vars[$varName] = '';
+                    break;
+                }
+
+                // Only openai is wired for direct calling.
+                if ($provider !== 'openai') {
+                    $step['result'] = 'provider "' . $provider . '" not supported in ai_run.php -- only openai is wired here';
+                    $step['error']  = 'unsupported provider';
+                    $vars[$varName] = '';
+                    break;
+                }
+
+                $messages = [
+                    ['role' => 'system', 'content' => $systemMsg],
+                    ['role' => 'user',   'content' => $inputText],
+                ];
+
+                $reply = callOpenAI($apiKey, $baseUrl, $model, $messages, $timeout);
+                $vars[$varName]  = $reply;
+                $step['result']  = $reply;
+                $step['model']   = $model;
+                $step['inputLen'] = strlen($inputText);
+                break;
+            }
+
+            case 'condition': {
+                $varName = $props['varName'] ?? '';
+                $value   = $varName !== '' ? ($vars[$varName] ?? '') : '';
+                $branch  = ($value !== '' && $value !== null && $value !== false)
+                    ? ($props['trueLabel']  ?? 'yes')
+                    : ($props['falseLabel'] ?? 'no');
+                $step['result'] = 'branch: ' . $branch . ' (value of $' . $varName . ': "' . substr((string)$value, 0, 60) . '")';
+                break;
+            }
+
+            case 'loop': {
+                $count    = (int)($props['count']    ?? 5);
+                $indexVar = $props['indexVar'] ?? 'i';
+                $step['result'] = 'loop: would iterate ' . $count . ' times using $' . $indexVar . ' (use moon runner for actual iteration)';
+                break;
+            }
+
+            case 'memory': {
+                $op       = $props['op']       ?? 'keep';
+                $varName  = $props['varName']  ?? 'result';
+                $inputVar = $props['inputVar'] ?? '';
+                if ($op === 'recall') {
+                    $recalled       = $memory[$inputVar] ?? '';
+                    $vars[$varName] = $recalled;
+                    $step['result'] = 'recalled $' . $inputVar . ' -> $' . $varName . ': "' . substr($recalled, 0, 60) . '"';
+                } else {
+                    $val           = $vars[$inputVar] ?? ($vars[$varName] ?? '');
+                    $memory[$inputVar ?: $varName] = $val;
+                    $step['result'] = 'kept $' . ($inputVar ?: $varName) . ': "' . substr((string)$val, 0, 60) . '"';
+                }
+                break;
+            }
+
+            case 'tool': {
+                $cmd = $props['command'] ?? '';
+                $step['result'] = 'tool node (no exec in ai_run) -- command: ' . $cmd;
+                break;
+            }
+
+            case 'output': {
+                $varName = $props['varName'] ?? 'response';
+                $value   = $vars[$varName]  ?? '';
+                $outputs[] = $value;
+                $step['result'] = $value;
+                break;
+            }
+
+            default: {
+                $step['result'] = 'unknown node type: ' . $type;
+                $step['error']  = 'unhandled type';
+                break;
+            }
+        }
+    } catch (Throwable $e) {
+        $errMsg = $e->getMessage();
+        error_log('agent-flow/ai_run.php node ' . $nodeId . ' (' . $type . '): ' . $errMsg);
+        $step['error']  = $errMsg;
+        $step['result'] = 'ERROR: ' . $errMsg;
+    }
+
+    $steps[] = $step;
+}
+
+$finalOutput = implode("\n\n", array_filter($outputs, fn($o) => $o !== ''));
+if ($finalOutput === '' && !empty($steps)) {
+    // No output node -- show the last ai-call result or last step result.
+    foreach (array_reverse($steps) as $s) {
+        if (!empty($s['result']) && !isset($s['error'])) {
+            $finalOutput = $s['result'];
+            break;
+        }
+    }
+}
+
+echo json_encode([
+    'ok'     => true,
+    'output' => $finalOutput,
+    'steps'  => $steps,
+]);

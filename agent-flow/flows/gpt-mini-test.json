@@ -1,0 +1,51 @@
+{
+    "nodes": [
+        {
+            "id": "n1",
+            "type": "prompt",
+            "label": "User Prompt",
+            "x": 60,
+            "y": 140,
+            "props": {
+                "varName": "prompt",
+                "text": "What is 7 multiplied by 8? Answer in one short sentence."
+            }
+        },
+        {
+            "id": "n2",
+            "type": "ai-call",
+            "label": "GPT-4o-mini",
+            "x": 300,
+            "y": 140,
+            "props": {
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "varName": "response",
+                "inputVar": "prompt",
+                "system": "You are a concise assistant. Answer as briefly as possible."
+            }
+        },
+        {
+            "id": "n3",
+            "type": "output",
+            "label": "Output",
+            "x": 560,
+            "y": 140,
+            "props": {
+                "varName": "response"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e1",
+            "from": { "nodeId": "n1", "port": "out" },
+            "to":   { "nodeId": "n2", "port": "in"  }
+        },
+        {
+            "id": "e2",
+            "from": { "nodeId": "n2", "port": "out" },
+            "to":   { "nodeId": "n3", "port": "in"  }
+        }
+    ]
+}

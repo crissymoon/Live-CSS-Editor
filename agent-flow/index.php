@@ -57,7 +57,8 @@
     <!-- center: canvas -->
     <main id="canvas-wrap">
         <div id="toolbar">
-            <button id="btn-run"     class="tb-btn tb-primary">Run</button>
+            <button id="btn-run"     class="tb-btn tb-primary">Run (moon)</button>
+            <button id="btn-run-ai"  class="tb-btn tb-ai">Run AI Direct</button>
             <button id="btn-export"  class="tb-btn">Export .moon</button>
             <button id="btn-save"    class="tb-btn">Save Flow</button>
             <button id="btn-clear"   class="tb-btn tb-danger">Clear</button>
@@ -98,8 +99,8 @@
     <pre id="output-stderr" class="err-pre hidden"></pre>
     <pre id="output-moon"   class="moon-pre hidden"></pre>
     <div id="output-tabs">
-        <button class="out-tab active" data-target="output-stdout">stdout</button>
-        <button class="out-tab"        data-target="output-stderr">stderr</button>
+        <button class="out-tab active" data-target="output-stdout">output</button>
+        <button class="out-tab"        data-target="output-stderr">steps / stderr</button>
         <button class="out-tab"        data-target="output-moon">.moon source</button>
     </div>
 </div>
