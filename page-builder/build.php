@@ -22,7 +22,7 @@ function buildErr(string $msg): void {
         exit(1);
     }
     header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => $msg]);
+    echo json_encode(['ok' => false, 'error' => $msg]);
     exit;
 }
 
@@ -200,6 +200,20 @@ function renderBlock(array $block, array $overrides): string {
                     . ' style="' . $style . '"'
                     . ' ' . pbAttrs($id, ['bg', 'color', 'border', 'padding', 'fontSize', 'text']) . '>'
                     . htmlspecialchars($text) . '</a>';
+            }
+            case 'image': {
+                // src and alt can be saved as overrides - read them directly so
+                // they are not emitted into the style string by toStyle()
+                $src = $overrides[$id]['src'] ?? $block['src'] ?? '';
+                $alt = $overrides[$id]['alt'] ?? $block['alt'] ?? '';
+                $style = toStyle($s, ['src', 'alt']);
+                if (isset($s['maxWidth'])) {
+                    $style .= ';max-width:' . htmlspecialchars($s['maxWidth'], ENT_QUOTES);
+                }
+                return '<img src="' . htmlspecialchars($src, ENT_QUOTES) . '"'
+                    . ' alt="' . htmlspecialchars($alt, ENT_QUOTES) . '"'
+                    . ' style="' . $style . '"'
+                    . ' ' . pbAttrs($id, ['src', 'alt', 'width', 'borderRadius', 'opacity']) . '>';
             }
             case 'card': {
                 $cardStyle = 'display:flex;flex-direction:column;gap:' . ($s['gap'] ?? '12px') . ';'
@@ -426,5 +440,5 @@ buildInfo("Done. Written " . number_format($size) . " bytes to: {$outFile}");
 
 if (PHP_SAPI !== 'cli') {
     header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'page' => $page, 'file' => $outFile, 'bytes' => $size]);
+    echo json_encode(['ok' => true, 'page' => $page, 'file' => $outFile, 'bytes' => $size]);
 }

@@ -14,7 +14,7 @@
  *     "value": "#ff0000"
  *   }
  *
- * Response JSON: { "success": true } or { "success": false, "error": "..." }
+ * Response JSON: { "ok": true } or { "ok": false, "error": "..." }
  */
 
 declare(strict_types=1);
@@ -32,12 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 function saveErr(string $msg, int $code = 400): void {
     error_log('[page-builder/save] ERROR: ' . $msg);
     http_response_code($code);
-    echo json_encode(['success' => false, 'error' => $msg]);
+    echo json_encode(['ok' => false, 'error' => $msg]);
     exit;
 }
 
 function saveOk(array $extra = []): void {
-    echo json_encode(array_merge(['success' => true], $extra));
+    echo json_encode(array_merge(['ok' => true], $extra));
     exit;
 }
 

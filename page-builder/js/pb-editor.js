@@ -48,12 +48,20 @@
         lineHeight:    'lineHeight',
         borderRadius:  'borderRadius',
         opacity:       'opacity',
+        width:         'width',
+        height:        'height',
     };
 
     const COLOR_PROPS = new Set(['color', 'bg', 'background', 'borderColor']);
 
+    // Props that are HTML attributes, not CSS properties
+    // applyChange uses setAttribute() for these instead of el.style[]
+    const ATTR_PROPS = new Set(['src', 'alt', 'href', 'title']);
+
     // Props rendered as range sliders
     const RANGE_PROPS = {
+        width:        { min: 40,  max: 1400, step: 4,    unit: 'px' },
+        height:       { min: 40,  max: 1400, step: 4,    unit: 'px' },
         opacity:      { min: 0,   max: 1,    step: 0.01, unit: '' },
         lineHeight:   { min: 0.8, max: 3,    step: 0.1,  unit: '' },
         borderRadius: { min: 0,   max: 80,   step: 1,    unit: 'px' },
@@ -213,6 +221,10 @@
                          'Element:', el.dataset.pbId, '| child count:', el.childElementCount);
                 }
                 el.textContent = value;
+            } else if (ATTR_PROPS.has(prop)) {
+                // HTML attribute - not a CSS property
+                el.setAttribute(prop, value);
+                log('applyChange: setAttribute', prop, '=', value, 'on', el.dataset.pbId);
             } else {
                 const cssProp = CSS_MAP[prop];
                 if (!cssProp) {
@@ -222,7 +234,7 @@
                 let v = value;
                 // Auto-append px for dimensioned props when a bare number is given
                 const pxProps = ['padding', 'paddingTop', 'paddingBottom', 'fontSize',
-                                 'letterSpacing', 'borderRadius'];
+                                 'letterSpacing', 'borderRadius', 'width', 'height'];
                 if (pxProps.includes(prop) && v !== '' && v !== '0' && !isNaN(Number(v))) {
                     v = v + 'px';
                 }
@@ -262,6 +274,76 @@
                     ta.value = el.textContent.trim();
                     ta.addEventListener('input', function () { applyChange(el, 'text', ta.value); });
                     field.appendChild(ta);
+
+                // ---- src: URL text input + file upload ----
+                } else if (prop === 'src') {
+                    var srcInp = document.createElement('input');
+                    srcInp.type        = 'text';
+                    srcInp.value       = el.getAttribute('src') || '';
+                    srcInp.placeholder = '/path/or/https://...';
+                    srcInp.style.marginBottom = '6px';
+                    srcInp.addEventListener('input', function () {
+                        applyChange(el, 'src', srcInp.value);
+                    });
+                    field.appendChild(srcInp);
+
+                    // Upload button row
+                    var uploadRow = document.createElement('div');
+                    uploadRow.style.cssText = 'display:flex;gap:6px;align-items:center;';
+
+                    var fileInput = document.createElement('input');
+                    fileInput.type   = 'file';
+                    fileInput.accept = 'image/*';
+                    fileInput.style.cssText = 'flex:1;font-size:10px;color:#8888a0;background:#13131f;border:1px solid rgba(255,255,255,0.08);padding:4px;';
+
+                    var uploadBtn = document.createElement('button');
+                    uploadBtn.textContent = 'upload';
+                    uploadBtn.style.cssText = 'background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:#a5a5c0;font-family:inherit;font-size:10px;padding:4px 10px;cursor:pointer;';
+
+                    uploadBtn.addEventListener('click', function () {
+                        if (!fileInput.files || !fileInput.files[0]) {
+                            warn('buildFields [src]: no file selected for upload');
+                            setStatus('select a file first', 'pb-status-error');
+                            return;
+                        }
+                        var formData = new FormData();
+                        formData.append('file', fileInput.files[0]);
+                        formData.append('page', PB_CONFIG.page);
+
+                        setStatus('uploading', 'pb-status-saving');
+                        log('uploading file:', fileInput.files[0].name);
+
+                        fetch('/page-builder/upload.php', { method: 'POST', body: formData })
+                            .then(function (res) { return parseJsonResponse(res); })
+                            .then(function (data) {
+                                if (data && data.ok) {
+                                    log('upload ok:', data.url);
+                                    srcInp.value = data.url;
+                                    applyChange(el, 'src', data.url);
+                                } else {
+                                    var msg = (data && data.error) ? data.error : 'unknown upload error';
+                                    setStatus('upload failed', 'pb-status-error');
+                                    err('upload failed:', msg);
+                                }
+                            })
+                            .catch(function (e) {
+                                setStatus('upload network error', 'pb-status-error');
+                                err('upload fetch failed:', e);
+                            });
+                    });
+
+                    uploadRow.appendChild(fileInput);
+                    uploadRow.appendChild(uploadBtn);
+                    field.appendChild(uploadRow);
+
+                // ---- HTML attribute: plain text input (alt, href, title, etc.) ----
+                } else if (ATTR_PROPS.has(prop)) {
+                    var attrInp = document.createElement('input');
+                    attrInp.type        = 'text';
+                    attrInp.value       = el.getAttribute(prop) || '';
+                    attrInp.placeholder = prop;
+                    attrInp.addEventListener('input', function () { applyChange(el, prop, attrInp.value); });
+                    field.appendChild(attrInp);
 
                 // ---- color swatch + hex input ----
                 } else if (COLOR_PROPS.has(prop)) {

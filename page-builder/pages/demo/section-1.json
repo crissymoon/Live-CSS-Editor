@@ -11,6 +11,19 @@
   },
   "blocks": [
     {
+      "id":   "hero-image",
+      "type": "image",
+      "src":  "/page-builder/assets/ava-moon.png",
+      "alt":  "ava moon",
+      "settings": {
+        "width":        "100%",
+        "maxWidth":     "480px",
+        "borderRadius": "8px",
+        "display":      "block",
+        "marginBottom": "8px"
+      }
+    },
+    {
       "id":   "hero-label",
       "type": "text",
       "tag":  "p",
