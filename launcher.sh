@@ -495,18 +495,11 @@ case "$CHOICE" in
 
     8)
         printf "\n"
-        if [[ -d "/Users/mac/Documents/literature-in-ascii/.git" ]]; then
-            _push_repo \
-                "/Users/mac/Documents/literature-in-ascii" \
-                "co-edit-model/gramcheck" \
-                "Update gramcheck" \
-                "gram-model"
-        else
-            printf "  ${C_RED}ERROR: literature-in-ascii is not a git repo${R}\n" >&2
-            printf "  ${C_GREY}gramcheck source lives at: /Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck${R}\n" >&2
-            printf "  ${C_GREY}Run: cd /Users/mac/Documents/literature-in-ascii && git init  to initialise it${R}\n" >&2
-            printf "  ${C_YELLOW}Skipping gram-model push -- moon-lang/gramcheck in xcm-editor is gitignored (binary)${R}\n" >&2
-        fi
+        _push_repo \
+            "/Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck" \
+            "." \
+            "Update gramcheck" \
+            "gram-model"
         printf "\n"; read -r "?Press ENTER to return..."; exec "$0"
         ;;
 
@@ -552,19 +545,12 @@ case "$CHOICE" in
 
         # ---- 3: gram-model ------------------------------------
         step "3 / 3  gram-model..."
-        if [[ -d "/Users/mac/Documents/literature-in-ascii/.git" ]]; then
-            _push_repo \
-                "/Users/mac/Documents/literature-in-ascii" \
-                "co-edit-model/gramcheck" \
-                "${ALL_MSG:-Update gramcheck}" \
-                "gram-model" \
-                "no" || PUSH_ERRORS=$((PUSH_ERRORS + 1))
-        else
-            printf "  ${C_RED}ERROR: literature-in-ascii is not a git repo -- skipping gram-model${R}\n" >&2
-            printf "  ${C_GREY}gramcheck source: /Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck${R}\n" >&2
-            printf "  ${C_GREY}moon-lang/gramcheck in xcm-editor is gitignored (binary) -- nothing to commit there${R}\n" >&2
-            PUSH_ERRORS=$((PUSH_ERRORS + 1))
-        fi
+        _push_repo \
+            "/Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck" \
+            "." \
+            "${ALL_MSG:-Update gramcheck}" \
+            "gram-model" \
+            "no" || PUSH_ERRORS=$((PUSH_ERRORS + 1))
 
         printf "\n"
         if [[ $PUSH_ERRORS -eq 0 ]]; then
