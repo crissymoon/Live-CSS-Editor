@@ -1,0 +1,4 @@
+# Saved agent flows go here (JSON files).
+# This file keeps the directory tracked in git.
+# Individual .json files in this directory may contain project-specific data --
+# consider adding flows/*.json to .gitignore if flow content is sensitive.
