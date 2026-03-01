@@ -157,7 +157,15 @@ function renderHeader(array $h, array $overrides): string {
             . htmlspecialchars($itext) . '</a></li>';
     }
 
-    return '<header data-pb-section="header" ' . pbAttrs('__header', ['bg', 'borderColor', 'height']) . ' style="' . $headerStyle . '">'
+    $navCollapseAt = (int)($h['navSettings']['navCollapseAt'] ?? 640);
+
+    // Hamburger button - shown by pb-responsive.js via CSS class toggle
+    $hamburger = '<button class="pb-hamburger" aria-label="Toggle navigation" aria-expanded="false">'
+        . '<span></span><span></span><span></span>'
+        . '</button>';
+
+    return '<header data-pb-section="header" data-pb-nav-collapse="' . $navCollapseAt . '"'
+        . ' ' . pbAttrs('__header', ['bg', 'borderColor', 'height']) . ' style="' . $headerStyle . '">'
         . '<div style="' . $innerStyle . '">'
         . '<a href="' . htmlspecialchars($b['href'] ?? '/', ENT_QUOTES) . '"'
         . ' style="' . $brandStyle . '"'
@@ -165,6 +173,7 @@ function renderHeader(array $h, array $overrides): string {
         . htmlspecialchars($brandText) . '</a>'
         . '<nav><ul style="list-style:none;display:flex;gap:' . ($ns['gap'] ?? '6px') . ';margin:0;padding:0;">'
         . $navItems . '</ul></nav>'
+        . $hamburger
         . '</div></header>';
 }
 
@@ -260,8 +269,8 @@ function renderSection(array $sec, array $overrides): string {
     }
 
     if ($layout === 'row' && $columns > 1) {
-        $gridStyle = 'display:grid;grid-template-columns:repeat(' . $columns . ',1fr);gap:' . htmlspecialchars($gap, ENT_QUOTES) . ';';
-        $blocksHtml = '<div style="' . $gridStyle . '">';
+        $gridStyle  = 'display:grid;grid-template-columns:repeat(' . $columns . ',1fr);gap:' . htmlspecialchars($gap, ENT_QUOTES) . ';';
+        $blocksHtml = '<div class="pb-grid" data-pb-cols="' . $columns . '" style="' . $gridStyle . '">';
         foreach ($sec['blocks'] ?? [] as $block) {
             $blocksHtml .= renderBlock($block, $overrides);
         }
@@ -275,7 +284,18 @@ function renderSection(array $sec, array $overrides): string {
         $blocksHtml .= '</div>';
     }
 
+    // Build data-pb-responsive attribute from the JSON 'responsive' config key
+    $responsiveCfg = $sec['responsive'] ?? [];
+    $responsiveAttr = '';
+    if (!empty($responsiveCfg) && is_array($responsiveCfg)) {
+        $rJson = json_encode($responsiveCfg);
+        if ($rJson) {
+            $responsiveAttr = ' data-pb-responsive="' . htmlspecialchars($rJson, ENT_QUOTES) . '"';
+        }
+    }
+
     return '<section id="' . htmlspecialchars($id, ENT_QUOTES) . '" data-pb-section="' . htmlspecialchars($id, ENT_QUOTES) . '"'
+        . $responsiveAttr
         . ' ' . pbAttrs($id, ['bg', 'padding']) . ' style="' . $wrapStyle . '">'
         . '<div style="' . $innerStyle . '">'
         . $headingHtml
@@ -347,10 +367,19 @@ function buildHtmlShell(string $body, string $pageTitle, array $allSettings): st
 body { background: {$headerBg}; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; }
 a { transition: color 0.16s, background 0.16s, border-color 0.16s; }
 ul { list-style: none; }
-@media (max-width: 700px) {
-  nav ul { gap: 2px !important; }
-  [data-pb-section="hero"] { padding: 60px 16px 48px !important; }
-  [data-pb-section="features"] .pb-grid { grid-template-columns: 1fr !important; }
+@media (max-width: 900px) {
+  .pb-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 640px) {
+  .pb-grid { grid-template-columns: 1fr !important; }
+  [data-pb-section] { padding-left: 16px !important; padding-right: 16px !important; }
+  .pb-hamburger { display: flex !important; }
+  header nav ul { display: none; }
+  header.pb-nav-open nav ul { display: flex !important; flex-direction: column; position: absolute; top: 56px; left: 0; right: 0; background: #0d0d18; border-bottom: 1px solid rgba(99,102,241,0.25); padding: 8px 0; z-index: 200; }
+  header.pb-nav-open nav ul li a { display: block; padding: 10px 20px !important; border: none !important; }
+  header { position: relative !important; }
+  h1 { font-size: clamp(28px, 8vw, 48px) !important; line-height: 1.2 !important; }
+  p  { font-size: clamp(14px, 4vw, 18px)  !important; }
   footer .footer-inner { flex-direction: column; align-items: flex-start; }
 }
 </style>

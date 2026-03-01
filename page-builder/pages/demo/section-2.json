@@ -2,6 +2,9 @@
   "type":   "section",
   "id":     "features",
   "layout": "row",
+  "responsive": {
+    "collapseAt": 640
+  },
   "settings": {
     "bg":        "#16162b",
     "padding":   "80px 32px",

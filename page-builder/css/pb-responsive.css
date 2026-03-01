@@ -1,0 +1,150 @@
+/* page-builder/css/pb-responsive.css
+ * Responsive classes applied by pb-responsive.js via ResizeObserver.
+ * These only activate in the watcher (editor preview). The built page
+ * uses the @media rules embedded by build.php for standalone viewing.
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Grid collapse                                                       */
+/* ------------------------------------------------------------------ */
+
+/* When pb-responsive.js adds .pb-collapsed to a section the multi-     */
+/* column grid inside it stacks to a single column.                     */
+.pb-collapsed .pb-grid {
+    grid-template-columns: 1fr !important;
+}
+
+/* Give collapsed column-layout sections tighter padding */
+.pb-collapsed {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Breakpoint classes - opt-in per-section overrides                  */
+/* ------------------------------------------------------------------ */
+/* pb-xs = container <= 480px  */
+/* pb-sm = container <= 640px  */
+/* pb-md = container <= 900px  */
+/* pb-lg = container <= 1200px */
+/* pb-xl = above all thresholds */
+
+.pb-sm h1, .pb-xs h1 {
+    font-size: clamp(28px, 7vw, 48px) !important;
+    line-height: 1.2 !important;
+}
+
+.pb-sm p, .pb-xs p {
+    font-size: clamp(14px, 3.5vw, 18px) !important;
+}
+
+/* Stack flex children on very small containers */
+.pb-xs [style*="flex-direction: column"] > * {
+    max-width: 100% !important;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hamburger button                                                    */
+/* ------------------------------------------------------------------ */
+
+.pb-hamburger {
+    display: none;               /* hidden at full width */
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 6px 8px;
+    cursor: pointer;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
+.pb-hamburger span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: #a5a5c0;
+    transition: transform 0.18s, opacity 0.18s;
+}
+
+/* Animate to X when open */
+header.pb-nav-open .pb-hamburger span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+}
+header.pb-nav-open .pb-hamburger span:nth-child(2) {
+    opacity: 0;
+}
+header.pb-nav-open .pb-hamburger span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Nav collapse state                                                  */
+/* ------------------------------------------------------------------ */
+
+/* When the header is narrow, show the hamburger and hide inline nav */
+header.pb-nav-collapsed .pb-hamburger {
+    display: flex;
+}
+
+header.pb-nav-collapsed nav ul {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 56px;     /* matches default header height */
+    left: 0;
+    right: 0;
+    background: #0d0d18;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.25);
+    padding: 8px 0;
+    z-index: 200;
+    gap: 0 !important;
+}
+
+header.pb-nav-collapsed nav ul li a {
+    display: block;
+    padding: 10px 20px !important;
+    border: none !important;
+    font-size: 13px !important;
+    letter-spacing: 0.06em;
+}
+
+header.pb-nav-collapsed nav ul li a:hover {
+    background: rgba(99, 102, 241, 0.08);
+}
+
+/* Show nav when menu is open */
+header.pb-nav-collapsed.pb-nav-open nav {
+    position: relative;   /* so the absolute ul is positioned from the header */
+}
+
+header.pb-nav-collapsed.pb-nav-open nav ul {
+    display: flex;
+}
+
+/* Header needs position:relative for absolute dropdown */
+header.pb-nav-collapsed {
+    position: relative !important;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toolbar breakpoint badge                                            */
+/* ------------------------------------------------------------------ */
+
+#pb-breakpoint {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #8888a0;
+    background: #13131f;
+    white-space: nowrap;
+}
+
+#pb-breakpoint[data-bp="xs"] { border-color: rgba(239, 68,  68,  0.4); color: #ef4444; }
+#pb-breakpoint[data-bp="sm"] { border-color: rgba(245, 158, 11,  0.4); color: #f59e0b; }
+#pb-breakpoint[data-bp="md"] { border-color: rgba(99,  102, 241, 0.4); color: #818cf8; }
+#pb-breakpoint[data-bp="lg"] { border-color: rgba(16,  185, 129, 0.4); color: #34d399; }
+#pb-breakpoint[data-bp="xl"] { border-color: rgba(255, 255, 255, 0.1); color: #5555a0; }

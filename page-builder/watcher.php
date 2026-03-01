@@ -101,6 +101,7 @@ $toolbar = <<<HTML
   <span style="color:#444;margin:0 2px;">|</span>
   <span id="pb-edit-status" style="color:#10b981;font-size:10px;">right-click any element to edit</span>
   <div style="flex:1;"></div>
+  <span id="pb-breakpoint" data-bp="xl" title="Current viewport breakpoint">xl</span>
   <button onclick="PBEditor.rebuild()" style="background:#1a1a2e;color:#8888a0;border:1px solid rgba(255,255,255,0.08);padding:4px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:0.06em;">Rebuild</button>
   <button onclick="PBEditor.reset()" style="background:#1a1a2e;color:#ef4444;border:1px solid rgba(239,68,68,0.3);padding:4px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:0.06em;">Reset</button>
   <a href="index.php" style="background:#1a1a2e;color:#8888a0;border:1px solid rgba(255,255,255,0.08);padding:4px 12px;text-decoration:none;font-size:10px;letter-spacing:0.06em;">Back</a>
@@ -109,18 +110,20 @@ $toolbar = <<<HTML
 HTML;
 
 // Inject assets before </head>
-$editorCssTag = '<link rel="stylesheet" href="' . $scriptBase . '/css/pb-editor.css">';
-$html = str_replace('</head>', $editorCssTag . "\n</head>", $html);
+$editorCssTag    = '<link rel="stylesheet" href="' . $scriptBase . '/css/pb-editor.css">';
+$responsiveCssTag = '<link rel="stylesheet" href="' . $scriptBase . '/css/pb-responsive.css">';
+$html = str_replace('</head>', $editorCssTag . "\n" . $responsiveCssTag . "\n</head>", $html);
 
-// Inject toolbar and editor script before </body>
-$editorJsTag = '<script src="' . $scriptBase . '/js/pb-editor.js"></script>';
+// Inject toolbar and editor + responsive scripts before </body>
+$editorJsTag    = '<script src="' . $scriptBase . '/js/pb-editor.js"></script>';
+$responsiveJsTag = '<script src="' . $scriptBase . '/js/pb-responsive.js"></script>';
 $pbConfig    = '<script>window.PB_CONFIG = ' . json_encode([
     'page'    => $page,
     'saveUrl' => $scriptBase . '/save.php',
 ]) . ';</script>';
 
 $html = str_replace('<body>', '<body>' . "\n" . $toolbar, $html);
-$html = str_replace('</body>', $pbConfig . "\n" . $editorJsTag . "\n</body>", $html);
+$html = str_replace('</body>', $pbConfig . "\n" . $editorJsTag . "\n" . $responsiveJsTag . "\n</body>", $html);
 
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: no-store');

@@ -26,23 +26,26 @@
     // -------------------------------------------------------------------------
     // Config
     // -------------------------------------------------------------------------
-    var BRIDGE_URL       = '/vscode-bridge/api/bridge.php';
-    var SHEETS_BASE      = '/style-sheets/';
-    var PUSH_INTERVAL_MS = 5000;
-    var POLL_INTERVAL_MS = 3000;
-    var REFRESH_INTERVAL_MS = 2000;
-    var STORAGE_KEY      = 'bridgeSync_enabled';
-    var TOGGLE_BTN_ID    = 'vscodeBridgeToggle';
+    var BRIDGE_URL             = '/vscode-bridge/api/bridge.php';
+    var SHEETS_BASE             = '/style-sheets/';
+    var PUSH_INTERVAL_MS        = 5000;
+    var POLL_INTERVAL_MS        = 3000;
+    var REFRESH_INTERVAL_MS     = 2000;
+    var WIREFRAME_POLL_INTERVAL = 3500;  // slightly offset from CSS poll to avoid piling up
+    var STORAGE_KEY             = 'bridgeSync_enabled';
+    var TOGGLE_BTN_ID           = 'vscodeBridgeToggle';
+    var WF_LS_KEY               = 'livecss_wireframe_v1';
 
     // -------------------------------------------------------------------------
     // Internal state
     // -------------------------------------------------------------------------
-    var _enabled     = false;
-    var _pushTimer   = null;
-    var _pollTimer   = null;
-    var _refreshTimer = null;
-    var _pushBounce  = null;
-    var _initialized = false;
+    var _enabled          = false;
+    var _pushTimer        = null;
+    var _pollTimer        = null;
+    var _refreshTimer     = null;
+    var _wireframeTimer   = null;
+    var _pushBounce       = null;
+    var _initialized      = false;
 
     // -------------------------------------------------------------------------
     // Logging - always emit to console so nothing is invisible
@@ -108,6 +111,17 @@
         } catch (e) {
             err('getSavedProjects exception: ' + e.message);
             return {};
+        }
+    }
+
+    function getWireframeState() {
+        try {
+            var raw = localStorage.getItem(WF_LS_KEY);
+            if (!raw) return null;
+            return JSON.parse(raw);
+        } catch (e) {
+            err('getWireframeState: ' + e.message);
+            return null;
         }
     }
 
@@ -203,7 +217,25 @@
             html:        getHTMLPreview(),
             activeSheet: getActiveSheet(),
             projects:    getSavedProjects(),
+            wireframe:   getWireframeState(),
         };
+
+        // Separately push wireframe to its own endpoint so it is always up to date
+        var wfState = payload.wireframe;
+        if (wfState && Array.isArray(wfState.elements) && wfState.elements.length) {
+            fetch(BRIDGE_URL + '?action=push_wireframe', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(wfState),
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && !data.success) {
+                    warn('push_wireframe: ' + (data.error || JSON.stringify(data)));
+                }
+            })
+            .catch(function (e) { err('push_wireframe network error: ' + e.message); });
+        }
 
         fetch(BRIDGE_URL + '?action=push_session', {
             method:  'POST',
@@ -295,6 +327,79 @@
     }
 
     // -------------------------------------------------------------------------
+    // Apply wireframe update from Copilot into the canvas
+    // -------------------------------------------------------------------------
+    function applyWireframeUpdate(state) {
+        try {
+            var wf = global.LiveCSS && global.LiveCSS.wireframe;
+            if (!wf || typeof wf.loadState !== 'function') {
+                warn('applyWireframeUpdate: LiveCSS.wireframe.loadState not available - is the wireframe tool loaded?');
+                return;
+            }
+            var ok = wf.loadState(state);
+            if (ok) {
+                console.warn('[BridgeSync] Copilot updated the wireframe canvas (' + (state.elements ? state.elements.length : 0) + ' elements)');
+                document.dispatchEvent(new CustomEvent('bridgeWireframeUpdated', { detail: { state: state, by: 'vscode-copilot' } }));
+            } else {
+                warn('applyWireframeUpdate: loadState returned false - bad payload?');
+                console.error('[BridgeSync] applyWireframeUpdate: wireframe payload was rejected. Raw state logged below.');
+                console.error(state);
+            }
+        } catch (e) {
+            err('applyWireframeUpdate exception: ' + e.message);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Poll bridge for wireframe changes made by Copilot
+    // -------------------------------------------------------------------------
+    function pollWireframeChanges() {
+        if (!_enabled) return;
+
+        fetch(BRIDGE_URL + '?action=poll_wireframe_changes', { method: 'GET', cache: 'no-store' })
+        .then(function (res) {
+            if (!res.ok) {
+                return res.text().then(function (t) {
+                    err('poll_wireframe_changes HTTP ' + res.status + ': ' + t);
+                });
+            }
+            return res.json().then(function (data) {
+                if (!data) { err('poll_wireframe_changes: empty response'); return; }
+                if (!data.success) { warn('poll_wireframe_changes: ' + (data.error || 'unknown')); return; }
+                if (data.hasChanges && data.state) {
+                    ackWireframeChange();
+                    applyWireframeUpdate(data.state);
+                }
+            });
+        })
+        .catch(function (e) {
+            err('poll_wireframe_changes network error: ' + e.message);
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Acknowledge wireframe change so next poll does not re-apply it
+    // -------------------------------------------------------------------------
+    function ackWireframeChange() {
+        fetch(BRIDGE_URL + '?action=ack_wireframe', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ acked: true }),
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (data && data.success) {
+                log('Wireframe change acknowledged');
+            } else {
+                warn('ack_wireframe unexpected response: ' + JSON.stringify(data));
+            }
+        })
+        .catch(function (e) {
+            err('ackWireframeChange network error: ' + e.message);
+        });
+    }
+
+    // -------------------------------------------------------------------------
     // Acknowledge so the next poll does not re-trigger the same change
     // -------------------------------------------------------------------------
     function acknowledgeChange() {
@@ -367,18 +472,20 @@
     function startIntervals() {
         if (_pushTimer || _pollTimer) { warn('startIntervals: already running'); return; }
         pushSession(); // immediate push so Copilot has current state right away
-        _pushTimer    = setInterval(pushSession,   PUSH_INTERVAL_MS);
-        _pollTimer    = setInterval(pollChanges,   POLL_INTERVAL_MS);
-        _refreshTimer = setInterval(pollRefresh,   REFRESH_INTERVAL_MS);
-        log('Intervals started (push=' + PUSH_INTERVAL_MS + 'ms, poll=' + POLL_INTERVAL_MS + 'ms, refresh=' + REFRESH_INTERVAL_MS + 'ms)');
+        _pushTimer      = setInterval(pushSession,           PUSH_INTERVAL_MS);
+        _pollTimer      = setInterval(pollChanges,           POLL_INTERVAL_MS);
+        _refreshTimer   = setInterval(pollRefresh,           REFRESH_INTERVAL_MS);
+        _wireframeTimer = setInterval(pollWireframeChanges,  WIREFRAME_POLL_INTERVAL);
+        log('Intervals started (push=' + PUSH_INTERVAL_MS + 'ms, poll=' + POLL_INTERVAL_MS + 'ms, refresh=' + REFRESH_INTERVAL_MS + 'ms, wireframe=' + WIREFRAME_POLL_INTERVAL + 'ms)');
     }
 
     function stopIntervals() {
         clearInterval(_pushTimer);
         clearInterval(_pollTimer);
         clearInterval(_refreshTimer);
+        clearInterval(_wireframeTimer);
         clearTimeout(_pushBounce);
-        _pushTimer = _pollTimer = _refreshTimer = _pushBounce = null;
+        _pushTimer = _pollTimer = _refreshTimer = _wireframeTimer = _pushBounce = null;
         log('Intervals stopped');
     }
 
@@ -431,7 +538,7 @@
         },
 
         // Manually trigger a change poll
-        poll: function () { pollChanges(); },
+        poll: function () { pollChanges(); pollWireframeChanges(); },
 
         configure: function (opts) {
             if (!opts) return;

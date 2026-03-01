@@ -26,10 +26,12 @@ import { execSync }           from 'child_process';
 const __dirname   = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const SHEETS_DIR   = path.join(PROJECT_ROOT, 'style-sheets');
-const SESSION_FILE = path.join(__dirname, '..', 'data', 'session.json');
-const CHANGES_FILE = path.join(__dirname, '..', 'data', 'pending-changes.json');
-const REFRESH_FILE = path.join(__dirname, '..', 'data', 'refresh-signal.json');
-const DEBUG_DB     = path.join(PROJECT_ROOT, 'debug-tool', 'db', 'errors.db');
+const SESSION_FILE           = path.join(__dirname, '..', 'data', 'session.json');
+const CHANGES_FILE           = path.join(__dirname, '..', 'data', 'pending-changes.json');
+const REFRESH_FILE           = path.join(__dirname, '..', 'data', 'refresh-signal.json');
+const DEBUG_DB               = path.join(PROJECT_ROOT, 'debug-tool', 'db', 'errors.db');
+const WIREFRAME_FILE         = path.join(__dirname, '..', 'data', 'wireframe.json');
+const WIREFRAME_CHANGES_FILE = path.join(__dirname, '..', 'data', 'wireframe-changes.json');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -370,7 +372,20 @@ HOW THE VSCODE BRIDGE WORKS:
   2. read_stylesheet       - read any named theme file
   3. update_stylesheet     - write Copilot's changes back to disk
   4. search_css            - find where a selector or property is defined
-  5. list_debug_tickets    - see open error tickets
+  5. read_wireframe        - read the current wireframe layout (elements, positions, colors)
+  6. update_wireframe      - push revised wireframe JSON; browser picks it up live
+  7. list_debug_tickets    - see open error tickets
+  8. refresh_preview       - trigger a full page reload in the browser
+
+WIREFRAME WORKFLOW:
+  The wireframe tool in Crissy Style Tool lets the user sketch layout boxes on a
+  1200x900 canvas. Each box has x, y, w, h, label, bgColor, borderColor, padding,
+  and margin. Boxes can be nested (parentId). Guides (ruler lines) can also be added.
+
+  To assist with wireframes:
+  1. Call read_wireframe to see what is on the canvas.
+  2. Describe the layout, suggest CSS, or generate new element positions.
+  3. Call update_wireframe with the revised JSON to apply changes to the canvas.
 
 TYPICAL WORKFLOW:
   User: "Review my dark-neu.css and tighten the spacing"
@@ -378,6 +393,9 @@ TYPICAL WORKFLOW:
 
   User: "What is the current background color?"
   Copilot: read_active_session() or search_css("background")
+
+  User: "Help me lay out a three-column feature section"
+  Copilot: read_wireframe() -> add/reposition elements -> update_wireframe(...)
 
   User: "There is a bug with the scrollbar"
   Copilot: list_debug_tickets() -> analyzes -> suggests fix
@@ -388,6 +406,138 @@ TYPICAL WORKFLOW:
         } catch (err) {
             console.error(`[MCP] describe_tool error: ${err.message}`);
             return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+// ---------------------------------------------------------------------------
+// Tool: read_wireframe
+// ---------------------------------------------------------------------------
+server.tool(
+    'read_wireframe',
+    'Read the current wireframe layout from Crissy Style Tool. Returns a human-readable element tree and the raw JSON. Use this to understand what the user has sketched before suggesting layout or CSS changes.',
+    {},
+    async () => {
+        try {
+            const wf = readJson(WIREFRAME_FILE);
+            if (!wf) {
+                return {
+                    content: [{
+                        type: 'text',
+                        text: 'No wireframe found. Open the wireframe tool in Crissy Style Tool and add some elements. The bridge sync will push the state here automatically.',
+                    }],
+                };
+            }
+
+            const CANVAS_W = 1200;
+            const CANVAS_H = 900;
+            const elements = wf.elements || [];
+            const guides   = wf.guides   || [];
+
+            const lines = [
+                `Wireframe - ${elements.length} element(s)`,
+                `Canvas: ${CANVAS_W}px x ${CANVAS_H}px`,
+                `Last updated: ${wf.pushedAt || wf.updatedAt || 'unknown'}`,
+                `Source: ${wf.source || 'browser'}`,
+                '',
+            ];
+
+            // Build id->el map for quick parent lookup
+            const byId = {};
+            elements.forEach(e => { byId[e.id] = e; });
+
+            function describeEl(el, depth) {
+                const pad  = '  '.repeat(depth);
+                const kids = elements.filter(e => e.parentId === el.id);
+                lines.push(`${pad}[${el.id}] "${el.label || 'Box'}"`
+                    + `  x:${el.x} y:${el.y} w:${el.w} h:${el.h}`
+                    + `  bg:${el.bgColor || 'n/a'} border:${el.borderColor || 'n/a'}${el.borderWidth ? ' ' + el.borderWidth + 'px' : ''}`
+                    + (el.borderRadius ? ` radius:${el.borderRadius}px` : '')
+                    + (el.parentId ? ` (child of ${el.parentId})` : ''));
+                kids.forEach(k => describeEl(k, depth + 1));
+            }
+
+            const roots = elements.filter(e => !e.parentId);
+            if (roots.length === 0 && elements.length > 0) {
+                // Fallback - just list all
+                elements.forEach(e => describeEl(e, 0));
+            } else {
+                roots.forEach(e => describeEl(e, 0));
+            }
+
+            if (guides.length) {
+                lines.push('');
+                lines.push('Guides:');
+                guides.forEach(g => lines.push(`  ${g.axis === 'h' ? 'horizontal' : 'vertical'} at ${g.pos}px`));
+            }
+
+            lines.push('');
+            lines.push('--- Raw wireframe JSON ---');
+            lines.push(JSON.stringify(wf, null, 2));
+
+            console.error(`[MCP] read_wireframe: ${elements.length} elements, ${guides.length} guides`);
+            return { content: [{ type: 'text', text: lines.join('\n') }] };
+        } catch (err) {
+            console.error(`[MCP] read_wireframe error: ${err.message}`);
+            return { content: [{ type: 'text', text: `Error reading wireframe: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+// ---------------------------------------------------------------------------
+// Tool: update_wireframe
+// ---------------------------------------------------------------------------
+server.tool(
+    'update_wireframe',
+    'Write updated wireframe JSON back to Crissy Style Tool. The browser will pick up the change within seconds via the bridge poll. Pass the full wireframe JSON (same shape as read_wireframe returns in the raw JSON block). Useful for adding, removing, or repositioning elements programmatically.',
+    {
+        wireframeJson: z.string().min(2).describe('Full wireframe JSON string with { version, nextId, nextGuideId, elements: [...], guides: [...] }'),
+    },
+    async ({ wireframeJson }) => {
+        try {
+            let wf;
+            try {
+                wf = JSON.parse(wireframeJson);
+            } catch (parseErr) {
+                console.error(`[MCP] update_wireframe: JSON parse error: ${parseErr.message}`);
+                return { content: [{ type: 'text', text: `Invalid JSON: ${parseErr.message}` }], isError: true };
+            }
+
+            if (!wf || !Array.isArray(wf.elements)) {
+                return { content: [{ type: 'text', text: 'Invalid wireframe: missing .elements array.' }], isError: true };
+            }
+
+            const payload = {
+                version:     wf.version     ?? 1,
+                nextId:      wf.nextId      ?? (wf.elements.length + 1),
+                nextGuideId: wf.nextGuideId ?? 1,
+                elements:    wf.elements,
+                guides:      Array.isArray(wf.guides) ? wf.guides : [],
+                updatedAt:   new Date().toISOString().replace('T', ' ').slice(0, 19),
+                source:      'copilot',
+            };
+
+            // Write canonical wireframe
+            ensureDir(path.dirname(WIREFRAME_FILE));
+            fs.writeFileSync(WIREFRAME_FILE, JSON.stringify(payload, null, 2), 'utf8');
+
+            // Signal the browser to pick up the change
+            ensureDir(path.dirname(WIREFRAME_CHANGES_FILE));
+            fs.writeFileSync(WIREFRAME_CHANGES_FILE, JSON.stringify({
+                updatedAt: payload.updatedAt,
+                by:        'vscode-copilot',
+            }), 'utf8');
+
+            console.error(`[MCP] update_wireframe: wrote ${payload.elements.length} elements, signalling browser`);
+            return {
+                content: [{
+                    type: 'text',
+                    text: `Wireframe updated (${payload.elements.length} element(s)). The browser will reload the wireframe canvas within 3 seconds if bridge sync is ON.`,
+                }],
+            };
+        } catch (err) {
+            console.error(`[MCP] update_wireframe error: ${err.message}`);
+            return { content: [{ type: 'text', text: `Error updating wireframe: ${err.message}` }], isError: true };
         }
     }
 );

@@ -1218,6 +1218,41 @@ window.LiveCSS.wireframe = (function () {
         });
     }
 
-    return { init: init };
+    /* ── Bridge API: read current state ────────────────────── */
+    function getState() {
+        return {
+            version:     1,
+            nextId:      nextId,
+            nextGuideId: nextGuideId,
+            elements:    elements,
+            guides:      guides
+        };
+    }
+
+    /* ── Bridge API: apply state from Copilot / MCP ─────────
+       Accepts the same JSON shape as saveToStorage / loadFromStorage.
+       Returns true on success, false on bad payload.               */
+    function loadState(data) {
+        try {
+            if (!data || !Array.isArray(data.elements)) {
+                console.warn('[wireframe] loadState: invalid payload - expected .elements array');
+                return false;
+            }
+            elements    = data.elements;
+            nextId      = data.nextId      || (elements.length + 1);
+            guides      = Array.isArray(data.guides) ? data.guides : [];
+            nextGuideId = data.nextGuideId || (guides.length + 1);
+            selId       = null;
+            saveToStorage();
+            render();
+            console.log('[wireframe] loadState: applied ' + elements.length + ' element(s) from bridge update');
+            return true;
+        } catch (e) {
+            console.error('[wireframe] loadState exception: ' + e.message);
+            return false;
+        }
+    }
+
+    return { init: init, getState: getState, loadState: loadState };
 
 }());

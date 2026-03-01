@@ -32,10 +32,13 @@ define('BRIDGE_DATA_DIR',
         ? rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . '/../../vscode-bridge/data'
         : __DIR__ . '/../data'
 );
-define('SESSION_FILE',      BRIDGE_DATA_DIR . '/session.json');
-define('CHANGES_FILE',      BRIDGE_DATA_DIR . '/pending-changes.json');
-define('CHANGES_ACK_FILE',  BRIDGE_DATA_DIR . '/changes-ack.json');
-define('REFRESH_FILE',      BRIDGE_DATA_DIR . '/refresh-signal.json');
+define('SESSION_FILE',           BRIDGE_DATA_DIR . '/session.json');
+define('CHANGES_FILE',           BRIDGE_DATA_DIR . '/pending-changes.json');
+define('CHANGES_ACK_FILE',       BRIDGE_DATA_DIR . '/changes-ack.json');
+define('REFRESH_FILE',           BRIDGE_DATA_DIR . '/refresh-signal.json');
+define('WIREFRAME_FILE',         BRIDGE_DATA_DIR . '/wireframe.json');
+define('WIREFRAME_CHANGES_FILE', BRIDGE_DATA_DIR . '/wireframe-changes.json');
+define('WIREFRAME_ACK_FILE',     BRIDGE_DATA_DIR . '/wireframe-ack.json');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -198,6 +201,112 @@ try {
         writeJsonFile(REFRESH_FILE, ['refresh' => false, 'clearedAt' => date('Y-m-d H:i:s')]);
         error_log('[VSCodeBridge] poll_refresh: signalling browser to reload (was set at ' . ($sig['requestedAt'] ?? '?') . ')');
         jsonOut(['success' => true, 'shouldRefresh' => true, 'requestedAt' => $sig['requestedAt'] ?? '']);
+    }
+
+    // -- POST ?action=push_wireframe
+    // Browser sends the current wireframe JSON so MCP/Copilot can read it
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'push_wireframe') {
+        $body = readBody();
+        if (empty($body)) {
+            error_log('[VSCodeBridge] push_wireframe: empty body');
+            jsonOut(['success' => false, 'error' => 'Empty body'], 400);
+        }
+        if (!isset($body['elements']) || !is_array($body['elements'])) {
+            jsonOut(['success' => false, 'error' => 'Missing elements array'], 400);
+        }
+        $payload = [
+            'version'     => $body['version']     ?? 1,
+            'nextId'      => $body['nextId']      ?? 1,
+            'nextGuideId' => $body['nextGuideId'] ?? 1,
+            'elements'    => $body['elements'],
+            'guides'      => $body['guides']      ?? [],
+            'pushedAt'    => date('Y-m-d H:i:s'),
+            'source'      => 'browser',
+        ];
+        $ok = writeJsonFile(WIREFRAME_FILE, $payload);
+        if (!$ok) {
+            jsonOut(['success' => false, 'error' => 'Could not write wireframe file'], 500);
+        }
+        error_log('[VSCodeBridge] push_wireframe: stored ' . count($body['elements']) . ' element(s)');
+        jsonOut(['success' => true, 'pushedAt' => $payload['pushedAt']]);
+    }
+
+    // -- GET ?action=read_wireframe
+    // Read stored wireframe JSON (for MCP debug / browser rehydration)
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'read_wireframe') {
+        $wf = readJsonFile(WIREFRAME_FILE);
+        if (!$wf) {
+            jsonOut(['success' => false, 'error' => 'No wireframe on file']);
+        }
+        jsonOut(['success' => true, 'data' => $wf]);
+    }
+
+    // -- POST ?action=update_wireframe
+    // MCP/Copilot pushes changes to the wireframe; browser picks them up via poll
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'update_wireframe') {
+        $body = readBody();
+        if (empty($body) || !isset($body['elements'])) {
+            jsonOut(['success' => false, 'error' => 'Missing elements array'], 400);
+        }
+        $payload = [
+            'version'     => $body['version']     ?? 1,
+            'nextId'      => $body['nextId']      ?? 1,
+            'nextGuideId' => $body['nextGuideId'] ?? 1,
+            'elements'    => $body['elements'],
+            'guides'      => $body['guides']      ?? [],
+            'updatedAt'   => date('Y-m-d H:i:s'),
+            'source'      => 'copilot',
+        ];
+        // Write the new canonical wireframe
+        $ok = writeJsonFile(WIREFRAME_FILE, $payload);
+        if (!$ok) {
+            jsonOut(['success' => false, 'error' => 'Could not write wireframe file'], 500);
+        }
+        // Write change signal so browser poll picks it up
+        writeJsonFile(WIREFRAME_CHANGES_FILE, [
+            'updatedAt' => $payload['updatedAt'],
+            'by'        => 'vscode-copilot',
+        ]);
+        error_log('[VSCodeBridge] update_wireframe: wrote ' . count($body['elements']) . ' element(s) from Copilot');
+        jsonOut(['success' => true, 'updatedAt' => $payload['updatedAt']]);
+    }
+
+    // -- GET ?action=poll_wireframe_changes
+    // Browser asks: did Copilot update the wireframe since I last checked?
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'poll_wireframe_changes') {
+        $changes = readJsonFile(WIREFRAME_CHANGES_FILE);
+        if (!$changes) {
+            jsonOut(['success' => true, 'hasChanges' => false]);
+        }
+        $ack        = readJsonFile(WIREFRAME_ACK_FILE);
+        $lastAck    = $ack['updatedAt'] ?? '';
+        $changeTime = $changes['updatedAt'] ?? '';
+        if ($lastAck === $changeTime) {
+            jsonOut(['success' => true, 'hasChanges' => false]);
+        }
+        // Include the full wireframe state so the browser can apply it in one round trip
+        $wf = readJsonFile(WIREFRAME_FILE);
+        error_log('[VSCodeBridge] poll_wireframe_changes: pending update at ' . $changeTime);
+        jsonOut([
+            'success'    => true,
+            'hasChanges' => true,
+            'state'      => $wf,
+            'updatedAt'  => $changeTime,
+            'by'         => $changes['by'] ?? 'vscode-copilot',
+        ]);
+    }
+
+    // -- POST ?action=ack_wireframe
+    // Browser acknowledges it has applied the wireframe update
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'ack_wireframe') {
+        $changes = readJsonFile(WIREFRAME_CHANGES_FILE);
+        if ($changes) {
+            writeJsonFile(WIREFRAME_ACK_FILE, [
+                'updatedAt' => $changes['updatedAt'] ?? '',
+                'ackedAt'   => date('Y-m-d H:i:s'),
+            ]);
+        }
+        jsonOut(['success' => true]);
     }
 
     // Fallthrough
