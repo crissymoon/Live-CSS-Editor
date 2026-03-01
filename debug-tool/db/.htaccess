@@ -1,0 +1,5 @@
+# Deny direct web access to the SQLite database file
+<Files "*.db">
+    Order Deny,Allow
+    Deny from all
+</Files>
