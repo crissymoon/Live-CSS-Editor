@@ -1,0 +1,67 @@
+{
+  "type":   "section",
+  "id":     "hero",
+  "layout": "column",
+  "settings": {
+    "bg":        "#1a1a2e",
+    "padding":   "100px 32px 80px",
+    "maxWidth":  "1100px",
+    "align":     "center",
+    "gap":       "24px"
+  },
+  "blocks": [
+    {
+      "id":   "hero-label",
+      "type": "text",
+      "tag":  "p",
+      "text": "Web Development Studio",
+      "settings": {
+        "color":         "#6366f1",
+        "fontSize":      "12px",
+        "fontWeight":    "600",
+        "letterSpacing": "0.16em",
+        "textTransform": "uppercase"
+      }
+    },
+    {
+      "id":   "hero-heading",
+      "type": "heading",
+      "tag":  "h1",
+      "text": "Build things that last.",
+      "settings": {
+        "color":      "#e8e8f0",
+        "fontSize":   "56px",
+        "fontWeight": "700",
+        "lineHeight": "1.15"
+      }
+    },
+    {
+      "id":   "hero-sub",
+      "type": "text",
+      "tag":  "p",
+      "text": "We design and develop websites, tools, and digital experiences for builders who care about craft.",
+      "settings": {
+        "color":     "#8888a0",
+        "fontSize":  "18px",
+        "maxWidth":  "560px",
+        "lineHeight":"1.7"
+      }
+    },
+    {
+      "id":   "hero-cta",
+      "type": "button",
+      "text": "See Our Work",
+      "href": "#work",
+      "settings": {
+        "bg":            "transparent",
+        "color":         "#6366f1",
+        "border":        "1px solid #6366f1",
+        "padding":       "12px 32px",
+        "fontSize":      "13px",
+        "letterSpacing": "0.08em",
+        "textTransform": "uppercase",
+        "marginTop":     "8px"
+      }
+    }
+  ]
+}

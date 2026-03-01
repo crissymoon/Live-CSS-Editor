@@ -1,0 +1,104 @@
+{
+  "type":   "section",
+  "id":     "features",
+  "layout": "row",
+  "settings": {
+    "bg":        "#16162b",
+    "padding":   "80px 32px",
+    "maxWidth":  "1100px",
+    "gap":       "32px",
+    "columns":   3,
+    "borderTop": "1px solid rgba(255,255,255,0.06)"
+  },
+  "heading": {
+    "id":   "features-heading",
+    "text": "What we do",
+    "settings": {
+      "color":         "#e8e8f0",
+      "fontSize":      "32px",
+      "fontWeight":    "700",
+      "marginBottom":  "48px",
+      "textAlign":     "center"
+    }
+  },
+  "blocks": [
+    {
+      "id":   "feat-1",
+      "type": "card",
+      "settings": {
+        "bg":      "#13131f",
+        "border":  "1px solid rgba(255,255,255,0.06)",
+        "padding": "28px",
+        "gap":     "12px"
+      },
+      "children": [
+        {
+          "id":   "feat-1-title",
+          "type": "heading",
+          "tag":  "h3",
+          "text": "Design Systems",
+          "settings": { "color": "#e8e8f0", "fontSize": "16px", "fontWeight": "600" }
+        },
+        {
+          "id":   "feat-1-body",
+          "type": "text",
+          "tag":  "p",
+          "text": "Scalable component libraries and design tokens built for real teams.",
+          "settings": { "color": "#8888a0", "fontSize": "14px", "lineHeight": "1.6" }
+        }
+      ]
+    },
+    {
+      "id":   "feat-2",
+      "type": "card",
+      "settings": {
+        "bg":      "#13131f",
+        "border":  "1px solid rgba(255,255,255,0.06)",
+        "padding": "28px",
+        "gap":     "12px"
+      },
+      "children": [
+        {
+          "id":   "feat-2-title",
+          "type": "heading",
+          "tag":  "h3",
+          "text": "Live Tooling",
+          "settings": { "color": "#e8e8f0", "fontSize": "16px", "fontWeight": "600" }
+        },
+        {
+          "id":   "feat-2-body",
+          "type": "text",
+          "tag":  "p",
+          "text": "CSS editors, theme builders, and dev tools that update in real time.",
+          "settings": { "color": "#8888a0", "fontSize": "14px", "lineHeight": "1.6" }
+        }
+      ]
+    },
+    {
+      "id":   "feat-3",
+      "type": "card",
+      "settings": {
+        "bg":      "#13131f",
+        "border":  "1px solid rgba(255,255,255,0.06)",
+        "padding": "28px",
+        "gap":     "12px"
+      },
+      "children": [
+        {
+          "id":   "feat-3-title",
+          "type": "heading",
+          "tag":  "h3",
+          "text": "Custom Builds",
+          "settings": { "color": "#e8e8f0", "fontSize": "16px", "fontWeight": "600" }
+        },
+        {
+          "id":   "feat-3-body",
+          "type": "text",
+          "tag":  "p",
+          "text": "From landing pages to full applications - built to spec, shipped fast.",
+          "settings": { "color": "#8888a0", "fontSize": "14px", "lineHeight": "1.6" }
+        }
+      ]
+    }
+  ]
+}

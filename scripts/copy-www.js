@@ -32,6 +32,8 @@ const INCLUDE = [
     // Debug-tool REST API and JS client – CLI + DB stay outside www.
     'debug-tool/api',
     'debug-tool/js',
+    // Page Builder – full directory (PHP, JS, CSS, JSON pages).
+    'page-builder',
 ];
 
 function rimraf(dir) {
