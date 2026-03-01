@@ -1,0 +1,57 @@
+{
+    "_meta": {
+        "name": "CTA - Centered",
+        "type": "section",
+        "description": "Call-to-action band with heading and a single button"
+    },
+    "type": "section",
+    "id": "cta",
+    "layout": "column",
+    "settings": {
+        "bg":        "#111122",
+        "borderTop": "1px solid rgba(99,102,241,0.2)",
+        "padding":   "80px 24px",
+        "maxWidth":  "680px",
+        "align":     "center",
+        "gap":       "20px"
+    },
+    "blocks": [
+        {
+            "type": "heading",
+            "id":   "cta-heading",
+            "text": "Ready to get started?",
+            "tag":  "h2",
+            "settings": {
+                "color":     "#e8e8f0",
+                "fontSize":  "32px",
+                "fontWeight": "600",
+                "textAlign": "center"
+            }
+        },
+        {
+            "type": "text",
+            "id":   "cta-sub",
+            "text": "Sign up today and launch your first page in minutes.",
+            "settings": {
+                "color":     "#8888a0",
+                "fontSize":  "16px",
+                "textAlign": "center",
+                "lineHeight": "1.55"
+            }
+        },
+        {
+            "type": "button",
+            "id":   "cta-btn",
+            "text": "Start Free",
+            "href": "#",
+            "settings": {
+                "bg":           "#6366f1",
+                "color":        "#ffffff",
+                "padding":      "13px 36px",
+                "fontSize":     "14px",
+                "fontWeight":   "600",
+                "borderRadius": "4px"
+            }
+        }
+    ]
+}

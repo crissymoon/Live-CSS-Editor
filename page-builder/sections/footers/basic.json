@@ -1,0 +1,32 @@
+{
+    "_meta": {
+        "name": "Basic Footer",
+        "type": "footer",
+        "description": "Copyright line with optional links"
+    },
+    "type": "footer",
+    "settings": {
+        "bg":        "#0d0d18",
+        "borderTop": "1px solid rgba(255,255,255,0.06)",
+        "padding":   "24px 28px",
+        "maxWidth":  "1100px"
+    },
+    "copy": {
+        "id":   "footer-copy",
+        "text": "2025 Your Brand",
+        "settings": {
+            "color":         "#5555a0",
+            "fontSize":      "12px",
+            "letterSpacing": "0.06em"
+        }
+    },
+    "links": [
+        { "id": "footer-privacy", "label": "Privacy", "href": "#" },
+        { "id": "footer-terms",   "label": "Terms",   "href": "#" }
+    ],
+    "linkSettings": {
+        "color":    "#5555a0",
+        "fontSize": "11px",
+        "gap":      "4px"
+    }
+}

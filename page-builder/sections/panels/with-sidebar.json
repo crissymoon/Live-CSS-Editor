@@ -1,0 +1,47 @@
+{
+    "_meta": {
+        "name": "Content + Sidebar",
+        "type": "panel",
+        "description": "Main content area with a right-side sticky panel"
+    },
+    "type": "section",
+    "id": "content-sidebar",
+    "layout": "row",
+    "settings": {
+        "bg":       "#0a0a14",
+        "padding":  "60px 24px",
+        "maxWidth": "1100px",
+        "gap":      "40px",
+        "columns":  2
+    },
+    "blocks": [
+        {
+            "type": "card",
+            "id":   "sidebar-main",
+            "settings": { "bg": "transparent", "padding": "0", "border": "none" },
+            "children": [
+                { "type": "heading", "id": "sb-heading", "text": "Main Content",
+                  "tag": "h2", "settings": { "color": "#c7c7f0", "fontSize": "26px", "fontWeight": "600", "marginBottom": "14px" }},
+                { "type": "text",    "id": "sb-body",
+                  "text": "Your main body copy goes here. This area takes up about two-thirds of the row.",
+                  "settings": { "color": "#8888a0", "fontSize": "14px", "lineHeight": "1.7" }}
+            ]
+        },
+        {
+            "type": "card",
+            "id":   "sidebar-panel",
+            "settings": {
+                "bg":      "#0d0d18",
+                "border":  "1px solid rgba(255,255,255,0.07)",
+                "padding": "22px"
+            },
+            "children": [
+                { "type": "heading", "id": "sp-title", "text": "Sidebar",
+                  "tag": "h3", "settings": { "color": "#a5a5c0", "fontSize": "14px", "fontWeight": "600", "marginBottom": "10px" }},
+                { "type": "text", "id": "sp-content",
+                  "text": "Supporting info, links, or a quick summary lives here.",
+                  "settings": { "color": "#5555a0", "fontSize": "12px", "lineHeight": "1.6" }}
+            ]
+        }
+    ]
+}

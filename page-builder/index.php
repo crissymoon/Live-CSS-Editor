@@ -37,25 +37,34 @@ if (is_dir($pagesDir)) {
 // Sort alphabetically
 usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
 ?><!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Page Builder</title>
+    <script>
+    (function(){
+        try{
+            var t=localStorage.getItem('pb_theme');
+            if(t==='light'||t==='dark') document.documentElement.setAttribute('data-theme',t);
+        }catch(e){}
+    })();
+    </script>
+    <link rel="stylesheet" href="css/pb-theme.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            background: #0a0a14;
-            color: #e8e8f0;
+            background: var(--pb-bg);
+            color: var(--pb-text);
             font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
             min-height: 100vh;
         }
 
         /* ---- Header ---- */
         header {
-            background: #0d0d18;
-            border-bottom: 1px solid rgba(99, 102, 241, 0.25);
+            background: var(--pb-bg-2);
+            border-bottom: 1px solid var(--pb-border-acc);
             padding: 0 28px;
             height: 52px;
             display: flex;
@@ -71,11 +80,11 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
             font-size: 14px;
             font-weight: 600;
             letter-spacing: 0.08em;
-            color: #a5a5c0;
+            color: var(--pb-text-dim);
         }
 
         header h1 span {
-            color: #6366f1;
+            color: var(--pb-acc);
         }
 
         .header-actions {
@@ -84,9 +93,9 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
         }
 
         .btn {
-            background: rgba(99, 102, 241, 0.12);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            color: #a5a5c0;
+            background: var(--pb-acc-bg);
+            border: 1px solid var(--pb-border-acc);
+            color: var(--pb-text-dim);
             font-family: inherit;
             font-size: 12px;
             padding: 6px 14px;
@@ -96,18 +105,19 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            transition: background 0.15s, color 0.15s;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
 
         .btn:hover {
-            background: rgba(99, 102, 241, 0.25);
-            color: #e8e8f0;
+            background: var(--pb-acc-bg2);
+            border-color: var(--pb-border-acc2);
+            color: var(--pb-text);
         }
 
         .btn-primary {
-            background: rgba(99, 102, 241, 0.22);
-            border-color: rgba(99, 102, 241, 0.5);
-            color: #c7c7f0;
+            background: var(--pb-acc-bg2);
+            border-color: var(--pb-border-acc2);
+            color: var(--pb-acc-text);
         }
 
         /* ---- Main ---- */
@@ -121,7 +131,7 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
             font-size: 11px;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: #5555a0;
+            color: var(--pb-text-faint);
             margin-bottom: 16px;
         }
 
@@ -133,8 +143,8 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
         }
 
         .page-card {
-            background: #0d0d18;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--pb-bg-2);
+            border: 1px solid var(--pb-border);
             padding: 18px;
             display: flex;
             flex-direction: column;
@@ -143,19 +153,19 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
         }
 
         .page-card:hover {
-            border-color: rgba(99, 102, 241, 0.35);
+            border-color: var(--pb-border-acc);
         }
 
         .page-card-name {
             font-size: 14px;
             font-weight: 600;
-            color: #c7c7f0;
+            color: var(--pb-acc-text);
             letter-spacing: 0.04em;
         }
 
         .page-card-meta {
             font-size: 11px;
-            color: #5555a0;
+            color: var(--pb-text-faint);
             display: flex;
             flex-direction: column;
             gap: 3px;
@@ -166,29 +176,29 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
             gap: 6px;
         }
 
-        .meta-key   { color: #5555a0; }
-        .meta-value { color: #8888a0; }
+        .meta-key   { color: var(--pb-text-faint); }
+        .meta-value { color: var(--pb-text-muted); }
 
         .badge {
             display: inline-block;
             padding: 2px 7px;
             font-size: 10px;
             letter-spacing: 0.05em;
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            color: #8888c0;
+            background: var(--pb-acc-bg);
+            border: 1px solid var(--pb-border-acc);
+            color: var(--pb-text-muted);
         }
 
         .badge.badge-built {
-            background: rgba(16, 185, 129, 0.08);
-            border-color: rgba(16, 185, 129, 0.2);
-            color: #5da882;
+            background: var(--pb-ok-bg);
+            border-color: var(--pb-ok-border);
+            color: var(--pb-ok);
         }
 
         .badge.badge-unbuilt {
-            background: rgba(239, 68, 68, 0.08);
-            border-color: rgba(239, 68, 68, 0.2);
-            color: #a06060;
+            background: var(--pb-err-bg);
+            border-color: var(--pb-err-border);
+            color: var(--pb-err);
         }
 
         .page-card-actions {
@@ -206,7 +216,7 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
 
         /* ---- Empty state ---- */
         .empty-state {
-            color: #5555a0;
+            color: var(--pb-text-faint);
             font-size: 13px;
             padding: 32px 0;
         }
@@ -220,15 +230,15 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
             display: flex;
             align-items: center;
             gap: 10px;
-            background: #0d0d18;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--pb-bg-2);
+            border: 1px solid var(--pb-border);
             padding: 14px 16px;
         }
 
         .create-form input[type="text"] {
-            background: #13131f;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #e8e8f0;
+            background: var(--pb-bg-input);
+            border: 1px solid var(--pb-border-2);
+            color: var(--pb-text);
             font-family: inherit;
             font-size: 12px;
             padding: 7px 10px;
@@ -238,22 +248,22 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
         }
 
         .create-form input[type="text"]:focus {
-            border-color: rgba(99, 102, 241, 0.5);
+            border-color: var(--pb-border-acc2);
         }
 
         .create-form input[type="text"]::placeholder {
-            color: #3a3a5a;
+            color: var(--pb-text-faint);
         }
 
         /* ---- Back link ---- */
         .back-link {
-            color: #5555a0;
+            color: var(--pb-text-faint);
             font-size: 11px;
             text-decoration: none;
             letter-spacing: 0.06em;
         }
 
-        .back-link:hover { color: #8888a0; }
+        .back-link:hover { color: var(--pb-text-muted); }
 
         /* ---- Inline message ---- */
         #msg {
@@ -262,8 +272,8 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
             display: none;
         }
 
-        #msg.ok  { color: #10b981; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
-        #msg.err { color: #ef4444; background: rgba(239,68,68,0.08);  border: 1px solid rgba(239,68,68,0.2);  }
+        #msg.ok  { color: var(--pb-ok);  background: var(--pb-ok-bg);  border: 1px solid var(--pb-ok-border);  }
+        #msg.err { color: var(--pb-err); background: var(--pb-err-bg); border: 1px solid var(--pb-err-border); }
     </style>
 </head>
 <body>
@@ -271,6 +281,8 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
 <header>
     <h1><span>&gt;</span> page-builder</h1>
     <div class="header-actions">
+        <button class="pb-theme-toggle" id="pb-idx-theme-btn" onclick="toggleTheme()" style="font-size:11px;padding:4px 10px;">light mode</button>
+        <a href="/pb_admin/dashboard.php" class="back-link">← admin dashboard</a>
         <a href="../index.php" class="back-link">← style tool</a>
     </div>
 </header>
@@ -306,18 +318,21 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
             </div>
 
             <div class="page-card-actions">
-                <a href="watcher.php?page=<?= urlencode($page['name']) ?>" class="btn btn-primary">
-                    ▶ open
+                <a href="composer.php?page=<?= urlencode($page['name']) ?>" class="btn btn-primary">
+                    compose
+                </a>
+                <a href="watcher.php?page=<?= urlencode($page['name']) ?>" class="btn">
+                    live edit
                 </a>
                 <button
                     class="btn"
                     onclick="buildPage('<?= htmlspecialchars($page['name'], ENT_QUOTES) ?>', this)">
-                    ⟳ rebuild
+                    rebuild
                 </button>
                 <a href="watcher.php?page=<?= urlencode($page['name']) ?>&reset=1"
                    class="btn"
                    onclick="return confirm('Reset all overrides for &quot;<?= htmlspecialchars($page['name'], ENT_QUOTES) ?>&quot;?')">
-                    ✕ reset
+                    reset
                 </a>
             </div>
         </div>
@@ -338,30 +353,52 @@ usort($pages, fn($a, $b) => strcasecmp($a['name'], $b['name']));
 
 <script>
 function showMsg(text, ok) {
-    const m = document.getElementById('msg');
+    var m = document.getElementById('msg');
+    if (!m) { console.error('[pb-index] msg element not found'); return; }
     m.textContent = text;
     m.className = ok ? 'ok' : 'err';
     m.style.display = 'inline-block';
-    setTimeout(() => { m.style.display = 'none'; }, 3000);
+    setTimeout(function() { m.style.display = 'none'; }, 3000);
 }
 
+function toggleTheme() {
+    var html = document.documentElement;
+    var next = (html.getAttribute('data-theme') || 'dark') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    try { localStorage.setItem('pb_theme', next); } catch(e) { console.warn('[pb-index] localStorage write failed:', e); }
+    var btn = document.getElementById('pb-idx-theme-btn');
+    if (btn) btn.textContent = next === 'dark' ? 'light mode' : 'dark mode';
+    console.log('[pb-index] theme set to:', next);
+}
+
+(function() {
+    try {
+        var t = localStorage.getItem('pb_theme') || 'dark';
+        var btn = document.getElementById('pb-idx-theme-btn');
+        if (btn) btn.textContent = t === 'dark' ? 'light mode' : 'dark mode';
+    } catch(e) { console.warn('[pb-index] localStorage read failed:', e); }
+})();
+
 function buildPage(name, btn) {
-    const orig = btn.textContent;
-    btn.textContent = '…';
+    var orig = btn.textContent;
+    btn.textContent = 'building...';
     btn.disabled = true;
+    console.log('[pb-index] building page:', name);
     fetch('build.php?page=' + encodeURIComponent(name))
-        .then(r => r.json())
-        .then(d => {
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
             if (d.ok) {
                 showMsg('Built "' + name + '"', true);
-                setTimeout(() => location.reload(), 800);
+                setTimeout(function() { location.reload(); }, 800);
             } else {
+                console.error('[pb-index] build error:', d);
                 showMsg('Error: ' + (d.error || '?'), false);
                 btn.textContent = orig;
                 btn.disabled = false;
             }
         })
-        .catch(() => {
+        .catch(function(e) {
+            console.error('[pb-index] build network error:', e);
             showMsg('Network error', false);
             btn.textContent = orig;
             btn.disabled = false;
@@ -369,31 +406,35 @@ function buildPage(name, btn) {
 }
 
 function createPage() {
-    const input = document.getElementById('newPageName');
-    const name  = input.value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+    var input = document.getElementById('newPageName');
+    var name  = input.value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
     if (!name) { showMsg('Enter a page name', false); return; }
+    console.log('[pb-index] creating page:', name);
 
     fetch('create-page.php', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ name }),
+        body:    JSON.stringify({ name: name }),
     })
-        .then(r => r.json())
-        .then(d => {
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
             if (d.ok) {
-                showMsg('Created "' + name + '" — building…', true);
+                showMsg('Created "' + name + '" - building...', true);
                 input.value = '';
-                /* Auto-build then reload */
                 fetch('build.php?page=' + encodeURIComponent(name))
-                    .finally(() => setTimeout(() => location.reload(), 600));
+                    .catch(function(e) { console.error('[pb-index] auto-build error:', e); })
+                    .finally(function() { setTimeout(function() { location.reload(); }, 600); });
             } else {
+                console.error('[pb-index] create-page error:', d);
                 showMsg('Error: ' + (d.error || '?'), false);
             }
         })
-        .catch(() => showMsg('Network error', false));
+        .catch(function(e) {
+            console.error('[pb-index] create-page network error:', e);
+            showMsg('Network error', false);
+        });
 }
 
-/* Allow Enter key in the new-page input */
 document.getElementById('newPageName').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') createPage();
 });

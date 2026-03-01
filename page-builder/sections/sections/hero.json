@@ -1,0 +1,58 @@
+{
+    "_meta": {
+        "name": "Hero - Centered",
+        "type": "section",
+        "description": "Full-width hero with heading, sub, and CTA button"
+    },
+    "type": "section",
+    "id": "hero",
+    "layout": "column",
+    "settings": {
+        "bg":       "#0a0a14",
+        "padding":  "100px 24px",
+        "maxWidth": "760px",
+        "align":    "center",
+        "gap":      "24px"
+    },
+    "blocks": [
+        {
+            "type": "heading",
+            "id":   "hero-heading",
+            "text": "Build Something Beautiful",
+            "tag":  "h1",
+            "settings": {
+                "color":      "#e8e8f0",
+                "fontSize":   "52px",
+                "fontWeight": "700",
+                "textAlign":  "center",
+                "lineHeight": "1.15"
+            }
+        },
+        {
+            "type": "text",
+            "id":   "hero-sub",
+            "text": "A clean, focused way to craft fast, lightweight pages.",
+            "settings": {
+                "color":      "#8888a0",
+                "fontSize":   "18px",
+                "lineHeight": "1.6",
+                "textAlign":  "center"
+            }
+        },
+        {
+            "type": "button",
+            "id":   "hero-cta",
+            "text": "Get Started",
+            "href": "#",
+            "settings": {
+                "bg":           "#6366f1",
+                "color":        "#ffffff",
+                "padding":      "13px 32px",
+                "fontSize":     "14px",
+                "fontWeight":   "600",
+                "borderRadius": "4px",
+                "letterSpacing": "0.06em"
+            }
+        }
+    ]
+}

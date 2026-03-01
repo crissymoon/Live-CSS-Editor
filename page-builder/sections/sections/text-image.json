@@ -1,0 +1,44 @@
+{
+    "_meta": {
+        "name": "Text + Image Row",
+        "type": "section",
+        "description": "Two-column section: text on the left, image on the right"
+    },
+    "type": "section",
+    "id": "text-image",
+    "layout": "row",
+    "settings": {
+        "bg":       "#0a0a14",
+        "padding":  "80px 24px",
+        "maxWidth": "1100px",
+        "gap":      "48px",
+        "columns":  2
+    },
+    "blocks": [
+        {
+            "type": "card",
+            "id":   "ti-text-wrap",
+            "settings": { "bg": "transparent", "padding": "0", "border": "none" },
+            "children": [
+                { "type": "heading", "id": "ti-heading", "text": "Our approach", "tag": "h2",
+                  "settings": { "color": "#c7c7f0", "fontSize": "30px", "fontWeight": "600", "marginBottom": "16px" }},
+                { "type": "text",    "id": "ti-body",    "text": "We believe great software should be invisible: fast, focused, and out of the way of the people using it.",
+                  "settings": { "color": "#8888a0", "fontSize": "15px", "lineHeight": "1.7" }},
+                { "type": "button",  "id": "ti-cta",     "text": "Learn More", "href": "#",
+                  "settings": { "bg": "transparent", "color": "#6366f1", "border": "1px solid rgba(99,102,241,0.5)", "padding": "10px 22px", "fontSize": "13px", "marginTop": "24px" }}
+            ]
+        },
+        {
+            "type": "image",
+            "id":   "ti-image",
+            "src":  "",
+            "alt":  "Section image",
+            "settings": {
+                "width":        "100%",
+                "maxWidth":     "100%",
+                "borderRadius": "0",
+                "opacity":      "1"
+            }
+        }
+    ]
+}

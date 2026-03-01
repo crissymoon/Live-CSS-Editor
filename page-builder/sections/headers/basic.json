@@ -1,0 +1,37 @@
+{
+    "_meta": {
+        "name": "Basic Header",
+        "type": "header",
+        "description": "Sticky nav bar with brand and links"
+    },
+    "type": "header",
+    "settings": {
+        "bg":          "#0d0d18",
+        "borderColor": "rgba(99,102,241,0.2)",
+        "height":      "56px",
+        "maxWidth":    "1100px",
+        "padding":     "0 28px"
+    },
+    "brand": {
+        "text":        "Brand",
+        "href":        "#",
+        "color":       "#6366f1",
+        "fontSize":    "15px",
+        "fontWeight":  "700",
+        "letterSpacing": "0.08em"
+    },
+    "nav": [
+        { "label": "Home",     "href": "#" },
+        { "label": "About",    "href": "#" },
+        { "label": "Work",     "href": "#" },
+        { "label": "Contact",  "href": "#", "cta": true }
+    ],
+    "navSettings": {
+        "linkColor":  "#a5a5c0",
+        "ctaColor":   "#6366f1",
+        "ctaBorder":  "rgba(99,102,241,0.5)",
+        "gap":        "4px",
+        "fontSize":   "12px",
+        "navCollapseAt": 640
+    }
+}

@@ -425,20 +425,91 @@ buildInfo("Building page: {$page}");
 $overrides = loadOverrides($pageDir);
 buildInfo('Overrides loaded: ' . count($overrides) . ' element(s) have saved changes');
 
-// Load required files
-$header = loadJson($pageDir . '/header.json');
-$footer = loadJson($pageDir . '/footer.json');
+// ---------------------------------------------------------------------------
+// Determine section order from page.json manifest (if present).
+// Falls back to the original behaviour: header.json, section-*.json, footer.json.
+// ---------------------------------------------------------------------------
 
-// Load sections in order (section-1.json, section-2.json, ...)
-$sectionFiles = glob($pageDir . '/section-*.json');
-if ($sectionFiles === false) {
-    buildErr('glob() failed on: ' . $pageDir);
-}
-natsort($sectionFiles);
+$manifestPath = $pageDir . '/page.json';
+$header = null;
+$footer = null;
 $sections = [];
-foreach ($sectionFiles as $sf) {
-    $sections[] = loadJson($sf);
-    buildInfo('  Loaded: ' . basename($sf));
+
+if (file_exists($manifestPath)) {
+    buildInfo('Using page.json manifest');
+    $manifest = loadJson($manifestPath);
+
+    foreach ($manifest['sections'] ?? [] as $entry) {
+        $type = $entry['type'] ?? 'section';
+        $file = $entry['file'] ?? '';
+
+        if (!$file || !preg_match('/^[a-z0-9_.\-]+$/i', $file)) {
+            buildInfo('  Skipping manifest entry with invalid file: ' . $file);
+            continue;
+        }
+
+        $fullPath = $pageDir . '/' . $file;
+        if (!file_exists($fullPath)) {
+            buildInfo('  WARNING: section file not found, skipping: ' . $file);
+            continue;
+        }
+
+        $data = loadJson($fullPath);
+        buildInfo('  Loaded [' . $type . ']: ' . $file);
+
+        switch ($type) {
+            case 'header':
+                $header = $data;
+                break;
+            case 'footer':
+                $footer = $data;
+                break;
+            case 'section':
+            case 'panel':
+            default:
+                $sections[] = $data;
+                break;
+        }
+    }
+
+    if ($header === null && file_exists($pageDir . '/header.json')) {
+        buildInfo('  Manifest has no header; loading header.json as fallback');
+        $header = loadJson($pageDir . '/header.json');
+    }
+    if ($footer === null && file_exists($pageDir . '/footer.json')) {
+        buildInfo('  Manifest has no footer; loading footer.json as fallback');
+        $footer = loadJson($pageDir . '/footer.json');
+    }
+} else {
+    buildInfo('No page.json found; using legacy glob-based loading');
+
+    // Load required files (original behaviour)
+    if (!file_exists($pageDir . '/header.json')) {
+        buildErr('header.json not found and no page.json manifest exists');
+    }
+    if (!file_exists($pageDir . '/footer.json')) {
+        buildErr('footer.json not found and no page.json manifest exists');
+    }
+
+    $header = loadJson($pageDir . '/header.json');
+    $footer = loadJson($pageDir . '/footer.json');
+
+    $sectionFiles = glob($pageDir . '/section-*.json');
+    if ($sectionFiles === false) {
+        buildErr('glob() failed on: ' . $pageDir);
+    }
+    natsort($sectionFiles);
+    foreach ($sectionFiles as $sf) {
+        $sections[] = loadJson($sf);
+        buildInfo('  Loaded: ' . basename($sf));
+    }
+}
+
+if ($header === null) {
+    buildErr('No header found to render. Add a header section via the composer or create header.json.');
+}
+if ($footer === null) {
+    buildErr('No footer found to render. Add a footer section via the composer or create footer.json.');
 }
 
 // Render

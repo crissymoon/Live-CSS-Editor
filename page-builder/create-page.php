@@ -71,9 +71,41 @@ $footer = [
     'linkSettings' => ['color' => '#5555a0', 'hoverColor' => '#8888a0', 'gap' => '16px', 'fontSize' => '13px'],
 ];
 
-file_put_contents($pageDir . '/header.json',   json_encode($header,   JSON_PRETTY_PRINT));
+file_put_contents($pageDir . '/header.json',    json_encode($header,   JSON_PRETTY_PRINT));
 file_put_contents($pageDir . '/section-1.json', json_encode($section1, JSON_PRETTY_PRINT));
-file_put_contents($pageDir . '/footer.json',   json_encode($footer,   JSON_PRETTY_PRINT));
+file_put_contents($pageDir . '/footer.json',    json_encode($footer,   JSON_PRETTY_PRINT));
 file_put_contents($pageDir . '/overrides.json', '{}');
 
+// ---- Create page.json manifest ---- //
+
+$manifest = [
+    'title'    => ucfirst($name),
+    'sections' => [
+        [
+            'id'    => 'pb-header',
+            'file'  => 'header.json',
+            'type'  => 'header',
+            'label' => 'Header',
+        ],
+        [
+            'id'    => 'pb-' . $name . '-hero',
+            'file'  => 'section-1.json',
+            'type'  => 'section',
+            'label' => ucfirst($name) . ' Hero',
+        ],
+        [
+            'id'    => 'pb-footer',
+            'file'  => 'footer.json',
+            'type'  => 'footer',
+            'label' => 'Footer',
+        ],
+    ],
+];
+
+$manifestWritten = file_put_contents($pageDir . '/page.json', json_encode($manifest, JSON_PRETTY_PRINT));
+if ($manifestWritten === false) {
+    error_log('[create-page] WARNING: Could not write page.json for: ' . $name);
+}
+
+error_log('[create-page] Created page: ' . $name . ' in ' . $pageDir);
 echo json_encode(['ok' => true, 'name' => $name]);

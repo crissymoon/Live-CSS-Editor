@@ -1,0 +1,48 @@
+{
+    "type": "section",
+    "id": "test-page-hero",
+    "layout": "column",
+    "settings": {
+        "bg": "#0a0a14",
+        "padding": "80px 24px",
+        "maxWidth": "800px",
+        "align": "center",
+        "gap": "20px"
+    },
+    "blocks": [
+        {
+            "type": "heading",
+            "id": "test-page-heading",
+            "text": "Test-page",
+            "tag": "h1",
+            "settings": {
+                "color": "#e8e8f0",
+                "fontSize": "48px",
+                "fontWeight": "700"
+            }
+        },
+        {
+            "type": "text",
+            "id": "test-page-sub",
+            "text": "Your subtitle here.",
+            "settings": {
+                "color": "#8888a0",
+                "fontSize": "18px",
+                "lineHeight": "1.6"
+            }
+        },
+        {
+            "type": "button",
+            "id": "test-page-cta",
+            "text": "Get Started",
+            "href": "#",
+            "settings": {
+                "bg": "#6366f1",
+                "color": "#fff",
+                "padding": "12px 28px",
+                "fontSize": "15px",
+                "borderRadius": "4px"
+            }
+        }
+    ]
+}

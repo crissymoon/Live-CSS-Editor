@@ -1,0 +1,25 @@
+{
+    "_meta": {
+        "name": "Minimal Footer",
+        "type": "footer",
+        "description": "Just a copyright line, no links"
+    },
+    "type": "footer",
+    "settings": {
+        "bg":        "#0a0a14",
+        "borderTop": "1px solid rgba(255,255,255,0.04)",
+        "padding":   "16px 28px",
+        "maxWidth":  "1100px"
+    },
+    "copy": {
+        "id":   "footer-copy",
+        "text": "2025 Your Brand. All rights reserved.",
+        "settings": {
+            "color":         "#3a3a5a",
+            "fontSize":      "11px",
+            "letterSpacing": "0.04em"
+        }
+    },
+    "links": [],
+    "linkSettings": { "color": "#3a3a5a", "fontSize": "11px", "gap": "0" }
+}

@@ -1,0 +1,23 @@
+{
+    "title": "Test-page",
+    "sections": [
+        {
+            "id": "pb-header",
+            "file": "header.json",
+            "type": "header",
+            "label": "Centered Header"
+        },
+        {
+            "id": "pb-sec-582e77d1",
+            "file": "pb-sec-582e77d1.json",
+            "type": "section",
+            "label": "Hero - Centered"
+        },
+        {
+            "id": "pb-footer",
+            "file": "footer.json",
+            "type": "footer",
+            "label": "Footer"
+        }
+    ]
+}

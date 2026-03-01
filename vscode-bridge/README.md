@@ -4,6 +4,21 @@ Connects VSCode GitHub Copilot directly to the Crissy Style Tool. Lets you ask C
 
 ---
 
+## Page builder context
+
+The `context/` directory contains reference material for AI-assisted page
+builder work:
+
+| File | What it contains |
+|---|---|
+| `context/section-schema.md` | Full JSON schema for all section types, block types, settings keys, file placement rules, and project color tokens. Read this first before creating any sections. |
+| `context/copilot-prompt.md` | Ready-to-paste Copilot prompts for: creating new section templates, adding sections to a specific page, reviewing an existing section for errors, and converting a stylesheet's tokens into section defaults. |
+
+To use: open `context/copilot-prompt.md`, copy the relevant prompt block,
+fill in the bracketed placeholders, and paste into Copilot Chat (Agent mode).
+
+---
+
 ## How it works
 
 ```
@@ -120,6 +135,9 @@ vscode-bridge/
     session.json        Current browser state (auto-written)
     pending-changes.json  Last file changed by Copilot (auto-written)
     .gitignore
+  context/
+    section-schema.md   Full page-builder section JSON schema and rules
+    copilot-prompt.md   Ready-to-paste Copilot prompts for section work
 
 .vscode/
   mcp.json             Registers the MCP server with VSCode Copilot

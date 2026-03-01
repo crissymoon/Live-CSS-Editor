@@ -1,0 +1,24 @@
+{
+    "type": "footer",
+    "settings": {
+        "bg": "#0d0d18",
+        "borderTop": "1px solid #1a1a2e",
+        "padding": "24px",
+        "maxWidth": "1100px"
+    },
+    "copy": {
+        "id": "test-page-copy",
+        "text": "\u00a9 2026 Test-page",
+        "settings": {
+            "color": "#5555a0",
+            "fontSize": "13px"
+        }
+    },
+    "links": [],
+    "linkSettings": {
+        "color": "#5555a0",
+        "hoverColor": "#8888a0",
+        "gap": "16px",
+        "fontSize": "13px"
+    }
+}
