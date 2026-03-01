@@ -6,9 +6,10 @@
     "tauri":        "tauri",
     "launch":       "bash launcher.sh",
     "dev":          "npx tauri dev",
-    "build":        "npm run copy-www && tauri build",
-    "copy-www":     "node scripts/copy-www.js",
-    "gen-icon":     "node scripts/gen-icon.js"
+    "build":           "npm run copy-www && tauri build",
+    "copy-www":        "node scripts/copy-www.js",
+    "gen-icon":        "node scripts/gen-icon.js",
+    "refresh-preview": "bash scripts/refresh-preview.sh"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

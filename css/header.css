@@ -163,6 +163,59 @@
     border-color: #4d31bf;
 }
 
+/* ── VSCode Copilot Bridge toggle button ── */
+.btn-vscode-bridge {
+    background:     transparent;
+    color:          #6b7fa8;
+    border:         1px solid #2a3a5c;
+    padding:        5px 14px;
+    font-size:      12px;
+    font-weight:    700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor:         pointer;
+    margin-right:   8px;
+    transition:     background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+    white-space:    nowrap;
+    position:       relative;
+}
+
+.btn-vscode-bridge::before {
+    content:        '';
+    display:        inline-block;
+    width:          6px;
+    height:         6px;
+    border-radius:  50%;
+    background:     #2a3a5c;
+    margin-right:   6px;
+    vertical-align: middle;
+    transition:     background 0.2s, box-shadow 0.2s;
+}
+
+.btn-vscode-bridge:hover {
+    background:   #1a2a3c;
+    color:        #a8c0e8;
+    border-color: #3a60a8;
+}
+
+/* Active / ON state */
+.btn-vscode-bridge.bridge-active {
+    background:   #0a1f3a;
+    color:        #58b4ff;
+    border-color: #3a80d4;
+    box-shadow:   0 0 8px rgba(58, 128, 212, 0.35);
+}
+
+.btn-vscode-bridge.bridge-active::before {
+    background: #58b4ff;
+    box-shadow: 0 0 6px #58b4ff;
+}
+
+.btn-vscode-bridge.bridge-active:hover {
+    background: #0d2a50;
+    box-shadow: 0 0 12px rgba(58, 128, 212, 0.5);
+}
+
 /* ── Session history restore bar ── */
 .session-restore-bar {
     position: fixed;

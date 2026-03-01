@@ -1,0 +1,16 @@
+{
+  "name": "crissy-style-tool-mcp",
+  "version": "1.0.0",
+  "description": "MCP server - VSCode Copilot bridge for Crissy Style Tool",
+  "type": "module",
+  "main": "mcp-server.js",
+  "scripts": {
+    "start": "node mcp-server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

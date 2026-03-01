@@ -24,6 +24,14 @@ const INCLUDE = [
     'vendor',
     'style-sheets',
     'ai',
+    // VSCode Bridge – api (PHP endpoint) and js (browser client).
+    // Intentionally excludes vscode-bridge/server (Node.js + node_modules,
+    // launched by VSCode directly, never served by PHP).
+    'vscode-bridge/api',
+    'vscode-bridge/js',
+    // Debug-tool REST API and JS client – CLI + DB stay outside www.
+    'debug-tool/api',
+    'debug-tool/js',
 ];
 
 function rimraf(dir) {

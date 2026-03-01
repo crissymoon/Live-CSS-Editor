@@ -54,6 +54,7 @@ sort($allPropertyNames);
     <link rel="stylesheet" href="css/native-bridge.css">
     <link rel="stylesheet" href="css/wireframe.css">
     <link rel="stylesheet" href="css/agent.css">
+    <link rel="stylesheet" href="css/ai-chat.css">
 
     <!-- CDN fallback loader — handles CodeMirror CSS + JS from multiple sources -->
     <!-- Actual CodeMirror assets are injected at runtime by js/cdn-loader.js    -->
@@ -89,6 +90,7 @@ sort($allPropertyNames);
             <span id="autosaveStatus" class="autosave-status"></span>
         </div>
         <div class="header-right">
+            <button id="vscodeBridgeToggle" class="btn-action btn-vscode-bridge" title="Toggle VSCode Copilot Bridge" aria-pressed="false">VSCode Bridge</button>
             <button id="agentBtn" class="btn-action btn-agent" title="Open Code Agent">Agent</button>
         </div>
     </header>
@@ -401,8 +403,11 @@ sort($allPropertyNames);
     <script src="js/agent/agent-window.js"></script>
     <script src="js/agent/agent-neural.js"></script>
     <script src="js/agent.js"></script>
+    <script src="js/ai-chat.js"></script>
     <!-- Dev/native bridge: file browse, refresh, debug overlay -->
     <script src="js/native-bridge.js"></script>
+    <!-- VSCode Copilot bridge: two-way sync with MCP server -->
+    <script src="vscode-bridge/js/bridge-sync.js"></script>
     <script>
     // Menu bar dropdown toggle
     (function () {
@@ -432,6 +437,20 @@ sort($allPropertyNames);
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { closeAll(); }
         });
+    }());
+
+    // AI Chat init - runs after DOM is ready and all scripts are loaded
+    (function () {
+        try {
+            if (window.LiveCSS && window.LiveCSS.aiChat && typeof window.LiveCSS.aiChat.init === 'function') {
+                window.LiveCSS.aiChat.init();
+                console.log('[App] LiveCSS.aiChat initialized');
+            } else {
+                console.error('[App] LiveCSS.aiChat not available - check js/ai-chat.js loaded correctly');
+            }
+        } catch (e) {
+            console.error('[App] LiveCSS.aiChat.init() threw:', e.message, e);
+        }
     }());
     </script>
 
