@@ -1,0 +1,41 @@
+{
+  "_comment": "Local model context for the ai/ directory. Reads full model settings from model-map.json at project root.",
+  "model_map_ref": "../model-map.json",
+  "directory": "ai",
+  "models_in_use": [
+
+    {
+      "model_id": "gpt-4o-mini",
+      "provider": "openai",
+      "hardcoded_in": [
+        "phrases.php:43"
+      ],
+      "local_role": "phrases database seeder",
+      "local_flow": "phrases.php checks phrases table row count. If fewer than 30 rows exist it calls GPT-4o mini to generate 60 ai-working phrases and stores them in ai/data/phrases.db. Called by the PHP backend when the UI requests phrases.",
+      "fallback": "if the OpenAI call fails, phrases.php writes a built-in hardcoded fallback list to the database"
+    },
+
+    {
+      "model_id": "deepseek-chat",
+      "provider": "deepseek",
+      "hardcoded_in": [
+        "deepseek.php (via AIConfig::provider('deepseek') default_model)",
+        "config.json (providers.deepseek.default_model)"
+      ],
+      "local_role": "primary DeepSeek SSE streaming endpoint",
+      "local_flow": "deepseek.php receives POST with messages array -> loads api_key from key file via AIConfig -> calls https://api.deepseek.com/chat/completions -> streams SSE tokens back to the browser. reasoning_content from deepseek-reasoner is surfaced separately when present.",
+      "fallback": "sseError() sends an SSE error event and exits"
+    },
+
+    {
+      "model_id": "claude-haiku-4-5-20251001",
+      "provider": "anthropic",
+      "hardcoded_in": [
+        "agent/run.php (via prompts.json model_overrides.preview)"
+      ],
+      "local_role": "agent run handler model override for preview task",
+      "local_flow": "agent/run.php reads model_overrides from agent/prompts.json. If the requested task (e.g. 'preview') has a model_override, that value wins over whatever the client requested -- ensuring preview always uses Haiku regardless of UI selection.",
+      "fallback": "if model_override is empty string the client-supplied model is used; if provider call fails jsonError() or sseError() is returned"
+    }
+  ]
+}

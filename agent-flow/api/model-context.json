@@ -1,0 +1,18 @@
+{
+  "_comment": "Local model context for agent-flow/api/. Reads full model settings from model-map.json at project root.",
+  "model_map_ref": "../../model-map.json",
+  "directory": "agent-flow/api",
+  "models_in_use": [
+
+    {
+      "model_id": "gpt-4o-mini",
+      "provider": "openai",
+      "hardcoded_in": [
+        "ai_run.php:234 (default for ai-call step type)"
+      ],
+      "local_role": "agent flow ai-call step default model",
+      "local_flow": "ai_run.php executes agent flow step sequences. For steps of type 'ai-call', if no model is specified in the step props the default falls back to gpt-4o-mini. The provider is read from props (defaults to openai). Results are stored in a variable map and can be referenced by later steps.",
+      "fallback": "if inputVar resolves to empty string the step is skipped with result 'skipped -- inputVar is empty'. API errors surface in the step result field."
+    }
+  ]
+}

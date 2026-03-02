@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="report-id" content="report_2026-03-02_191446">
+<title>Project Report 2026-03-02</title>
+<style>
+:root {
+  --bg:       #0d0d14;
+  --bg2:      #13131f;
+  --bg3:      #1a1a2b;
+  --border:   #1e1e30;
+  --border2:  #2a2a40;
+  --text:     #d4d4e8;
+  --text-dim: #8888aa;
+  --blue:     #5a9cf6;
+  --green:    #4ade80;
+  --yellow:   #facc15;
+  --orange:   #fb923c;
+  --red:      #f87171;
+  --cyan:     #22d3ee;
+  --purple:   #a78bfa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* layout */
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+
+/* header */
+.report-header {
+  border-bottom: 1px solid var(--border2);
+  padding-bottom: 18px;
+  margin-bottom: 24px;
+}
+.report-header h1 { font-size: 20px; color: var(--blue); letter-spacing: 0.04em; }
+.report-header .meta { color: var(--text-dim); font-size: 11px; margin-top: 6px; }
+
+/* concern bar */
+.concern-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+.concern-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+}
+.concern-pill .badge {
+  font-size: 10px;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #0d0d14;
+}
+
+/* section headings */
+.section { margin-bottom: 32px; }
+.section-title {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+}
+.section-title span { color: var(--blue); }
+
+/* score badge */
+.score-badge {
+  display: inline-block;
+  min-width: 36px;
+  text-align: center;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #0d0d14;
+}
+
+/* table */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.report-table th {
+  background: var(--bg3);
+  color: var(--text-dim);
+  text-align: left;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  font-weight: normal;
+  white-space: nowrap;
+}
+.report-table td {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+  word-break: break-word;
+}
+.report-table tr:hover td { background: var(--bg3); }
+.dim { color: var(--text-dim); }
+.mono { font-family: inherit; }
+
+/* checkbox rows */
+.check-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.check-row input[type=checkbox] { margin-top: 2px; accent-color: var(--green); flex-shrink: 0; }
+.check-row .file-label { flex: 1; }
+.check-row .ts { font-size: 10px; color: var(--green); margin-left: 6px; }
+.check-row.checked-row .file-label { opacity: 0.45; text-decoration: line-through; }
+
+/* empty notice */
+.empty-notice {
+  color: var(--green);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+/* footer */
+.report-footer {
+  border-top: 1px solid var(--border);
+  margin-top: 32px;
+  padding-top: 14px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+</style>
+<meta name="sec-critical" content="0">
+<meta name="sec-high"     content="3">
+<meta name="sec-medium"   content="0">
+<meta name="sec-low"      content="0">
+<meta name="large-files"  content="0">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="report-header">
+    <h1>live-css / Project Report</h1>
+    <div class="meta">
+      Generated: 2026-03-02 19:14:46 UTC &nbsp;|&nbsp;
+      Root: /Users/mac/Documents/live-css &nbsp;|&nbsp;
+      Lines threshold: 1,000 &nbsp;|&nbsp;
+      Security findings: 3 &nbsp;|&nbsp;
+      Worst score: <span class="score-badge" style="background:#fb923c">8/10&nbsp;HIGH</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Items of <span>Concern</span></div>
+    <div class="concern-bar"><div class="concern-pill"><span class="badge" style="background:#fb923c">3</span>Security HIGH</div><div class="concern-pill"><span class="badge" style="background:#4ade80">62</span>Model refs found</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Large Files Audit &nbsp;<span>(threshold: 1,000 lines)</span></div>
+    <div class="check-row" id="lc-0"><input type="checkbox" data-id="lc-0"><div class="file-label"><span class="score-badge" style="background:#22d3ee">3/10&nbsp;LOW</span>&nbsp;&nbsp;<span class="mono">db-browser/main.c</span>&nbsp;<span class="dim">(1,348 lines)</span></div></div><div class="check-row" id="lc-1"><input type="checkbox" data-id="lc-1"><div class="file-label"><span class="score-badge" style="background:#22d3ee">3/10&nbsp;LOW</span>&nbsp;&nbsp;<span class="mono">page-builder/build.php</span>&nbsp;<span class="dim">(1,318 lines)</span></div></div><div class="check-row" id="lc-2"><input type="checkbox" data-id="lc-2"><div class="file-label"><span class="score-badge" style="background:#22d3ee">3/10&nbsp;LOW</span>&nbsp;&nbsp;<span class="mono">css/agent.css</span>&nbsp;<span class="dim">(1,291 lines)</span></div></div><div class="check-row" id="lc-3"><input type="checkbox" data-id="lc-3"><div class="file-label"><span class="score-badge" style="background:#22d3ee">3/10&nbsp;LOW</span>&nbsp;&nbsp;<span class="mono">c_tools/tui_agent/main.py</span>&nbsp;<span class="dim">(1,287 lines)</span></div></div><div class="check-row" id="lc-4"><input type="checkbox" data-id="lc-4"><div class="file-label"><span class="score-badge" style="background:#22d3ee">3/10&nbsp;LOW</span>&nbsp;&nbsp;<span class="mono">js/wireframe.js</span>&nbsp;<span class="dim">(1,258 lines)</span></div></div><div class="check-row" id="lc-5"><input type="checkbox" data-id="lc-5"><div class="file-label"><span class="score-badge" style="background:#22d3ee">3/10&nbsp;LOW</span>&nbsp;&nbsp;<span class="mono">page-builder/index.php</span>&nbsp;<span class="dim">(1,050 lines)</span></div></div><div class="check-row" id="lc-6"><input type="checkbox" data-id="lc-6"><div class="file-label"><span class="score-badge" style="background:#22d3ee">3/10&nbsp;LOW</span>&nbsp;&nbsp;<span class="mono">js/theme-randomizer.js</span>&nbsp;<span class="dim">(1,048 lines)</span></div></div><div class="check-row" id="lc-7"><input type="checkbox" data-id="lc-7"><div class="file-label"><span class="score-badge" style="background:#22d3ee">3/10&nbsp;LOW</span>&nbsp;&nbsp;<span class="mono">agent-flow/js/flow.js</span>&nbsp;<span class="dim">(1,000 lines)</span></div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Security Scan &nbsp;<span>(3 findings)</span></div>
+    <table class="report-table"><thead><tr><th></th><th>Score</th><th>File</th><th>Line</th><th>Pattern</th><th>Preview</th></tr></thead><tbody><tr><td><input type="checkbox" data-id="sec-0"></td><td><span class="score-badge" style="background:#fb923c">8/10&nbsp;HIGH</span></td><td class="mono dim">debug-tool/HOW_TO_SEND_ERRORS.md</td><td class="dim" style="text-align:right">271</td><td style="color:#fb923c">API key assignment</td><td class="dim mono">my-sec*******</td></tr><tr><td><input type="checkbox" data-id="sec-1"></td><td><span class="score-badge" style="background:#fb923c">8/10&nbsp;HIGH</span></td><td class="mono dim">debug-tool/HOW_TO_SEND_ERRORS.md</td><td class="dim" style="text-align:right">279</td><td style="color:#fb923c">API key assignment</td><td class="dim mono">my-sec*******</td></tr><tr><td><input type="checkbox" data-id="sec-2"></td><td><span class="score-badge" style="background:#fb923c">8/10&nbsp;HIGH</span></td><td class="mono dim">xcm_auth/db/sqlite.go</td><td class="dim" style="text-align:right">29</td><td style="color:#fb923c">Database URL / DSN</td><td class="dim mono">./xcm_*******</td></tr></tbody></table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Model References in Watch Files &nbsp;<span>(62 refs)</span></div>
+    <div class="check-row" id="ml-0"><input type="checkbox" data-id="ml-0"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">29</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-haiku-4-5-20251001</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;claude-haiku-4-5-20251001&quot;,</span></div></div><div class="check-row" id="ml-1"><input type="checkbox" data-id="ml-1"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">38</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-5-20250929</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;claude-sonnet-4-5-20250929&quot;,</span></div></div><div class="check-row" id="ml-2"><input type="checkbox" data-id="ml-2"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">46</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-6</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;claude-sonnet-4-6&quot;,</span></div></div><div class="check-row" id="ml-3"><input type="checkbox" data-id="ml-3"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">54</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-opus-4-6</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;claude-opus-4-6&quot;,</span></div></div><div class="check-row" id="ml-4"><input type="checkbox" data-id="ml-4"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">62</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o-mini</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;gpt-4o-mini&quot;,</span></div></div><div class="check-row" id="ml-5"><input type="checkbox" data-id="ml-5"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">72</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;gpt-4o&quot;,</span></div></div><div class="check-row" id="ml-6"><input type="checkbox" data-id="ml-6"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">80</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4-turbo</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;gpt-4-turbo&quot;,</span></div></div><div class="check-row" id="ml-7"><input type="checkbox" data-id="ml-7"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">88</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-3.5-turbo</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;gpt-3.5-turbo&quot;,</span></div></div><div class="check-row" id="ml-8"><input type="checkbox" data-id="ml-8"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">96</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-chat</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;deepseek-chat&quot;,</span></div></div><div class="check-row" id="ml-9"><input type="checkbox" data-id="ml-9"><div class="file-label"><span class="dim mono">search.py</span>:<span class="dim">107</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-reasoner</span>&nbsp;<span class="dim">&quot;name&quot;: &quot;deepseek-reasoner&quot;,</span></div></div><div class="check-row" id="ml-10"><input type="checkbox" data-id="ml-10"><div class="file-label"><span class="dim mono">c_tools/tui_agent/main.py</span>:<span class="dim">278</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim"># rolling conversation session (convo.py / GPT-4o mini)</span></div></div><div class="check-row" id="ml-11"><input type="checkbox" data-id="ml-11"><div class="file-label"><span class="dim mono">c_tools/tui_agent/main.py</span>:<span class="dim">831</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim"># --- start rolling commentary (convo.py / GPT-4o mini) -----------</span></div></div><div class="check-row" id="ml-12"><input type="checkbox" data-id="ml-12"><div class="file-label"><span class="dim mono">c_tools/tui_agent/agent.py</span>:<span class="dim">3</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-haiku-4-5-20251001</span>&nbsp;<span class="dim">Calls Claude claude-haiku-4-5-20251001 via the Anthropic SDK.</span></div></div><div class="check-row" id="ml-13"><input type="checkbox" data-id="ml-13"><div class="file-label"><span class="dim mono">c_tools/tui_agent/agent.py</span>:<span class="dim">36</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-haiku-4-5-20251001</span>&nbsp;<span class="dim">HAIKU_MODEL = &quot;claude-haiku-4-5-20251001&quot;</span></div></div><div class="check-row" id="ml-14"><input type="checkbox" data-id="ml-14"><div class="file-label"><span class="dim mono">c_tools/tui_agent/convo.py</span>:<span class="dim">6</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">While the Haiku file-edit agent is streaming, a ConvoSession calls GPT-4o mini</span></div></div><div class="check-row" id="ml-15"><input type="checkbox" data-id="ml-15"><div class="file-label"><span class="dim mono">c_tools/tui_agent/convo.py</span>:<span class="dim">31</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o-mini</span>&nbsp;<span class="dim">Model: gpt-4o-mini</span></div></div><div class="check-row" id="ml-16"><input type="checkbox" data-id="ml-16"><div class="file-label"><span class="dim mono">c_tools/tui_agent/convo.py</span>:<span class="dim">54</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o-mini</span>&nbsp;<span class="dim">GPT_MODEL = &quot;gpt-4o-mini&quot;</span></div></div><div class="check-row" id="ml-17"><input type="checkbox" data-id="ml-17"><div class="file-label"><span class="dim mono">c_tools/tui_agent/convo.py</span>:<span class="dim">171</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">Manages one GPT-4o mini commentary session.</span></div></div><div class="check-row" id="ml-18"><input type="checkbox" data-id="ml-18"><div class="file-label"><span class="dim mono">c_tools/tui_agent/convo.py</span>:<span class="dim">237</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">Call GPT-4o mini via the OpenAI streaming API.</span></div></div><div class="check-row" id="ml-19"><input type="checkbox" data-id="ml-19"><div class="file-label"><span class="dim mono">c_tools/tui_agent/project_mode.py</span>:<span class="dim">9</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">2. ProjectPlanner   -- sends tree + outlines to GPT-4o mini; drip-feeds unused</span></div></div><div class="check-row" id="ml-20"><input type="checkbox" data-id="ml-20"><div class="file-label"><span class="dim mono">c_tools/tui_agent/project_mode.py</span>:<span class="dim">273</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">Calls GPT-4o mini to generate a plan prompt + phrases from the file tree.</span></div></div><div class="check-row" id="ml-21"><input type="checkbox" data-id="ml-21"><div class="file-label"><span class="dim mono">c_tools/tui_agent/project_mode.py</span>:<span class="dim">291</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">Send tree + instruction to GPT-4o mini.</span></div></div><div class="check-row" id="ml-22"><input type="checkbox" data-id="ml-22"><div class="file-label"><span class="dim mono">c_tools/tui_agent/project_mode.py</span>:<span class="dim">295</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">self._log_msg(&quot;building file tree summary for GPT-4o mini&quot;)</span></div></div><div class="check-row" id="ml-23"><input type="checkbox" data-id="ml-23"><div class="file-label"><span class="dim mono">c_tools/tui_agent/project_mode.py</span>:<span class="dim">322</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">self._log_msg(&quot;calling GPT-4o mini for project plan&quot;)</span></div></div><div class="check-row" id="ml-24"><input type="checkbox" data-id="ml-24"><div class="file-label"><span class="dim mono">c_tools/tui_agent/project_mode.py</span>:<span class="dim">336</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o-mini</span>&nbsp;<span class="dim">model=&quot;gpt-4o-mini&quot;,</span></div></div><div class="check-row" id="ml-25"><input type="checkbox" data-id="ml-25"><div class="file-label"><span class="dim mono">c_tools/tui_agent/project_mode.py</span>:<span class="dim">347</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">GPT-4o</span>&nbsp;<span class="dim">self._log_msg(f&quot;GPT-4o mini call failed: {exc}&quot;)</span></div></div><div class="check-row" id="ml-26"><input type="checkbox" data-id="ml-26"><div class="file-label"><span class="dim mono">c_tools/tui_agent/project_mode.py</span>:<span class="dim">506</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-haiku-4-5-20251001</span>&nbsp;<span class="dim">model=&quot;claude-haiku-4-5-20251001&quot;,</span></div></div><div class="check-row" id="ml-27"><input type="checkbox" data-id="ml-27"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">14</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-5-20250929</span>&nbsp;<span class="dim">&quot;default_model&quot;: &quot;claude-sonnet-4-5-20250929&quot;,</span></div></div><div class="check-row" id="ml-28"><input type="checkbox" data-id="ml-28"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">19</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-opus-4-6</span>&nbsp;<span class="dim">&quot;claude-opus-4-6&quot;,</span></div></div><div class="check-row" id="ml-29"><input type="checkbox" data-id="ml-29"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">20</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-6</span>&nbsp;<span class="dim">&quot;claude-sonnet-4-6&quot;,</span></div></div><div class="check-row" id="ml-30"><input type="checkbox" data-id="ml-30"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">21</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-5-20250929</span>&nbsp;<span class="dim">&quot;claude-sonnet-4-5-20250929&quot;,</span></div></div><div class="check-row" id="ml-31"><input type="checkbox" data-id="ml-31"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">22</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-haiku-4-5-20251001</span>&nbsp;<span class="dim">&quot;claude-haiku-4-5-20251001&quot;</span></div></div><div class="check-row" id="ml-32"><input type="checkbox" data-id="ml-32"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">25</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-opus-4-6</span>&nbsp;<span class="dim">&quot;claude-opus-4-6&quot;: 0.015,</span></div></div><div class="check-row" id="ml-33"><input type="checkbox" data-id="ml-33"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">26</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-6</span>&nbsp;<span class="dim">&quot;claude-sonnet-4-6&quot;: 0.003,</span></div></div><div class="check-row" id="ml-34"><input type="checkbox" data-id="ml-34"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">27</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-5-20250929</span>&nbsp;<span class="dim">&quot;claude-sonnet-4-5-20250929&quot;: 0.003,</span></div></div><div class="check-row" id="ml-35"><input type="checkbox" data-id="ml-35"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">28</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-haiku-4-5-20251001</span>&nbsp;<span class="dim">&quot;claude-haiku-4-5-20251001&quot;: 0.001</span></div></div><div class="check-row" id="ml-36"><input type="checkbox" data-id="ml-36"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">31</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-opus-4-6</span>&nbsp;<span class="dim">&quot;claude-opus-4-6&quot;: 0.075,</span></div></div><div class="check-row" id="ml-37"><input type="checkbox" data-id="ml-37"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">32</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-6</span>&nbsp;<span class="dim">&quot;claude-sonnet-4-6&quot;: 0.015,</span></div></div><div class="check-row" id="ml-38"><input type="checkbox" data-id="ml-38"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">33</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-sonnet-4-5-20250929</span>&nbsp;<span class="dim">&quot;claude-sonnet-4-5-20250929&quot;: 0.015,</span></div></div><div class="check-row" id="ml-39"><input type="checkbox" data-id="ml-39"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">34</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">claude-haiku-4-5-20251001</span>&nbsp;<span class="dim">&quot;claude-haiku-4-5-20251001&quot;: 0.005</span></div></div><div class="check-row" id="ml-40"><input type="checkbox" data-id="ml-40"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">40</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o</span>&nbsp;<span class="dim">&quot;default_model&quot;: &quot;gpt-4o&quot;,</span></div></div><div class="check-row" id="ml-41"><input type="checkbox" data-id="ml-41"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">47</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o</span>&nbsp;<span class="dim">&quot;gpt-4o&quot;,</span></div></div><div class="check-row" id="ml-42"><input type="checkbox" data-id="ml-42"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">48</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o-mini</span>&nbsp;<span class="dim">&quot;gpt-4o-mini&quot;,</span></div></div><div class="check-row" id="ml-43"><input type="checkbox" data-id="ml-43"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">49</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4-turbo</span>&nbsp;<span class="dim">&quot;gpt-4-turbo&quot;,</span></div></div><div class="check-row" id="ml-44"><input type="checkbox" data-id="ml-44"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">50</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-3.5-turbo</span>&nbsp;<span class="dim">&quot;gpt-3.5-turbo&quot;</span></div></div><div class="check-row" id="ml-45"><input type="checkbox" data-id="ml-45"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">55</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o</span>&nbsp;<span class="dim">&quot;gpt-4o&quot;: 0.005,</span></div></div><div class="check-row" id="ml-46"><input type="checkbox" data-id="ml-46"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">56</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o-mini</span>&nbsp;<span class="dim">&quot;gpt-4o-mini&quot;: 0.00015,</span></div></div><div class="check-row" id="ml-47"><input type="checkbox" data-id="ml-47"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">57</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4-turbo</span>&nbsp;<span class="dim">&quot;gpt-4-turbo&quot;: 0.010,</span></div></div><div class="check-row" id="ml-48"><input type="checkbox" data-id="ml-48"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">58</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-3.5-turbo</span>&nbsp;<span class="dim">&quot;gpt-3.5-turbo&quot;: 0.0005</span></div></div><div class="check-row" id="ml-49"><input type="checkbox" data-id="ml-49"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">63</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o</span>&nbsp;<span class="dim">&quot;gpt-4o&quot;: 0.015,</span></div></div><div class="check-row" id="ml-50"><input type="checkbox" data-id="ml-50"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">64</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o-mini</span>&nbsp;<span class="dim">&quot;gpt-4o-mini&quot;: 0.0006,</span></div></div><div class="check-row" id="ml-51"><input type="checkbox" data-id="ml-51"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">65</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4-turbo</span>&nbsp;<span class="dim">&quot;gpt-4-turbo&quot;: 0.030,</span></div></div><div class="check-row" id="ml-52"><input type="checkbox" data-id="ml-52"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">66</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-3.5-turbo</span>&nbsp;<span class="dim">&quot;gpt-3.5-turbo&quot;: 0.0015</span></div></div><div class="check-row" id="ml-53"><input type="checkbox" data-id="ml-53"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">72</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-chat</span>&nbsp;<span class="dim">&quot;default_model&quot;: &quot;deepseek-chat&quot;,</span></div></div><div class="check-row" id="ml-54"><input type="checkbox" data-id="ml-54"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">78</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-chat</span>&nbsp;<span class="dim">&quot;deepseek-chat&quot;,</span></div></div><div class="check-row" id="ml-55"><input type="checkbox" data-id="ml-55"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">79</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-reasoner</span>&nbsp;<span class="dim">&quot;deepseek-reasoner&quot;</span></div></div><div class="check-row" id="ml-56"><input type="checkbox" data-id="ml-56"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">82</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-chat</span>&nbsp;<span class="dim">&quot;deepseek-chat&quot;: 0.0014,</span></div></div><div class="check-row" id="ml-57"><input type="checkbox" data-id="ml-57"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">83</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-reasoner</span>&nbsp;<span class="dim">&quot;deepseek-reasoner&quot;: 0.0055</span></div></div><div class="check-row" id="ml-58"><input type="checkbox" data-id="ml-58"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">86</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-chat</span>&nbsp;<span class="dim">&quot;deepseek-chat&quot;: 0.0028,</span></div></div><div class="check-row" id="ml-59"><input type="checkbox" data-id="ml-59"><div class="file-label"><span class="dim mono">ai/config.json</span>:<span class="dim">87</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-reasoner</span>&nbsp;<span class="dim">&quot;deepseek-reasoner&quot;: 0.0219</span></div></div><div class="check-row" id="ml-60"><input type="checkbox" data-id="ml-60"><div class="file-label"><span class="dim mono">ai/phrases.php</span>:<span class="dim">43</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">gpt-4o-mini</span>&nbsp;<span class="dim">'model'      =&gt; 'gpt-4o-mini',</span></div></div><div class="check-row" id="ml-61"><input type="checkbox" data-id="ml-61"><div class="file-label"><span class="dim mono">ai/deepseek.php</span>:<span class="dim">97</span>&nbsp;&mdash;&nbsp;<span style="color:#a78bfa">deepseek-reasoner</span>&nbsp;<span class="dim">// deepseek-reasoner surfaces reasoning_content separately</span></div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">AI Model Catalog</div>
+    <table class="report-table"><thead><tr><th>Model</th><th>Provider</th><th>Active</th><th>Used in</th></tr></thead><tbody><tr><td class="mono" style="color:#a78bfa">claude-haiku-4-5-20251001</td><td>Anthropic</td><td>yes</td><td class="dim">c_tools/tui_agent/agent.py; c_tools/tui_agent/project_mode.py</td></tr><tr><td class="mono" style="color:#a78bfa">claude-sonnet-4-5-20250929</td><td>Anthropic</td><td>yes</td><td class="dim">ai/config.json (default_model)</td></tr><tr><td class="mono" style="color:#a78bfa">claude-sonnet-4-6</td><td>Anthropic</td><td>yes</td><td class="dim">ai/config.json (models list)</td></tr><tr><td class="mono" style="color:#a78bfa">claude-opus-4-6</td><td>Anthropic</td><td>yes</td><td class="dim">ai/config.json (models list)</td></tr><tr><td class="mono" style="color:#a78bfa">gpt-4o-mini</td><td>OpenAI</td><td>yes</td><td class="dim">c_tools/tui_agent/convo.py; c_tools/tui_agent/project_mode.py; ai/phrases.php</td></tr><tr><td class="mono" style="color:#a78bfa">gpt-4o</td><td>OpenAI</td><td>yes</td><td class="dim">ai/config.json (default_model)</td></tr><tr><td class="mono" style="color:#a78bfa">gpt-4-turbo</td><td>OpenAI</td><td>yes</td><td class="dim">ai/config.json (models list)</td></tr><tr><td class="mono" style="color:#a78bfa">gpt-3.5-turbo</td><td>OpenAI</td><td>yes</td><td class="dim">ai/config.json (models list)</td></tr><tr><td class="mono" style="color:#a78bfa">deepseek-chat</td><td>DeepSeek</td><td>yes</td><td class="dim">ai/deepseek.php; ai/test-providers.php; ai/config.json (default_model); security_ck.py (key pattern detection)</td></tr><tr><td class="mono" style="color:#a78bfa">deepseek-reasoner</td><td>DeepSeek</td><td>yes</td><td class="dim">ai/config.json (models list)</td></tr><tr><td class="mono" style="color:#a78bfa">EMI bio-inspired (local)</td><td>local</td><td>yes</td><td class="dim">mood_ck/mood_check.py; mood_ck/emi_model/engine.py</td></tr></tbody></table>
+  </div>
+
+  <div class="report-footer">
+    Report ID: report_2026-03-02_191446 &nbsp;|&nbsp;
+    Checkbox state saved to localStorage under key: report_checks_report_2026-03-02_191446
+    &nbsp;|&nbsp; <a href="index.html">Back to all reports</a>
+  </div>
+
+</div>
+<script>
+const LS_KEY = 'report_checks_' + document.querySelector('meta[name=report-id]').content;
+
+function loadChecks() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+  } catch(e) {
+    console.warn('[report] localStorage parse error:', e);
+    return {};
+  }
+}
+
+function saveChecks(data) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch(e) {
+    console.warn('[report] localStorage save error:', e);
+  }
+}
+
+function applyChecks() {
+  const data = loadChecks();
+  document.querySelectorAll('.check-row input[type=checkbox]').forEach(cb => {
+    const id = cb.dataset.id;
+    if (data[id]) {
+      cb.checked = true;
+      const row = cb.closest('.check-row');
+      row.classList.add('checked-row');
+      let ts = row.querySelector('.ts');
+      if (!ts) {
+        ts = document.createElement('span');
+        ts.className = 'ts';
+        row.querySelector('.file-label').appendChild(ts);
+      }
+      ts.textContent = '  checked ' + data[id];
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  applyChecks();
+
+  document.querySelectorAll('.check-row input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const id = cb.dataset.id;
+      const data = loadChecks();
+      const row = cb.closest('.check-row');
+      if (cb.checked) {
+        const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+        data[id] = now;
+        row.classList.add('checked-row');
+        let ts = row.querySelector('.ts');
+        if (!ts) {
+          ts = document.createElement('span');
+          ts.className = 'ts';
+          row.querySelector('.file-label').appendChild(ts);
+        }
+        ts.textContent = '  checked ' + now;
+      } else {
+        delete data[id];
+        row.classList.remove('checked-row');
+        const ts = row.querySelector('.ts');
+        if (ts) ts.remove();
+      }
+      saveChecks(data);
+    });
+  });
+});
+</script>
+</body>
+</html>

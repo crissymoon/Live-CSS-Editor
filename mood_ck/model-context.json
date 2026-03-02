@@ -1,0 +1,20 @@
+{
+  "_comment": "Local model context for mood_ck/. Reads full model settings from model-map.json at project root.",
+  "model_map_ref": "../model-map.json",
+  "directory": "mood_ck",
+  "models_in_use": [
+
+    {
+      "model_id": "emi-bio-inspired",
+      "provider": "local",
+      "hardcoded_in": [
+        "mood_check.py (imports EMIEngine from emi_model symlink)",
+        "emi_model/engine.py (the engine itself)"
+      ],
+      "local_role": "mood and sentiment analysis engine",
+      "local_flow": "mood_check.py reads text from stdin or --file -> splits into chunks (default 250 words, 30-word overlap) -> passes each chunk to EMIEngine.analyze() -> aggregates scores by match_rate weight -> prints dominant mood, top patterns, valence, arousal, and full JSON if --json. No network call, no API key required.",
+      "fallback": "if EMIEngine import fails a clear error is printed to stderr with the expected symlink path. chunk analysis errors are logged per chunk and the remaining chunks continue.",
+      "notes": "emi_model/ is a symlink to /Users/mac/Documents/deploy_emi_model. Engine has 512-channel BCI architecture and a 370K-word lexicon (lexicon.json)."
+    }
+  ]
+}

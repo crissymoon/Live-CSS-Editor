@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project Reports Index</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d0d14;
+  color: #d4d4e8;
+  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 24px 20px;
+}
+h1 { color: #5a9cf6; font-size: 18px; margin-bottom: 6px; }
+.subtitle { color: #8888aa; font-size: 11px; margin-bottom: 20px; }
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+#search {
+  background: #13131f;
+  border: 1px solid #1e1e30;
+  color: #d4d4e8;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  width: 280px;
+}
+#search:focus { outline: none; border-color: #5a9cf6; }
+.btn {
+  background: #13131f;
+  border: 1px solid #1e1e30;
+  color: #d4d4e8;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.btn:hover { border-color: #5a9cf6; color: #5a9cf6; }
+.btn.active { border-color: #5a9cf6; color: #5a9cf6; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px,1fr)); gap: 12px; }
+.card {
+  background: #13131f;
+  border: 1px solid #1e1e30;
+  border-radius: 6px;
+  padding: 14px 16px;
+  transition: border-color 0.15s;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.card:hover { border-color: #5a9cf6; }
+.card-date { font-size: 12px; color: #5a9cf6; margin-bottom: 4px; }
+.card-id { font-size: 10px; color: #8888aa; margin-bottom: 8px; }
+.card-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  color: #0d0d14;
+  font-weight: bold;
+}
+.pager { margin-top: 18px; display: flex; gap: 8px; align-items: center; }
+.count-label { color: #8888aa; font-size: 11px; margin-top: 12px; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<h1>live-css / Project Reports</h1>
+<div class="subtitle">1 report(s) &nbsp;|&nbsp; auto-generated index</div>
+<div class="controls">
+  <input id="search" type="search" placeholder="Search by date or ID...">
+</div>
+<div class="grid" id="grid"></div>
+<div class="pager" id="pager"></div>
+<div class="count-label" id="count-label"></div>
+<script>
+window.ALL_REPORTS = [
+  {
+    "file": "report_2026-03-02_191446.html",
+    "id": "report_2026-03-02_191446",
+    "ts": "2026-03-02 191446",
+    "sec_critical": 0,
+    "sec_high": 0,
+    "sec_medium": 0,
+    "sec_low": 0,
+    "large_files": 0
+  }
+];
+
+const PER_PAGE = 12;
+let page = 1;
+let filtered = [];
+
+function pill(label, n, bg) {
+  if (!n) return '';
+  return '<span class="pill" style="background:' + bg + '">' + n + ' ' + label + '</span>';
+}
+
+function renderCards(data) {
+  filtered = data;
+  page = 1;
+  render();
+}
+
+function render() {
+  const grid = document.getElementById('grid');
+  const pager = document.getElementById('pager');
+  const countLabel = document.getElementById('count-label');
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  if (page > totalPages) page = totalPages;
+  const slice = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  grid.innerHTML = slice.map(r => {
+    const pills = [
+      pill('CRITICAL', r.sec_critical, '#f87171'),
+      pill('HIGH',     r.sec_high,     '#fb923c'),
+      pill('MEDIUM',   r.sec_medium,   '#facc15'),
+      pill('LOW',      r.sec_low,      '#22d3ee'),
+      pill('large files', r.large_files, '#a78bfa'),
+    ].join('');
+    return '<a class="card" href="' + r.file + '">'
+      + '<div class="card-date">' + r.ts + '</div>'
+      + '<div class="card-id">' + r.id + '</div>'
+      + '<div class="card-pills">' + (pills || '<span style="color:#4ade80;font-size:10px">no concerns</span>') + '</div>'
+      + '</a>';
+  }).join('');
+
+  // pager
+  const btns = [];
+  if (page > 1)      btns.push('<button class="btn" onclick="goPage(' + (page-1) + ')">&lt; prev</button>');
+  btns.push('<span style="color:#8888aa;font-size:11px">page ' + page + ' / ' + totalPages + '</span>');
+  if (page < totalPages) btns.push('<button class="btn" onclick="goPage(' + (page+1) + ')">next &gt;</button>');
+  pager.innerHTML = btns.join('');
+
+  countLabel.textContent = total + ' report(s)';
+}
+
+function goPage(n) {
+  page = n;
+  render();
+}
+
+function applySearch() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  if (!q) { renderCards(window.ALL_REPORTS); return; }
+  renderCards(window.ALL_REPORTS.filter(r =>
+    r.ts.toLowerCase().includes(q) ||
+    r.id.toLowerCase().includes(q)
+  ));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderCards(window.ALL_REPORTS);
+  document.getElementById('search').addEventListener('input', applySearch);
+});
+
+</script>
+</body>
+</html>

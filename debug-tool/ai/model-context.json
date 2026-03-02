@@ -1,0 +1,29 @@
+{
+  "_comment": "Local model context for debug-tool/ai/. Reads full model settings from model-map.json at project root.",
+  "model_map_ref": "../../model-map.json",
+  "directory": "debug-tool/ai",
+  "models_in_use": [
+
+    {
+      "model_id": "gpt-4o-mini",
+      "provider": "openai",
+      "hardcoded_in": [
+        "analyze.php:137"
+      ],
+      "local_role": "debug analyzer primary model",
+      "local_flow": "analyze.php detects which AI providers are configured (via env vars or config keys). When OpenAI is available it calls gpt-4o-mini with the error/log payload. When only DeepSeek is available callDeepSeek() is used instead. Response is returned as structured JSON to the debug UI.",
+      "fallback": "if OpenAI is unavailable falls through to callDeepSeek(). if no providers are configured an error is logged to PHP error_log."
+    },
+
+    {
+      "model_id": "deepseek-chat",
+      "provider": "deepseek",
+      "hardcoded_in": [
+        "analyze.php (callDeepSeek function, secondary provider)"
+      ],
+      "local_role": "debug analyzer fallback model",
+      "local_flow": "callDeepSeek() in analyze.php is called when OpenAI is unavailable. Uses DEEPSEEK_API_KEY env var or config key. Makes a standard chat completions request to the DeepSeek endpoint.",
+      "fallback": "error is returned in the structured response if both providers fail"
+    }
+  ]
+}

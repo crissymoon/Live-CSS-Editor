@@ -1,0 +1,33 @@
+{
+  "_comment": "Local model context for c_tools/tui_agent/. Reads full model settings from model-map.json at project root.",
+  "model_map_ref": "../../model-map.json",
+  "directory": "c_tools/tui_agent",
+  "models_in_use": [
+
+    {
+      "model_id": "claude-haiku-4-5-20251001",
+      "provider": "anthropic",
+      "constant": "HAIKU_MODEL",
+      "hardcoded_in": [
+        "agent.py:36",
+        "project_mode.py:506"
+      ],
+      "local_role": "file edit executor",
+      "local_flow": "agent.py receives full file content + user instruction -> streams a complete rewritten version via Anthropic SDK -> written back to disk. project_mode.py ProjectExecutor calls the same model per-file when executing a project-wide plan.",
+      "fallback": "none -- if Haiku is unavailable the edit step fails and logs to stderr"
+    },
+
+    {
+      "model_id": "gpt-4o-mini",
+      "provider": "openai",
+      "constant": "GPT_MODEL",
+      "hardcoded_in": [
+        "convo.py:54",
+        "project_mode.py:336"
+      ],
+      "local_role": "commentary sidebar + project planner",
+      "local_flow": "convo.py: daemon thread started alongside Haiku, calls GPT with a tech-slang prompt, drip-feeds generated lines to the TUI log panel via on_message callback. project_mode.py ProjectPlanner: sends file tree outline + instruction, expects {prompt, phrases} JSON response to build the executor's instructions.",
+      "fallback": "convo.py falls back to randomly sampled phrases from ai/data/phrases.db (category: ai-working) if OpenAI is unavailable"
+    }
+  ]
+}
