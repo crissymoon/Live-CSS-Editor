@@ -16,7 +16,8 @@ import sys
 from typing import Callable, Optional, Tuple
 
 from log_util import get_logger
-from emoji_clean import clean
+from emoji_clean import clean as _emoji_clean
+from fence_clean import clean as _fence_clean
 
 HAIKU_MODEL       = "claude-haiku-4-5-20251001"
 CONFIG_PATH       = os.path.normpath(
@@ -116,9 +117,15 @@ def call_haiku(
                     except Exception as cb_exc:
                         log.debug("AGENT", f"on_chunk callback error: {cb_exc}")
 
-        raw     = "".join(chunks)
-        cleaned = clean(raw)
-        log.info("AGENT", f"stream complete: {len(raw)} chars raw, {len(cleaned)} after emoji_clean")
+        raw          = "".join(chunks)
+        after_emoji  = _emoji_clean(raw)
+        cleaned      = _fence_clean(after_emoji)
+        log.info(
+            "AGENT",
+            f"stream complete: {len(raw)} chars raw,"
+            f" {len(after_emoji)} after emoji_clean,"
+            f" {len(cleaned)} after fence_clean",
+        )
         return cleaned, None
 
     except Exception as exc:
