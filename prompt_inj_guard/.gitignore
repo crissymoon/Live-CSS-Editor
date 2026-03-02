@@ -1,0 +1,15 @@
+# Model weights -- too large for git (255 MB safetensors).
+# Back up separately. Use git-lfs or object storage if you need versioning.
+model/spam_injection_model/
+model/spam_injection_model/**
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# macOS
+.DS_Store

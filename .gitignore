@@ -51,3 +51,7 @@ style-sheets/test-preview-output.html
 style-sheets/test-preview-debug.log
 style-sheets/backups/
 style-sheets/TESTING_DIR_4_LRN.TXT
+
+# prompt_inj_guard -- model weights are too large for git
+prompt_inj_guard/model/spam_injection_model/
+prompt_inj_guard/model/spam_injection_model/**
