@@ -6,12 +6,14 @@ which points key files at ~/Desktop/my_keys/.
 
 The agent receives a file's content + user instruction and returns
 the fully rewritten file content (no explanations, no markdown fences).
+
+Streaming is used so callers can receive live token counts via on_chunk(chars_so_far).
 """
 
 import os
 import json
 import sys
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 from log_util import get_logger
 from emoji_clean import clean
@@ -56,10 +58,18 @@ def _load_api_key() -> str:
         raise
 
 
-def call_haiku(file_path: str, file_content: str,
-               instruction: str) -> Tuple[Optional[str], Optional[str]]:
+def call_haiku(
+    file_path: str,
+    file_content: str,
+    instruction: str,
+    on_chunk: Optional[Callable[[int, str], None]] = None,
+) -> Tuple[Optional[str], Optional[str]]:
     """
-    Send file_content + instruction to Haiku.
+    Send file_content + instruction to Haiku using the streaming API.
+
+    on_chunk(chars_received, latest_snippet) is called on every text delta
+    so callers can show a live byte counter without polling.
+
     Returns (new_content, None) on success or (None, error_message) on failure.
     emoji_clean is applied to the response before returning.
     """
@@ -87,16 +97,28 @@ def call_haiku(file_path: str, file_content: str,
     log.debug("AGENT", f"instruction: {instruction[:120]}")
 
     try:
-        client   = _anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
+        client = _anthropic.Anthropic(api_key=api_key)
+        chunks: list[str] = []
+        total_chars = 0
+
+        with client.messages.stream(
             model=HAIKU_MODEL,
             max_tokens=4096,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
-        )
-        raw = response.content[0].text if response.content else ""
+        ) as stream:
+            for text_delta in stream.text_stream:
+                chunks.append(text_delta)
+                total_chars += len(text_delta)
+                if on_chunk:
+                    try:
+                        on_chunk(total_chars, text_delta)
+                    except Exception as cb_exc:
+                        log.debug("AGENT", f"on_chunk callback error: {cb_exc}")
+
+        raw     = "".join(chunks)
         cleaned = clean(raw)
-        log.info("AGENT", f"response {len(raw)} chars, after emoji_clean {len(cleaned)} chars")
+        log.info("AGENT", f"stream complete: {len(raw)} chars raw, {len(cleaned)} after emoji_clean")
         return cleaned, None
 
     except Exception as exc:
