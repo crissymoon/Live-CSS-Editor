@@ -111,13 +111,13 @@ The Agent is a floating, resizable window (860x580 px) launched from the header 
 
 ### AI Providers
 
-| Provider | Endpoint | Default Model |
-|----------|----------|---------------|
-| Anthropic | ai/anthropic.php | claude-opus-4-5 |
-| OpenAI | ai/openai.php | gpt-4o |
-| DeepSeek | ai/deepseek.php | deepseek-chat |
+| Provider | Endpoint | Default Model | Active Models |
+|----------|----------|---------------|---------------|
+| Anthropic | ai/anthropic.php | claude-sonnet-4-5-20250929 | haiku-4-5-20251001, sonnet-4-5, sonnet-4-6, opus-4-6 |
+| OpenAI | ai/openai.php | gpt-4o | gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-3.5-turbo |
+| DeepSeek | ai/deepseek.php | deepseek-chat | deepseek-chat, deepseek-reasoner |
 
-API keys are stored in `ai/config.json` (not committed to version control).
+API keys are stored outside the project at `~/Desktop/my_keys/`. Paths are configured in `ai/config.json` (not committed to version control). A full canonical model registry with per-model costs, use-case flows, and file locations is in `model-map.json` at the project root.
 
 ---
 
@@ -330,7 +330,8 @@ While Haiku processes, `convo.py` runs a GPT-4o mini session in parallel and fee
 | Tab | Cycle focus: Files -> Log -> Diff |
 | Enter / Right | Descend into selected directory |
 | Backspace / - | Go up one level |
-| p | Enter prompt for selected file |
+| p | Enter prompt for selected file (single-file edit) |
+| P | Enter project mode instruction (scans whole dir, plans with GPT-4o mini, applies with Haiku) |
 | d | Show diff for selected file |
 | a | Approve and apply pending change |
 | r | Reject pending change |
@@ -339,19 +340,76 @@ While Haiku processes, `convo.py` runs a GPT-4o mini session in parallel and fee
 | s | Rescan current directory |
 | q / Esc | Quit |
 
+### Project Mode (P key)
+
+Project mode applies a single instruction across an entire directory in three stages:
+
+1. **ProjectScanner** -- walks the root directory, collects source files, and runs per-file outline extraction to produce a compact tree summary
+2. **ProjectPlanner** -- sends the tree and instruction to GPT-4o mini; returns a structured JSON plan with a Haiku prompt and commentary phrases
+3. **ProjectExecutor** -- sends the plan to Claude Haiku 4.5; Haiku returns a `{"changes": [...], "commands": [...]}` JSON object; each changed file is staged via `merger.py` into SQLite; optional shell commands run in the project root
+
+All three stages run in a daemon thread so the TUI stays responsive. Approve staged changes with `a`, reject with `r`, same as single-file mode.
+
 ### Modules
 
 | File | Role |
 |------|------|
 | main.py | Curses UI, event loop, animation |
-| agent.py | Anthropic Haiku streaming client |
-| convo.py | GPT-4o mini live commentary |
+| agent.py | Anthropic Haiku streaming client (single-file mode) |
+| convo.py | GPT-4o mini live commentary sidebar |
+| project_mode.py | Project mode: scanner, planner, executor orchestration |
 | scanner.py | Directory walking and file list |
 | merger.py | Diff parsing and apply logic |
 | db.py | SQLite staging for pending changes |
 | fence_clean.py | Strip markdown code fences from model output |
 | emoji_clean.py | Remove emoji artifacts from model output |
 | log_util.py | Thread-safe log buffer |
+
+---
+
+## Mood Check
+
+An EMI bio-inspired text mood analysis tool at `mood_ck/`. Scores any text for emotional tone using a local 512-channel BCI model and a 370K-word lexicon. No network call, no API key.
+
+```bash
+# score inline text
+python mood_ck/mood_check.py "I am really excited about this project"
+
+# stdin pipe
+echo "The deadline is tomorrow and nothing works" | python mood_ck/mood_check.py
+
+# score a file
+python mood_ck/mood_check.py --file /path/to/prompt.txt
+
+# one-sentence addon for AI API requests
+python mood_ck/mood_check.py --addon "some text here"
+
+# full score breakdown as JSON
+python mood_ck/mood_check.py --json "some text here"
+```
+
+### How It Works
+
+Input text is split into overlapping word-chunks (default 250 words, 30-word overlap). Each chunk is passed to `EMIEngine.analyze()`. Chunk scores are aggregated weighted by each chunk's lexicon match rate. The dominant mood, top activation patterns, and valence/arousal values are printed.
+
+### Output
+
+- Dominant mood label (e.g. `excited`, `anxious`, `calm`)
+- Top activated patterns with match weights
+- Valence and arousal values
+- One-sentence mood addon for use in AI prompts (with `--addon`)
+- Full JSON breakdown (with `--json`)
+
+### Layout
+
+```
+mood_ck/
+  mood_check.py         CLI entry point and aggregation logic
+  model-context.json    Model registry ref (points to model-map.json)
+  emi_model/            Symlink -> /Users/mac/Documents/deploy_emi_model
+    engine.py           EMIEngine class
+    lexicon.json        370K-word scored lexicon
+```
 
 ---
 
@@ -452,6 +510,43 @@ prompt_inj_guard/
 
 ---
 
+## Project Search
+
+A project-wide search utility at `search.py` in the project root.
+
+```bash
+python search.py <query> [options]
+```
+
+### Search Modes
+
+| Flag | Mode |
+|------|------|
+| (default) | Exact literal substring |
+| `-r` / `--regex` | Python regex |
+| `-f` / `--fuzzy` | Fuzzy match via difflib sliding window |
+
+### Scope Options
+
+| Flag | Description |
+|------|-------------|
+| `-F` / `--file` | Restrict to one file (path or WATCH_FILES index) |
+| `-d` / `--folder` | Restrict to one folder (path or WATCH_FOLDERS index) |
+| `--ext .py` | Filter by file extension |
+| `--watch` | Search only the WATCH_FILES list |
+
+### Info Flags
+
+| Flag | Output |
+|------|--------|
+| `--models` | Print AI_MODELS catalog and exit |
+| `--list-files` | Print numbered WATCH_FILES list |
+| `--list-folders` | Print numbered WATCH_FOLDERS list |
+
+The file has three hardcoded lists at the top: `AI_MODELS` (all providers and models), `WATCH_FILES` (21 key files), and `WATCH_FOLDERS` (16 key directories). These lists are also imported by `create_report.py`.
+
+---
+
 ## Database Browser
 
 A GTK+3 SQLite browser written in C at `db-browser/`. Built as a local devtool for inspecting SQLite databases used by the debug tool, the TUI agent, and the phrase store.
@@ -486,6 +581,56 @@ A standalone error ticket tracking tool at `/debug-tool/`. Used to log, triage, 
 
 ---
 
+## Planning and Reports
+
+Project planning notes and a report generator live at `zyx_planning_and_visuals/`.
+
+### Report Generator
+
+```bash
+python zyx_planning_and_visuals/create_report.py [--root /path] [--threshold N] [--open]
+```
+
+Generates a timestamped self-contained HTML report by running three analysis tools:
+
+| Tool | What it contributes |
+|------|---------------------|
+| `lines_count.py` | Large-file audit -- files over the line threshold with 1-10 severity score |
+| `security_ck.py` | Hardcoded secret and API key detection across all project files |
+| `search.py` | AI model reference scan across all watch files |
+
+Each report includes:
+
+- Items of Concern pill bar at the top (CRITICAL / HIGH / MEDIUM / LOW counts)
+- Severity scores on a 1-10 scale for every finding
+- Clickable checkboxes on every row; check state and ISO timestamp saved to localStorage per report ID
+- AI model catalog table
+
+Reports are written to `zyx_planning_and_visuals/reports/report_YYYY-MM-DD_HHMMSS.html`.
+
+On every run, `zyx_planning_and_visuals/reports/index.html` is regenerated with card grid, search bar, and pagination (12 reports per page).
+
+---
+
+## AI Model Registry
+
+`model-map.json` at the project root is the canonical map of every AI model used across the codebase.
+
+For each model it records:
+
+- `provider` -- anthropic / openai / deepseek / local
+- `tier` -- fast / balanced / powerful / reasoning / local-lightweight
+- `active_in_project` -- whether it is currently wired to a feature
+- `use_cases` -- what each model does
+- `flow` -- step-by-step call path from UI trigger to response
+- `hardcoded_in` -- exact file:line references
+- `cost_per_1k_input` / `cost_per_1k_output` -- USD
+- `context_window_k`, `max_output_tokens`
+
+Every directory that contains hardcoded model strings also has a `model-context.json` with a `model_map_ref` field pointing back to `model-map.json`.
+
+---
+
 ## Technology Stack
 
 | Layer | Technology |
@@ -504,6 +649,9 @@ A standalone error ticket tracking tool at `/debug-tool/`. Used to log, triage, 
 | Email smoke | Python 3 stdlib only (socket, smtplib, http.server, email.mime) |
 | Prompt guard | Python 3, DistilBERT (transformers + torch), Flask |
 | DB browser | C, GTK+3, libsqlite3 |
+| Mood check | Python 3, EMI bio-inspired engine (local), 370K-word lexicon, no network |
+| Project search | Python 3 stdlib only (re, difflib, argparse) |
+| Report generator | Python 3 stdlib only, self-contained HTML+CSS+JS output |
 
 ---
 
@@ -652,17 +800,22 @@ live-css/
     db/
     js/
 
+  search.py                     Project-wide search utility (exact, regex, fuzzy)
+  model-map.json                Canonical AI model registry (providers, costs, locations)
+
   c_tools/                     Local developer tools (Python)
     tui_agent/                 Curses TUI AI coding agent
       main.py                  Curses UI and event loop
       agent.py                 Anthropic Haiku streaming client
       convo.py                 GPT-4o mini live commentary
+      project_mode.py          Full-project scan/plan/apply workflow (P key)
       scanner.py               Directory walker
       merger.py                Diff parser and apply logic
       db.py                    SQLite staging for pending changes
       fence_clean.py           Strip markdown fences from model output
       emoji_clean.py           Remove emoji artifacts
       log_util.py              Thread-safe log buffer
+      model-context.json       Model registry ref for this directory
 
   email_smoke/                 Local SMTP smoke test suite (Python)
     run_smoke.py               Orchestrator
@@ -673,6 +826,11 @@ live-css/
     email_sender/
       sender.py                smtplib wrapper
       templates.py             8 test message factories
+
+  mood_ck/                     EMI bio-inspired mood analysis tool
+    mood_check.py              CLI entry point and chunk aggregation
+    emi_model/                 Symlink -> deploy_emi_model (engine.py + lexicon.json)
+    model-context.json         Model registry ref for this directory
 
   prompt_inj_guard/            Prompt injection / spam classifier
     api/
@@ -686,6 +844,25 @@ live-css/
     core/
     ui/
     Makefile
+
+  zyx_planning_and_visuals/    Planning notes and project reporting
+    create_report.py           Report generator (lines + security + model scan -> HTML)
+    reports/
+      index.html               Auto-regenerated index of all reports
+      report_*.html            Timestamped individual reports
+
+  debug-tool/                  Error ticket tracker
+    ai/
+    api/
+    cli/
+    db/
+    js/
+    ai/model-context.json      Model registry ref for this directory
+
+  agent-flow/
+    api/
+      ai_run.php               Agent flow step executor
+      model-context.json       Model registry ref for this directory
 
   data/
     css-properties.php
