@@ -302,6 +302,178 @@ Runs on port 9100. Handles login, session validation, logout, and user managemen
 
 ---
 
+## TUI Agent
+
+A Python curses terminal UI for AI-assisted file editing, located at `c_tools/tui_agent/`.
+
+```bash
+python c_tools/tui_agent/main.py [directory]
+```
+
+### How It Works
+
+1. `scanner.py` reads the target directory and lists editable files
+2. Select a file, press `p`, and type an instruction
+3. Claude Haiku streams a diff via `agent.py`; `fence_clean.py` strips markdown fences; `emoji_clean.py` removes emoji artifacts
+4. `merger.py` stages the diff in SQLite via `db.py`
+5. Press `a` to approve and apply, `r` to reject
+
+### Convo Commentary
+
+While Haiku processes, `convo.py` runs a GPT-4o mini session in parallel and feeds short developer-slang commentary into the log panel. If the OpenAI API is unavailable it falls back to phrases loaded from `ai/data/phrases.db` so commentary always appears.
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| Arrow keys | Navigate file list or scroll focused panel |
+| Tab | Cycle focus: Files -> Log -> Diff |
+| Enter / Right | Descend into selected directory |
+| Backspace / - | Go up one level |
+| p | Enter prompt for selected file |
+| d | Show diff for selected file |
+| a | Approve and apply pending change |
+| r | Reject pending change |
+| c | Copy focused panel to clipboard |
+| v | Toggle view mode (disables mouse for terminal copy) |
+| s | Rescan current directory |
+| q / Esc | Quit |
+
+### Modules
+
+| File | Role |
+|------|------|
+| main.py | Curses UI, event loop, animation |
+| agent.py | Anthropic Haiku streaming client |
+| convo.py | GPT-4o mini live commentary |
+| scanner.py | Directory walking and file list |
+| merger.py | Diff parsing and apply logic |
+| db.py | SQLite staging for pending changes |
+| fence_clean.py | Strip markdown code fences from model output |
+| emoji_clean.py | Remove emoji artifacts from model output |
+| log_util.py | Thread-safe log buffer |
+
+---
+
+## Email Smoke Test
+
+A zero-dependency local email smoke test suite at `email_smoke/`. Spins up a pure-Python SMTP capture server and an HTTP inbox query API to verify send/receive flows without touching any real mail service.
+
+```bash
+python email_smoke/run_smoke.py           # run all 8 templates
+python email_smoke/run_smoke.py plain_text html_email  # specific tests
+python email_smoke/run_smoke.py --list    # print template names
+python email_smoke/run_smoke.py --keep    # leave servers running after tests
+```
+
+### Servers
+
+| Port | Component | Description |
+|------|-----------|-------------|
+| 1025 | SMTP capture | Pure-Python socket server; accepts and stores all inbound mail |
+| 8025 | HTTP inbox API | Query and clear the in-memory inbox over HTTP |
+
+### HTTP Inbox Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | / | Server status and message count |
+| GET | /messages | List all messages (optional ?to= and ?q= filters) |
+| GET | /message/{id} | Single message summary |
+| GET | /message/{id}/raw | Raw RFC 2822 source |
+| POST | /clear | Delete all messages |
+
+### Test Templates
+
+| Name | Description |
+|------|-------------|
+| plain_text | Plain text email to single recipient |
+| html_email | Multipart email with HTML and plain-text fallback |
+| multi_recipient | One message to 3 recipients |
+| extra_headers | Reply-To and custom X-headers |
+| utf8_content | UTF-8 body with Chinese, Arabic, and accented characters |
+| with_attachment | base64-encoded CSV attachment |
+| large_body | 64 KB plain-text body stress test |
+| auto_responder | HTML auto-responder with Precedence: bulk header |
+
+### Layout
+
+```
+email_smoke/
+  run_smoke.py              Orchestrator: starts servers, sends all templates, prints results
+  email_incoming/
+    server.py               Pure-Python SMTP capture server (port 1025)
+    inbox.py                Thread-safe in-memory mailbox singleton
+    api.py                  HTTP inbox query server (port 8025)
+  email_sender/
+    sender.py               smtplib wrapper with reconnect retry
+    templates.py            8 test message factories
+```
+
+---
+
+## Prompt Injection Guard
+
+A fine-tuned DistilBERT classifier at `prompt_inj_guard/` that flags incoming text as `clean`, `spam`, or `prompt_injection`. Intended as a guard layer for AI-assisted features before user input reaches a model.
+
+- Model: DistilBERT-base (6 layers, 768 dim, 67M params, float32)
+- Weights: ~255 MB stored locally in `prompt_inj_guard/model/spam_injection_model/` (gitignored)
+
+### REST API
+
+```bash
+cd prompt_inj_guard/api
+pip install -r requirements.txt
+python server.py --port 8765
+```
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /health | Model load status and load time |
+| POST | /classify | Classify a text string; returns label and confidence scores |
+
+### Layout
+
+```
+prompt_inj_guard/
+  api/
+    server.py               Flask REST endpoint
+    requirements.txt
+  model/
+    guard_classifier.py     GuardClassifier class
+    requirements_inference.txt
+    spam_injection_model/   GITIGNORED -- model weights
+      final/
+        model.safetensors
+        tokenizer.json
+        config.json
+        label_map.json
+```
+
+---
+
+## Database Browser
+
+A GTK+3 SQLite browser written in C at `db-browser/`. Built as a local devtool for inspecting SQLite databases used by the debug tool, the TUI agent, and the phrase store.
+
+```bash
+cd db-browser
+make
+./build/db-browser
+```
+
+Requires: GTK+3, libsqlite3, gcc.
+
+### Features
+
+- Table browser: list tables, browse rows with pagination
+- Query editor: write and run arbitrary SQL; results in a scrollable grid
+- Data browser: inspect raw cell values including blobs
+- Recent files dropdown (last 10 databases)
+- Status bar with row/column count feedback
+
+---
+
 ## Debug Tool
 
 A standalone error ticket tracking tool at `/debug-tool/`. Used to log, triage, and resolve bugs during development.
@@ -328,6 +500,10 @@ A standalone error ticket tracking tool at `/debug-tool/`. Used to log, triage, 
 | MCP server | Node.js 18+ with @modelcontextprotocol/sdk |
 | JS modules | Vanilla ES5/ES6, namespaced under window.LiveCSS |
 | CSS | Custom dark theme, no framework |
+| TUI agent | Python 3, curses, Anthropic Haiku, OpenAI GPT-4o mini |
+| Email smoke | Python 3 stdlib only (socket, smtplib, http.server, email.mime) |
+| Prompt guard | Python 3, DistilBERT (transformers + torch), Flask |
+| DB browser | C, GTK+3, libsqlite3 |
 
 ---
 
@@ -475,6 +651,41 @@ live-css/
     cli/
     db/
     js/
+
+  c_tools/                     Local developer tools (Python)
+    tui_agent/                 Curses TUI AI coding agent
+      main.py                  Curses UI and event loop
+      agent.py                 Anthropic Haiku streaming client
+      convo.py                 GPT-4o mini live commentary
+      scanner.py               Directory walker
+      merger.py                Diff parser and apply logic
+      db.py                    SQLite staging for pending changes
+      fence_clean.py           Strip markdown fences from model output
+      emoji_clean.py           Remove emoji artifacts
+      log_util.py              Thread-safe log buffer
+
+  email_smoke/                 Local SMTP smoke test suite (Python)
+    run_smoke.py               Orchestrator
+    email_incoming/
+      server.py                SMTP capture server (port 1025)
+      inbox.py                 In-memory mailbox singleton
+      api.py                   HTTP inbox API (port 8025)
+    email_sender/
+      sender.py                smtplib wrapper
+      templates.py             8 test message factories
+
+  prompt_inj_guard/            Prompt injection / spam classifier
+    api/
+      server.py                Flask REST API (port 8765)
+    model/
+      guard_classifier.py      GuardClassifier (DistilBERT)
+      spam_injection_model/    GITIGNORED -- model weights
+
+  db-browser/                  GTK+3 SQLite browser (C)
+    main.c
+    core/
+    ui/
+    Makefile
 
   data/
     css-properties.php
