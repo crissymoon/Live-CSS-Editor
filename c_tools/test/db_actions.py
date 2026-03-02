@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# This is a file test for the ai agent from the tui
+# This is a file-test from the ai agent, from the tui
 """
 Universal CLI tool for SQLite CRUD operations
 """

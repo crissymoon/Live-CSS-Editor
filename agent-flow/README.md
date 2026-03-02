@@ -1,5 +1,6 @@
 # agent-flow
 
+> THIS WILL GO ON THE ADMIN DASHBOARD FOR THE PAGE BUILDER TO HANDLE COMMON BUSINESS/WORK TASKS - CONVERTING AWAY FROM THE MOON BINARY FOR THIS
 > STATUS: EXPERIMENTAL -- This folder is under active development.
 > Features may change, break, or be removed without notice.
 > Keep checking back for updates.

@@ -54,6 +54,12 @@ from scanner     import FolderScanner
 from merger      import Merger
 import agent as _agent
 
+try:
+    from convo import ConvoSession as _ConvoSession
+except Exception as _convo_import_err:
+    _ConvoSession = None  # type: ignore
+    print(f"[main] convo import failed: {_convo_import_err}", file=sys.stderr)
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -84,6 +90,7 @@ C_MUTED    = 8
 C_WARN     = 9
 C_BUSY     = 10
 C_DIR      = 11
+C_CHAT     = 12   # rolling conversation lines from convo.py
 
 def _init_colors():
     curses.start_color()
@@ -99,6 +106,7 @@ def _init_colors():
     curses.init_pair(C_WARN,    curses.COLOR_YELLOW,  -1)
     curses.init_pair(C_BUSY,    curses.COLOR_MAGENTA, -1)
     curses.init_pair(C_DIR,     curses.COLOR_CYAN,    -1)
+    curses.init_pair(C_CHAT,    curses.COLOR_GREEN,   -1)
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +265,9 @@ class TUI:
         self.win_log   = None
         self.win_diff  = None
         self.win_bar   = None
+
+        # rolling conversation session (convo.py / GPT-4o mini)
+        self._convo: Optional[object] = None
 
     # ------------------------------------------------------------------
     # Setup
@@ -438,6 +449,9 @@ class TUI:
                 attr = _attr(C_REMOVE, bold=True)
             elif " WRN " in line:
                 attr = _attr(C_WARN)
+            elif " [CHAT] " in line:
+                # tech-slang commentary from convo.py -- stand out in green
+                attr = _attr(C_CHAT, bold=True)
             elif " INF " in line:
                 attr = _attr(C_NORMAL)
             else:
@@ -781,7 +795,26 @@ class TUI:
         self.state.set_busy(True, "asking Haiku")
         self.state.set_status("", "warn")
 
-        state_ref = self.state
+        state_ref  = self.state
+        log_ref    = self.log
+
+        # --- start rolling commentary (convo.py / GPT-4o mini) -----------
+        convo_session = None
+        if _ConvoSession is not None:
+            try:
+                convo_session = _ConvoSession()
+                convo_session.start(
+                    file_path=fpath,
+                    instruction=instruction,
+                    on_message=lambda msg: log_ref.info("CHAT", msg),
+                )
+                self._convo = convo_session
+            except Exception as _ce:
+                log_ref.warning("TUI", f"convo session could not start: {_ce}")
+                convo_session = None
+        else:
+            log_ref.warning("TUI", "convo module not loaded -- skipping commentary")
+        # -----------------------------------------------------------------
 
         def _on_chunk(chars: int, snippet: str):
             state_ref.set_stream(chars, snippet)
@@ -797,7 +830,7 @@ class TUI:
 
                 if err:
                     state_ref.set_status(f"agent error: {err[:60]}", "err")
-                    self.log.error("TUI", f"agent error: {err}")
+                    log_ref.error("TUI", f"agent error: {err}")
                     return
 
                 change_id = self.merger.propose(fpath, new_content, source_label="haiku-4.5")
@@ -817,11 +850,17 @@ class TUI:
                     )
 
             except Exception as exc:
-                self.log.error("TUI", f"_run thread: {exc}")
+                log_ref.error("TUI", f"_run thread: {exc}")
                 import traceback
-                self.log.error("TUI", traceback.format_exc()[:300])
+                log_ref.error("TUI", traceback.format_exc()[:300])
                 state_ref.set_status(f"error: {exc}", "err")
             finally:
+                # stop the commentary session when Haiku finishes
+                if convo_session is not None:
+                    try:
+                        convo_session.stop()
+                    except Exception as _se:
+                        log_ref.debug("TUI", f"convo stop error: {_se}")
                 state_ref.set_busy(False)
                 self._scan_cwd()
 
