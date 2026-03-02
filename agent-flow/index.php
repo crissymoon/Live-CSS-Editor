@@ -46,6 +46,10 @@
             <span class="node-icon">O</span>
             <span class="node-label">Output</span>
         </div>
+        <div class="palette-node" draggable="true" data-type="guard">
+            <span class="node-icon">G</span>
+            <span class="node-label">Guard</span>
+        </div>
 
         <div class="palette-sep"></div>
         <div class="palette-title">Saved Flows</div>

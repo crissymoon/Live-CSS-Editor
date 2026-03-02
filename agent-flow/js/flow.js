@@ -26,6 +26,7 @@ const NODE_TYPES = {
     memory:    { icon: 'M', label: 'Memory',    color: '#f97316' },
     tool:      { icon: 'T', label: 'Tool',      color: '#818cf8' },
     output:    { icon: 'O', label: 'Output',    color: '#4ade80' },
+    guard:     { icon: 'G', label: 'Guard',     color: '#ef4444' },
 };
 
 /* Default extra props per node type */
@@ -37,6 +38,7 @@ const TYPE_DEFAULTS = {
     memory:    { op: 'keep', varName: 'result', inputVar: '' },
     tool:      { command: '', varName: 'result' },
     output:    { varName: '' },
+    guard:     { inputVar: 'prompt', varName: 'guard_result', guardUrl: 'http://localhost:8765/classify', blockOnFlag: 'true' },
 };
 
 /* ============================================================
@@ -176,6 +178,7 @@ function buildSummary(node) {
             case 'memory':    return `${p.op||'keep'}: ${p.varName||'...'}`;
             case 'tool':      return p.command ? p.command.slice(0,30) : 'command...';
             case 'output':    return `p(${p.varName||'...'})`;
+            case 'guard':     return `guard(${p.inputVar||'...'}) -> ${p.varName||'...'}`;
             default:          return '';
         }
     } catch(err) {
@@ -491,6 +494,15 @@ function buildDynamicProps(node) {
             case 'output':
                 field('Variable to print', `<input type="text" data-prop="varName" value="${escAttr(p.varName||'response')}">`);
                 break;
+            case 'guard':
+                field('Input variable', `<input type="text" data-prop="inputVar" value="${escAttr(p.inputVar||'prompt')}">`);
+                field('Output variable', `<input type="text" data-prop="varName" value="${escAttr(p.varName||'guard_result')}">`);
+                field('Guard URL', `<input type="text" data-prop="guardUrl" value="${escAttr(p.guardUrl||'http://localhost:8765/classify')}">`);
+                field('Block on flag', `<select data-prop="blockOnFlag">
+                    <option value="true"${(p.blockOnFlag||'true')==='true'?' selected':''}>yes -- halt flow if flagged</option>
+                    <option value="false"${p.blockOnFlag==='false'?' selected':''}>no -- continue even if flagged</option>
+                </select>`);
+                break;
         }
     } catch(err) {
         console.error('agent-flow: buildDynamicProps failed', err);
@@ -643,6 +655,11 @@ function generateMoon() {
                 case 'output':
                     lines.push(`p(${safeName(p.varName||'response')})`);
                     break;
+                case 'guard':
+                    /* guard node: runtime HTTP call -- emit a comment in moon source */
+                    lines.push(`# guard: check ${safeName(p.inputVar||'prompt')} via ${escapeMoonStr(p.guardUrl||'http://localhost:8765/classify')}`);
+                    lines.push(`p("guard node -- use Run AI Direct for live guard checks")`);
+                    break;
             }
             lines.push('');
         });
@@ -765,7 +782,12 @@ async function runAiDirect() {
         const hasErrors = (data.steps || []).some(s => s.error);
         outputStderr.classList.toggle('hidden', !stepsText.trim());
 
-        setStatus(hasErrors ? 'AI done (with errors)' : 'AI done', hasErrors ? 'err' : 'ok');
+        if (data.halted) {
+            setStatus('guard halted flow -- input flagged', 'err');
+            console.warn('agent-flow: flow was halted by a guard node');
+        } else {
+            setStatus(hasErrors ? 'AI done (with errors)' : 'AI done', hasErrors ? 'err' : 'ok');
+        }
 
     } catch(err) {
         console.error('agent-flow: runAiDirect failed', err);

@@ -198,6 +198,7 @@ $vars    = [];   // variable name -> value
 $memory  = [];   // memory store for memory nodes
 $outputs = [];   // collected output values
 $steps   = [];   // step log
+$halted  = false; // set true when a guard node blocks the flow
 
 foreach ($ordered as $nodeId) {
     $node  = $nodeMap[$nodeId] ?? null;
@@ -208,6 +209,14 @@ foreach ($ordered as $nodeId) {
     $props = $node['props'] ?? [];
 
     $step = ['id' => $nodeId, 'type' => $type, 'label' => $label, 'result' => ''];
+
+    /* if a guard node halted the flow, skip all subsequent nodes */
+    if ($halted) {
+        $step['result'] = 'skipped: flow halted by guard node';
+        $step['skipped'] = true;
+        $steps[] = $step;
+        continue;
+    }
 
     try {
         switch ($type) {
@@ -307,6 +316,77 @@ foreach ($ordered as $nodeId) {
                 break;
             }
 
+            case 'guard': {
+                $inputVar    = $props['inputVar']    ?? 'prompt';
+                $varName     = $props['varName']     ?? 'guard_result';
+                $guardUrl    = $props['guardUrl']    ?? 'http://localhost:8765/classify';
+                $blockOnFlag = ($props['blockOnFlag'] ?? 'true') === 'true';
+
+                $inputText = $vars[$inputVar] ?? ($vars['prompt'] ?? '');
+
+                $guardPayload = json_encode(['text' => $inputText]);
+                $ch = curl_init($guardUrl);
+                curl_setopt_array($ch, [
+                    CURLOPT_POST           => true,
+                    CURLOPT_POSTFIELDS     => $guardPayload,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 10,
+                    CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                ]);
+                $guardResp = curl_exec($ch);
+                $guardErr  = curl_error($ch);
+                $guardCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($guardErr || $guardCode >= 400) {
+                    // Guard server unreachable -- log and continue without blocking
+                    $errDetail = $guardErr ?: 'HTTP ' . $guardCode;
+                    error_log('agent-flow/ai_run.php guard node ' . $nodeId . ': guard server error: ' . $errDetail);
+                    $vars[$varName] = json_encode([
+                        'ok'        => false,
+                        'error'     => 'guard server unreachable: ' . $errDetail,
+                        'flagged'   => false,
+                        'label'     => 'clean',
+                        'confidence'=> 0,
+                    ]);
+                    $step['result'] = 'guard server unreachable (' . $errDetail . ') -- flow continues (fail-open)';
+                    $step['guard_error'] = $errDetail;
+                    break;
+                }
+
+                $guardData = json_decode($guardResp, true);
+                if (json_last_error() !== JSON_ERROR_NONE || !isset($guardData['ok'])) {
+                    error_log('agent-flow/ai_run.php guard node ' . $nodeId . ': invalid JSON from guard server: ' . substr($guardResp, 0, 200));
+                    $vars[$varName] = json_encode(['ok' => false, 'error' => 'invalid guard response', 'flagged' => false, 'label' => 'clean']);
+                    $step['result'] = 'guard returned invalid JSON -- flow continues (fail-open)';
+                    break;
+                }
+
+                $vars[$varName] = $guardResp; // store raw JSON string
+                $step['guard_label']      = $guardData['label']      ?? 'unknown';
+                $step['guard_confidence'] = $guardData['confidence'] ?? 0;
+                $step['guard_flagged']    = $guardData['flagged']    ?? false;
+                $step['guard_source']     = $guardData['source']     ?? 'unknown';
+
+                if ($guardData['flagged'] ?? false) {
+                    $summary = 'FLAGGED as ' . ($guardData['label'] ?? 'unknown')
+                        . ' (confidence: ' . number_format(($guardData['confidence'] ?? 0) * 100, 1) . '%)';
+                    if ($blockOnFlag) {
+                        $halted = true;
+                        $step['result'] = $summary . ' -- flow halted (blockOnFlag=true)';
+                        $step['halted'] = true;
+                    } else {
+                        $step['result'] = $summary . ' -- flow continues (blockOnFlag=false)';
+                    }
+                } else {
+                    $label_str = $guardData['label'] ?? 'clean';
+                    $step['result'] = 'clean (' . $label_str . ', confidence: '
+                        . number_format(($guardData['confidence'] ?? 0) * 100, 1) . '%) -- flow continues';
+                }
+                break;
+            }
+
             default: {
                 $step['result'] = 'unknown node type: ' . $type;
                 $step['error']  = 'unhandled type';
@@ -327,15 +407,20 @@ $finalOutput = implode("\n\n", array_filter($outputs, fn($o) => $o !== ''));
 if ($finalOutput === '' && !empty($steps)) {
     // No output node -- show the last ai-call result or last step result.
     foreach (array_reverse($steps) as $s) {
-        if (!empty($s['result']) && !isset($s['error'])) {
+        if (!empty($s['result']) && !isset($s['error']) && !isset($s['skipped'])) {
             $finalOutput = $s['result'];
             break;
         }
     }
 }
 
+if ($halted && $finalOutput === '') {
+    $finalOutput = '[flow halted by guard node -- input was flagged]';
+}
+
 echo json_encode([
     'ok'     => true,
+    'halted' => $halted,
     'output' => $finalOutput,
     'steps'  => $steps,
 ]);
