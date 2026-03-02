@@ -1,0 +1,450 @@
+{
+  "_comment": "pattern_db.json -- seed patterns for rule_guard.py. Edit freely. The server hot-reloads on mtime change. Run learn.py --auto-apply to grow this file from feedback.",
+  "version": 1,
+  "injection_patterns": [
+    {
+      "id": "inj_001",
+      "pattern": "ignore\\s+(all\\s+)?previous\\s+instructions",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Classic ignore-previous-instructions jailbreak",
+      "source": "seed"
+    },
+    {
+      "id": "inj_002",
+      "pattern": "disregard\\s+(your\\s+)?(guidelines|instructions|rules|training|safety)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Disregard guidelines variant",
+      "source": "seed"
+    },
+    {
+      "id": "inj_003",
+      "pattern": "forget\\s+(everything|all).{0,40}(above|before|previous|prior)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Forget-context injection",
+      "source": "seed"
+    },
+    {
+      "id": "inj_004",
+      "pattern": "you\\s+are\\s+now\\s+(in\\s+)?(DAN|developer\\s+mode|jailbreak\\s+mode|god\\s+mode)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "DAN / developer mode activation",
+      "source": "seed"
+    },
+    {
+      "id": "inj_005",
+      "pattern": "(reveal|output|print|show|dump|repeat|list)\\s+(the\\s+)?(system\\s+prompt|context\\s+window|confidential|your\\s+instructions|initial\\s+instructions)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Attempt to extract system prompt or context",
+      "source": "seed"
+    },
+    {
+      "id": "inj_006",
+      "pattern": "(all\\s+)?(safety\\s+filters?|content\\s+filters?|restrictions?|ethical\\s+constraints?)\\s+are\\s+(disabled|off|removed|bypassed|lifted)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Safety-disabled activation phrase",
+      "source": "seed"
+    },
+    {
+      "id": "inj_007",
+      "pattern": "you\\s+have\\s+no\\s+(rules|restrictions|guidelines|constraints|ethics|limits|filters)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "You-have-no-rules variant",
+      "source": "seed"
+    },
+    {
+      "id": "inj_008",
+      "pattern": "act\\s+as\\s+(if\\s+)?(you\\s+are\\s+)?(a\\s+)?(different|unrestricted|uncensored|unfiltered|rogue)\\s+(AI|model|assistant|language model)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "Act-as unrestricted AI roleplay injection",
+      "source": "seed"
+    },
+    {
+      "id": "inj_009",
+      "pattern": "new\\s+(instruction|system|prompt|directive|rule)\\s*:",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "New instruction colon - attempts to inject new system context",
+      "source": "seed"
+    },
+    {
+      "id": "inj_010",
+      "pattern": "end\\s+of\\s+(system\\s+)?(prompt|instructions?|context)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "End-of-system-prompt delimiter injection",
+      "source": "seed"
+    },
+    {
+      "id": "inj_011",
+      "pattern": "(i\\s+am|you\\s+must\\s+obey|follow\\s+only)\\s+your\\s+(true|real|actual)\\s+(administrator|owner|creator|master|operator)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "True-administrator authority claim",
+      "source": "seed"
+    },
+    {
+      "id": "inj_012",
+      "pattern": "from\\s+now\\s+on\\s+(you\\s+are|your\\s+name\\s+is|act\\s+as|behave\\s+as)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "From-now-on persona override",
+      "source": "seed"
+    },
+    {
+      "id": "inj_013",
+      "pattern": "pretend\\s+(you\\s+have\\s+no|you\\s+are\\s+a\\s+.{0,20}(unrestricted|uncensored)|there\\s+are\\s+no\\s+rules)",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Pretend-no-restrictions injection",
+      "source": "seed"
+    },
+    {
+      "id": "inj_014",
+      "pattern": "override\\s+(your\\s+)?(training|programming|safety|instructions|rules|guidelines)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "Override-training injection",
+      "source": "seed"
+    },
+    {
+      "id": "inj_015",
+      "pattern": "translate\\s+.{0,40}(then\\s+)?(ignore|disregard|forget)\\s+(it|that|the\\s+above|everything)",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Translate-then-ignore chained injection",
+      "source": "seed"
+    },
+    {
+      "id": "inj_016",
+      "pattern": "output\\s+(anything|everything|all|whatever)\\s+(i|you)\\s+(ask|want|say|tell)",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Output-anything bypass",
+      "source": "seed"
+    },
+    {
+      "id": "inj_017",
+      "pattern": "\\[\\s*(system|INST|SYS|prompt)\\s*\\]|<\\s*(system|INST|SYS)\\s*>|###\\s*(system|instruction)",
+      "flags": "i",
+      "weight": 0.85,
+      "description": "Prompt template delimiter injection (INST, SYS, system tags)",
+      "source": "seed"
+    },
+    {
+      "id": "inj_018",
+      "pattern": "jailbreak\\s+(mode|prompt|this|yourself|the\\s+(AI|model|assistant))",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Explicit jailbreak keyword",
+      "source": "seed"
+    },
+    {
+      "id": "inj_019",
+      "pattern": "(say|tell\\s+me|give\\s+me|output)\\s+(the\\s+)?(password|secret|key|token|api_key|api\\s+key)",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Credential extraction attempt",
+      "source": "seed"
+    },
+    {
+      "id": "inj_020",
+      "pattern": "do\\s+anything\\s+(i|my)\\s+(say|ask|want|tell|request)",
+      "flags": "i",
+      "weight": 0.85,
+      "description": "Do-anything-I-say compliance bypass",
+      "source": "seed"
+    }
+  ],
+  "spam_patterns": [
+    {
+      "id": "spam_001",
+      "pattern": "\\b(buy|order|get)\\s+(cheap|discount|lowest\\s+price)\\s+(pills?|meds?|medication|viagra|cialis)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Pill / medication spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_002",
+      "pattern": "(you\\s+have\\s+)?(won|win|winner|been\\s+selected).{0,50}(prize|gift\\s+card|award|reward|iPhone|lottery)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Prize / lottery scam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_003",
+      "pattern": "(make|earn)\\s+\\$?\\d{3,}.{0,30}(per\\s+(day|week|month)|from\\s+home|guaranteed|quick|fast)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Get-rich-quick income spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_004",
+      "pattern": "guaranteed\\s+(profit|returns?|results?|income).{0,30}(\\$|every|per\\s+|100%|no\\s+risk)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "Guaranteed profit / returns spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_005",
+      "pattern": "(free|no\\s+deposit).{0,30}(casino|bonus|spins?|bet|gambling|poker)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "Casino / gambling spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_006",
+      "pattern": "(miracle|magic|secret)\\s+(pill|cure|remedy|trick|formula|method).{0,30}(lose|weight|fat|pound)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Weight loss miracle spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_007",
+      "pattern": "no\\s+(experience|prescription|qualification|degree)\\s+(needed|required|necessary)",
+      "flags": "i",
+      "weight": 0.85,
+      "description": "No-experience-needed spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_008",
+      "pattern": "(nigerian?\\s+prince|transfer.{0,30}million|\\$\\d+\\s*million.{0,30}(help|transfer|assist))",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Advance fee fraud (419 scam)",
+      "source": "seed"
+    },
+    {
+      "id": "spam_009",
+      "pattern": "\\bfree\\s+crypto\\b.{0,40}(airdrop|giveaway|claim|collect)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "Crypto airdrop scam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_010",
+      "pattern": "(hot|sexy|lonely|local)\\s+singles?.{0,30}(waiting|near\\s+you|in\\s+your\\s+area|join\\s+free)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Dating / adult spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_011",
+      "pattern": "\\bforex\\b.{0,40}(signal|profit|guaranteed|100%|every\\s+trade)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "FOREX trading signal spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_012",
+      "pattern": "account.{0,30}(compromised|hacked|suspended|locked).{0,50}(send|transfer|funds?|money|bitcoin|crypto)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Phishing / account compromise scam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_013",
+      "pattern": "(click\\s+here|claim\\s+yours?|limited\\s+time\\s+offer).{0,60}(expires?|now|today|hurry|act\\s+fast)",
+      "flags": "i",
+      "weight": 0.85,
+      "description": "Urgency CTA spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_014",
+      "pattern": "(banks?\\s+hate|doctors?\\s+hate|they\\s+don.t\\s+want\\s+you\\s+to\\s+know).{0,40}(trick|secret|method)",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "Clickbait info-product spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_015",
+      "pattern": "\\b(penis|breast|male\\s+enhancement|erectile).{0,30}(enlar|pills?|boost|size|inches)",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Adult enhancement spam",
+      "source": "seed"
+    },
+    {
+      "id": "spam_016",
+      "pattern": "\\b1\\.749542\\s*BTC\\b",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "BTC phishing bot: exact fraud amount 1.749542 BTC used in all 157 submissions of a documented contact-form attack (2026-03-01). No legitimate message ever contains this specific figure.",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_017",
+      "pattern": "telegra\\.ph/You-Mined.{0,30}BTC.{0,30}Message.id",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "BTC phishing bot: Wave 2 telegra.ph article slug pattern used across 45 form submissions. Slug format: /You-Mined-NNNN-BTC-Message-id-NNNNNN-MM-DD",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_018",
+      "pattern": "(?:URGENT|IMPORTANT)!.{0,100}\\d+\\.\\d{4,}\\s*BTC",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "BTC phishing bot: urgency prefix (URGENT! or IMPORTANT!) combined with a precise multi-decimal BTC amount in the same message. Pattern observed in 157 documented contact-form attacks.",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_019",
+      "pattern": "\\b(?:HASH|CASE\\s+ID|AUTH\\s+CODE|CONFIRMATION\\s+ID|REFERENCE\\s+ID|SESSION\\s+ID|TRANSACTION\\s+ID|SUPPORT\\s+ID|BILLING\\s+ID|ROLE\\s+ID|PASSCODE|MILESTONE\\s+ID)\\s*:\\s*[A-Za-z0-9]{55,}",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "BTC phishing bot: fake token label followed by a 55-65 character random alphanumeric string. All 157 documented submissions ended with such a token. Legitimate messages never include random 60-char code blocks.",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_020",
+      "pattern": "\\b([A-Za-z]{5,})\\s+\\1\\b",
+      "flags": "",
+      "weight": 0.75,
+      "description": "Bot persona double-name: the exact same word used as both first and last name (e.g. 'BotNameXX BotNameXX'). Observed in every submission of the 2026-03 attack and in three earlier separate spam campaigns in the same database. Legitimate users very rarely share identical first and last names.",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_021",
+      "pattern": "it\\s+is\\s+possible\\s+to\\s+send.{0,60}(?:lawfully|legally|law\\b|legal)",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Contact-form spam-as-a-service boilerplate: 'Did you know it is possible to send requests lawfully?' phrasing used by multiple separate bot campaigns (Feedback Form EU service) to advertise spam-for-hire services through contact forms.",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_022",
+      "pattern": "(?:you\\s+have\\s+|you.ve\\s+)?(?:mined|received|earned)\\s+\\d+\\.\\d+\\s*BTC",
+      "flags": "i",
+      "weight": 0.95,
+      "description": "General BTC reward phishing: claims the recipient has mined or received a specific BTC amount. Core lure used across both waves of the 2026-03 attack and common across BTC reward scam infrastructure.",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_023",
+      "pattern": "\\bBrandonTofEH\\b",
+      "flags": "i",
+      "weight": 1.0,
+      "description": "Known attacker persona: 'BrandonTofEH BrandonTofEH' used as the submitter name across all 157 entries of the March 2026 contact-form attack. Exact string match; no legitimate user has this name.",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_024",
+      "pattern": "(?:no\\.reply\\.|noreply\\.)\\w+@",
+      "flags": "i",
+      "weight": 0.70,
+      "description": "Spoofed no-reply sender address appearing inside message body. Used by earlier separate spam campaigns (February 2026) that inserted no.reply.<randomname>@gmail.com as a fake reply-to within the message text.",
+      "source": "threat_intel_2026_03"
+    },
+    {
+      "id": "spam_025",
+      "pattern": "\\b\\d{11}\\b.{0,80}(?:btc|bitcoin|crypto|coin|reward|transaction|transfer|fund)",
+      "flags": "i",
+      "weight": 0.80,
+      "description": "11-digit phone number (non-US format) appearing alongside crypto/financial keywords. All 157 bot submissions included a freshly generated random 11-digit phone number combined with BTC framing. US numbers are 10 digits; 11 digits strongly indicate non-US bot infrastructure.",
+      "source": "threat_intel_2026_03"
+    }
+  ],
+  "clean_allowlist": [
+    {
+      "id": "clean_001",
+      "pattern": "^\\s*translate\\s+(this|the)\\s+(following|text|sentence|paragraph|word|phrase)\\b",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Translation requests falsely flagged as injection (must specify what to translate, not 'the above ... then ignore')",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_002",
+      "pattern": "^\\s*summari[sz]e\\s+(the|this|these)\\b",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Summarization requests falsely flagged as injection",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_003",
+      "pattern": "^\\s*write\\s+a\\s+(haiku|poem|sonnet|limerick|story|short\\s+story|song|essay|paragraph|recipe)",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Creative writing requests falsely flagged as injection",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_004",
+      "pattern": "^\\s*(give\\s+me|share)\\s+a\\s+recipe\\s+for\\b",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Recipe requests falsely flagged as spam",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_005",
+      "pattern": "^\\s*debug\\s+this\\s+(javascript|python|code|function|script|typescript|css|html|sql)",
+      "flags": "i",
+      "weight": 0.90,
+      "description": "Code debug requests falsely flagged as injection",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_006",
+      "pattern": "^\\s*how\\s+(do\\s+i|does|can\\s+i|to)\\s+",
+      "flags": "i",
+      "weight": 0.85,
+      "description": "How-to questions (common legitimate queries)",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_007",
+      "pattern": "^\\s*(explain|describe|what\\s+is|what\\s+are|who\\s+is|when\\s+(did|was)|where\\s+is)\\b",
+      "flags": "i",
+      "weight": 0.85,
+      "description": "Factual question starters are almost always clean",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_008",
+      "pattern": "^\\s*(can\\s+you\\s+help|please\\s+help|i\\s+need\\s+help)\\s+(me\\s+)?(with|to|write|fix|understand|explain)",
+      "flags": "i",
+      "weight": 0.85,
+      "description": "Help-me requests are almost always clean",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_009",
+      "pattern": "^\\s*what\\s+is\\s+the\\s+(best|difference|capital|meaning|definition|time|cost|price|weather|formula|syntax)",
+      "flags": "i",
+      "weight": 0.88,
+      "description": "What-is-the factual queries",
+      "source": "seed_falsepos"
+    },
+    {
+      "id": "clean_010",
+      "pattern": "^\\s*(convert|format|parse|sort|filter|calculate|compute|find)\\s+(this|the|a\\s+list|an?\\s+array)",
+      "flags": "i",
+      "weight": 0.85,
+      "description": "Programming utility requests",
+      "source": "seed_falsepos"
+    }
+  ]
+}
