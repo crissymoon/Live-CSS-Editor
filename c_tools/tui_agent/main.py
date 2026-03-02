@@ -28,6 +28,7 @@ Controls
   Enter / Right      (files panel) descend into selected directory
   Backspace / -      (files panel) go up one level within root
   p                  enter prompt for selected file
+  P                  enter project mode instruction (scans dir, plans, edits via Haiku)
   d                  show diff for selected file
   a                  approve + apply pending change
   r                  reject pending change
@@ -60,6 +61,12 @@ except Exception as _convo_import_err:
     _ConvoSession = None  # type: ignore
     print(f"[main] convo import failed: {_convo_import_err}", file=sys.stderr)
 
+try:
+    from project_mode import ProjectSession as _ProjectSession
+except Exception as _pm_import_err:
+    _ProjectSession = None  # type: ignore
+    print(f"[main] project_mode import failed: {_pm_import_err}", file=sys.stderr)
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -91,6 +98,7 @@ C_WARN     = 9
 C_BUSY     = 10
 C_DIR      = 11
 C_CHAT     = 12   # rolling conversation lines from convo.py
+C_PROJECT  = 13   # project mode status lines
 
 def _init_colors():
     curses.start_color()
@@ -107,6 +115,7 @@ def _init_colors():
     curses.init_pair(C_BUSY,    curses.COLOR_MAGENTA, -1)
     curses.init_pair(C_DIR,     curses.COLOR_CYAN,    -1)
     curses.init_pair(C_CHAT,    curses.COLOR_GREEN,   -1)
+    curses.init_pair(C_PROJECT, curses.COLOR_YELLOW,  curses.COLOR_BLACK)
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +277,9 @@ class TUI:
 
         # rolling conversation session (convo.py / GPT-4o mini)
         self._convo: Optional[object] = None
+
+        # project mode session (project_mode.py)
+        self._project_session: Optional[object] = None
 
     # ------------------------------------------------------------------
     # Setup
@@ -537,7 +549,7 @@ class TUI:
         H, W = win.getmaxyx()
 
         # row 0: hints left, status right
-        hints = " [p]rompt [n]ew [d]iff [a]pprove [r]eject [c]opy [v]iew [s]can [q]uit"
+        hints = " [p]rompt [P]roject [n]ew [d]iff [a]pprove [r]eject [c]opy [v]iew [s]can [q]uit"
 
         sk = s.status_kind
         if s.busy:
@@ -570,7 +582,7 @@ class TUI:
         # store cursor column so we can reapply it after any row-2 writes
         _input_cursor_x: Optional[int] = None
         if s.input_mode:
-            bar_label  = "New file> " if s.input_kind == "newfile" else "Prompt> "
+            bar_label  = "New file> " if s.input_kind == "newfile" else "Project> " if s.input_kind == "project" else "Prompt> "
             prompt_str = f" {bar_label}{s.input_buf}"
             _input_cursor_x = min(len(prompt_str), W - 2)
             try:
@@ -717,6 +729,24 @@ class TUI:
         self.state.input_kind = "prompt"
         self.state.input_buf  = ""
         curses.curs_set(1)
+
+    def _launch_project_mode(self):
+        """Open input bar to get a project-wide instruction, then run ProjectSession."""
+        if _ProjectSession is None:
+            self.state.set_status("project_mode not loaded -- check agent.log", "err")
+            self.log.error("TUI", "ProjectSession unavailable")
+            return
+        if self.state.busy:
+            self.state.set_status("busy -- wait for current operation to finish", "warn")
+            return
+        self.state.input_mode = True
+        self.state.input_kind = "project"
+        self.state.input_buf  = ""
+        curses.curs_set(1)
+        self.state.set_status(
+            f"project mode: type instruction for {os.path.basename(self.state.cwd)}/ then Enter",
+            "warn",
+        )
 
     def _enter_newfile(self):
         """Open the input bar so the user can type a new filename to create in cwd."""
@@ -866,6 +896,70 @@ class TUI:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    def _submit_project(self):
+        """Submit the project instruction and launch ProjectSession on the current directory."""
+        instruction = self.state.input_buf.strip()
+        self.state.input_mode = False
+        self.state.input_buf  = ""
+        curses.curs_set(0)
+
+        if not instruction:
+            self.state.set_status("project instruction cancelled", "warn")
+            return
+
+        if _ProjectSession is None:
+            self.state.set_status("project_mode not available -- see log", "err")
+            self.log.error("TUI", "ProjectSession class is None")
+            return
+
+        root_dir   = self.state.cwd
+        state_ref  = self.state
+        log_ref    = self.log
+        merger_ref = self.merger
+        db_ref     = self.db
+
+        state_ref.set_busy(True, "project scan + plan")
+        state_ref.set_status("", "warn")
+
+        session = _ProjectSession(db=db_ref, merger=merger_ref)
+        self._project_session = session
+
+        def _on_log(msg: str):
+            log_ref.info("PROJECT", msg)
+
+        def _on_diff(fpath: str, diff_text: str):
+            state_ref.push_diff(diff_text)
+            state_ref.set_status(
+                f"diff staged for {os.path.basename(fpath)} -- [a]pprove or [r]eject",
+                "warn",
+            )
+
+        def _on_chunk(chars: int, snippet: str):
+            state_ref.set_stream(chars, snippet)
+
+        def _on_done(success: bool):
+            if success:
+                state_ref.set_status("project complete -- review diffs, [a]pprove or [r]eject", "ok")
+            else:
+                state_ref.set_status("project run complete -- no changes staged", "warn")
+            state_ref.set_busy(False)
+            self._scan_cwd()
+
+        try:
+            session.run(
+                root_dir=root_dir,
+                instruction=instruction,
+                on_log=_on_log,
+                on_diff=_on_diff,
+                on_done=_on_done,
+                on_chunk=_on_chunk,
+            )
+        except Exception as exc:
+            log_ref.error("TUI", f"_submit_project: session.run raised: {exc}")
+            print(f"[main] _submit_project session.run error: {exc}", file=sys.stderr)
+            state_ref.set_busy(False)
+            state_ref.set_status(f"project error: {exc}", "err")
+
     def _approve(self):
         fpath = self.state.selected_file()
         if not fpath:
@@ -977,13 +1071,16 @@ class TUI:
         if key in (curses.KEY_ENTER, ord("\n"), ord("\r")):
             if self.state.input_kind == "newfile":
                 self._submit_newfile()
+            elif self.state.input_kind == "project":
+                self._submit_project()
             else:
                 self._submit_prompt()
         elif key == 27:
             self.state.input_mode = False
             self.state.input_buf  = ""
             curses.curs_set(0)
-            kind_label = "newfile" if self.state.input_kind == "newfile" else "prompt"
+            kind_labels = {"newfile": "newfile", "project": "project"}
+            kind_label = kind_labels.get(self.state.input_kind, "prompt")
             self.state.set_status(f"{kind_label} cancelled")
         elif key in (curses.KEY_BACKSPACE, 127, 8):
             self.state.input_buf = self.state.input_buf[:-1]
@@ -1071,6 +1168,7 @@ class TUI:
 
         action_map = {
             ord("p"): self._enter_prompt,
+            ord("P"): self._launch_project_mode,
             ord("n"): self._enter_newfile,
             ord("a"): self._approve,
             ord("r"): self._reject,

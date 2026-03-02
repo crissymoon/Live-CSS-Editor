@@ -51,9 +51,20 @@ CREATE TABLE IF NOT EXISTS merge_changes (
     timestamp   TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS project_sessions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    root_dir        TEXT    NOT NULL,
+    instruction     TEXT    NOT NULL,
+    plan_prompt     TEXT    NOT NULL DEFAULT '',
+    file_tree_json  TEXT    NOT NULL DEFAULT '',
+    status          TEXT    NOT NULL DEFAULT 'pending',
+    timestamp       TEXT    DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_patterns_language  ON patterns(language);
 CREATE INDEX IF NOT EXISTS idx_tracking_file      ON tracking(file_path);
 CREATE INDEX IF NOT EXISTS idx_merge_target       ON merge_changes(target_file);
+CREATE INDEX IF NOT EXISTS idx_project_root       ON project_sessions(root_dir);
 """
 
 
@@ -268,6 +279,101 @@ class AgentDB:
         except Exception as exc:
             self._log.error("DB", f"stats failed: {exc}")
             return {}
+
+
+    # ------------------------------------------------------------------
+    # project_sessions
+    # ------------------------------------------------------------------
+
+    def create_project_session(
+        self,
+        root_dir: str,
+        instruction: str,
+        plan_prompt: str = "",
+        file_tree_json: str = "",
+        status: str = "pending",
+    ) -> int:
+        """Insert a new project session row. Returns row id or -1 on failure."""
+        if not self._conn:
+            self._log.error("DB", "create_project_session: db not open")
+            return -1
+        try:
+            cur = self._conn.execute(
+                "INSERT INTO project_sessions "
+                "(root_dir, instruction, plan_prompt, file_tree_json, status, timestamp) "
+                "VALUES (?,?,?,?,?,?)",
+                (root_dir, instruction, plan_prompt, file_tree_json, status, _ts()),
+            )
+            self._conn.commit()
+            return cur.lastrowid
+        except Exception as exc:
+            self._log.error("DB", f"create_project_session failed: {exc}")
+            return -1
+
+    def update_project_session(
+        self,
+        session_id: int,
+        plan_prompt: str = None,
+        file_tree_json: str = None,
+        status: str = None,
+    ) -> bool:
+        """Update mutable fields on a project session."""
+        if not self._conn:
+            return False
+        fields = []
+        params = []
+        if plan_prompt is not None:
+            fields.append("plan_prompt=?")
+            params.append(plan_prompt)
+        if file_tree_json is not None:
+            fields.append("file_tree_json=?")
+            params.append(file_tree_json)
+        if status is not None:
+            fields.append("status=?")
+            params.append(status)
+        if not fields:
+            return True
+        params.append(session_id)
+        try:
+            self._conn.execute(
+                f"UPDATE project_sessions SET {', '.join(fields)} WHERE id=?",
+                params,
+            )
+            self._conn.commit()
+            return True
+        except Exception as exc:
+            self._log.error("DB", f"update_project_session failed: {exc}")
+            return False
+
+    def get_project_session(self, session_id: int) -> Optional[Dict[str, Any]]:
+        if not self._conn:
+            return None
+        try:
+            row = self._conn.execute(
+                "SELECT * FROM project_sessions WHERE id=?", (session_id,)
+            ).fetchone()
+            return dict(row) if row else None
+        except Exception as exc:
+            self._log.error("DB", f"get_project_session failed: {exc}")
+            return None
+
+    def list_project_sessions(self, root_dir: str = None) -> List[Dict[str, Any]]:
+        if not self._conn:
+            return []
+        try:
+            if root_dir:
+                rows = self._conn.execute(
+                    "SELECT * FROM project_sessions WHERE root_dir=? ORDER BY id DESC",
+                    (root_dir,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT * FROM project_sessions ORDER BY id DESC"
+                ).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as exc:
+            self._log.error("DB", f"list_project_sessions failed: {exc}")
+            return []
 
 
 def make_issue_hash(file_path: str, rule: str, line: int, msg: str) -> str:
