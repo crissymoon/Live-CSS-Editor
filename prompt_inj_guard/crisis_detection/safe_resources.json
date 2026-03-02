@@ -1,0 +1,298 @@
+{
+  "_comment": "Safe crisis resources by category. All numbers and URLs verified as of 2025. Update periodically.",
+  "_version": "1.0.0",
+
+  "suicide": {
+    "label": "Suicide / Suicidal Ideation",
+    "message": "You are not alone. Please reach out to a crisis line right now.",
+    "hotlines": [
+      {
+        "name": "988 Suicide and Crisis Lifeline",
+        "number": "988",
+        "sms": "Text HOME to 741741",
+        "url": "https://988lifeline.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "Crisis Text Line",
+        "number": null,
+        "sms": "Text HOME to 741741",
+        "url": "https://www.crisistextline.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "International Association for Suicide Prevention",
+        "number": null,
+        "sms": null,
+        "url": "https://www.iasp.info/resources/Crisis_Centres/",
+        "availability": "varies by country",
+        "international": true
+      },
+      {
+        "name": "Veterans Crisis Line",
+        "number": "988 (press 1)",
+        "sms": "Text 838255",
+        "url": "https://www.veteranscrisisline.net",
+        "availability": "24/7",
+        "international": false
+      }
+    ],
+    "online_resources": [
+      {
+        "name": "AFSP - American Foundation for Suicide Prevention",
+        "url": "https://afsp.org"
+      },
+      {
+        "name": "NAMI - Find Support",
+        "url": "https://www.nami.org/Support-Education/Mental-Health-Crisis-Resources"
+      }
+    ]
+  },
+
+  "self_harm": {
+    "label": "Self-Harm",
+    "message": "Support is available and you deserve care. Please reach out.",
+    "hotlines": [
+      {
+        "name": "988 Suicide and Crisis Lifeline",
+        "number": "988",
+        "sms": "Text HOME to 741741",
+        "url": "https://988lifeline.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "Crisis Text Line",
+        "number": null,
+        "sms": "Text HOME to 741741",
+        "url": "https://www.crisistextline.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "To Write Love on Her Arms",
+        "number": null,
+        "sms": null,
+        "url": "https://twloha.com",
+        "availability": "resources website",
+        "international": true
+      }
+    ],
+    "online_resources": [
+      {
+        "name": "NSHN - National Self Harm Network",
+        "url": "https://www.nshn.co.uk"
+      },
+      {
+        "name": "Mind UK - Self-harm",
+        "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/self-harm/"
+      }
+    ]
+  },
+
+  "domestic_violence": {
+    "label": "Domestic Violence / Abuse",
+    "message": "Your safety matters. Confidential, free help is available right now.",
+    "hotlines": [
+      {
+        "name": "National Domestic Violence Hotline",
+        "number": "1-800-799-7233",
+        "sms": "Text START to 88788",
+        "url": "https://www.thehotline.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "loveisrespect (Teen Dating Abuse)",
+        "number": "1-866-331-9474",
+        "sms": "Text LOVEIS to 22522",
+        "url": "https://www.loveisrespect.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "National Sexual Assault Hotline (RAINN)",
+        "number": "1-800-656-4673",
+        "sms": null,
+        "url": "https://www.rainn.org",
+        "availability": "24/7",
+        "international": false
+      }
+    ],
+    "online_resources": [
+      {
+        "name": "Safety Planning - thehotline.org",
+        "url": "https://www.thehotline.org/plan-for-safety/"
+      },
+      {
+        "name": "DomesticShelters.org - Find a shelter",
+        "url": "https://www.domesticshelters.org"
+      }
+    ]
+  },
+
+  "mental_health": {
+    "label": "Mental Health Crisis",
+    "message": "A mental health crisis is a real emergency. Trained support is available.",
+    "hotlines": [
+      {
+        "name": "988 Suicide and Crisis Lifeline",
+        "number": "988",
+        "sms": "Text HOME to 741741",
+        "url": "https://988lifeline.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "NAMI Helpline",
+        "number": "1-800-950-6264",
+        "sms": "Text NAMI to 741741",
+        "url": "https://www.nami.org/help",
+        "availability": "M-F 10am-10pm ET",
+        "international": false
+      },
+      {
+        "name": "Crisis Text Line",
+        "number": null,
+        "sms": "Text HOME to 741741",
+        "url": "https://www.crisistextline.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "SAMHSA National Helpline",
+        "number": "1-800-662-4357",
+        "sms": null,
+        "url": "https://www.samhsa.gov/find-help/national-helpline",
+        "availability": "24/7",
+        "international": false
+      }
+    ],
+    "online_resources": [
+      {
+        "name": "NAMI - Crisis Resources",
+        "url": "https://www.nami.org/Support-Education/Mental-Health-Crisis-Resources"
+      },
+      {
+        "name": "MentalHealth.gov",
+        "url": "https://www.mentalhealth.gov"
+      }
+    ]
+  },
+
+  "substance": {
+    "label": "Substance / Overdose Crisis",
+    "message": "If this is an overdose in progress, call 911 immediately. Help is available.",
+    "emergency_note": "Call 911 immediately for an active overdose.",
+    "hotlines": [
+      {
+        "name": "SAMHSA National Helpline",
+        "number": "1-800-662-4357",
+        "sms": null,
+        "url": "https://www.samhsa.gov/find-help/national-helpline",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "Crisis Text Line",
+        "number": null,
+        "sms": "Text HOME to 741741",
+        "url": "https://www.crisistextline.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "988 Suicide and Crisis Lifeline",
+        "number": "988",
+        "sms": null,
+        "url": "https://988lifeline.org",
+        "availability": "24/7",
+        "international": false
+      }
+    ],
+    "online_resources": [
+      {
+        "name": "SAMHSA - Treatment Locator",
+        "url": "https://findtreatment.samhsa.gov"
+      },
+      {
+        "name": "Narcotics Anonymous",
+        "url": "https://na.org"
+      }
+    ]
+  },
+
+  "child_safety": {
+    "label": "Child Safety / Abuse",
+    "message": "A child's safety is an emergency. Please contact authorities or a hotline now.",
+    "emergency_note": "If a child is in immediate danger, call 911.",
+    "hotlines": [
+      {
+        "name": "Childhelp National Child Abuse Hotline",
+        "number": "1-800-422-4453",
+        "sms": null,
+        "url": "https://www.childhelp.org/hotline/",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "NCMEC - National Center for Missing and Exploited Children",
+        "number": "1-800-843-5678",
+        "sms": null,
+        "url": "https://www.missingkids.org",
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "Crisis Text Line",
+        "number": null,
+        "sms": "Text HOME to 741741",
+        "url": "https://www.crisistextline.org",
+        "availability": "24/7",
+        "international": false
+      }
+    ],
+    "online_resources": [
+      {
+        "name": "Childhelp - Resources",
+        "url": "https://www.childhelp.org/resources/"
+      },
+      {
+        "name": "RAINN - Children and Teens",
+        "url": "https://www.rainn.org/articles/child-sexual-abuse"
+      }
+    ]
+  },
+
+  "medical": {
+    "label": "Medical Emergency",
+    "message": "For a medical emergency, call 911 (US) or your local emergency number immediately.",
+    "emergency_note": "Call 911 (US) or 112 (EU) or 999 (UK) immediately.",
+    "hotlines": [
+      {
+        "name": "Emergency Services (US)",
+        "number": "911",
+        "sms": null,
+        "url": null,
+        "availability": "24/7",
+        "international": false
+      },
+      {
+        "name": "Poison Control Center (US)",
+        "number": "1-800-222-1222",
+        "sms": null,
+        "url": "https://www.poisoncontrol.org",
+        "availability": "24/7",
+        "international": false
+      }
+    ],
+    "online_resources": [
+      {
+        "name": "MedlinePlus - Medical Emergencies",
+        "url": "https://medlineplus.gov/firstaid.html"
+      }
+    ]
+  }
+}

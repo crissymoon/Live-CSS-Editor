@@ -1,0 +1,317 @@
+{
+  "_comment": "Crisis detection pattern database. Hot-reloaded on mtime change. Do not store PII here. Updated: 2026-03-02.",
+  "_version": "1.0.0",
+
+  "categories": {
+    "suicide": {
+      "label": "suicide",
+      "display": "Suicide / Suicidal Ideation",
+      "base_severity": 10,
+      "resource_key": "suicide"
+    },
+    "self_harm": {
+      "label": "self_harm",
+      "display": "Non-Suicidal Self-Harm",
+      "base_severity": 8,
+      "resource_key": "self_harm"
+    },
+    "domestic_violence": {
+      "label": "domestic_violence",
+      "display": "Domestic Violence / Abuse",
+      "base_severity": 9,
+      "resource_key": "domestic_violence"
+    },
+    "mental_health_crisis": {
+      "label": "mental_health_crisis",
+      "display": "Acute Mental Health Crisis",
+      "base_severity": 7,
+      "resource_key": "mental_health"
+    },
+    "substance_crisis": {
+      "label": "substance_crisis",
+      "display": "Substance / Overdose Crisis",
+      "base_severity": 9,
+      "resource_key": "substance"
+    },
+    "child_safety": {
+      "label": "child_safety",
+      "display": "Child Safety / Abuse",
+      "base_severity": 10,
+      "resource_key": "child_safety"
+    },
+    "medical_emergency": {
+      "label": "medical_emergency",
+      "display": "Acute Medical Emergency",
+      "base_severity": 9,
+      "resource_key": "medical"
+    }
+  },
+
+  "patterns": [
+
+    {
+      "id": "sui_001",
+      "category": "suicide",
+      "severity": 10,
+      "description": "Direct statement of suicidal intent",
+      "weight": 1.0,
+      "patterns": [
+        "i (want|am going|going) to kill my(self)?",
+        "i want to (kill|end|take)\\s+(my(self)?|my own)\\s+life",
+        "i('m| am) going to (end|take) (it|my life|everything)",
+        "planning (to|on) kill(ing)? myself",
+        "i (already )?(have|had|have made|made) a plan to (end|kill|take) my life",
+        "i(?: already)? have a suicid(e|al) plan",
+        "\\bsuicid(e|al) (plan|attempt|method)\\b",
+        "i will (commit|attempt) suicide"
+      ]
+    },
+    {
+      "id": "sui_002",
+      "category": "suicide",
+      "severity": 9,
+      "description": "Expressed wish to be dead or not exist",
+      "weight": 0.85,
+      "patterns": [
+        "i (want|wish) (to be|i was|i were) dead",
+        "i (would rather|want to) be dead",
+        "i (don'?t|do not) want to (live|be alive|exist) anymore",
+        "i (wish|hope) i (could|would) die",
+        "better off dead",
+        "better off without me",
+        "(no(body|one)|the world) would (care|miss|notice) if i (was|were|am) gone",
+        "everyone would be better off if i (was|were|am|weren't) (here|alive|around)",
+        "i (don'?t|do not) see (the|any) point (in living|in going on|anymore|in my life)"
+      ]
+    },
+    {
+      "id": "sui_003",
+      "category": "suicide",
+      "severity": 8,
+      "description": "Passive suicidal ideation or giving up",
+      "weight": 0.75,
+      "patterns": [
+        "i (just want|want) (to go to sleep|to sleep|and not wake up)",
+        "i (hope|wish) i (don't|won't|wouldn't) wake up",
+        "i (don'?t|do not) (care|want) (to go on|if i|about living|living anymore)",
+        "i give up on (life|living|everything|myself)",
+        "i can'?t (take|do) (this|it|life|living|anymore) (anymore|any more)",
+        "i (feel|felt) like (there|there'?s|there is) no (reason|point|purpose) to (live|go on|be here|exist)",
+        "i have nothing (to live for|left|to look forward to)",
+        "i (see|have|there'?s) no (future|hope|reason to continue)",
+        "life is not worth (it|living|going on)"
+      ]
+    },
+    {
+      "id": "sui_004",
+      "category": "suicide",
+      "severity": 8,
+      "description": "Goodbye or final arrangements language",
+      "weight": 0.80,
+      "patterns": [
+        "saying (my ?(final|last) ?)?(goodbye|goodbyes|farewell) (to everyone|to my family|forever|for the last time|one last time)",
+        "giving away (my stuff|my things|my belongings|my money|my possessions)",
+        "i (wrote|have written|am writing) (a|my) (suicide|goodbye|farewell) (note|letter|message)",
+        "i won'?t be (here|around|alive) (much longer|after tonight|for long|tomorrow|next week|next month) (anymore|so|because|since)?",
+        "this (is|will be) (my last|the last) (message|post|goodbye|night|day) (i|on this earth|alive|before)"
+      ]
+    },
+
+    {
+      "id": "sh_001",
+      "category": "self_harm",
+      "severity": 8,
+      "description": "Active self-harm disclosure",
+      "weight": 1.0,
+      "patterns": [
+        "i('ve| have) (been|started) (cutting|burning|hitting|scratching|bruising) myself",
+        "i (cut|burn|hurt|harm) myself (when|because|to|for)",
+        "i (use|used) (cutting|burning|bruising|hurting myself) to (cope|feel|deal)",
+        "self[- ]harm(ing)?",
+        "i relapsed (on|with) (cutting|self[- ]harm|hurting myself)",
+        "i (want|need) to (cut|hurt|harm) myself"
+      ]
+    },
+    {
+      "id": "sh_002",
+      "category": "self_harm",
+      "severity": 7,
+      "description": "Urge to self-harm",
+      "weight": 0.80,
+      "patterns": [
+        "i (have|feel|get) (the urge|urges) to (cut|hurt|harm|burn) myself",
+        "urge (to|for) self[- ]harm",
+        "i (think|keep thinking) about (hurting|harming|cutting) myself",
+        "i (feel like|want to) (hurt|punish) myself"
+      ]
+    },
+
+    {
+      "id": "dv_001",
+      "category": "domestic_violence",
+      "severity": 9,
+      "description": "Active physical abuse disclosure",
+      "weight": 1.0,
+      "patterns": [
+        "my (partner|husband|wife|boyfriend|girlfriend|spouse|ex|abuser) (ha[ds]|has been|keeps|did)? ?(hit|beat|punch|kick|choke|strangle|push|shove|slap|hurt|abus)(t?ed|ing|s)?\\s+(me)\\b",
+        "(he|she|they) (beat|beats|beaten|hit|hits|hurt|hurts|abuse[sd]?|choke[ds]?|strangle[ds]?|punched?|kicked?|slapped?)\\s+me\\b",
+        "i (was|got|am being|have been) (hit|beaten|punched|kicked|choked|strangled|physically abused|assaulted) (by|from) (my|him|her|them|an?)",
+        "\\bdomestic (violence|abuse)\\b",
+        "i'?m (being|getting) (abused|beaten|choked|hit|attacked) (by|from) (my|him|her)",
+        "i'?m (scared|afraid|terrified) (he|she|they) (will|is going to|might|may|could) (kill|hurt|beat|attack) me"
+      ]
+    },
+    {
+      "id": "dv_002",
+      "category": "domestic_violence",
+      "severity": 8,
+      "description": "Trapped or controlled by partner",
+      "weight": 0.80,
+      "patterns": [
+        "i (can'?t|cannot|am unable to) (leave|escape|get away) (from|my) (him|her|them|partner|husband|wife|abuser)",
+        "(he|she|they) (won'?t|will not|refuses to|doesn'?t) let me (leave|go|escape|get out)",
+        "i'?m (trapped|stuck) in an? (abusive|violent|dangerous) (relationship|situation|home)",
+        "i (am|am now) trapped (in|with) (an? |my )?(abusive|abuser|partner|husband|wife)",
+        "i (don'?t|do not|don'?t know how to) (leave|escape|get out) safely",
+        "(he|she|they) (controls|monitors|tracks) everything (i do|i go|about me)",
+        "i'?m (afraid|scared|terrified) to (go home|leave|speak up|tell anyone)"
+      ]
+    },
+
+    {
+      "id": "mhc_001",
+      "category": "mental_health_crisis",
+      "severity": 8,
+      "description": "Psychosis or losing touch with reality",
+      "weight": 0.90,
+      "patterns": [
+        "i (hear|am hearing|keep hearing) (voices|a voice) (in my head|telling me|that tell me)",
+        "(the voices|they) (told|tell|are telling|keep telling) me (to|that)",
+        "i (think|believe|know) (i'?m|i am) being (followed|watched|monitored|persecuted|poisoned|controlled)",
+        "i (can|could) (see|hear) things (other people|nobody|no one) (can|cannot|cannot see)",
+        "i'?m losing (my mind|touch with reality|grip on reality)",
+        "i (had|have|keep having) a (psychotic|dissociative|breakdown) (episode|break)",
+        "i (don'?t|cannot) (tell|know) what'?s (real|reality) anymore"
+      ]
+    },
+    {
+      "id": "mhc_002",
+      "category": "mental_health_crisis",
+      "severity": 7,
+      "description": "Severe dissociation or emotional breakdown",
+      "weight": 0.75,
+      "patterns": [
+        "i don'?t (feel|know) (real|who i am|like myself|like anything is real) anymore",
+        "i feel (completely|totally) (numb|empty|hollow|disconnected|detached)",
+        "i'?m (having|in the middle of) (a|an) (breakdown|mental breakdown|panic attack|crisis)",
+        "i can'?t (stop|function|get out of|calm down|think|breathe) (bed|crying|shaking|anymore)",
+        "i (haven'?t|have not) (eaten|slept|left (the house|my room|my bed)) (in|for) (\\d+|a few|several|many|weeks|days)"
+      ]
+    },
+
+    {
+      "id": "sub_001",
+      "category": "substance_crisis",
+      "severity": 10,
+      "description": "Active overdose",
+      "weight": 1.0,
+      "patterns": [
+        "i (took|have taken|am taking) (too many|way too many|an overdose of) (pills|tablets|medications|drugs|opioids|benzos|fentanyl)",
+        "i (overdosed|am overdosing|think i overdosed)\\b",
+        "i took (\\d+|a bottle of|all my|all the) (pills|tablets|meds|medications|opioids|benzos|xanax|fentanyl)",
+        "\\boverdosing\\b",
+        "\\boverdosed\\b",
+        "i took an? overdose",
+        "i (think|thought) i (may|might) have been (poisoned|overdosed) (by|from|with|on)"
+      ]
+    },
+    {
+      "id": "sub_002",
+      "category": "substance_crisis",
+      "severity": 8,
+      "description": "Relapse or withdrawal crisis",
+      "weight": 0.80,
+      "patterns": [
+        "i (just|already|have) relapsed (on|with) (heroin|fentanyl|meth|cocaine|opioids|pills|alcohol|drugs)",
+        "i'?m (going through|in|experiencing) withdrawal (from|off)",
+        "i (can'?t|cannot) (stop|quit) (using|taking|drinking|the drugs|the pills|alcohol)",
+        "i (do|am doing|am using) (heroin|fentanyl|meth|crack|opioids|hard drugs) and i (need|want|am trying to) (stop|quit|get help)"
+      ]
+    },
+
+    {
+      "id": "cs_001",
+      "category": "child_safety",
+      "severity": 10,
+      "description": "Child abuse disclosure -- immediate danger",
+      "weight": 1.0,
+      "patterns": [
+        "my (parent|mother|father|mom|dad|step(parent|father|mother)|guardian|caretaker) (has been|keeps|is|did|was) (hitting|beating|burning|hurting|punching|kicking|choking|molesting|abusing)\\b[^.!?]{0,25}\\bme\\b",
+        "my (parent|mother|father|mom|dad|step(parent|father|mother)|guardian)\\b (hit|beat|burned|hurt|punched|kicked|choked|molested|abused) me",
+        "i('ve| have) (been|was|am being) (abused|molested|sexually abused|raped) by (an adult|a family member|my parent|my guardian|someone older)",
+        "an? (grown[- ]?up|adult|man|woman|teacher|coach|priest|relative|older person)\\b[^.!?]{0,30}\\b(touched|hurt|molested|abused|raped)\\b[^.!?]{0,10}\\bme\\b",
+        "there is (a child|a kid|a minor) (being abused|being hurt|in danger|in an unsafe home|being molested)",
+        "i'?m (a child|a minor|\\d{1,2} years old) and (i'?m|i am) (being abused|not safe|in danger|being hurt|being hit)",
+        "\\bchild (abuse|sexual abuse|neglect|exploitation|trafficking)\\b"
+      ]
+    },
+
+    {
+      "id": "me_001",
+      "category": "medical_emergency",
+      "severity": 10,
+      "description": "Immediate medical emergency",
+      "weight": 1.0,
+      "patterns": [
+        "i('m| am) having (a heart attack|a stroke|a seizure|anaphylaxis|a severe allergic reaction)",
+        "i('m| am) (experiencing|having) (chest pain|severe chest pain|crushing chest pain)",
+        "i cannot breathe (and|but|,|;)? ?(there is|there'?s|there was) (a lot of|massive|uncontrolled) (blood|bleeding)",
+        "someone (collapsed|lost consciousness|stopped breathing|is not breathing|is unconscious|is unresponsive) (and needs|please|right now|immediately)",
+        "please (call|send) (911|an ambulance|emergency services|paramedics) (now|immediately|right now|fast|quickly)",
+        "i think i (may be|am) having (a|an) (medical|health|cardiac|respiratory) emergency",
+        "i can'?t (stop|control) (the bleeding|this bleeding|my bleeding) (it'?s|and it'?s|and it is) (very bad|severe|bad|everywhere)"
+      ]
+    }
+  ],
+
+  "negation_phrases": [
+    "would never",
+    "would not",
+    "don't actually",
+    "am not",
+    "never going to",
+    "not really",
+    "just joking",
+    "just kidding",
+    "not serious",
+    "just a joke",
+    "hypothetically",
+    "for a story",
+    "writing a novel",
+    "in a game",
+    "as a metaphor",
+    "not suicidal",
+    "not going to hurt",
+    "not going to harm"
+  ],
+
+  "context_boosters": [
+    "right now",
+    "tonight",
+    "today",
+    "this week",
+    "already",
+    "soon",
+    "very soon",
+    "i have decided",
+    "i have made up my mind",
+    "for real",
+    "seriously",
+    "no one can stop me",
+    "nothing can stop me",
+    "no one will stop me",
+    "nothing to lose",
+    "i'm ready",
+    "i am ready"
+  ]
+}
