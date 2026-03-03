@@ -43,4 +43,29 @@
     **Make one main file that will auto grab all the reports w/ proper pagination, search, etc..
     > [x] reports/index.html -- auto-regenerated on each run, cards grid, search bar, paginated (12/page)
 
+## Onsite Chatbots
+
+- [x] Add sections for chatbots /Users/mac/Documents/live-css/page-builder/sections
+      page-builder/sections/sections/chatbot-widget.json -- section definition (chatbot block type)
+      page-builder/sections/chatbot/chatbot-widget.js    -- self-contained widget JS
+      page-builder/sections/chatbot/chatbot-widget.css   -- scoped styles, dark + light themes
+      page-builder/sections/chatbot/config.json          -- rate-limit, guard, AI settings
+      page-builder/sections/chatbot/api/chat.php         -- POST endpoint (validation, rate-limit, guard, AI)
+      page-builder/build.php                             -- added case 'chatbot' to renderBlock()
+
+- [x] This should take a flow where companies can add context for their customers /Users/mac/Documents/live-css/agent-flow
+      agent-flow/flows/chatbot-company-context.json      -- sample flow with 5 context nodes
+      chat.php reads all "context" + "system prompt" nodes from the named flow to build the system prompt
+      Companies copy/edit chatbot-company-context.json to set their identity, scope, FAQ, and guardrails
+
+- [x] It should have proper prompt injection security, rate limiting, etc..
+      Prompt injection: forwards each message to localhost:8765/classify (prompt_inj_guard server)
+        - flagged messages are blocked with HTTP 400 and logged
+        - fail_open:true means service degrades gracefully if guard is unreachable
+      Rate limiting: file-based per IP (SHA-256 hashed), 15 req / 60s sliding window
+        - returns HTTP 429 with retry_after on breach
+        - rate-limit data stored in /tmp/pb_chatbot_rl/ (no DB required)
+      Input validation: message length cap (4000 chars), history sanitisation, flow_id allowlist (alphanum/dash/underscore)
+      All error paths call chatErr() -> writes to error_log + returns structured JSON so the browser always has context
+
 # Notes

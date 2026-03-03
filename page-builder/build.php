@@ -445,6 +445,58 @@ function renderBlock(array $block, array $overrides): string {
                 $html .= '</label>';
                 return $html;
             }
+            /*
+             * CHATBOT BLOCK
+             * Renders an AI chat widget container. The JS (chatbot-widget.js)
+             * mounts into the div on DOMContentLoaded. Config is read from
+             * data-* attributes so no inline JS is needed.
+             *
+             * Settings:
+             *   flow_id     -- agent-flow flow name (no .json extension)
+             *   title       -- widget header label
+             *   placeholder -- textarea placeholder
+             *   height      -- messages area CSS height
+             *   api_url     -- chat endpoint (root-relative or absolute)
+             *   theme       -- "dark" | "light"
+             *   accent      -- CSS hex accent color
+             *   show_avatar -- "true" | "false"
+             *   bot_name    -- display name for the assistant
+             */
+            case 'chatbot': {
+                $flowId     = htmlspecialchars($s['flow_id']     ?? 'chatbot-company-context', ENT_QUOTES);
+                $title      = htmlspecialchars($s['title']       ?? 'Chat',               ENT_QUOTES);
+                $placeholder= htmlspecialchars($s['placeholder'] ?? 'Type a message...',  ENT_QUOTES);
+                $height     = htmlspecialchars($s['height']      ?? '400px',              ENT_QUOTES);
+                $apiUrl     = htmlspecialchars(
+                    $s['api_url'] ?? '/page-builder/sections/chatbot/api/chat.php',
+                    ENT_QUOTES
+                );
+                $theme      = htmlspecialchars($s['theme']       ?? 'dark',   ENT_QUOTES);
+                $accent     = htmlspecialchars($s['accent']      ?? '#6366f1',ENT_QUOTES);
+                $showAvatar = htmlspecialchars($s['show_avatar'] ?? 'true',   ENT_QUOTES);
+                $botName    = htmlspecialchars($s['bot_name']    ?? 'Assistant', ENT_QUOTES);
+
+                error_log('[renderBlock] chatbot id=' . $id . ' flow_id=' . $flowId);
+
+                $jsBase  = '/page-builder/sections/chatbot/chatbot-widget.js';
+                $cssBase = '/page-builder/sections/chatbot/chatbot-widget.css';
+
+                return '<link rel="stylesheet" href="' . $cssBase . '">'
+                    . '<div class="pb-chatbot-wrap"'
+                    . ' id="' . htmlspecialchars($id, ENT_QUOTES) . '"'
+                    . ' data-flow-id="'    . $flowId      . '"'
+                    . ' data-title="'      . $title       . '"'
+                    . ' data-placeholder="'. $placeholder . '"'
+                    . ' data-height="'     . $height      . '"'
+                    . ' data-api-url="'    . $apiUrl      . '"'
+                    . ' data-theme="'      . $theme       . '"'
+                    . ' data-accent="'     . $accent      . '"'
+                    . ' data-show-avatar="'. $showAvatar  . '"'
+                    . ' data-bot-name="'   . $botName     . '"'
+                    . ' ' . pbAttrs($id, ['title', 'placeholder', 'height', 'theme', 'accent', 'bot_name'])
+                    . '></div>'
+                    . '<script src="' . $jsBase . '" defer></script>';
+            }
             default:
                 return '<!-- unknown block type: ' . htmlspecialchars($type) . ' -->';
         }

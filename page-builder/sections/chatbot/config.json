@@ -1,0 +1,22 @@
+{
+    "_comment": "Chatbot section config. Loaded by page-builder/sections/chatbot/api/chat.php.",
+
+    "rate_limit": {
+        "window_seconds": 60,
+        "max_requests":   15
+    },
+
+    "guard": {
+        "url":       "http://localhost:8765/classify",
+        "timeout":   5,
+        "fail_open": true
+    },
+
+    "ai": {
+        "provider":      "openai",
+        "model":         "gpt-4o-mini",
+        "max_tokens":    512,
+        "history_limit": 10,
+        "timeout":       30
+    }
+}

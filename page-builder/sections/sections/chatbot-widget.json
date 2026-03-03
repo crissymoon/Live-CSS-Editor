@@ -1,0 +1,57 @@
+{
+    "_meta": {
+        "name": "Chatbot Widget",
+        "type": "section",
+        "description": "AI-powered chat widget with company context from agent-flow, prompt injection guard, and rate limiting"
+    },
+    "type": "section",
+    "id": "chatbot",
+    "layout": "column",
+    "settings": {
+        "bg":       "#0a0a14",
+        "padding":  "60px 24px",
+        "maxWidth": "820px",
+        "align":    "center",
+        "gap":      "24px"
+    },
+    "blocks": [
+        {
+            "type": "heading",
+            "id":   "chatbot-heading",
+            "text": "Chat with Us",
+            "tag":  "h2",
+            "settings": {
+                "color":      "#e8e8f0",
+                "fontSize":   "28px",
+                "fontWeight": "600",
+                "textAlign":  "center"
+            }
+        },
+        {
+            "type": "text",
+            "id":   "chatbot-sub",
+            "text": "Ask us anything. Our AI assistant is here to help.",
+            "settings": {
+                "color":      "#8888a0",
+                "fontSize":   "14px",
+                "lineHeight": "1.55",
+                "textAlign":  "center"
+            }
+        },
+        {
+            "type": "chatbot",
+            "id":   "chatbot-widget",
+            "settings": {
+                "flow_id":     "chatbot-company-context",
+                "title":       "Support Chat",
+                "placeholder": "Type a message...",
+                "height":      "480px",
+                "api_url":     "/page-builder/sections/chatbot/api/chat.php",
+                "theme":       "dark",
+                "accent":      "#6366f1",
+                "show_avatar": true,
+                "bot_name":    "Assistant"
+            }
+        }
+    ]
+}
