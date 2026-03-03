@@ -1,0 +1,6247 @@
+{
+  "metadata": {
+    "analysis_date": "2026-03-03T15:00:54.770499",
+    "project_root": "/Users/mac/Documents/live-css/dev-tools/db-browser",
+    "analyzer_version": "1.0.0",
+    "stats": {
+      "total_files": 76,
+      "total_lines": 14357,
+      "code_lines": 10673,
+      "comment_lines": 1271,
+      "blank_lines": 2413,
+      "files_by_type": {
+        "C": 31,
+        "Header": 23,
+        "Python": 9,
+        "Shell": 5,
+        "Markdown": 8
+      },
+      "lines_by_directory": {}
+    }
+  },
+  "complexity": {
+    "metrics": {
+      "total_functions": 255,
+      "average_complexity": 4.447058823529412,
+      "max_complexity": 34,
+      "high_complexity_count": 10,
+      "average_function_length": 25.050980392156863,
+      "long_function_count": 12
+    },
+    "files": [
+      {
+        "path": "main.c",
+        "functions": [
+          {
+            "name": "main",
+            "line": 31,
+            "lines": 115,
+            "complexity": 12,
+            "max_nesting": 2,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 146
+      },
+      {
+        "path": "ui/tooltips.c",
+        "functions": [
+          {
+            "name": "tooltip_manager_create",
+            "line": 6,
+            "lines": 7,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 0
+          },
+          {
+            "name": "tooltip_manager_destroy",
+            "line": 15,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 44,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_manager_register_all",
+            "line": 50,
+            "lines": 9,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_register_table_operations",
+            "line": 61,
+            "lines": 45,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_register_query_operations",
+            "line": 108,
+            "lines": 45,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_register_data_operations",
+            "line": 155,
+            "lines": 49,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_register_import_export",
+            "line": 206,
+            "lines": 57,
+            "complexity": 1,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_register_sql_help",
+            "line": 265,
+            "lines": 51,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_manager_enable_tutorial",
+            "line": 318,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_manager_disable_tutorial",
+            "line": 326,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "tooltip_manager_is_tutorial_active",
+            "line": 333,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "switch",
+            "line": 345,
+            "lines": 13,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 373
+      },
+      {
+        "path": "databases/example_usage.c",
+        "functions": [
+          {
+            "name": "example_basic_encryption",
+            "line": 13,
+            "lines": 24,
+            "complexity": 3,
+            "max_nesting": 3,
+            "parameter_count": 0
+          },
+          {
+            "name": "example_database_storage",
+            "line": 38,
+            "lines": 30,
+            "complexity": 4,
+            "max_nesting": 3,
+            "parameter_count": 0
+          },
+          {
+            "name": "example_remote_transfer",
+            "line": 69,
+            "lines": 29,
+            "complexity": 4,
+            "max_nesting": 4,
+            "parameter_count": 0
+          },
+          {
+            "name": "example_working_with_encrypted_database",
+            "line": 99,
+            "lines": 26,
+            "complexity": 3,
+            "max_nesting": 3,
+            "parameter_count": 0
+          },
+          {
+            "name": "example_password_generation",
+            "line": 126,
+            "lines": 15,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 0
+          },
+          {
+            "name": "example_backup_and_recovery",
+            "line": 142,
+            "lines": 25,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 0
+          },
+          {
+            "name": "main",
+            "line": 168,
+            "lines": 33,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 0
+          }
+        ],
+        "lines": 200
+      },
+      {
+        "path": "core/db_manager.c",
+        "functions": [
+          {
+            "name": "db_manager_create",
+            "line": 8,
+            "lines": 15,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_manager_destroy",
+            "line": 25,
+            "lines": 11,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_open",
+            "line": 38,
+            "lines": 17,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_close",
+            "line": 57,
+            "lines": 12,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_is_open",
+            "line": 71,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_begin_transaction",
+            "line": 76,
+            "lines": 18,
+            "complexity": 7,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_commit",
+            "line": 96,
+            "lines": 19,
+            "complexity": 7,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_rollback",
+            "line": 117,
+            "lines": 17,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "get_tables_callback",
+            "line": 136,
+            "lines": 16,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 4
+          },
+          {
+            "name": "db_manager_get_tables",
+            "line": 154,
+            "lines": 25,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "get_columns_callback",
+            "line": 181,
+            "lines": 17,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 4
+          },
+          {
+            "name": "db_manager_get_columns",
+            "line": 200,
+            "lines": 30,
+            "complexity": 7,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_manager_create_table",
+            "line": 232,
+            "lines": 58,
+            "complexity": 17,
+            "max_nesting": 3,
+            "parameter_count": 3
+          },
+          {
+            "name": "db_manager_drop_table",
+            "line": 292,
+            "lines": 21,
+            "complexity": 7,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_manager_rename_table",
+            "line": 315,
+            "lines": 19,
+            "complexity": 8,
+            "max_nesting": 2,
+            "parameter_count": 3
+          },
+          {
+            "name": "db_manager_execute_query",
+            "line": 336,
+            "lines": 49,
+            "complexity": 12,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_manager_get_table_row_count",
+            "line": 387,
+            "lines": 21,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_manager_get_database_size",
+            "line": 410,
+            "lines": 20,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_get_last_error",
+            "line": 432,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_is_valid_identifier",
+            "line": 438,
+            "lines": 26,
+            "complexity": 11,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_is_valid_type",
+            "line": 466,
+            "lines": 13,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_free_table_info",
+            "line": 481,
+            "lines": 23,
+            "complexity": 6,
+            "max_nesting": 4,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_free_column_info",
+            "line": 506,
+            "lines": 10,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_manager_free_query_result",
+            "line": 518,
+            "lines": 25,
+            "complexity": 8,
+            "max_nesting": 5,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 542
+      },
+      {
+        "path": "core/db_crypto.c",
+        "functions": [
+          {
+            "name": "crypto_secure_zero",
+            "line": 21,
+            "lines": 6,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "crypto_random_bytes",
+            "line": 29,
+            "lines": 7,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "crypto_generate_salt",
+            "line": 37,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "crypto_generate_iv",
+            "line": 41,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 51,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "crypto_context_create",
+            "line": 83,
+            "lines": 39,
+            "complexity": 7,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "crypto_context_destroy",
+            "line": 123,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 138,
+            "lines": 3,
+            "complexity": 7,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 146,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 166,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 182,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 188,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 224,
+            "lines": 3,
+            "complexity": 7,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 242,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 261,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 272,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 278,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 310,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 316,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 322,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 333,
+            "lines": 6,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 342,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 370,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 377,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 422,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 428,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 449,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 473,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 500,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 507,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 533,
+            "lines": 3,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 538,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 561
+      },
+      {
+        "path": "core/db_transfer.c",
+        "functions": [
+          {
+            "name": "db_transfer_init",
+            "line": 15,
+            "lines": 22,
+            "complexity": 5,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_get_storage_dir",
+            "line": 38,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 0
+          },
+          {
+            "name": "make_storage_path",
+            "line": 43,
+            "lines": 20,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "file_exists",
+            "line": 65,
+            "lines": 4,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "get_file_size",
+            "line": 71,
+            "lines": 7,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "get_file_mtime",
+            "line": 80,
+            "lines": 7,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_list_databases",
+            "line": 89,
+            "lines": 82,
+            "complexity": 19,
+            "max_nesting": 4,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_free_database_list",
+            "line": 172,
+            "lines": 13,
+            "complexity": 4,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 191,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 202,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 208,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 215,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 240,
+            "lines": 14,
+            "complexity": 5,
+            "max_nesting": 4,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 263,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 286,
+            "lines": 26,
+            "complexity": 7,
+            "max_nesting": 5,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 316,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_open_for_use",
+            "line": 324,
+            "lines": 37,
+            "complexity": 7,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 366,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 373,
+            "lines": 5,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 381,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 386,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 392,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_delete",
+            "line": 416,
+            "lines": 29,
+            "complexity": 10,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 450,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 466,
+            "lines": 4,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 481,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 497,
+            "lines": 4,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_prepare_for_remote",
+            "line": 509,
+            "lines": 25,
+            "complexity": 7,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 539,
+            "lines": 3,
+            "complexity": 5,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 544,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 550,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 556,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 575,
+            "lines": 5,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_generate_password",
+            "line": 587,
+            "lines": 26,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_get_info",
+            "line": 615,
+            "lines": 30,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_free_info",
+            "line": 646,
+            "lines": 7,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_transfer_verify_integrity",
+            "line": 655,
+            "lines": 39,
+            "complexity": 10,
+            "max_nesting": 5,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 693
+      },
+      {
+        "path": "legacy/main.c",
+        "functions": [
+          {
+            "name": "if",
+            "line": 103,
+            "lines": 5,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 130,
+            "lines": 5,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "for",
+            "line": 138,
+            "lines": 8,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 164,
+            "lines": 13,
+            "complexity": 5,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "main",
+            "line": 180,
+            "lines": 86,
+            "complexity": 10,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "create_main_window",
+            "line": 268,
+            "lines": 30,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_menu_bar",
+            "line": 300,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "load_theme_pref",
+            "line": 314,
+            "lines": 10,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 0
+          },
+          {
+            "name": "save_theme_pref",
+            "line": 325,
+            "lines": 8,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_toggle_theme",
+            "line": 335,
+            "lines": 50,
+            "complexity": 6,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "create_toolbar",
+            "line": 387,
+            "lines": 121,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_table_panel",
+            "line": 510,
+            "lines": 51,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_query_panel",
+            "line": 563,
+            "lines": 62,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_data_panel",
+            "line": 627,
+            "lines": 31,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_open_database",
+            "line": 660,
+            "lines": 66,
+            "complexity": 5,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_new_database",
+            "line": 727,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_close_database",
+            "line": 731,
+            "lines": 9,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_quit",
+            "line": 741,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_refresh_tables",
+            "line": 746,
+            "lines": 4,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "refresh_table_list",
+            "line": 752,
+            "lines": 80,
+            "complexity": 7,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "show_table_data",
+            "line": 854,
+            "lines": 83,
+            "complexity": 11,
+            "max_nesting": 4,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 979,
+            "lines": 6,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 1036,
+            "lines": 42,
+            "complexity": 9,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_template_clicked",
+            "line": 1085,
+            "lines": 8,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_sql_query_builder",
+            "line": 1095,
+            "lines": 168,
+            "complexity": 2,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_new_table",
+            "line": 1264,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_drop_table",
+            "line": 1268,
+            "lines": 5,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_execute_query",
+            "line": 1274,
+            "lines": 95,
+            "complexity": 14,
+            "max_nesting": 4,
+            "parameter_count": 2
+          },
+          {
+            "name": "csv_write_field",
+            "line": 1375,
+            "lines": 15,
+            "complexity": 8,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "while",
+            "line": 1396,
+            "lines": 21,
+            "complexity": 11,
+            "max_nesting": 5,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_export_csv",
+            "line": 1422,
+            "lines": 81,
+            "complexity": 12,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_import_csv",
+            "line": 1504,
+            "lines": 188,
+            "complexity": 27,
+            "max_nesting": 4,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_backup_database",
+            "line": 1693,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_help_tutorial",
+            "line": 1697,
+            "lines": 7,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_help_about",
+            "line": 1705,
+            "lines": 7,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "update_status",
+            "line": 1714,
+            "lines": 5,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "show_error_dialog",
+            "line": 1720,
+            "lines": 13,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "show_info_dialog",
+            "line": 1734,
+            "lines": 13,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "confirm_action",
+            "line": 1748,
+            "lines": 16,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 1773,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "populate_recent_combo",
+            "line": 1788,
+            "lines": 46,
+            "complexity": 8,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "load_recent_dbs",
+            "line": 1836,
+            "lines": 30,
+            "complexity": 8,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "save_recent_dbs",
+            "line": 1868,
+            "lines": 24,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "add_to_recent",
+            "line": 1894,
+            "lines": 28,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_open_recent_db",
+            "line": 1926,
+            "lines": 54,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_open_sql_file",
+            "line": 1984,
+            "lines": 62,
+            "complexity": 5,
+            "max_nesting": 4,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 2045
+      },
+      {
+        "path": "modules/app_state.c",
+        "functions": [],
+        "lines": 5
+      },
+      {
+        "path": "modules/misc_callbacks.c",
+        "functions": [
+          {
+            "name": "on_backup_database",
+            "line": 4,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_help_tutorial",
+            "line": 8,
+            "lines": 7,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_help_about",
+            "line": 16,
+            "lines": 7,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 22
+      },
+      {
+        "path": "modules/function_runner.c",
+        "functions": [
+          {
+            "name": "on_load_function",
+            "line": 20,
+            "lines": 36,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_preview_selection_changed",
+            "line": 57,
+            "lines": 34,
+            "complexity": 5,
+            "max_nesting": 4,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_run_function",
+            "line": 92,
+            "lines": 152,
+            "complexity": 5,
+            "max_nesting": 3,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 243
+      },
+      {
+        "path": "modules/ui_utils.c",
+        "functions": [
+          {
+            "name": "update_status",
+            "line": 5,
+            "lines": 5,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "show_error_dialog",
+            "line": 11,
+            "lines": 13,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "show_info_dialog",
+            "line": 25,
+            "lines": 13,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "confirm_action",
+            "line": 39,
+            "lines": 16,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 54
+      },
+      {
+        "path": "modules/auth.c",
+        "functions": [
+          {
+            "name": "auth_init",
+            "line": 23,
+            "lines": 4,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 0
+          },
+          {
+            "name": "auth_verify_credentials",
+            "line": 28,
+            "lines": 18,
+            "complexity": 7,
+            "max_nesting": 4,
+            "parameter_count": 3
+          },
+          {
+            "name": "auth_has_permission",
+            "line": 47,
+            "lines": 18,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "auth_logout",
+            "line": 66,
+            "lines": 13,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "auth_get_role_name",
+            "line": 80,
+            "lines": 8,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "auth_session_valid",
+            "line": 89,
+            "lines": 13,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_login_entry_activate",
+            "line": 104,
+            "lines": 4,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "auth_show_login",
+            "line": 109,
+            "lines": 141,
+            "complexity": 7,
+            "max_nesting": 4,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 249
+      },
+      {
+        "path": "modules/row_operations.c",
+        "functions": [
+          {
+            "name": "row_operations_init",
+            "line": 11,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 0
+          },
+          {
+            "name": "row_operations_cleanup",
+            "line": 15,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 0
+          },
+          {
+            "name": "verify_password",
+            "line": 22,
+            "lines": 41,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_add_row_clicked",
+            "line": 64,
+            "lines": 129,
+            "complexity": 16,
+            "max_nesting": 5,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_delete_row_clicked",
+            "line": 194,
+            "lines": 80,
+            "complexity": 13,
+            "max_nesting": 3,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 273
+      },
+      {
+        "path": "modules/trash_manager.c",
+        "functions": [
+          {
+            "name": "ensure_directory",
+            "line": 10,
+            "lines": 9,
+            "complexity": 3,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "trash_manager_init",
+            "line": 20,
+            "lines": 65,
+            "complexity": 7,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 93,
+            "lines": 3,
+            "complexity": 6,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "for",
+            "line": 105,
+            "lines": 19,
+            "complexity": 8,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 186,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "trash_manager_purge_entry",
+            "line": 215,
+            "lines": 16,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 237,
+            "lines": 3,
+            "complexity": 6,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "for",
+            "line": 273,
+            "lines": 22,
+            "complexity": 9,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 298,
+            "lines": 10,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 370,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "trash_manager_close",
+            "line": 404,
+            "lines": 11,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 414
+      },
+      {
+        "path": "modules/theme_manager.c",
+        "functions": [
+          {
+            "name": "load_theme_pref",
+            "line": 14,
+            "lines": 10,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 0
+          },
+          {
+            "name": "save_theme_pref",
+            "line": 25,
+            "lines": 8,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_toggle_theme",
+            "line": 34,
+            "lines": 44,
+            "complexity": 6,
+            "max_nesting": 3,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 77
+      },
+      {
+        "path": "modules/ui_drawing.c",
+        "functions": [
+          {
+            "name": "if",
+            "line": 11,
+            "lines": 5,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 32,
+            "lines": 5,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 41,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "for",
+            "line": 46,
+            "lines": 8,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 67,
+            "lines": 11,
+            "complexity": 5,
+            "max_nesting": 1,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 78
+      },
+      {
+        "path": "modules/csv_handler.c",
+        "functions": [
+          {
+            "name": "csv_write_field",
+            "line": 5,
+            "lines": 15,
+            "complexity": 8,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "while",
+            "line": 24,
+            "lines": 21,
+            "complexity": 11,
+            "max_nesting": 5,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_export_csv",
+            "line": 50,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_import_csv",
+            "line": 54,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 56
+      },
+      {
+        "path": "modules/data_protection.c",
+        "functions": [
+          {
+            "name": "str_to_upper",
+            "line": 11,
+            "lines": 8,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "extract_query_type",
+            "line": 21,
+            "lines": 28,
+            "complexity": 20,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "has_where_clause",
+            "line": 51,
+            "lines": 8,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "analyze_query_risk",
+            "line": 61,
+            "lines": 98,
+            "complexity": 16,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "free_query_analysis",
+            "line": 160,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "should_confirm_query",
+            "line": 167,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "get_confirmation_message",
+            "line": 172,
+            "lines": 11,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_auto_backup",
+            "line": 185,
+            "lines": 13,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "get_backup_path",
+            "line": 199,
+            "lines": 18,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "save_query_to_history",
+            "line": 219,
+            "lines": 28,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "load_last_query",
+            "line": 248,
+            "lines": 34,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "has_unsaved_query",
+            "line": 283,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "mark_query_saved",
+            "line": 288,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "mark_query_dirty",
+            "line": 292,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "begin_protected_transaction",
+            "line": 297,
+            "lines": 13,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "commit_with_confirmation",
+            "line": 311,
+            "lines": 26,
+            "complexity": 6,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "rollback_transaction",
+            "line": 338,
+            "lines": 13,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 350
+      },
+      {
+        "path": "modules/table_callbacks.c",
+        "functions": [
+          {
+            "name": "on_new_table",
+            "line": 16,
+            "lines": 169,
+            "complexity": 16,
+            "max_nesting": 5,
+            "parameter_count": 2
+          },
+          {
+            "name": "check_table_relationships",
+            "line": 186,
+            "lines": 47,
+            "complexity": 10,
+            "max_nesting": 5,
+            "parameter_count": 4
+          },
+          {
+            "name": "verify_password_for_drop",
+            "line": 234,
+            "lines": 43,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_drop_table",
+            "line": 278,
+            "lines": 102,
+            "complexity": 20,
+            "max_nesting": 3,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 380
+      },
+      {
+        "path": "modules/db_callbacks.c",
+        "functions": [
+          {
+            "name": "on_open_database",
+            "line": 9,
+            "lines": 65,
+            "complexity": 5,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_new_database",
+            "line": 75,
+            "lines": 61,
+            "complexity": 5,
+            "max_nesting": 4,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_close_database",
+            "line": 137,
+            "lines": 9,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_quit",
+            "line": 147,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_refresh_tables",
+            "line": 151,
+            "lines": 4,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "refresh_table_list",
+            "line": 156,
+            "lines": 71,
+            "complexity": 7,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "show_table_data",
+            "line": 246,
+            "lines": 73,
+            "complexity": 11,
+            "max_nesting": 4,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 351,
+            "lines": 6,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 405,
+            "lines": 37,
+            "complexity": 9,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "on_open_recent_db",
+            "line": 448,
+            "lines": 49,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 496
+      },
+      {
+        "path": "modules/recent_manager.c",
+        "functions": [
+          {
+            "name": "if",
+            "line": 10,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "populate_recent_combo",
+            "line": 23,
+            "lines": 42,
+            "complexity": 8,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "load_recent_dbs",
+            "line": 66,
+            "lines": 30,
+            "complexity": 8,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "save_recent_dbs",
+            "line": 97,
+            "lines": 24,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "add_to_recent",
+            "line": 122,
+            "lines": 25,
+            "complexity": 6,
+            "max_nesting": 2,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 146
+      },
+      {
+        "path": "modules/query_callbacks.c",
+        "functions": [
+          {
+            "name": "on_table_changed",
+            "line": 10,
+            "lines": 35,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_template_clicked",
+            "line": 46,
+            "lines": 8,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_sql_query_builder",
+            "line": 55,
+            "lines": 278,
+            "complexity": 34,
+            "max_nesting": 6,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_execute_query",
+            "line": 334,
+            "lines": 112,
+            "complexity": 18,
+            "max_nesting": 4,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_open_sql_file",
+            "line": 447,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "on_query_buffer_changed",
+            "line": 451,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 2
+          }
+        ],
+        "lines": 456
+      },
+      {
+        "path": "modules/ui_panels.c",
+        "functions": [
+          {
+            "name": "create_main_window",
+            "line": 27,
+            "lines": 25,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_menu_bar",
+            "line": 53,
+            "lines": 3,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_toolbar",
+            "line": 57,
+            "lines": 104,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_table_panel",
+            "line": 162,
+            "lines": 48,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_query_panel",
+            "line": 211,
+            "lines": 63,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "create_data_panel",
+            "line": 275,
+            "lines": 52,
+            "complexity": 1,
+            "max_nesting": 1,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 326
+      },
+      {
+        "path": "modules/functions/mathematical_functions.c",
+        "functions": [],
+        "lines": 94
+      },
+      {
+        "path": "modules/functions/string_functions.c",
+        "functions": [],
+        "lines": 104
+      },
+      {
+        "path": "modules/functions/business_functions.c",
+        "functions": [],
+        "lines": 159
+      },
+      {
+        "path": "modules/functions/function_categories.c",
+        "functions": [
+          {
+            "name": "get_all_categories",
+            "line": 15,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 20
+      },
+      {
+        "path": "modules/functions/statistical_functions.c",
+        "functions": [],
+        "lines": 104
+      },
+      {
+        "path": "modules/functions/datetime_functions.c",
+        "functions": [],
+        "lines": 95
+      },
+      {
+        "path": "modules/functions/aggregate_functions.c",
+        "functions": [],
+        "lines": 98
+      },
+      {
+        "path": "modules/functions/window_functions.c",
+        "functions": [],
+        "lines": 125
+      }
+    ],
+    "functions": [
+      {
+        "name": "main",
+        "line": 31,
+        "lines": 115,
+        "complexity": 12,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "tooltip_manager_create",
+        "line": 6,
+        "lines": 7,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 0
+      },
+      {
+        "name": "tooltip_manager_destroy",
+        "line": 15,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 44,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_manager_register_all",
+        "line": 50,
+        "lines": 9,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_register_table_operations",
+        "line": 61,
+        "lines": 45,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_register_query_operations",
+        "line": 108,
+        "lines": 45,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_register_data_operations",
+        "line": 155,
+        "lines": 49,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_register_import_export",
+        "line": 206,
+        "lines": 57,
+        "complexity": 1,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_register_sql_help",
+        "line": 265,
+        "lines": 51,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_manager_enable_tutorial",
+        "line": 318,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_manager_disable_tutorial",
+        "line": 326,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "tooltip_manager_is_tutorial_active",
+        "line": 333,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "switch",
+        "line": 345,
+        "lines": 13,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "example_basic_encryption",
+        "line": 13,
+        "lines": 24,
+        "complexity": 3,
+        "max_nesting": 3,
+        "parameter_count": 0
+      },
+      {
+        "name": "example_database_storage",
+        "line": 38,
+        "lines": 30,
+        "complexity": 4,
+        "max_nesting": 3,
+        "parameter_count": 0
+      },
+      {
+        "name": "example_remote_transfer",
+        "line": 69,
+        "lines": 29,
+        "complexity": 4,
+        "max_nesting": 4,
+        "parameter_count": 0
+      },
+      {
+        "name": "example_working_with_encrypted_database",
+        "line": 99,
+        "lines": 26,
+        "complexity": 3,
+        "max_nesting": 3,
+        "parameter_count": 0
+      },
+      {
+        "name": "example_password_generation",
+        "line": 126,
+        "lines": 15,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 0
+      },
+      {
+        "name": "example_backup_and_recovery",
+        "line": 142,
+        "lines": 25,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 0
+      },
+      {
+        "name": "main",
+        "line": 168,
+        "lines": 33,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 0
+      },
+      {
+        "name": "db_manager_create",
+        "line": 8,
+        "lines": 15,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_manager_destroy",
+        "line": 25,
+        "lines": 11,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_open",
+        "line": 38,
+        "lines": 17,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_close",
+        "line": 57,
+        "lines": 12,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_is_open",
+        "line": 71,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_begin_transaction",
+        "line": 76,
+        "lines": 18,
+        "complexity": 7,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_commit",
+        "line": 96,
+        "lines": 19,
+        "complexity": 7,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_rollback",
+        "line": 117,
+        "lines": 17,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "get_tables_callback",
+        "line": 136,
+        "lines": 16,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 4
+      },
+      {
+        "name": "db_manager_get_tables",
+        "line": 154,
+        "lines": 25,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "get_columns_callback",
+        "line": 181,
+        "lines": 17,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 4
+      },
+      {
+        "name": "db_manager_get_columns",
+        "line": 200,
+        "lines": 30,
+        "complexity": 7,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_manager_create_table",
+        "line": 232,
+        "lines": 58,
+        "complexity": 17,
+        "max_nesting": 3,
+        "parameter_count": 3
+      },
+      {
+        "name": "db_manager_drop_table",
+        "line": 292,
+        "lines": 21,
+        "complexity": 7,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_manager_rename_table",
+        "line": 315,
+        "lines": 19,
+        "complexity": 8,
+        "max_nesting": 2,
+        "parameter_count": 3
+      },
+      {
+        "name": "db_manager_execute_query",
+        "line": 336,
+        "lines": 49,
+        "complexity": 12,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_manager_get_table_row_count",
+        "line": 387,
+        "lines": 21,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_manager_get_database_size",
+        "line": 410,
+        "lines": 20,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_get_last_error",
+        "line": 432,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_is_valid_identifier",
+        "line": 438,
+        "lines": 26,
+        "complexity": 11,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_is_valid_type",
+        "line": 466,
+        "lines": 13,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_free_table_info",
+        "line": 481,
+        "lines": 23,
+        "complexity": 6,
+        "max_nesting": 4,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_free_column_info",
+        "line": 506,
+        "lines": 10,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_manager_free_query_result",
+        "line": 518,
+        "lines": 25,
+        "complexity": 8,
+        "max_nesting": 5,
+        "parameter_count": 1
+      },
+      {
+        "name": "crypto_secure_zero",
+        "line": 21,
+        "lines": 6,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "crypto_random_bytes",
+        "line": 29,
+        "lines": 7,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "crypto_generate_salt",
+        "line": 37,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "crypto_generate_iv",
+        "line": 41,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 51,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "crypto_context_create",
+        "line": 83,
+        "lines": 39,
+        "complexity": 7,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "crypto_context_destroy",
+        "line": 123,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 138,
+        "lines": 3,
+        "complexity": 7,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 146,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 166,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 182,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 188,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 224,
+        "lines": 3,
+        "complexity": 7,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 242,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 261,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 272,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 278,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 310,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 316,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 322,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 333,
+        "lines": 6,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 342,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 370,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 377,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 422,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 428,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 449,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 473,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 500,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 507,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 533,
+        "lines": 3,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 538,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_init",
+        "line": 15,
+        "lines": 22,
+        "complexity": 5,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_get_storage_dir",
+        "line": 38,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 0
+      },
+      {
+        "name": "make_storage_path",
+        "line": 43,
+        "lines": 20,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "file_exists",
+        "line": 65,
+        "lines": 4,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "get_file_size",
+        "line": 71,
+        "lines": 7,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "get_file_mtime",
+        "line": 80,
+        "lines": 7,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_list_databases",
+        "line": 89,
+        "lines": 82,
+        "complexity": 19,
+        "max_nesting": 4,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_free_database_list",
+        "line": 172,
+        "lines": 13,
+        "complexity": 4,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 191,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 202,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 208,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 215,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 240,
+        "lines": 14,
+        "complexity": 5,
+        "max_nesting": 4,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 263,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 286,
+        "lines": 26,
+        "complexity": 7,
+        "max_nesting": 5,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 316,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_open_for_use",
+        "line": 324,
+        "lines": 37,
+        "complexity": 7,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 366,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 373,
+        "lines": 5,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 381,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 386,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 392,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_delete",
+        "line": 416,
+        "lines": 29,
+        "complexity": 10,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 450,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 466,
+        "lines": 4,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 481,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 497,
+        "lines": 4,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_prepare_for_remote",
+        "line": 509,
+        "lines": 25,
+        "complexity": 7,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 539,
+        "lines": 3,
+        "complexity": 5,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 544,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 550,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 556,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 575,
+        "lines": 5,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_generate_password",
+        "line": 587,
+        "lines": 26,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_get_info",
+        "line": 615,
+        "lines": 30,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_free_info",
+        "line": 646,
+        "lines": 7,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_transfer_verify_integrity",
+        "line": 655,
+        "lines": 39,
+        "complexity": 10,
+        "max_nesting": 5,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 103,
+        "lines": 5,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 130,
+        "lines": 5,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "for",
+        "line": 138,
+        "lines": 8,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 164,
+        "lines": 13,
+        "complexity": 5,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "main",
+        "line": 180,
+        "lines": 86,
+        "complexity": 10,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "create_main_window",
+        "line": 268,
+        "lines": 30,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_menu_bar",
+        "line": 300,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "load_theme_pref",
+        "line": 314,
+        "lines": 10,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 0
+      },
+      {
+        "name": "save_theme_pref",
+        "line": 325,
+        "lines": 8,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_toggle_theme",
+        "line": 335,
+        "lines": 50,
+        "complexity": 6,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "create_toolbar",
+        "line": 387,
+        "lines": 121,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_table_panel",
+        "line": 510,
+        "lines": 51,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_query_panel",
+        "line": 563,
+        "lines": 62,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_data_panel",
+        "line": 627,
+        "lines": 31,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_open_database",
+        "line": 660,
+        "lines": 66,
+        "complexity": 5,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_new_database",
+        "line": 727,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_close_database",
+        "line": 731,
+        "lines": 9,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_quit",
+        "line": 741,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_refresh_tables",
+        "line": 746,
+        "lines": 4,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "refresh_table_list",
+        "line": 752,
+        "lines": 80,
+        "complexity": 7,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "show_table_data",
+        "line": 854,
+        "lines": 83,
+        "complexity": 11,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 979,
+        "lines": 6,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 1036,
+        "lines": 42,
+        "complexity": 9,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_template_clicked",
+        "line": 1085,
+        "lines": 8,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_sql_query_builder",
+        "line": 1095,
+        "lines": 168,
+        "complexity": 2,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_new_table",
+        "line": 1264,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_drop_table",
+        "line": 1268,
+        "lines": 5,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_execute_query",
+        "line": 1274,
+        "lines": 95,
+        "complexity": 14,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "csv_write_field",
+        "line": 1375,
+        "lines": 15,
+        "complexity": 8,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "while",
+        "line": 1396,
+        "lines": 21,
+        "complexity": 11,
+        "max_nesting": 5,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_export_csv",
+        "line": 1422,
+        "lines": 81,
+        "complexity": 12,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_import_csv",
+        "line": 1504,
+        "lines": 188,
+        "complexity": 27,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_backup_database",
+        "line": 1693,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_help_tutorial",
+        "line": 1697,
+        "lines": 7,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_help_about",
+        "line": 1705,
+        "lines": 7,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "update_status",
+        "line": 1714,
+        "lines": 5,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "show_error_dialog",
+        "line": 1720,
+        "lines": 13,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "show_info_dialog",
+        "line": 1734,
+        "lines": 13,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "confirm_action",
+        "line": 1748,
+        "lines": 16,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 1773,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "populate_recent_combo",
+        "line": 1788,
+        "lines": 46,
+        "complexity": 8,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "load_recent_dbs",
+        "line": 1836,
+        "lines": 30,
+        "complexity": 8,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "save_recent_dbs",
+        "line": 1868,
+        "lines": 24,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "add_to_recent",
+        "line": 1894,
+        "lines": 28,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_open_recent_db",
+        "line": 1926,
+        "lines": 54,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_open_sql_file",
+        "line": 1984,
+        "lines": 62,
+        "complexity": 5,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_backup_database",
+        "line": 4,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_help_tutorial",
+        "line": 8,
+        "lines": 7,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_help_about",
+        "line": 16,
+        "lines": 7,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_load_function",
+        "line": 20,
+        "lines": 36,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_preview_selection_changed",
+        "line": 57,
+        "lines": 34,
+        "complexity": 5,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_run_function",
+        "line": 92,
+        "lines": 152,
+        "complexity": 5,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "update_status",
+        "line": 5,
+        "lines": 5,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "show_error_dialog",
+        "line": 11,
+        "lines": 13,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "show_info_dialog",
+        "line": 25,
+        "lines": 13,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "confirm_action",
+        "line": 39,
+        "lines": 16,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "auth_init",
+        "line": 23,
+        "lines": 4,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 0
+      },
+      {
+        "name": "auth_verify_credentials",
+        "line": 28,
+        "lines": 18,
+        "complexity": 7,
+        "max_nesting": 4,
+        "parameter_count": 3
+      },
+      {
+        "name": "auth_has_permission",
+        "line": 47,
+        "lines": 18,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "auth_logout",
+        "line": 66,
+        "lines": 13,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "auth_get_role_name",
+        "line": 80,
+        "lines": 8,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "auth_session_valid",
+        "line": 89,
+        "lines": 13,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_login_entry_activate",
+        "line": 104,
+        "lines": 4,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "auth_show_login",
+        "line": 109,
+        "lines": 141,
+        "complexity": 7,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "row_operations_init",
+        "line": 11,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 0
+      },
+      {
+        "name": "row_operations_cleanup",
+        "line": 15,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 0
+      },
+      {
+        "name": "verify_password",
+        "line": 22,
+        "lines": 41,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_add_row_clicked",
+        "line": 64,
+        "lines": 129,
+        "complexity": 16,
+        "max_nesting": 5,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_delete_row_clicked",
+        "line": 194,
+        "lines": 80,
+        "complexity": 13,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "ensure_directory",
+        "line": 10,
+        "lines": 9,
+        "complexity": 3,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "trash_manager_init",
+        "line": 20,
+        "lines": 65,
+        "complexity": 7,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 93,
+        "lines": 3,
+        "complexity": 6,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "for",
+        "line": 105,
+        "lines": 19,
+        "complexity": 8,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 186,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "trash_manager_purge_entry",
+        "line": 215,
+        "lines": 16,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 237,
+        "lines": 3,
+        "complexity": 6,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "for",
+        "line": 273,
+        "lines": 22,
+        "complexity": 9,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 298,
+        "lines": 10,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 370,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "trash_manager_close",
+        "line": 404,
+        "lines": 11,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "load_theme_pref",
+        "line": 14,
+        "lines": 10,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 0
+      },
+      {
+        "name": "save_theme_pref",
+        "line": 25,
+        "lines": 8,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_toggle_theme",
+        "line": 34,
+        "lines": 44,
+        "complexity": 6,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 11,
+        "lines": 5,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 32,
+        "lines": 5,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 41,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "for",
+        "line": 46,
+        "lines": 8,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 67,
+        "lines": 11,
+        "complexity": 5,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "csv_write_field",
+        "line": 5,
+        "lines": 15,
+        "complexity": 8,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "while",
+        "line": 24,
+        "lines": 21,
+        "complexity": 11,
+        "max_nesting": 5,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_export_csv",
+        "line": 50,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_import_csv",
+        "line": 54,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "str_to_upper",
+        "line": 11,
+        "lines": 8,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "extract_query_type",
+        "line": 21,
+        "lines": 28,
+        "complexity": 20,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "has_where_clause",
+        "line": 51,
+        "lines": 8,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "analyze_query_risk",
+        "line": 61,
+        "lines": 98,
+        "complexity": 16,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "free_query_analysis",
+        "line": 160,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "should_confirm_query",
+        "line": 167,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "get_confirmation_message",
+        "line": 172,
+        "lines": 11,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_auto_backup",
+        "line": 185,
+        "lines": 13,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "get_backup_path",
+        "line": 199,
+        "lines": 18,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "save_query_to_history",
+        "line": 219,
+        "lines": 28,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "load_last_query",
+        "line": 248,
+        "lines": 34,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "has_unsaved_query",
+        "line": 283,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "mark_query_saved",
+        "line": 288,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "mark_query_dirty",
+        "line": 292,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "begin_protected_transaction",
+        "line": 297,
+        "lines": 13,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "commit_with_confirmation",
+        "line": 311,
+        "lines": 26,
+        "complexity": 6,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "rollback_transaction",
+        "line": 338,
+        "lines": 13,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_new_table",
+        "line": 16,
+        "lines": 169,
+        "complexity": 16,
+        "max_nesting": 5,
+        "parameter_count": 2
+      },
+      {
+        "name": "check_table_relationships",
+        "line": 186,
+        "lines": 47,
+        "complexity": 10,
+        "max_nesting": 5,
+        "parameter_count": 4
+      },
+      {
+        "name": "verify_password_for_drop",
+        "line": 234,
+        "lines": 43,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_drop_table",
+        "line": 278,
+        "lines": 102,
+        "complexity": 20,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_open_database",
+        "line": 9,
+        "lines": 65,
+        "complexity": 5,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_new_database",
+        "line": 75,
+        "lines": 61,
+        "complexity": 5,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_close_database",
+        "line": 137,
+        "lines": 9,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_quit",
+        "line": 147,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_refresh_tables",
+        "line": 151,
+        "lines": 4,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "refresh_table_list",
+        "line": 156,
+        "lines": 71,
+        "complexity": 7,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "show_table_data",
+        "line": 246,
+        "lines": 73,
+        "complexity": 11,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 351,
+        "lines": 6,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 405,
+        "lines": 37,
+        "complexity": 9,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "on_open_recent_db",
+        "line": 448,
+        "lines": 49,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 10,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "populate_recent_combo",
+        "line": 23,
+        "lines": 42,
+        "complexity": 8,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "load_recent_dbs",
+        "line": 66,
+        "lines": 30,
+        "complexity": 8,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "save_recent_dbs",
+        "line": 97,
+        "lines": 24,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "add_to_recent",
+        "line": 122,
+        "lines": 25,
+        "complexity": 6,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_table_changed",
+        "line": 10,
+        "lines": 35,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_template_clicked",
+        "line": 46,
+        "lines": 8,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_sql_query_builder",
+        "line": 55,
+        "lines": 278,
+        "complexity": 34,
+        "max_nesting": 6,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_execute_query",
+        "line": 334,
+        "lines": 112,
+        "complexity": 18,
+        "max_nesting": 4,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_open_sql_file",
+        "line": 447,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "on_query_buffer_changed",
+        "line": 451,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "create_main_window",
+        "line": 27,
+        "lines": 25,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_menu_bar",
+        "line": 53,
+        "lines": 3,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_toolbar",
+        "line": 57,
+        "lines": 104,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_table_panel",
+        "line": 162,
+        "lines": 48,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_query_panel",
+        "line": 211,
+        "lines": 63,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "create_data_panel",
+        "line": 275,
+        "lines": 52,
+        "complexity": 1,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "get_all_categories",
+        "line": 15,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 1
+      }
+    ],
+    "issues": [
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "main.c",
+        "function": "main",
+        "lines": 115,
+        "message": "Function is 115 lines long"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "function": "db_manager_create_table",
+        "complexity": 17,
+        "message": "Function has cyclomatic complexity of 17"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "core/db_transfer.c",
+        "function": "db_transfer_list_databases",
+        "complexity": 19,
+        "message": "Function has cyclomatic complexity of 19"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "legacy/main.c",
+        "function": "create_toolbar",
+        "lines": 121,
+        "message": "Function is 121 lines long"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "legacy/main.c",
+        "function": "on_sql_query_builder",
+        "lines": 168,
+        "message": "Function is 168 lines long"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "HIGH",
+        "file": "legacy/main.c",
+        "function": "on_import_csv",
+        "complexity": 27,
+        "message": "Function has cyclomatic complexity of 27"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "legacy/main.c",
+        "function": "on_import_csv",
+        "lines": 188,
+        "message": "Function is 188 lines long"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "modules/function_runner.c",
+        "function": "on_run_function",
+        "lines": 152,
+        "message": "Function is 152 lines long"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "modules/auth.c",
+        "function": "auth_show_login",
+        "lines": 141,
+        "message": "Function is 141 lines long"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "modules/row_operations.c",
+        "function": "on_add_row_clicked",
+        "complexity": 16,
+        "message": "Function has cyclomatic complexity of 16"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "modules/row_operations.c",
+        "function": "on_add_row_clicked",
+        "lines": 129,
+        "message": "Function is 129 lines long"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "modules/data_protection.c",
+        "function": "extract_query_type",
+        "complexity": 20,
+        "message": "Function has cyclomatic complexity of 20"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "modules/data_protection.c",
+        "function": "analyze_query_risk",
+        "complexity": 16,
+        "message": "Function has cyclomatic complexity of 16"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "modules/table_callbacks.c",
+        "function": "on_new_table",
+        "complexity": 16,
+        "message": "Function has cyclomatic complexity of 16"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "modules/table_callbacks.c",
+        "function": "on_new_table",
+        "lines": 169,
+        "message": "Function is 169 lines long"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "modules/table_callbacks.c",
+        "function": "on_drop_table",
+        "complexity": 20,
+        "message": "Function has cyclomatic complexity of 20"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "modules/table_callbacks.c",
+        "function": "on_drop_table",
+        "lines": 102,
+        "message": "Function is 102 lines long"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "HIGH",
+        "file": "modules/query_callbacks.c",
+        "function": "on_sql_query_builder",
+        "complexity": 34,
+        "message": "Function has cyclomatic complexity of 34"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "modules/query_callbacks.c",
+        "function": "on_sql_query_builder",
+        "lines": 278,
+        "message": "Function is 278 lines long"
+      },
+      {
+        "type": "DEEP_NESTING",
+        "severity": "MEDIUM",
+        "file": "modules/query_callbacks.c",
+        "function": "on_sql_query_builder",
+        "nesting": 6,
+        "message": "Function has nesting depth of 6"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "modules/query_callbacks.c",
+        "function": "on_execute_query",
+        "complexity": 18,
+        "message": "Function has cyclomatic complexity of 18"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "modules/query_callbacks.c",
+        "function": "on_execute_query",
+        "lines": 112,
+        "message": "Function is 112 lines long"
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "severity": "MEDIUM",
+        "file": "modules/ui_panels.c",
+        "function": "create_toolbar",
+        "lines": 104,
+        "message": "Function is 104 lines long"
+      }
+    ]
+  },
+  "scalability": {
+    "patterns": {
+      "global_state": 145,
+      "singleton_usage": 0,
+      "memory_pooling": 0,
+      "lazy_loading": 3,
+      "caching": 0,
+      "async_patterns": 0,
+      "connection_pooling": 0
+    },
+    "issues": [
+      {
+        "type": "UNBOUNDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "ui/tooltips.c",
+        "message": "Dynamic allocation without apparent size limits"
+      },
+      {
+        "type": "UNBOUNDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "message": "Dynamic allocation without apparent size limits"
+      },
+      {
+        "type": "UNBOUNDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_crypto.c",
+        "message": "Dynamic allocation without apparent size limits"
+      },
+      {
+        "type": "LARGE_STATIC_BUFFER",
+        "severity": "LOW",
+        "file": "core/db_transfer.c",
+        "size": 8192,
+        "message": "Large static buffer of 8192 bytes allocated"
+      },
+      {
+        "type": "LARGE_STATIC_BUFFER",
+        "severity": "LOW",
+        "file": "legacy/main.c",
+        "size": 65536,
+        "message": "Large static buffer of 65536 bytes allocated"
+      },
+      {
+        "type": "UNBOUNDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/function_runner.c",
+        "message": "Dynamic allocation without apparent size limits"
+      },
+      {
+        "type": "LARGE_STATIC_BUFFER",
+        "severity": "LOW",
+        "file": "modules/row_operations.c",
+        "size": 8192,
+        "message": "Large static buffer of 8192 bytes allocated"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "UNBOUNDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/data_protection.c",
+        "message": "Dynamic allocation without apparent size limits"
+      },
+      {
+        "type": "UNBOUNDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/table_callbacks.c",
+        "message": "Dynamic allocation without apparent size limits"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "modules/table_callbacks.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "modules/functions/mathematical_functions.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "modules/functions/string_functions.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "modules/functions/business_functions.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "modules/functions/datetime_functions.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "modules/functions/aggregate_functions.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "modules/functions/window_functions.c",
+        "message": "Queries without LIMIT clause may not scale"
+      }
+    ],
+    "recommendations": [
+      "High usage of global state (145 instances). Consider encapsulating state in structures passed to functions.",
+      "No caching patterns detected. Consider implementing caching for frequently accessed data.",
+      "No asynchronous patterns detected. Consider async operations for I/O-bound tasks.",
+      "No memory pooling detected. Consider implementing memory pools for frequently allocated objects.",
+      "Add LIMIT clauses to queries to prevent loading excessive data."
+    ],
+    "architecture": {
+      "modular": true,
+      "layered": true,
+      "modules": [
+        "app_state.c",
+        "misc_callbacks.c",
+        "function_runner.c",
+        "ui_utils.c",
+        "auth.c",
+        "row_operations.c",
+        "trash_manager.c",
+        "theme_manager.c",
+        "ui_drawing.c",
+        "csv_handler.c",
+        "data_protection.c",
+        "table_callbacks.c",
+        "db_callbacks.c",
+        "recent_manager.c",
+        "query_callbacks.c",
+        "ui_panels.c"
+      ],
+      "core_components": [
+        "db_manager.c",
+        "db_crypto.c",
+        "db_transfer.c"
+      ]
+    }
+  },
+  "dependencies": {
+    "metrics": {
+      "total_files": 54,
+      "avg_dependencies": 1.6296296296296295,
+      "max_dependencies": 15,
+      "avg_dependents": 0.3148148148148148,
+      "max_dependents": 2,
+      "tight_coupling_count": 0,
+      "hub_files": [],
+      "isolated_files": [
+        "core/db_crypto.h",
+        "modules/trash_manager.h",
+        "modules/functions/function_categories.h"
+      ]
+    },
+    "dependencies": {
+      "main.c": [
+        "core/db_manager.h",
+        "core/db_transfer.h",
+        "ui/tooltips.h",
+        "modules/app_state.h",
+        "modules/ui_drawing.h",
+        "modules/ui_utils.h",
+        "modules/theme_manager.h",
+        "modules/recent_manager.h",
+        "modules/ui_panels.h",
+        "modules/db_callbacks.h",
+        "modules/query_callbacks.h",
+        "modules/table_callbacks.h",
+        "modules/csv_handler.h",
+        "modules/misc_callbacks.h",
+        "modules/auth.h"
+      ],
+      "ui/tooltips.c": [
+        "tooltips.h"
+      ],
+      "databases/example_usage.c": [
+        "../core/db_crypto.h",
+        "../core/db_transfer.h"
+      ],
+      "core/db_manager.c": [
+        "db_manager.h"
+      ],
+      "core/db_crypto.c": [
+        "db_crypto.h"
+      ],
+      "core/db_transfer.c": [
+        "db_transfer.h",
+        "db_crypto.h"
+      ],
+      "legacy/main.c": [
+        "core/db_manager.h",
+        "ui/tooltips.h"
+      ],
+      "modules/app_state.c": [
+        "app_state.h"
+      ],
+      "modules/misc_callbacks.c": [
+        "misc_callbacks.h",
+        "ui_utils.h"
+      ],
+      "modules/function_runner.c": [
+        "function_runner.h",
+        "functions/function_categories.h",
+        "ui_utils.h"
+      ],
+      "modules/ui_utils.c": [
+        "ui_utils.h",
+        "app_state.h"
+      ],
+      "modules/auth.c": [
+        "auth.h"
+      ],
+      "modules/row_operations.c": [
+        "row_operations.h",
+        "trash_manager.h",
+        "db_callbacks.h",
+        "ui_utils.h"
+      ],
+      "modules/trash_manager.c": [
+        "trash_manager.h"
+      ],
+      "modules/theme_manager.c": [
+        "theme_manager.h"
+      ],
+      "modules/ui_drawing.c": [
+        "ui_drawing.h",
+        "app_state.h"
+      ],
+      "modules/csv_handler.c": [
+        "csv_handler.h",
+        "ui_utils.h"
+      ],
+      "modules/data_protection.c": [
+        "data_protection.h",
+        "ui_utils.h"
+      ],
+      "modules/table_callbacks.c": [
+        "table_callbacks.h",
+        "db_callbacks.h",
+        "ui_utils.h",
+        "data_protection.h",
+        "trash_manager.h"
+      ],
+      "modules/db_callbacks.c": [
+        "db_callbacks.h",
+        "ui_utils.h",
+        "ui_drawing.h",
+        "recent_manager.h"
+      ],
+      "modules/recent_manager.c": [
+        "recent_manager.h"
+      ],
+      "modules/query_callbacks.c": [
+        "query_callbacks.h",
+        "data_protection.h",
+        "ui_utils.h",
+        "ui_drawing.h",
+        "../core/db_manager.h"
+      ],
+      "modules/ui_panels.c": [
+        "ui_panels.h",
+        "ui_utils.h",
+        "ui_drawing.h"
+      ],
+      "modules/functions/mathematical_functions.c": [
+        "function_categories.h"
+      ],
+      "modules/functions/string_functions.c": [
+        "function_categories.h"
+      ],
+      "modules/functions/business_functions.c": [
+        "function_categories.h"
+      ],
+      "modules/functions/function_categories.c": [
+        "function_categories.h"
+      ],
+      "modules/functions/statistical_functions.c": [
+        "function_categories.h"
+      ],
+      "modules/functions/datetime_functions.c": [
+        "function_categories.h"
+      ],
+      "modules/functions/aggregate_functions.c": [
+        "function_categories.h"
+      ],
+      "modules/functions/window_functions.c": [
+        "function_categories.h"
+      ],
+      "ui/tooltips.h": [],
+      "core/db_transfer.h": [],
+      "core/export.h": [
+        "db_manager.h"
+      ],
+      "core/db_crypto.h": [],
+      "core/import.h": [
+        "db_manager.h"
+      ],
+      "core/db_manager.h": [],
+      "modules/table_callbacks.h": [
+        "app_state.h"
+      ],
+      "modules/csv_handler.h": [
+        "app_state.h"
+      ],
+      "modules/data_protection.h": [
+        "../core/db_manager.h",
+        "app_state.h"
+      ],
+      "modules/recent_manager.h": [
+        "app_state.h"
+      ],
+      "modules/db_callbacks.h": [
+        "app_state.h"
+      ],
+      "modules/ui_panels.h": [
+        "app_state.h"
+      ],
+      "modules/query_callbacks.h": [
+        "app_state.h"
+      ],
+      "modules/ui_utils.h": [],
+      "modules/function_runner.h": [
+        "app_state.h"
+      ],
+      "modules/misc_callbacks.h": [
+        "app_state.h"
+      ],
+      "modules/app_state.h": [
+        "../core/db_manager.h",
+        "../ui/tooltips.h",
+        "auth.h"
+      ],
+      "modules/trash_manager.h": [],
+      "modules/row_operations.h": [
+        "app_state.h"
+      ],
+      "modules/auth.h": [],
+      "modules/ui_drawing.h": [],
+      "modules/theme_manager.h": [
+        "app_state.h"
+      ],
+      "modules/functions/function_categories.h": []
+    },
+    "issues": [
+      {
+        "type": "HIGH_COUPLING",
+        "severity": "MEDIUM",
+        "file": "main.c",
+        "count": 15,
+        "message": "File depends on 15 other files"
+      }
+    ],
+    "graph": {
+      "main.c": {
+        "depends_on": [
+          "core/db_manager.h",
+          "core/db_transfer.h",
+          "ui/tooltips.h",
+          "modules/app_state.h",
+          "modules/ui_drawing.h",
+          "modules/ui_utils.h",
+          "modules/theme_manager.h",
+          "modules/recent_manager.h",
+          "modules/ui_panels.h",
+          "modules/db_callbacks.h",
+          "modules/query_callbacks.h",
+          "modules/table_callbacks.h",
+          "modules/csv_handler.h",
+          "modules/misc_callbacks.h",
+          "modules/auth.h"
+        ],
+        "depended_by": []
+      },
+      "ui/tooltips.c": {
+        "depends_on": [
+          "tooltips.h"
+        ],
+        "depended_by": []
+      },
+      "databases/example_usage.c": {
+        "depends_on": [
+          "../core/db_crypto.h",
+          "../core/db_transfer.h"
+        ],
+        "depended_by": []
+      },
+      "core/db_manager.c": {
+        "depends_on": [
+          "db_manager.h"
+        ],
+        "depended_by": []
+      },
+      "core/db_crypto.c": {
+        "depends_on": [
+          "db_crypto.h"
+        ],
+        "depended_by": []
+      },
+      "core/db_transfer.c": {
+        "depends_on": [
+          "db_transfer.h",
+          "db_crypto.h"
+        ],
+        "depended_by": []
+      },
+      "legacy/main.c": {
+        "depends_on": [
+          "core/db_manager.h",
+          "ui/tooltips.h"
+        ],
+        "depended_by": []
+      },
+      "modules/app_state.c": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": []
+      },
+      "modules/misc_callbacks.c": {
+        "depends_on": [
+          "misc_callbacks.h",
+          "ui_utils.h"
+        ],
+        "depended_by": []
+      },
+      "modules/function_runner.c": {
+        "depends_on": [
+          "function_runner.h",
+          "functions/function_categories.h",
+          "ui_utils.h"
+        ],
+        "depended_by": []
+      },
+      "modules/ui_utils.c": {
+        "depends_on": [
+          "ui_utils.h",
+          "app_state.h"
+        ],
+        "depended_by": []
+      },
+      "modules/auth.c": {
+        "depends_on": [
+          "auth.h"
+        ],
+        "depended_by": []
+      },
+      "modules/row_operations.c": {
+        "depends_on": [
+          "row_operations.h",
+          "trash_manager.h",
+          "db_callbacks.h",
+          "ui_utils.h"
+        ],
+        "depended_by": []
+      },
+      "modules/trash_manager.c": {
+        "depends_on": [
+          "trash_manager.h"
+        ],
+        "depended_by": []
+      },
+      "modules/theme_manager.c": {
+        "depends_on": [
+          "theme_manager.h"
+        ],
+        "depended_by": []
+      },
+      "modules/ui_drawing.c": {
+        "depends_on": [
+          "ui_drawing.h",
+          "app_state.h"
+        ],
+        "depended_by": []
+      },
+      "modules/csv_handler.c": {
+        "depends_on": [
+          "csv_handler.h",
+          "ui_utils.h"
+        ],
+        "depended_by": []
+      },
+      "modules/data_protection.c": {
+        "depends_on": [
+          "data_protection.h",
+          "ui_utils.h"
+        ],
+        "depended_by": []
+      },
+      "modules/table_callbacks.c": {
+        "depends_on": [
+          "table_callbacks.h",
+          "db_callbacks.h",
+          "ui_utils.h",
+          "data_protection.h",
+          "trash_manager.h"
+        ],
+        "depended_by": []
+      },
+      "modules/db_callbacks.c": {
+        "depends_on": [
+          "db_callbacks.h",
+          "ui_utils.h",
+          "ui_drawing.h",
+          "recent_manager.h"
+        ],
+        "depended_by": []
+      },
+      "modules/recent_manager.c": {
+        "depends_on": [
+          "recent_manager.h"
+        ],
+        "depended_by": []
+      },
+      "modules/query_callbacks.c": {
+        "depends_on": [
+          "query_callbacks.h",
+          "data_protection.h",
+          "ui_utils.h",
+          "ui_drawing.h",
+          "../core/db_manager.h"
+        ],
+        "depended_by": []
+      },
+      "modules/ui_panels.c": {
+        "depends_on": [
+          "ui_panels.h",
+          "ui_utils.h",
+          "ui_drawing.h"
+        ],
+        "depended_by": []
+      },
+      "modules/functions/mathematical_functions.c": {
+        "depends_on": [
+          "function_categories.h"
+        ],
+        "depended_by": []
+      },
+      "modules/functions/string_functions.c": {
+        "depends_on": [
+          "function_categories.h"
+        ],
+        "depended_by": []
+      },
+      "modules/functions/business_functions.c": {
+        "depends_on": [
+          "function_categories.h"
+        ],
+        "depended_by": []
+      },
+      "modules/functions/function_categories.c": {
+        "depends_on": [
+          "function_categories.h"
+        ],
+        "depended_by": []
+      },
+      "modules/functions/statistical_functions.c": {
+        "depends_on": [
+          "function_categories.h"
+        ],
+        "depended_by": []
+      },
+      "modules/functions/datetime_functions.c": {
+        "depends_on": [
+          "function_categories.h"
+        ],
+        "depended_by": []
+      },
+      "modules/functions/aggregate_functions.c": {
+        "depends_on": [
+          "function_categories.h"
+        ],
+        "depended_by": []
+      },
+      "modules/functions/window_functions.c": {
+        "depends_on": [
+          "function_categories.h"
+        ],
+        "depended_by": []
+      },
+      "ui/tooltips.h": {
+        "depends_on": [],
+        "depended_by": [
+          "main.c",
+          "legacy/main.c"
+        ]
+      },
+      "core/db_transfer.h": {
+        "depends_on": [],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "core/export.h": {
+        "depends_on": [
+          "db_manager.h"
+        ],
+        "depended_by": []
+      },
+      "core/db_crypto.h": {
+        "depends_on": [],
+        "depended_by": []
+      },
+      "core/import.h": {
+        "depends_on": [
+          "db_manager.h"
+        ],
+        "depended_by": []
+      },
+      "core/db_manager.h": {
+        "depends_on": [],
+        "depended_by": [
+          "main.c",
+          "legacy/main.c"
+        ]
+      },
+      "modules/table_callbacks.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/csv_handler.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/data_protection.h": {
+        "depends_on": [
+          "../core/db_manager.h",
+          "app_state.h"
+        ],
+        "depended_by": []
+      },
+      "modules/recent_manager.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/db_callbacks.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/ui_panels.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/query_callbacks.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/ui_utils.h": {
+        "depends_on": [],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/function_runner.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": []
+      },
+      "modules/misc_callbacks.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/app_state.h": {
+        "depends_on": [
+          "../core/db_manager.h",
+          "../ui/tooltips.h",
+          "auth.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/trash_manager.h": {
+        "depends_on": [],
+        "depended_by": []
+      },
+      "modules/row_operations.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": []
+      },
+      "modules/auth.h": {
+        "depends_on": [],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/ui_drawing.h": {
+        "depends_on": [],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/theme_manager.h": {
+        "depends_on": [
+          "app_state.h"
+        ],
+        "depended_by": [
+          "main.c"
+        ]
+      },
+      "modules/functions/function_categories.h": {
+        "depends_on": [],
+        "depended_by": []
+      }
+    }
+  },
+  "performance": {
+    "issues": [
+      {
+        "type": "ALLOCATION_IN_LOOP",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "message": "Memory allocation inside loop detected"
+      },
+      {
+        "type": "REPEATED_STRLEN",
+        "severity": "LOW",
+        "file": "core/db_transfer.c",
+        "count": 7,
+        "message": "7 strlen calls - consider caching length"
+      },
+      {
+        "type": "ALLOCATION_IN_LOOP",
+        "severity": "MEDIUM",
+        "file": "core/db_transfer.c",
+        "message": "Memory allocation inside loop detected"
+      },
+      {
+        "type": "INEFFICIENT_STRING_OP",
+        "severity": "LOW",
+        "file": "modules/trash_manager.c",
+        "message": "Using strcat which requires scanning to find end of string"
+      },
+      {
+        "type": "ALLOCATION_IN_LOOP",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "message": "Memory allocation inside loop detected"
+      },
+      {
+        "type": "INEFFICIENT_STRING_OP",
+        "severity": "LOW",
+        "file": "modules/table_callbacks.c",
+        "message": "Using strcat which requires scanning to find end of string"
+      },
+      {
+        "type": "REPEATED_STRLEN",
+        "severity": "LOW",
+        "file": "modules/table_callbacks.c",
+        "count": 7,
+        "message": "7 strlen calls - consider caching length"
+      },
+      {
+        "type": "ALLOCATION_IN_LOOP",
+        "severity": "MEDIUM",
+        "file": "modules/table_callbacks.c",
+        "message": "Memory allocation inside loop detected"
+      }
+    ],
+    "patterns": {},
+    "hotspots": [
+      {
+        "file": "modules/table_callbacks.c",
+        "issue_count": 3,
+        "severity_score": 4
+      },
+      {
+        "file": "core/db_transfer.c",
+        "issue_count": 2,
+        "severity_score": 3
+      },
+      {
+        "file": "modules/trash_manager.c",
+        "issue_count": 2,
+        "severity_score": 3
+      },
+      {
+        "file": "core/db_manager.c",
+        "issue_count": 1,
+        "severity_score": 2
+      }
+    ]
+  },
+  "technical_debt": {
+    "total_debt_hours": 173.5,
+    "debt_by_type": {
+      "LONG_FUNCTION": 78,
+      "MISSING_DOCUMENTATION": 77.5,
+      "TODO": 4,
+      "MAGIC_NUMBERS": 12,
+      "DEPRECATED_FUNCTION": 2
+    },
+    "items": [
+      {
+        "type": "LONG_FUNCTION",
+        "file": "ui/tooltips.c",
+        "message": "4 functions need refactoring",
+        "estimated_hours": 12
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "ui/tooltips.c",
+        "message": "13 functions lack documentation",
+        "estimated_hours": 6.5
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "file": "databases/example_usage.c",
+        "message": "3 functions need refactoring",
+        "estimated_hours": 9
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "databases/example_usage.c",
+        "message": "7 functions lack documentation",
+        "estimated_hours": 3.5
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "core/db_manager.c",
+        "message": "19 functions lack documentation",
+        "estimated_hours": 9.5
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "core/db_crypto.c",
+        "message": "11 functions lack documentation",
+        "estimated_hours": 5.5
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "core/db_transfer.c",
+        "message": "14 functions lack documentation",
+        "estimated_hours": 7.0
+      },
+      {
+        "type": "TODO",
+        "file": "legacy/main.c",
+        "line": 301,
+        "message": "Implement full menu bar with File, Edit, View, Tools, Help",
+        "estimated_hours": 2
+      },
+      {
+        "type": "MAGIC_NUMBERS",
+        "file": "legacy/main.c",
+        "message": "54 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "file": "legacy/main.c",
+        "message": "9 functions need refactoring",
+        "estimated_hours": 27
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "legacy/main.c",
+        "message": "43 functions lack documentation",
+        "estimated_hours": 21.5
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "modules/auth.c",
+        "message": "7 functions lack documentation",
+        "estimated_hours": 3.5
+      },
+      {
+        "type": "MAGIC_NUMBERS",
+        "file": "modules/row_operations.c",
+        "message": "16 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "file": "modules/row_operations.c",
+        "message": "1 functions need refactoring",
+        "estimated_hours": 3
+      },
+      {
+        "type": "MAGIC_NUMBERS",
+        "file": "modules/trash_manager.c",
+        "message": "17 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
+        "type": "DEPRECATED_FUNCTION",
+        "file": "modules/trash_manager.c",
+        "message": "Using deprecated unsafe functions",
+        "estimated_hours": 2
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "modules/trash_manager.c",
+        "message": "7 functions lack documentation",
+        "estimated_hours": 3.5
+      },
+      {
+        "type": "MAGIC_NUMBERS",
+        "file": "modules/ui_drawing.c",
+        "message": "12 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
+        "type": "TODO",
+        "file": "modules/data_protection.c",
+        "line": 194,
+        "message": "Implement actual backup when db_manager exposes the db path",
+        "estimated_hours": 2
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "modules/data_protection.c",
+        "message": "12 functions lack documentation",
+        "estimated_hours": 6.0
+      },
+      {
+        "type": "MAGIC_NUMBERS",
+        "file": "modules/table_callbacks.c",
+        "message": "17 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "file": "modules/table_callbacks.c",
+        "message": "1 functions need refactoring",
+        "estimated_hours": 3
+      },
+      {
+        "type": "MAGIC_NUMBERS",
+        "file": "modules/db_callbacks.c",
+        "message": "18 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "file": "modules/db_callbacks.c",
+        "message": "3 functions need refactoring",
+        "estimated_hours": 9
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "modules/db_callbacks.c",
+        "message": "10 functions lack documentation",
+        "estimated_hours": 5.0
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "modules/query_callbacks.c",
+        "message": "6 functions lack documentation",
+        "estimated_hours": 3.0
+      },
+      {
+        "type": "LONG_FUNCTION",
+        "file": "modules/ui_panels.c",
+        "message": "5 functions need refactoring",
+        "estimated_hours": 15
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "modules/ui_panels.c",
+        "message": "6 functions lack documentation",
+        "estimated_hours": 3.0
+      }
+    ],
+    "hotspots": [
+      {
+        "file": "legacy/main.c",
+        "total_hours": 52.5,
+        "item_count": 4
+      },
+      {
+        "file": "ui/tooltips.c",
+        "total_hours": 18.5,
+        "item_count": 2
+      },
+      {
+        "file": "modules/ui_panels.c",
+        "total_hours": 18.0,
+        "item_count": 2
+      },
+      {
+        "file": "modules/db_callbacks.c",
+        "total_hours": 16.0,
+        "item_count": 3
+      },
+      {
+        "file": "databases/example_usage.c",
+        "total_hours": 12.5,
+        "item_count": 2
+      },
+      {
+        "file": "core/db_manager.c",
+        "total_hours": 9.5,
+        "item_count": 1
+      },
+      {
+        "file": "modules/data_protection.c",
+        "total_hours": 8.0,
+        "item_count": 2
+      },
+      {
+        "file": "modules/trash_manager.c",
+        "total_hours": 7.5,
+        "item_count": 3
+      },
+      {
+        "file": "core/db_transfer.c",
+        "total_hours": 7.0,
+        "item_count": 1
+      },
+      {
+        "file": "core/db_crypto.c",
+        "total_hours": 5.5,
+        "item_count": 1
+      }
+    ]
+  },
+  "memory": {
+    "score": 0.0,
+    "issues": [
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "line": 140,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "line": 185,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "line": 348,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "line": 354,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "line": 368,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "line": 372,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_manager.c",
+        "line": 512,
+        "message": "Variable info may be freed multiple times",
+        "variable": "info"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_crypto.c",
+        "line": 145,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_crypto.c",
+        "line": 187,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_crypto.c",
+        "line": 241,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_crypto.c",
+        "line": 277,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 106,
+        "message": "Variable ctx may be freed multiple times",
+        "variable": "ctx"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 115,
+        "message": "Variable ctx may be freed multiple times",
+        "variable": "ctx"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 126,
+        "message": "Variable ctx may be freed multiple times",
+        "variable": "ctx"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 368,
+        "message": "Variable plaintext may be freed multiple times",
+        "variable": "plaintext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 396,
+        "message": "Variable ciphertext may be freed multiple times",
+        "variable": "ciphertext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 405,
+        "message": "Variable ciphertext may be freed multiple times",
+        "variable": "ciphertext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 411,
+        "message": "Variable ciphertext may be freed multiple times",
+        "variable": "ciphertext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 482,
+        "message": "Variable ciphertext may be freed multiple times",
+        "variable": "ciphertext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 497,
+        "message": "Variable ciphertext may be freed multiple times",
+        "variable": "ciphertext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 510,
+        "message": "Variable plaintext may be freed multiple times",
+        "variable": "plaintext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 518,
+        "message": "Variable plaintext may be freed multiple times",
+        "variable": "plaintext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_crypto.c",
+        "line": 524,
+        "message": "Variable plaintext may be freed multiple times",
+        "variable": "plaintext"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 218,
+        "message": "Variable dest_path may be freed multiple times",
+        "variable": "dest_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 229,
+        "message": "Variable dest_path may be freed multiple times",
+        "variable": "dest_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 255,
+        "message": "Variable dest_path may be freed multiple times",
+        "variable": "dest_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 280,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 313,
+        "message": "Variable source_path may be freed multiple times",
+        "variable": "source_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 314,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 334,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 343,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 351,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 352,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 357,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 358,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 375,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 387,
+        "message": "Variable dest_path may be freed multiple times",
+        "variable": "dest_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 394,
+        "message": "Variable dest_path may be freed multiple times",
+        "variable": "dest_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 410,
+        "message": "Variable dest_path may be freed multiple times",
+        "variable": "dest_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 440,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 441,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 459,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 460,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 471,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 472,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 490,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 491,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 502,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 503,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 525,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 530,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 531,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 558,
+        "message": "Variable dest_enc_path may be freed multiple times",
+        "variable": "dest_enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 577,
+        "message": "Variable dest_enc_path may be freed multiple times",
+        "variable": "dest_enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 582,
+        "message": "Variable dest_enc_path may be freed multiple times",
+        "variable": "dest_enc_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 689,
+        "message": "Variable local_path may be freed multiple times",
+        "variable": "local_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 690,
+        "message": "Variable enc_path may be freed multiple times",
+        "variable": "enc_path"
+      },
+      {
+        "type": "FIXED_BUFFER_OVERUSE",
+        "severity": "LOW",
+        "file": "core/db_transfer.c",
+        "message": "7 fixed-size buffers - consider dynamic allocation",
+        "count": 7
+      },
+      {
+        "type": "LARGE_STACK_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_transfer.c",
+        "line": 222,
+        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
+        "size": 8192
+      },
+      {
+        "type": "LARGE_STACK_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_transfer.c",
+        "line": 298,
+        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
+        "size": 8192
+      },
+      {
+        "type": "LARGE_STACK_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_transfer.c",
+        "line": 398,
+        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
+        "size": 8192
+      },
+      {
+        "type": "LARGE_STACK_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_transfer.c",
+        "line": 562,
+        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
+        "size": 8192
+      },
+      {
+        "type": "FIXED_BUFFER_OVERUSE",
+        "severity": "LOW",
+        "file": "legacy/main.c",
+        "message": "24 fixed-size buffers - consider dynamic allocation",
+        "count": 24
+      },
+      {
+        "type": "LARGE_STACK_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "legacy/main.c",
+        "line": 1583,
+        "message": "Large stack allocation (65536 bytes) - consider heap allocation",
+        "size": 65536
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/row_operations.c",
+        "line": 117,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "FIXED_BUFFER_OVERUSE",
+        "severity": "LOW",
+        "file": "modules/row_operations.c",
+        "message": "10 fixed-size buffers - consider dynamic allocation",
+        "count": 10
+      },
+      {
+        "type": "LARGE_STACK_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/row_operations.c",
+        "line": 142,
+        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
+        "size": 8192
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 29,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 39,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 183,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 188,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 367,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 372,
+        "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "BUFFER_OVERFLOW_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 30,
+        "message": "Using unsafe function sprintf() - use safe alternative",
+        "function": "sprintf"
+      },
+      {
+        "type": "BUFFER_OVERFLOW_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 40,
+        "message": "Using unsafe function sprintf() - use safe alternative",
+        "function": "sprintf"
+      },
+      {
+        "type": "BUFFER_OVERFLOW_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 309,
+        "message": "Using unsafe function strcat() - use safe alternative",
+        "function": "strcat"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 45,
+        "message": "Variable manager may be freed multiple times",
+        "variable": "manager"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 79,
+        "message": "Variable manager may be freed multiple times",
+        "variable": "manager"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 328,
+        "message": "Variable data_sql may be freed multiple times",
+        "variable": "data_sql"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 342,
+        "message": "Variable data_sql may be freed multiple times",
+        "variable": "data_sql"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 413,
+        "message": "Variable manager may be freed multiple times",
+        "variable": "manager"
+      },
+      {
+        "type": "FIXED_BUFFER_OVERUSE",
+        "severity": "LOW",
+        "file": "modules/trash_manager.c",
+        "message": "11 fixed-size buffers - consider dynamic allocation",
+        "count": 11
+      },
+      {
+        "type": "UNSAFE_REALLOC",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 188,
+        "message": "realloc without NULL check - original pointer may be lost"
+      },
+      {
+        "type": "UNSAFE_REALLOC",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 300,
+        "message": "realloc without NULL check - original pointer may be lost"
+      },
+      {
+        "type": "UNSAFE_REALLOC",
+        "severity": "MEDIUM",
+        "file": "modules/trash_manager.c",
+        "line": 372,
+        "message": "realloc without NULL check - original pointer may be lost"
+      },
+      {
+        "type": "FIXED_BUFFER_OVERUSE",
+        "severity": "LOW",
+        "file": "modules/table_callbacks.c",
+        "message": "10 fixed-size buffers - consider dynamic allocation",
+        "count": 10
+      },
+      {
+        "type": "FIXED_BUFFER_OVERUSE",
+        "severity": "LOW",
+        "file": "modules/db_callbacks.c",
+        "message": "11 fixed-size buffers - consider dynamic allocation",
+        "count": 11
+      }
+    ],
+    "allocations_total": 0,
+    "frees_total": 0,
+    "potential_leaks": 0,
+    "unguarded_allocations": 17,
+    "buffer_risks": 3,
+    "memory_patterns": {
+      "uses_memory_pools": false,
+      "uses_arena_allocation": false,
+      "uses_reference_counting": true,
+      "has_cleanup_functions": true
+    },
+    "recommendations": [
+      "Add NULL checks for 17 unguarded memory allocations",
+      "Replace 3 unsafe string functions with safe alternatives (strncpy, snprintf, etc.)",
+      "Review 52 potential double-free issues and set pointers to NULL after freeing",
+      "Move 6 large stack allocations to heap to prevent stack overflow"
+    ]
+  },
+  "summary": {
+    "overall_score": 53.4,
+    "scores": {
+      "complexity": 100.0,
+      "scalability": 50.0,
+      "dependencies": 100.0,
+      "performance": 36.0,
+      "technical_debt": 20.0,
+      "memory": 0.0
+    },
+    "critical_issues": [],
+    "recommendations": [],
+    "strengths": [],
+    "risk_level": "HIGH"
+  }
+}
