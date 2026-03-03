@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "core/db_manager.h"
 #include "ui/tooltips.h"
 
@@ -86,6 +87,93 @@ static void show_error_dialog(const char *title, const char *message);
 static void show_info_dialog(const char *title, const char *message);
 static bool confirm_action(const char *message);
 
+/* -----------------------------------------------------------------------
+ * Draw a flat 1px border around a scrolled window containing a treeview.
+ * CSS borders on scrolledwindow are either suppressed or rendered with
+ * a 3D bevel by the macOS Quartz backend, so we draw with Cairo.
+ * ----------------------------------------------------------------------- */
+static gboolean draw_treeview_border(GtkWidget *widget, cairo_t *cr,
+                                     gpointer user_data G_GNUC_UNUSED)
+{
+    GtkAllocation alloc;
+    gtk_widget_get_allocation(widget, &alloc);
+
+    if (app && app->theme_is_dark) {
+        cairo_set_source_rgb(cr, 0.227, 0.157, 0.439);   /* #3a2870 */
+    } else {
+        cairo_set_source_rgb(cr, 0.741, 0.765, 0.780);   /* #bdc3c7 */
+    }
+    cairo_set_line_width(cr, 1.0);
+    cairo_rectangle(cr, 0.5, 0.5, alloc.width - 1.0, alloc.height - 1.0);
+    cairo_stroke(cr);
+    return FALSE;
+}
+
+/* -----------------------------------------------------------------------
+ * Draw vertical column separator lines on treeview
+ * CSS border-right and box-shadow on header buttons are silently
+ * suppressed by the macOS Quartz backend, so we draw with Cairo.
+ * Connected with g_signal_connect_after so we paint over the content.
+ * ----------------------------------------------------------------------- */
+static gboolean draw_column_lines(GtkWidget *widget, cairo_t *cr,
+                                  gpointer user_data G_GNUC_UNUSED)
+{
+    GtkTreeView *tv = GTK_TREE_VIEW(widget);
+    int n_cols = gtk_tree_view_get_n_columns(tv);
+    if (n_cols < 2) return FALSE;
+
+    GtkAllocation alloc;
+    gtk_widget_get_allocation(widget, &alloc);
+
+    if (app && app->theme_is_dark) {
+        cairo_set_source_rgb(cr, 0.227, 0.157, 0.439);   /* #3a2870 */
+    } else {
+        cairo_set_source_rgb(cr, 0.741, 0.765, 0.780);   /* #bdc3c7 */
+    }
+    cairo_set_line_width(cr, 1.0);
+
+    double x = 0;
+    for (int i = 0; i < n_cols - 1; i++) {
+        GtkTreeViewColumn *col = gtk_tree_view_get_column(tv, i);
+        x += gtk_tree_view_column_get_width(col);
+        double lx = floor(x) + 0.5;          /* snap to pixel grid */
+        cairo_move_to(cr, lx, 0);
+        cairo_line_to(cr, lx, alloc.height);
+        cairo_stroke(cr);
+    }
+    return FALSE;
+}
+
+/* -----------------------------------------------------------------------
+ * Zebra-stripe cell data function
+ * GTK3 CSS does not support :nth-child on treeview rows -- we must set
+ * the cell background programmatically from the row path index.
+ * ----------------------------------------------------------------------- */
+static void zebra_cell_data_func(GtkTreeViewColumn *col G_GNUC_UNUSED,
+                                 GtkCellRenderer   *renderer,
+                                 GtkTreeModel      *model G_GNUC_UNUSED,
+                                 GtkTreeIter       *iter,
+                                 gpointer           data G_GNUC_UNUSED)
+{
+    GtkTreePath *path = gtk_tree_model_get_path(model, iter);
+    int row = gtk_tree_path_get_indices(path)[0];
+    gtk_tree_path_free(path);
+
+    if (app && app->theme_is_dark) {
+        /* Dark theme: base #0c071c, alt #160e38 */
+        if (row % 2 == 0)
+            g_object_set(renderer, "cell-background", "#0c071c", NULL);
+        else
+            g_object_set(renderer, "cell-background", "#160e38", NULL);
+    } else {
+        /* Light theme: base #ffffff, alt #e8f0fa */
+        if (row % 2 == 0)
+            g_object_set(renderer, "cell-background", "#ffffff", NULL);
+        else
+            g_object_set(renderer, "cell-background", "#e8f0fa", NULL);
+    }
+}
+
 /* Main entry point */
 int main(int argc, char *argv[]) {
     gtk_init(&argc, &argv);
@@ -122,7 +210,7 @@ int main(int argc, char *argv[]) {
         gtk_style_context_add_provider_for_screen(
             screen,
             GTK_STYLE_PROVIDER(css_provider),
-            GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
+            GTK_STYLE_PROVIDER_PRIORITY_USER
         );
         app_css_provider = css_provider;
         printf("[INFO] Theme loaded: %s\n", css_path);
@@ -276,7 +364,7 @@ static void on_toggle_theme(GtkWidget *widget, gpointer data) {
     if (gtk_css_provider_load_from_path(provider, css_path, &error)) {
         gtk_style_context_add_provider_for_screen(
             screen, GTK_STYLE_PROVIDER(provider),
-            GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+            GTK_STYLE_PROVIDER_PRIORITY_USER);
         app_css_provider = provider;
     } else {
         if (error) { g_error_free(error); }
@@ -368,18 +456,30 @@ static void create_toolbar(AppState *state) {
     // Separator before recent databases section
     gtk_toolbar_insert(GTK_TOOLBAR(toolbar), gtk_separator_tool_item_new(), -1);
 
-    // Recent databases menu button
+    // Recent databases menu button (uses GtkPopover, not GtkMenu,
+    // because native popup windows on macOS Quartz draw rounded
+    // decorations that CSS cannot override)
     GtkToolItem *recent_item = gtk_tool_item_new();
     state->recent_btn = gtk_menu_button_new();
     gtk_button_set_label(GTK_BUTTON(state->recent_btn), "Recent");
     gtk_widget_set_tooltip_text(state->recent_btn,
         "Recently opened databases - click to select one");
-    GtkWidget *recent_menu = gtk_menu_new();
-    GtkWidget *placeholder = gtk_menu_item_new_with_label("(no recent databases)");
+
+    GtkWidget *popover = gtk_popover_new(state->recent_btn);
+    gtk_popover_set_constrain_to(GTK_POPOVER(popover), GTK_POPOVER_CONSTRAINT_NONE);
+    GtkWidget *recent_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_margin_top(recent_box, 4);
+    gtk_widget_set_margin_bottom(recent_box, 4);
+    GtkWidget *placeholder = gtk_label_new("(no recent databases)");
     gtk_widget_set_sensitive(placeholder, FALSE);
-    gtk_menu_shell_append(GTK_MENU_SHELL(recent_menu), placeholder);
-    gtk_widget_show_all(recent_menu);
-    gtk_menu_button_set_popup(GTK_MENU_BUTTON(state->recent_btn), recent_menu);
+    gtk_widget_set_margin_start(placeholder, 16);
+    gtk_widget_set_margin_end(placeholder, 16);
+    gtk_widget_set_margin_top(placeholder, 6);
+    gtk_widget_set_margin_bottom(placeholder, 6);
+    gtk_box_pack_start(GTK_BOX(recent_box), placeholder, FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(popover), recent_box);
+    gtk_widget_show_all(recent_box);
+    gtk_menu_button_set_popover(GTK_MENU_BUTTON(state->recent_btn), popover);
     gtk_container_add(GTK_CONTAINER(recent_item), state->recent_btn);
     gtk_toolbar_insert(GTK_TOOLBAR(toolbar), recent_item, -1);
 
@@ -419,12 +519,14 @@ static void create_table_panel(AppState *state) {
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_IN);
+    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_NONE);
+    g_signal_connect_after(scroll, "draw", G_CALLBACK(draw_treeview_border), NULL);
 
     state->table_view = gtk_tree_view_new();
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(state->table_view), TRUE);
     gtk_tree_view_set_enable_search(GTK_TREE_VIEW(state->table_view), TRUE);
-    gtk_tree_view_set_grid_lines(GTK_TREE_VIEW(state->table_view), GTK_TREE_VIEW_GRID_LINES_HORIZONTAL);
+    gtk_tree_view_set_grid_lines(GTK_TREE_VIEW(state->table_view), GTK_TREE_VIEW_GRID_LINES_NONE);
+    g_signal_connect_after(state->table_view, "draw", G_CALLBACK(draw_column_lines), NULL);
     g_signal_connect(state->table_view, "row-activated", G_CALLBACK(on_table_row_activated), state);
     gtk_container_add(GTK_CONTAINER(scroll), state->table_view);
     gtk_box_pack_start(GTK_BOX(vbox), scroll, TRUE, TRUE, 0);
@@ -470,7 +572,7 @@ static void create_query_panel(AppState *state) {
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_IN);
+    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_NONE);
     gtk_widget_set_size_request(scroll, -1, 160);
 
     state->query_editor = gtk_text_view_new();
@@ -505,11 +607,13 @@ static void create_query_panel(AppState *state) {
     GtkWidget *result_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(result_scroll),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(result_scroll), GTK_SHADOW_IN);
+    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(result_scroll), GTK_SHADOW_NONE);
+    g_signal_connect_after(result_scroll, "draw", G_CALLBACK(draw_treeview_border), NULL);
 
     state->result_view = gtk_tree_view_new();
     gtk_tree_view_set_enable_search(GTK_TREE_VIEW(state->result_view), TRUE);
-    gtk_tree_view_set_grid_lines(GTK_TREE_VIEW(state->result_view), GTK_TREE_VIEW_GRID_LINES_HORIZONTAL);
+    gtk_tree_view_set_grid_lines(GTK_TREE_VIEW(state->result_view), GTK_TREE_VIEW_GRID_LINES_NONE);
+    g_signal_connect_after(state->result_view, "draw", G_CALLBACK(draw_column_lines), NULL);
     gtk_container_add(GTK_CONTAINER(result_scroll), state->result_view);
     gtk_box_pack_start(GTK_BOX(vbox), result_scroll, TRUE, TRUE, 0);
 
@@ -534,12 +638,14 @@ static void create_data_panel(AppState *state) {
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_IN);
+    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_NONE);
+    g_signal_connect_after(scroll, "draw", G_CALLBACK(draw_treeview_border), NULL);
 
     state->data_view = gtk_tree_view_new();
     gtk_tree_view_set_enable_search(GTK_TREE_VIEW(state->data_view), TRUE);
-    gtk_tree_view_set_grid_lines(GTK_TREE_VIEW(state->data_view), GTK_TREE_VIEW_GRID_LINES_BOTH);
+    gtk_tree_view_set_grid_lines(GTK_TREE_VIEW(state->data_view), GTK_TREE_VIEW_GRID_LINES_NONE);
     gtk_tree_view_set_headers_clickable(GTK_TREE_VIEW(state->data_view), TRUE);
+    g_signal_connect_after(state->data_view, "draw", G_CALLBACK(draw_column_lines), NULL);
     gtk_container_add(GTK_CONTAINER(scroll), state->data_view);
     gtk_box_pack_start(GTK_BOX(vbox), scroll, TRUE, TRUE, 0);
 
@@ -678,18 +784,25 @@ static void refresh_table_list(AppState *state) {
 
     // Create columns if they don't exist
     if (gtk_tree_view_get_n_columns(GTK_TREE_VIEW(state->table_view)) == 0) {
-        GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
-
+        GtkCellRenderer *r0 = gtk_cell_renderer_text_new();
+        g_object_set(r0, "xpad", 10, "ypad", 4, NULL);
         GtkTreeViewColumn *col_name = gtk_tree_view_column_new_with_attributes(
-            "Table Name", renderer, "text", 0, NULL);
+            "Table Name", r0, "text", 0, NULL);
+        gtk_tree_view_column_set_cell_data_func(col_name, r0, zebra_cell_data_func, NULL, NULL);
         gtk_tree_view_append_column(GTK_TREE_VIEW(state->table_view), col_name);
 
+        GtkCellRenderer *r1 = gtk_cell_renderer_text_new();
+        g_object_set(r1, "xpad", 10, "ypad", 4, NULL);
         GtkTreeViewColumn *col_type = gtk_tree_view_column_new_with_attributes(
-            "Type", renderer, "text", 1, NULL);
+            "Type", r1, "text", 1, NULL);
+        gtk_tree_view_column_set_cell_data_func(col_type, r1, zebra_cell_data_func, NULL, NULL);
         gtk_tree_view_append_column(GTK_TREE_VIEW(state->table_view), col_type);
 
+        GtkCellRenderer *r2 = gtk_cell_renderer_text_new();
+        g_object_set(r2, "xpad", 10, "ypad", 4, NULL);
         GtkTreeViewColumn *col_info = gtk_tree_view_column_new_with_attributes(
-            "Info", renderer, "text", 2, NULL);
+            "Info", r2, "text", 2, NULL);
+        gtk_tree_view_column_set_cell_data_func(col_info, r2, zebra_cell_data_func, NULL, NULL);
         gtk_tree_view_append_column(GTK_TREE_VIEW(state->table_view), col_info);
     }
 
@@ -785,8 +898,10 @@ static void show_table_data(AppState *state, const char *table_name) {
         // Create columns
         for (int i = 0; i < result->column_count; i++) {
             GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+            g_object_set(renderer, "xpad", 10, "ypad", 4, NULL);
             GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(
                 result->column_names[i], renderer, "text", i, NULL);
+            gtk_tree_view_column_set_cell_data_func(column, renderer, zebra_cell_data_func, NULL, NULL);
             gtk_tree_view_column_set_resizable(column, TRUE);
             gtk_tree_view_column_set_sort_column_id(column, i);
             gtk_tree_view_column_set_min_width(column, 120);
@@ -1071,8 +1186,10 @@ static void on_execute_query(GtkWidget *widget, gpointer data) {
         // Create columns
         for (int i = 0; i < result->column_count; i++) {
             GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+            g_object_set(renderer, "xpad", 10, "ypad", 4, NULL);
             GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(
                 result->column_names[i], renderer, "text", i, NULL);
+            gtk_tree_view_column_set_cell_data_func(column, renderer, zebra_cell_data_func, NULL, NULL);
             gtk_tree_view_column_set_resizable(column, TRUE);
             gtk_tree_view_column_set_sort_column_id(column, i);
             gtk_tree_view_column_set_min_width(column, 100);
@@ -1510,39 +1627,48 @@ static char *get_recent_config_path(void) {
     return path;
 }
 
-/* Rebuild the recent-databases combo from state->recent_paths.
- * Blocks the "changed" signal while repopulating to avoid spurious opens. */
+/* Rebuild the recent-databases list inside the popover.
+ * We create a vertical box of GtkModelButton items. */
 static void populate_recent_combo(AppState *state) {
     if (!state || !state->recent_btn) {
         fprintf(stderr, "[db-browser] populate_recent_combo: state or recent_btn is NULL\n");
         return;
     }
 
-    GtkMenu *menu = GTK_MENU(gtk_menu_button_get_popup(
-                                 GTK_MENU_BUTTON(state->recent_btn)));
-    if (!menu) return;
+    GtkWidget *popover = gtk_menu_button_get_popover(
+                             GTK_MENU_BUTTON(state->recent_btn));
+    if (!popover) return;
 
-    /* Remove all existing items */
-    GList *children = gtk_container_get_children(GTK_CONTAINER(menu));
+    /* The popover's child is the vertical box */
+    GtkWidget *box = gtk_bin_get_child(GTK_BIN(popover));
+    if (!box) return;
+
+    /* Remove all existing children */
+    GList *children = gtk_container_get_children(GTK_CONTAINER(box));
     for (GList *l = children; l; l = l->next)
         gtk_widget_destroy(GTK_WIDGET(l->data));
     g_list_free(children);
 
     int n = 0;
     if (!state->recent_paths) {
-        GtkWidget *item = gtk_menu_item_new_with_label("(no recent databases)");
-        gtk_widget_set_sensitive(item, FALSE);
-        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+        GtkWidget *lbl = gtk_label_new("(no recent databases)");
+        gtk_widget_set_sensitive(lbl, FALSE);
+        gtk_widget_set_margin_start(lbl, 16);
+        gtk_widget_set_margin_end(lbl, 16);
+        gtk_widget_set_margin_top(lbl, 6);
+        gtk_widget_set_margin_bottom(lbl, 6);
+        gtk_box_pack_start(GTK_BOX(box), lbl, FALSE, FALSE, 0);
     } else {
         for (GList *l = state->recent_paths; l != NULL; l = l->next) {
-            GtkWidget *item = gtk_menu_item_new_with_label((const char *)l->data);
-            g_signal_connect(item, "activate", G_CALLBACK(on_open_recent_db), state);
-            gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+            GtkWidget *btn = gtk_model_button_new();
+            g_object_set(btn, "text", (const char *)l->data, NULL);
+            g_signal_connect(btn, "clicked", G_CALLBACK(on_open_recent_db), state);
+            gtk_box_pack_start(GTK_BOX(box), btn, FALSE, FALSE, 0);
             n++;
         }
     }
 
-    gtk_widget_show_all(GTK_WIDGET(menu));
+    gtk_widget_show_all(box);
     printf("[db-browser] populate_recent_combo: %d entries\n", n);
 }
 
@@ -1640,44 +1766,55 @@ static void add_to_recent(AppState *state, const char *path) {
 static void on_open_recent_db(GtkWidget *widget, gpointer data) {
     AppState *state = (AppState *)data;
 
-    /* path is owned by the menu item -- do not g_free it */
-    const gchar *path = gtk_menu_item_get_label(GTK_MENU_ITEM(widget));
-    if (!path || strlen(path) == 0) return;
+    /* GtkModelButton stores its label in the "text" property */
+    gchar *path_owned = NULL;
+    g_object_get(widget, "text", &path_owned, NULL);
+    if (!path_owned || strlen(path_owned) == 0) {
+        g_free(path_owned);
+        return;
+    }
 
-    printf("[db-browser] on_open_recent_db: opening '%s'\n", path);
+    /* Close the popover */
+    GtkWidget *popover = gtk_menu_button_get_popover(
+                             GTK_MENU_BUTTON(state->recent_btn));
+    if (popover) gtk_popover_popdown(GTK_POPOVER(popover));
+
+    printf("[db-browser] on_open_recent_db: opening '%s'\n", path_owned);
 
     if (state->db_manager) {
         db_manager_destroy(state->db_manager);
         state->db_manager = NULL;
     }
 
-    state->db_manager = db_manager_create(path, false);
+    state->db_manager = db_manager_create(path_owned, false);
     if (!state->db_manager) {
-        fprintf(stderr, "[db-browser] on_open_recent_db: db_manager_create failed for '%s'\n", path);
+        fprintf(stderr, "[db-browser] on_open_recent_db: db_manager_create failed for '%s'\n", path_owned);
         show_error_dialog("Error", "Failed to create database manager");
+        g_free(path_owned);
         return;
     }
 
     if (db_manager_open(state->db_manager) == SQLITE_OK) {
         char status[512];
-        snprintf(status, sizeof(status), "Opened: %s", path);
+        snprintf(status, sizeof(status), "Opened: %s", path_owned);
         update_status(status);
 
-        gchar *title = g_strdup_printf("Crissy's DB Browser - %s", path);
+        gchar *title = g_strdup_printf("Crissy's DB Browser - %s", path_owned);
         gtk_window_set_title(GTK_WINDOW(state->window), title);
         g_free(title);
 
         refresh_table_list(state);
-        add_to_recent(state, path);
-        printf("[db-browser] on_open_recent_db: success for '%s'\n", path);
+        add_to_recent(state, path_owned);
+        printf("[db-browser] on_open_recent_db: success for '%s'\n", path_owned);
     } else {
         const char *db_err = db_manager_get_last_error(state->db_manager);
         fprintf(stderr, "[db-browser] on_open_recent_db: failed to open '%s': %s\n",
-                path, db_err ? db_err : "unknown error");
+                path_owned, db_err ? db_err : "unknown error");
         show_error_dialog("Error", "Failed to open database from recent list");
         db_manager_destroy(state->db_manager);
         state->db_manager = NULL;
     }
+    g_free(path_owned);
 }
 
 /* =========================================================================

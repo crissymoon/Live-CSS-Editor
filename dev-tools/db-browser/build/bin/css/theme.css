@@ -31,7 +31,15 @@ window {
 window.dialog {
     background-color: #110830;
     border: 2px solid #4d31bf;
-    border-radius: 6px;
+    border-radius: 0;
+}
+
+window.popup {
+    border-radius: 0;
+}
+
+decoration {
+    border-radius: 0;
 }
 
 /* ---- Toolbar ---- */
@@ -285,6 +293,11 @@ treeview {
     font-size: 12px;
     border: none;
     border-radius: 0;
+    -GtkTreeView-horizontal-separator: 0;
+    -GtkTreeView-vertical-separator: 0;
+    -GtkTreeView-grid-line-width: 0;
+    -GtkTreeView-tree-line-width: 0;
+    -GtkTreeView-allow-rules: 0;
 }
 
 treeview.view {
@@ -310,7 +323,9 @@ treeview.view cell {
     background-color: transparent;
     color: inherit;
     padding: 5px 10px;
+    border: none;
     border-radius: 0;
+    box-shadow: none;
 }
 
 treeview.view cell:selected {
@@ -319,17 +334,10 @@ treeview.view cell:selected {
 }
 
 treeview.view row {
-    border-bottom: 1px solid rgba(42, 26, 85, 0.35);
+    border: none;
     min-height: 30px;
     border-radius: 0;
-}
-
-treeview.view row:nth-child(odd) {
-    background-color: #0c071c;
-}
-
-treeview.view row:nth-child(even) {
-    background-color: #110a28;
+    box-shadow: none;
 }
 
 treeview.view row:hover {
@@ -339,7 +347,8 @@ treeview.view row:hover {
 treeview.view row:selected {
     background-color: #2a1a55;
     color: #eceaf6;
-    border-bottom: 1px solid rgba(77, 49, 191, 0.4);
+    border: none;
+    box-shadow: none;
 }
 
 treeview.view row:selected:focus {
@@ -349,31 +358,48 @@ treeview.view row:selected:focus {
 
 /* Tree view column headers */
 treeview header {
-    background-color: #080412;
-    border-bottom: 2px solid #4d31bf;
+    background-image: none;
+    background-color: #1a0f42;
+    background: #1a0f42;
+    border: none;
+    border-bottom: 1px solid #4d31bf;
+    box-shadow: none;
 }
 
 treeview header button {
     background-image: none;
-    background-color: #080412;
-    background: #080412;
-    color: #a89fcc;
+    background-color: #1a0f42;
+    background: #1a0f42;
+    color: #c8c0e8;
     border: none;
-    border-right: 1px solid #1f1044;
     border-radius: 0;
-    padding: 8px 12px;
+    padding: 8px 10px;
     font-weight: 700;
     font-size: 11px;
     box-shadow: none;
     text-shadow: none;
+    outline: none;
+    -GtkButton-default-border: 0;
+    -GtkButton-inner-border: 0;
 }
 
 treeview header button:hover {
     background-image: none;
-    background-color: #0f0826;
-    background: #0f0826;
+    background-color: #251860;
+    background: #251860;
     color: #eceaf6;
+    border: none;
     box-shadow: none;
+}
+
+treeview header button:active,
+treeview header button:focus {
+    background-image: none;
+    background-color: #1a0f42;
+    background: #1a0f42;
+    border: none;
+    box-shadow: none;
+    outline: none;
 }
 
 treeview header button label {
@@ -930,14 +956,41 @@ combobox button:focus {
 
 /* ---- Popover ---- */
 popover {
+    background-image: none;
     background-color: #110830;
+    background: #110830;
     border: 1px solid #2a1a55;
-    border-radius: 6px;
+    border-radius: 0;
+    box-shadow: none;
 }
 
 popover > contents {
+    background-image: none;
     background-color: #110830;
-    padding: 10px;
+    background: #110830;
+    padding: 4px 0;
+}
+
+popover modelbutton {
+    background-image: none;
+    background-color: #110830;
+    background: #110830;
+    color: #c8c0e8;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 0;
+    min-height: 24px;
+}
+
+popover modelbutton:hover {
+    background-image: none;
+    background-color: #2a1a55;
+    background: #2a1a55;
+    color: #eceaf6;
+}
+
+popover label {
+    color: #c8c0e8;
 }
 
 /* ---- Tooltip ---- */
@@ -957,28 +1010,39 @@ tooltip label {
 
 /* ---- Dropdown menus ---- */
 menu {
-    background-color: #0c071c;
+    background-image: none;
+    background-color: #110830;
+    background: #110830;
     color: #c8c0e8;
-    border: 1px solid #2a1a55;
-    border-top: 2px solid #4d31bf;
-    border-radius: 0 0 4px 4px;
+    border: none;
+    border-radius: 0;
+    padding: 4px 0;
 }
 
 menuitem {
-    background-color: transparent;
+    background-image: none;
+    background-color: #110830;
+    background: #110830;
     color: #c8c0e8;
-    padding: 8px 20px;
-    border-left: 2px solid transparent;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 0;
 }
 
 menuitem:hover {
-    background-color: #1a0f42;
+    background-image: none;
+    background-color: #2a1a55;
+    background: #2a1a55;
     color: #eceaf6;
-    border-left: 2px solid #4d31bf;
+    border: none;
 }
 
 menuitem:disabled {
     color: #3a2870;
+}
+
+menuitem label {
+    color: inherit;
 }
 
 /* ---- Utility classes ---- */

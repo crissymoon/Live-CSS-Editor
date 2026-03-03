@@ -7,6 +7,15 @@ window {
 
 window.dialog {
     border: 2px solid #4466cc;
+    border-radius: 0;
+}
+
+window.popup {
+    border-radius: 0;
+}
+
+decoration {
+    border-radius: 0;
 }
 
 menubar {
@@ -102,6 +111,11 @@ treeview {
     border: none;
     border-radius: 0;
     font-size: 12px;
+    -GtkTreeView-horizontal-separator: 0;
+    -GtkTreeView-vertical-separator: 0;
+    -GtkTreeView-grid-line-width: 0;
+    -GtkTreeView-tree-line-width: 0;
+    -GtkTreeView-allow-rules: 0;
 }
 
 treeview.view {
@@ -110,19 +124,10 @@ treeview.view {
 }
 
 treeview.view row {
-    border-bottom: 1px solid #e8edf2;
+    border: none;
     border-radius: 0;
     min-height: 28px;
-}
-
-treeview.view row:nth-child(odd) {
-    background-color: #ffffff;
-    background: #ffffff;
-}
-
-treeview.view row:nth-child(even) {
-    background-color: #e8f2fc;
-    background: #e8f2fc;
+    box-shadow: none;
 }
 
 treeview.view row:hover {
@@ -132,34 +137,47 @@ treeview.view row:hover {
 treeview.view row:selected {
     background-color: #3498db;
     color: #ffffff;
+    border: none;
     border-radius: 0;
-    border-bottom: 1px solid #2980b9;
+    box-shadow: none;
 }
 
 treeview.view:selected {
     background-color: #3498db;
     color: #ffffff;
+    border: none;
     border-radius: 0;
+    box-shadow: none;
 }
 
 treeview.view cell {
     padding: 4px 10px;
+    border: none;
     border-radius: 0;
     color: inherit;
+    box-shadow: none;
 }
 
 treeview row {
+    border: none;
     border-radius: 0;
+    box-shadow: none;
 }
 
 treeview cell {
+    border: none;
     border-radius: 0;
+    box-shadow: none;
 }
 
 /* Column headers */
 treeview header {
+    background-image: none;
     background-color: #2c3e50;
-    border-bottom: 2px solid #3498db;
+    background: #2c3e50;
+    border: none;
+    border-bottom: 1px solid #3498db;
+    box-shadow: none;
 }
 
 treeview header button,
@@ -170,18 +188,28 @@ treeview header button:active {
     background-color: #2c3e50;
     color: #ecf0f1;
     border: none;
-    border-right: 1px solid #34495e;
     border-radius: 0;
     padding: 7px 10px;
     font-size: 11px;
     font-weight: 700;
     box-shadow: none;
     text-shadow: none;
+    outline: none;
+    -GtkButton-default-border: 0;
+    -GtkButton-inner-border: 0;
 }
 
 treeview header button:hover {
     background-color: #34495e;
     background: #34495e;
+    border: none;
+    box-shadow: none;
+}
+
+treeview header button:focus {
+    border: none;
+    box-shadow: none;
+    outline: none;
 }
 
 treeview header button label {
@@ -228,20 +256,42 @@ menuitem:insensitive label {
 
 /* Popovers (GtkMenuButton popup container) */
 popover {
+    background-image: none;
     background-color: #ffffff;
+    background: #ffffff;
     color: #111111;
     border: 1px solid #bdc3c7;
-    border-radius: 4px;
-    padding: 4px;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
 }
 
-popover label,
-popover modelbutton {
+popover > contents {
+    background-image: none;
+    background-color: #ffffff;
+    background: #ffffff;
+    padding: 4px 0;
+}
+
+popover label {
     color: #111111;
+}
+
+popover modelbutton {
+    background-image: none;
+    background-color: #ffffff;
+    background: #ffffff;
+    color: #111111;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 0;
+    min-height: 24px;
 }
 
 popover modelbutton:hover {
+    background-image: none;
     background-color: #3498db;
+    background: #3498db;
     color: #ffffff;
 }
 
@@ -274,19 +324,41 @@ textview text {
 
 notebook {
     background-color: #ecf0f1;
-    border: 1px solid #bdc3c7;
+    border: none;
+}
+
+notebook > header {
+    background-color: #dfe6e9;
+    border-bottom: 2px solid #3498db;
+    padding: 0 4px;
 }
 
 notebook > header > tabs > tab {
-    background-color: #dfe6e9;
+    background-color: transparent;
     color: #2c3e50;
-    border: 1px solid #bdc3c7;
-    padding: 6px 16px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 22px;
+    margin: 0 1px;
+    margin-bottom: -2px;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 notebook > header > tabs > tab:checked {
-    background-color: #3498db;
-    color: #ffffff;
+    background-color: rgba(52, 152, 219, 0.12);
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+}
+
+notebook > header > tabs > tab:hover:not(:checked) {
+    background-color: rgba(52, 152, 219, 0.08);
+    color: #2c3e50;
+    border-bottom: 2px solid #bdc3c7;
+}
+
+notebook > stack {
+    background-color: #f5f5f5;
 }
 
 statusbar {

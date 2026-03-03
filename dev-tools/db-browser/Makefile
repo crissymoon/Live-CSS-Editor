@@ -3,7 +3,7 @@
 
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O2 `pkg-config --cflags gtk+-3.0`
-LDFLAGS = `pkg-config --libs gtk+-3.0` -lsqlite3
+LDFLAGS = `pkg-config --libs gtk+-3.0` -lsqlite3 -lm
 
 # Directories
 BUILD_DIR = build
