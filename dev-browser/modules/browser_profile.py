@@ -272,6 +272,60 @@ _SCROLL_FIX_JS = r"""
 """
 
 
+# ── Trackpad scroll speed reducer ───────────────────────────────────────────
+# The QtWebEngine / Chromium compositor reports very large pixelDelta values
+# for macOS high-res trackpads, making pages scroll far too fast.  This script
+# registers a non-passive capture-phase wheel listener that cancels the native
+# Chromium compositor scroll and replaces it with a scaled-down scrollBy call.
+# SPEED < 1.0 = slower.  0.5 halves the native speed; adjust to taste.
+_SCROLL_SPEED_JS = r"""
+(function () {
+    'use strict';
+    var SPEED = 0.5;
+
+    // Walk up the tree to the closest element that can actually scroll in
+    // the given direction so inner overflow containers work naturally.
+    function _scrollTarget(el, dx, dy) {
+        while (el && el !== document.documentElement) {
+            var cs = window.getComputedStyle(el);
+            var oy = cs.overflowY;
+            var ox = cs.overflowX;
+            var mayScroll = (oy === 'auto' || oy === 'scroll' ||
+                             ox === 'auto' || ox === 'scroll');
+            if (mayScroll) {
+                if ((Math.abs(dy) > 0 && el.scrollHeight > el.clientHeight) ||
+                    (Math.abs(dx) > 0 && el.scrollWidth  > el.clientWidth)) {
+                    return el;
+                }
+            }
+            el = el.parentElement;
+        }
+        return window;
+    }
+
+    document.addEventListener('wheel', function (e) {
+        // Only intercept trusted, pixel-mode, non-zoom wheel events.
+        if (!e.isTrusted)       return;
+        if (e.ctrlKey)          return;  // pinch-to-zoom -- let it pass
+        if (e.deltaMode !== 0)  return;  // non-pixel mode (unexpected on macOS)
+
+        e.preventDefault();
+
+        var dx  = e.deltaX * SPEED;
+        var dy  = e.deltaY * SPEED;
+        var tgt = _scrollTarget(e.target, dx, dy);
+        // scrollBy with two numeric args -- behavior forced to 'instant' by
+        // the CSS overide in _SCROLL_FIX_JS so no extra animation is added.
+        if (tgt === window) {
+            window.scrollBy(dx, dy);
+        } else {
+            tgt.scrollBy(dx, dy);
+        }
+    }, { passive: false, capture: true });
+})();
+"""
+
+
 # ── Cookie consent banner killer ─────────────────────────────────────────────
 # Injected at DocumentReady so the DOM exists but before the user sees the page.
 _CONSENT_KILL_JS = r"""
@@ -2201,6 +2255,16 @@ class PersistentProfile:
         # redundant and adds startup cost for React apps with many lazy iframes.
         scroll_fix_script.setRunsOnSubFrames(False)
         profile.scripts().insert(scroll_fix_script)
+
+        # Trackpad scroll speed reducer - runs at DocumentCreation in every
+        # frame so inner overflow containers are covered too.
+        scroll_speed_script = QWebEngineScript()
+        scroll_speed_script.setName('_scroll_speed')
+        scroll_speed_script.setSourceCode(_SCROLL_SPEED_JS)
+        scroll_speed_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+        scroll_speed_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+        scroll_speed_script.setRunsOnSubFrames(True)
+        profile.scripts().insert(scroll_speed_script)
 
         # Cookie consent banner killer - injected at DocumentReady on every page.
         consent_script = QWebEngineScript()
