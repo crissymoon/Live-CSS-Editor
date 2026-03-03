@@ -13,9 +13,20 @@ BIN_DIR = $(BUILD_DIR)/bin
 # Source files
 CORE_SOURCES = core/db_manager.c
 UI_SOURCES = ui/tooltips.c
+MODULE_SOURCES = modules/app_state.c \
+                 modules/ui_drawing.c \
+                 modules/ui_utils.c \
+                 modules/theme_manager.c \
+                 modules/recent_manager.c \
+                 modules/ui_panels.c \
+                 modules/db_callbacks.c \
+                 modules/query_callbacks.c \
+                 modules/table_callbacks.c \
+                 modules/csv_handler.c \
+                 modules/misc_callbacks.c
 MAIN_SOURCE = main.c
 
-SOURCES = $(MAIN_SOURCE) $(CORE_SOURCES) $(UI_SOURCES)
+SOURCES = $(MAIN_SOURCE) $(CORE_SOURCES) $(UI_SOURCES) $(MODULE_SOURCES)
 OBJECTS = $(SOURCES:%.c=$(OBJ_DIR)/%.o)
 
 # Binary
@@ -29,6 +40,7 @@ dirs:
 	@mkdir -p $(BUILD_DIR)
 	@mkdir -p $(OBJ_DIR)/core
 	@mkdir -p $(OBJ_DIR)/ui
+	@mkdir -p $(OBJ_DIR)/modules
 	@mkdir -p $(BIN_DIR)
 	@mkdir -p $(BIN_DIR)/css
 
