@@ -12,6 +12,7 @@
 #include <libgen.h>
 
 #include "core/db_manager.h"
+#include "core/db_transfer.h"
 #include "ui/tooltips.h"
 
 #include "modules/app_state.h"
@@ -41,6 +42,15 @@ int main(int argc, char *argv[]) {
         getcwd(app_exe_dir, sizeof(app_exe_dir));
     }
 
+    // Initialize database storage directory
+    char db_storage_path[2048];
+    snprintf(db_storage_path, sizeof(db_storage_path), "%s/databases", app_exe_dir);
+    if (db_transfer_init(db_storage_path)) {
+        printf("[db-browser] Database storage initialized: %s\n", db_storage_path);
+    } else {
+        fprintf(stderr, "[db-browser] Warning: Failed to initialize database storage\n");
+    }
+
     // Allocate and initialize application state
     app = g_new0(AppState, 1);
     app->db_manager = NULL;
@@ -49,6 +59,8 @@ int main(int argc, char *argv[]) {
     app->modified = false;
     app->recent_paths = NULL;
     app->theme_is_dark = false;
+    app->query_dirty = false;
+    app->last_saved_query = NULL;
 
     // Load theme preference
     app->theme_is_dark = load_theme_pref();
@@ -97,6 +109,9 @@ int main(int argc, char *argv[]) {
     }
     if (app->recent_paths) {
         g_list_free_full(app->recent_paths, g_free);
+    }
+    if (app->last_saved_query) {
+        g_free(app->last_saved_query);
     }
     if (app_css_provider) {
         g_object_unref(app_css_provider);

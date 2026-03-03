@@ -8,5 +8,6 @@ void on_template_clicked(GtkWidget *button, gpointer data);
 void on_sql_query_builder(GtkWidget *widget, gpointer data);
 void on_execute_query(GtkWidget *widget, gpointer data);
 void on_open_sql_file(GtkWidget *widget, gpointer data);
+void on_query_buffer_changed(GtkTextBuffer *buffer, gpointer data);
 
 #endif

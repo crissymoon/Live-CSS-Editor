@@ -73,7 +73,65 @@ void on_open_database(GtkWidget *widget, gpointer data) {
 }
 
 void on_new_database(GtkWidget *widget, gpointer data) {
-    show_info_dialog("Not Implemented", "New database creation coming soon!");
+    AppState *state = (AppState*)data;
+
+    GtkWidget *dialog = gtk_file_chooser_dialog_new(
+        "Create New Database",
+        GTK_WINDOW(state->window),
+        GTK_FILE_CHOOSER_ACTION_SAVE,
+        "_Cancel", GTK_RESPONSE_CANCEL,
+        "_Create", GTK_RESPONSE_ACCEPT,
+        NULL
+    );
+
+    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
+    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), "new_database.db");
+
+    GtkFileFilter *filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, "SQLite Database Files");
+    gtk_file_filter_add_pattern(filter, "*.db");
+    gtk_file_filter_add_pattern(filter, "*.sqlite");
+    gtk_file_filter_add_pattern(filter, "*.sqlite3");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+    GtkFileFilter *all_filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(all_filter, "All Files");
+    gtk_file_filter_add_pattern(all_filter, "*");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
+
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+
+        // Close any existing database
+        if (state->db_manager) {
+            db_manager_destroy(state->db_manager);
+            state->db_manager = NULL;
+        }
+
+        // Create and open new database
+        state->db_manager = db_manager_create(filename, false);
+        if (state->db_manager) {
+            int result = db_manager_open(state->db_manager);
+            if (result == 0) {
+                char status[512];
+                snprintf(status, sizeof(status), "Created database: %s", filename);
+                update_status(status);
+                show_info_dialog("Success", "Database created successfully.");
+                add_to_recent(state, filename);
+                refresh_table_list(state);
+            } else {
+                show_error_dialog("Error", "Failed to create database.");
+                db_manager_destroy(state->db_manager);
+                state->db_manager = NULL;
+            }
+        } else {
+            show_error_dialog("Error", "Failed to initialize database manager.");
+        }
+
+        g_free(filename);
+    }
+
+    gtk_widget_destroy(dialog);
 }
 
 void on_close_database(GtkWidget *widget, gpointer data) {

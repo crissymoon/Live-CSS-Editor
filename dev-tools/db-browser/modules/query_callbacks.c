@@ -1,4 +1,5 @@
 #include "query_callbacks.h"
+#include "data_protection.h"
 #include "ui_utils.h"
 #include "ui_drawing.h"
 #include <stdio.h>
@@ -36,6 +37,36 @@ void on_execute_query(GtkWidget *widget, gpointer data) {
         return;
     }
 
+    // Analyze query for risk level
+    QueryAnalysis *analysis = analyze_query_risk(query);
+    
+    if (analysis && should_confirm_query(analysis)) {
+        // Show confirmation dialog for risky queries
+        char *confirm_msg = get_confirmation_message(analysis);
+        bool proceed = confirm_action(confirm_msg);
+        g_free(confirm_msg);
+        
+        if (!proceed) {
+            update_status("Query execution cancelled by user");
+            free_query_analysis(analysis);
+            g_free(query);
+            return;
+        }
+        
+        // Create auto-backup for destructive operations
+        if (analysis->risk_level == QUERY_DESTRUCTIVE) {
+            char reason[256];
+            snprintf(reason, sizeof(reason), "Before executing %s query", 
+                     analysis->query_type ? analysis->query_type : "unknown");
+            create_auto_backup(state->db_manager, reason);
+        }
+    }
+    
+    free_query_analysis(analysis);
+
+    // Save query to history before execution
+    save_query_to_history(state, query);
+    
     QueryResult *result = db_manager_execute_query(state->db_manager, query);
     g_free(query);
 
@@ -95,8 +126,18 @@ void on_execute_query(GtkWidget *widget, gpointer data) {
         update_status("Query executed successfully: 0 rows returned");
         show_info_dialog("Success", "Query executed successfully. No rows to display.");
     }
+    
+    // Mark query as saved after successful execution
+    mark_query_saved(state);
 }
 
 void on_open_sql_file(GtkWidget *widget, gpointer data) {
     show_info_dialog("Load SQL File", "SQL file loading coming soon!");
+}
+
+void on_query_buffer_changed(GtkTextBuffer *buffer, gpointer data) {
+    AppState *state = (AppState*)data;
+    if (state) {
+        mark_query_dirty(state);
+    }
 }

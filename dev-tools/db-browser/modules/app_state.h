@@ -26,6 +26,10 @@ typedef struct {
 
     bool theme_is_dark;
     GtkWidget *theme_btn;
+    
+    // Data protection
+    bool query_dirty;
+    char *last_saved_query;
 } AppState;
 
 extern AppState *app;

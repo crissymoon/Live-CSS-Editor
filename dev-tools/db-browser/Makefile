@@ -5,13 +5,21 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O2 `pkg-config --cflags gtk+-3.0`
 LDFLAGS = `pkg-config --libs gtk+-3.0` -lsqlite3 -lm
 
+# macOS specific: add Security framework for CommonCrypto
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    LDFLAGS += -framework Security -framework CoreFoundation
+endif
+
 # Directories
 BUILD_DIR = build
 OBJ_DIR = $(BUILD_DIR)/obj
 BIN_DIR = $(BUILD_DIR)/bin
 
 # Source files
-CORE_SOURCES = core/db_manager.c
+CORE_SOURCES = core/db_manager.c \
+               core/db_crypto.c \
+               core/db_transfer.c
 UI_SOURCES = ui/tooltips.c
 MODULE_SOURCES = modules/app_state.c \
                  modules/ui_drawing.c \
@@ -23,7 +31,8 @@ MODULE_SOURCES = modules/app_state.c \
                  modules/query_callbacks.c \
                  modules/table_callbacks.c \
                  modules/csv_handler.c \
-                 modules/misc_callbacks.c
+                 modules/misc_callbacks.c \
+                 modules/data_protection.c
 MAIN_SOURCE = main.c
 
 SOURCES = $(MAIN_SOURCE) $(CORE_SOURCES) $(UI_SOURCES) $(MODULE_SOURCES)

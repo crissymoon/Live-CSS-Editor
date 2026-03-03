@@ -19,6 +19,7 @@ void on_sql_query_builder(GtkWidget *widget, gpointer data);
 void on_drop_table(GtkWidget *widget, gpointer data);
 void on_data_cell_activated(GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer data);
 void on_toggle_theme(GtkWidget *widget, gpointer data);
+void on_query_buffer_changed(GtkTextBuffer *buffer, gpointer data);
 
 void create_main_window(AppState *state) {
     state->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -226,6 +227,11 @@ void create_query_panel(AppState *state) {
     gtk_text_view_set_right_margin(GTK_TEXT_VIEW(state->query_editor), 8);
     gtk_text_view_set_top_margin(GTK_TEXT_VIEW(state->query_editor), 6);
     gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(state->query_editor), 6);
+    
+    // Connect buffer change signal for auto-save tracking
+    GtkTextBuffer *query_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(state->query_editor));
+    g_signal_connect(query_buffer, "changed", G_CALLBACK(on_query_buffer_changed), state);
+    
     gtk_container_add(GTK_CONTAINER(scroll), state->query_editor);
     gtk_box_pack_start(GTK_BOX(vbox), scroll, FALSE, FALSE, 0);
 
