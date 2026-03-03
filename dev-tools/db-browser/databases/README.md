@@ -2,6 +2,184 @@
 
 This directory stores SQLite databases for Crissy's DB Browser with optional encryption.
 
+## Starter Databases
+
+This directory includes production-ready database templates for common business applications:
+
+### 1. Double Entry Accounting (accounting.db)
+Complete double-entry bookkeeping system following standard accounting principles.
+
+**Tables:**
+- accounts - Chart of accounts with account types and balances
+- journal_entries - Journal entry headers with posting status
+- journal_lines - Debit/credit transaction lines
+- fiscal_periods - Accounting period management
+
+**Features:**
+- Asset, Liability, Equity, Revenue, Expense accounts
+- Enforced double-entry constraint (debits = credits)
+- Trial balance view
+- Sample chart of accounts included
+
+### 2. Payroll Management (payroll.db)
+Employee compensation, time tracking, and payroll processing.
+
+**Tables:**
+- employees - Employee master records
+- time_entries - Clock in/out and hours worked
+- pay_periods - Payroll period definitions
+- payroll_runs - Individual paychecks with deductions
+- benefits - Health insurance, 401k, etc.
+- employee_benefits - Benefit enrollment
+- pto_requests - Vacation and sick leave
+- pto_balances - PTO accrual tracking
+
+**Features:**
+- Hourly and salaried employees
+- Overtime calculation support
+- Tax withholding fields (federal, state, FICA)
+- Benefit management
+- PTO tracking and approval workflow
+
+### 3. Ticket System (tickets.db)
+Help desk and support ticket management.
+
+**Tables:**
+- users - Customers and support agents
+- departments - Support teams
+- categories - Ticket classification
+- tickets - Support tickets with priority and status
+- ticket_comments - Conversation threads
+- ticket_attachments - File attachments
+- ticket_history - Audit trail
+- sla_rules - Service level agreements
+- tags - Flexible tagging system
+
+**Features:**
+- Priority levels (LOW, MEDIUM, HIGH, URGENT)
+- Status tracking (OPEN, IN_PROGRESS, RESOLVED, etc.)
+- Agent workload view
+- SLA compliance tracking
+- Multi-channel support (email, phone, web, chat)
+
+### 4. CRM (crm.db)
+Customer relationship management and sales pipeline.
+
+**Tables:**
+- companies - Customer and prospect organizations
+- contacts - Individual contacts with roles
+- opportunities - Sales deals and pipeline
+- activities - Calls, meetings, emails, tasks
+- products - Product/service catalog
+- opportunity_products - Deal line items
+- lead_sources - Lead generation tracking
+- pipeline_stages - Customizable sales stages
+- notes - General notes and comments
+
+**Features:**
+- Complete sales pipeline management
+- Activity tracking and task management
+- Product catalog with pricing
+- Lead source attribution
+- Sales forecasting support
+- Contact directory with company relationships
+
+### 5. Calendar (calendar.db)
+Event management, scheduling, and resource booking.
+
+**Tables:**
+- calendar_users - System users
+- calendars - Multiple calendars per user
+- events - Appointments, meetings, tasks
+- event_attendees - RSVP tracking
+- event_reminders - Notification system
+- resources - Rooms, equipment, vehicles
+- resource_bookings - Resource reservation
+- calendar_sharing - Shared calendar permissions
+- event_categories - Event classification
+
+**Features:**
+- Recurring events support
+- Multi-user calendar sharing
+- Resource booking and approval
+- RSVP tracking (Accepted, Declined, Tentative)
+- Multiple reminder types
+- Timezone support
+- Public/private/confidential visibility levels
+
+### 6. Security Logging (security_logs.db)
+Comprehensive security audit trail and monitoring.
+
+**Tables:**
+- security_users - User accounts
+- auth_logs - Login/logout events
+- activity_logs - User actions and operations
+- api_logs - API endpoint access
+- security_events - Threats and anomalies
+- data_access_logs - Sensitive data access tracking
+- permission_logs - Authorization changes
+- sessions - Active session management
+- failed_access_attempts - Brute force detection
+- ip_blacklist - Blocked IP addresses
+- security_alerts - Incident notifications
+
+**Features:**
+- Authentication tracking
+- Failed login detection
+- API access logging with response times
+- Security event monitoring (intrusion, DOS, etc.)
+- Data access audit trail
+- Permission change tracking
+- IP blacklisting
+- Session management
+- Real-time security alerts
+
+### 7. Users (users.db)
+Web application user management with roles and permissions.
+
+**Tables:**
+- users - Core user accounts with authentication
+- user_profiles - Extended profile information
+- roles - Role definitions (admin, editor, user, etc.)
+- permissions - Granular permission system
+- role_permissions - Role to permission mapping
+- user_roles - User role assignments
+- sessions - Session tokens and management
+- email_verifications - Email confirmation workflow
+- password_resets - Password reset tokens
+- user_settings - User preferences
+- user_activity - Activity logging
+- oauth_providers - Social login providers
+- oauth_connections - Linked social accounts
+
+**Features:**
+- Password hashing placeholders
+- Role-based access control (RBAC)
+- Permission system (resource + action)
+- Session management with expiration
+- Email verification workflow
+- Password reset functionality
+- OAuth/social login support
+- User preferences and settings
+- Activity logging
+- Two-factor authentication support
+- User status management (active, suspended, deleted)
+
+## Using Starter Databases
+
+All starter databases include:
+- Properly structured schemas with foreign keys
+- Sample data for testing
+- Indexes for performance
+- Useful views for common queries
+- Constraints to maintain data integrity
+
+To use a starter database:
+1. Copy the database file to your working directory
+2. Open it in Crissy's DB Browser
+3. Customize tables and data as needed
+4. Build your application on top of it
+
 ## Features
 
 ### Local Storage

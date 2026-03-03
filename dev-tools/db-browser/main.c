@@ -26,6 +26,7 @@
 #include "modules/table_callbacks.h"
 #include "modules/csv_handler.h"
 #include "modules/misc_callbacks.h"
+#include "modules/auth.h"
 
 int main(int argc, char *argv[]) {
     // Initialize GTK
@@ -61,6 +62,24 @@ int main(int argc, char *argv[]) {
     app->theme_is_dark = false;
     app->query_dirty = false;
     app->last_saved_query = NULL;
+    
+    // Initialize authentication
+    auth_init();
+    app->auth_session.authenticated = false;
+    app->auth_session.username = NULL;
+    app->auth_session.role = ROLE_VIEWER;
+    app->auth_session.login_time = 0;
+    
+    // Show login dialog
+    if (!auth_show_login(NULL, &app->auth_session)) {
+        fprintf(stderr, "[db-browser] Authentication failed or cancelled\n");
+        g_free(app);
+        return 1;
+    }
+    
+    printf("[db-browser] User '%s' logged in as %s\n", 
+           app->auth_session.username, 
+           auth_get_role_name(app->auth_session.role));
 
     // Load theme preference
     app->theme_is_dark = load_theme_pref();
@@ -98,6 +117,10 @@ int main(int argc, char *argv[]) {
     gtk_main();
 
     // Cleanup
+    
+    // Cleanup authentication
+    auth_logout(&app->auth_session);
+    
     if (app->db_manager) {
         db_manager_destroy(app->db_manager);
     }

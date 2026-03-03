@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "../core/db_manager.h"
 #include "../ui/tooltips.h"
+#include "auth.h"
 
 typedef struct {
     GtkWidget *window;
@@ -30,6 +31,9 @@ typedef struct {
     // Data protection
     bool query_dirty;
     char *last_saved_query;
+    
+    // Authentication
+    AuthSession auth_session;
 } AppState;
 
 extern AppState *app;

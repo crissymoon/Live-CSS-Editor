@@ -32,7 +32,8 @@ MODULE_SOURCES = modules/app_state.c \
                  modules/table_callbacks.c \
                  modules/csv_handler.c \
                  modules/misc_callbacks.c \
-                 modules/data_protection.c
+                 modules/data_protection.c \
+                 modules/auth.c
 MAIN_SOURCE = main.c
 
 SOURCES = $(MAIN_SOURCE) $(CORE_SOURCES) $(UI_SOURCES) $(MODULE_SOURCES)
