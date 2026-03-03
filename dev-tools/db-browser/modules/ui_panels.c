@@ -217,6 +217,7 @@ void create_query_panel(AppState *state) {
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_NONE);
+    g_signal_connect_after(scroll, "draw", G_CALLBACK(draw_treeview_border), NULL);
     gtk_widget_set_size_request(scroll, -1, 160);
 
     state->query_editor = gtk_text_view_new();

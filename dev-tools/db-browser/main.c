@@ -31,12 +31,12 @@ int main(int argc, char *argv[]) {
     gtk_init(&argc, &argv);
 
     // Determine executable directory for resource loading
+    // On macOS, use argv[0] since /proc/self/exe doesn't exist
     char exe_path[1024];
-    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
-    if (len != -1) {
-        exe_path[len] = '\0';
+    if (realpath(argv[0], exe_path)) {
         char *dir = dirname(exe_path);
         strncpy(app_exe_dir, dir, sizeof(app_exe_dir) - 1);
+        app_exe_dir[sizeof(app_exe_dir) - 1] = '\0';
     } else {
         getcwd(app_exe_dir, sizeof(app_exe_dir));
     }
@@ -58,12 +58,6 @@ int main(int argc, char *argv[]) {
     const char *css_file = app->theme_is_dark ? "theme.css" : "theme-simple.css";
     char css_path[2048];
     snprintf(css_path, sizeof(css_path), "%s/css/%s", app_exe_dir, css_file);
-    FILE *f = fopen(css_path, "r");
-    if (f) {
-        fclose(f);
-    } else {
-        snprintf(css_path, sizeof(css_path), "css/%s", css_file);
-    }
 
     GError *error = NULL;
     if (gtk_css_provider_load_from_path(app_css_provider, css_path, &error)) {
@@ -72,16 +66,18 @@ int main(int argc, char *argv[]) {
             GTK_STYLE_PROVIDER(app_css_provider),
             GTK_STYLE_PROVIDER_PRIORITY_USER
         );
+        printf("[db-browser] Loaded CSS theme: %s\n", css_path);
     } else {
-        g_warning("Failed to load CSS: %s", error ? error->message : "unknown error");
+        fprintf(stderr, "[db-browser] Failed to load CSS from %s: %s\n", 
+                css_path, error ? error->message : "unknown error");
         if (error) g_error_free(error);
     }
 
-    // Load recent databases
-    load_recent_dbs(app);
-
     // Create main application window
     create_main_window(app);
+
+    // Load recent databases after UI is created
+    load_recent_dbs(app);
 
     // Show the window
     gtk_widget_show_all(app->window);
