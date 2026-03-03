@@ -295,7 +295,9 @@ int db_manager_drop_table(DBManager *mgr, const char *table_name) {
     }
 
     char query[256];
-    snprintf(query, sizeof(query), "DROP TABLE %s", table_name);
+    snprintf(query, sizeof(query), "DROP TABLE \"%s\"", table_name);
+
+    fprintf(stderr, "[DEBUG] Executing DROP TABLE query: %s\n", query);
 
     char *err = NULL;
     int rc = sqlite3_exec(mgr->db, query, NULL, NULL, &err);

@@ -37,6 +37,24 @@ bool trash_manager_recover_row(TrashManager *manager,
 // Permanently delete trash entry
 bool trash_manager_purge_entry(TrashManager *manager, long trash_id);
 
+// Save dropped table to trash (schema + data)
+bool trash_manager_save_table(TrashManager *manager,
+                               const char *source_db,
+                               const char *table_name,
+                               const char *create_sql,
+                               sqlite3 *source_db_handle);
+
+// List all trashed tables
+char** trash_manager_list_tables(TrashManager *manager,
+                                  const char *source_db,
+                                  int *count);
+
+// Recover a dropped table back to the source database
+bool trash_manager_recover_table(TrashManager *manager,
+                                  const char *source_db,
+                                  const char *table_name,
+                                  long trash_id);
+
 // Close and cleanup trash manager
 void trash_manager_close(TrashManager *manager);
 

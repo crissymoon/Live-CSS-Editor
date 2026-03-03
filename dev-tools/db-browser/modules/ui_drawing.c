@@ -36,11 +36,17 @@ gboolean draw_column_lines(GtkWidget *widget, cairo_t *cr,
     }
     cairo_set_line_width(cr, 1.0);
 
+    gdouble h_scroll_offset = 0.0;
+    GtkAdjustment *h_adj = gtk_scrollable_get_hadjustment(GTK_SCROLLABLE(widget));
+    if (h_adj) {
+        h_scroll_offset = gtk_adjustment_get_value(h_adj);
+    }
+
     double x = 0;
     for (int i = 0; i < n_cols - 1; i++) {
         GtkTreeViewColumn *col = gtk_tree_view_get_column(tv, i);
         x += gtk_tree_view_column_get_width(col);
-        double lx = floor(x) + 0.5;
+        double lx = floor(x - h_scroll_offset) + 0.5;
         cairo_move_to(cr, lx, 0);
         cairo_line_to(cr, lx, alloc.height);
         cairo_stroke(cr);

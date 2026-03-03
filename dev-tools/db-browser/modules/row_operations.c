@@ -243,16 +243,14 @@ void on_delete_row_clicked(GtkWidget *widget, gpointer data) {
     
     if (data_result && data_result->row_count > 0) {
         if (!trash_manager) {
-            const char *db_path = db_manager_get_current_db_path(state->db_manager);
-            trash_manager = trash_manager_init(db_path);
+            trash_manager = trash_manager_init(state->db_manager->db_path);
         }
         
         if (trash_manager) {
             const char **col_names = (const char **)data_result->column_names;
             const char **values = (const char **)data_result->data[0];
             
-            const char *db_path = db_manager_get_current_db_path(state->db_manager);
-            trash_manager_save_row(trash_manager, db_path, state->current_table,
+            trash_manager_save_row(trash_manager, state->db_manager->db_path, state->current_table,
                                    col_names, values, data_result->column_count, rowid);
         }
     }

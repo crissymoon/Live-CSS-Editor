@@ -21,6 +21,8 @@ void on_data_cell_activated(GtkTreeView *tree_view, GtkTreePath *path, GtkTreeVi
 void on_toggle_theme(GtkWidget *widget, gpointer data);
 void on_query_buffer_changed(GtkTextBuffer *buffer, gpointer data);
 void on_run_function(GtkWidget *widget, gpointer data);
+void on_add_row_clicked(GtkWidget *widget, gpointer data);
+void on_delete_row_clicked(GtkWidget *widget, gpointer data);
 
 void create_main_window(AppState *state) {
     state->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -195,7 +197,7 @@ void create_table_panel(AppState *state) {
     gtk_box_pack_start(GTK_BOX(hbox), btn_query_builder, FALSE, FALSE, 0);
 
     GtkWidget *btn_drop = gtk_button_new_with_label("Drop Table");
-    gtk_widget_set_tooltip_text(btn_drop, "Permanently delete the selected table");
+    gtk_widget_set_tooltip_text(btn_drop, "Delete the selected table (double-click a table first, requires password, checks relationships, saves to trash)");
     gtk_widget_set_name(btn_drop, "btn-destructive");
     g_signal_connect(btn_drop, "clicked", G_CALLBACK(on_drop_table), state);
     gtk_box_pack_end(GTK_BOX(hbox), btn_drop, FALSE, FALSE, 0);
@@ -298,6 +300,18 @@ void create_data_panel(AppState *state) {
 
     GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_widget_set_margin_top(hbox, 6);
+
+    GtkWidget *btn_add_row = gtk_button_new_with_label("Add Row");
+    gtk_widget_set_name(btn_add_row, "btn-primary");
+    gtk_widget_set_tooltip_text(btn_add_row, "Add a new row to the current table");
+    g_signal_connect(btn_add_row, "clicked", G_CALLBACK(on_add_row_clicked), state);
+    gtk_box_pack_start(GTK_BOX(hbox), btn_add_row, FALSE, FALSE, 0);
+
+    GtkWidget *btn_delete_row = gtk_button_new_with_label("Delete Row");
+    gtk_widget_set_name(btn_delete_row, "btn-secondary");
+    gtk_widget_set_tooltip_text(btn_delete_row, "Delete selected row (requires password, saves to trash for recovery)");
+    g_signal_connect(btn_delete_row, "clicked", G_CALLBACK(on_delete_row_clicked), state);
+    gtk_box_pack_start(GTK_BOX(hbox), btn_delete_row, FALSE, FALSE, 0);
 
     GtkWidget *btn_run_function = gtk_button_new_with_label("Run Function");
     gtk_widget_set_name(btn_run_function, "btn-primary");

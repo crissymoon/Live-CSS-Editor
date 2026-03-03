@@ -56,6 +56,16 @@ TrashManager* trash_manager_init(const char *source_db_path) {
         "  column_values TEXT NOT NULL,"
         "  deleted_at TEXT NOT NULL,"
         "  deleted_by TEXT"
+        ");"
+        "CREATE TABLE IF NOT EXISTS dropped_tables ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  source_database TEXT NOT NULL,"
+        "  table_name TEXT NOT NULL,"
+        "  create_sql TEXT NOT NULL,"
+        "  row_count INTEGER NOT NULL,"
+        "  data_sql TEXT,"
+        "  dropped_at TEXT NOT NULL,"
+        "  dropped_by TEXT"
         ");";
 
     char *err_msg = NULL;
@@ -217,6 +227,178 @@ bool trash_manager_purge_entry(TrashManager *manager, long trash_id) {
     sqlite3_finalize(stmt);
 
     return (result == SQLITE_DONE);
+}
+
+bool trash_manager_save_table(TrashManager *manager,
+                               const char *source_db,
+                               const char *table_name,
+                               const char *create_sql,
+                               sqlite3 *source_db_handle) {
+    if (!manager || !source_db || !table_name || !create_sql || !source_db_handle) {
+        return false;
+    }
+
+    // Get row count
+    char count_query[512];
+    snprintf(count_query, sizeof(count_query), "SELECT COUNT(*) FROM \"%s\"", table_name);
+    
+    sqlite3_stmt *count_stmt;
+    int row_count = 0;
+    if (sqlite3_prepare_v2(source_db_handle, count_query, -1, &count_stmt, NULL) == SQLITE_OK) {
+        if (sqlite3_step(count_stmt) == SQLITE_ROW) {
+            row_count = sqlite3_column_int(count_stmt, 0);
+        }
+        sqlite3_finalize(count_stmt);
+    }
+
+    // Get all data as INSERT statements
+    char select_query[512];
+    snprintf(select_query, sizeof(select_query), "SELECT * FROM \"%s\"", table_name);
+    
+    sqlite3_stmt *data_stmt;
+    char *data_sql = NULL;
+    size_t data_sql_size = 0;
+    size_t data_sql_capacity = 4096;
+    data_sql = malloc(data_sql_capacity);
+    if (!data_sql) return false;
+    data_sql[0] = '\0';
+
+    if (sqlite3_prepare_v2(source_db_handle, select_query, -1, &data_stmt, NULL) == SQLITE_OK) {
+        int col_count = sqlite3_column_count(data_stmt);
+        
+        while (sqlite3_step(data_stmt) == SQLITE_ROW && data_sql_size < 1000000) {
+            char insert_line[4096];
+            int pos = snprintf(insert_line, sizeof(insert_line), "INSERT INTO \"%s\" VALUES(", table_name);
+            
+            for (int i = 0; i < col_count; i++) {
+                if (i > 0) insert_line[pos++] = ',';
+                
+                int col_type = sqlite3_column_type(data_stmt, i);
+                if (col_type == SQLITE_NULL) {
+                    pos += snprintf(insert_line + pos, sizeof(insert_line) - pos, "NULL");
+                } else if (col_type == SQLITE_INTEGER) {
+                    pos += snprintf(insert_line + pos, sizeof(insert_line) - pos, "%lld",
+                                   sqlite3_column_int64(data_stmt, i));
+                } else if (col_type == SQLITE_FLOAT) {
+                    pos += snprintf(insert_line + pos, sizeof(insert_line) - pos, "%g",
+                                   sqlite3_column_double(data_stmt, i));
+                } else {
+                    const unsigned char *text = sqlite3_column_text(data_stmt, i);
+                    pos += snprintf(insert_line + pos, sizeof(insert_line) - pos, "'");
+                    for (const unsigned char *p = text; *p && pos < sizeof(insert_line) - 10; p++) {
+                        if (*p == '\'') insert_line[pos++] = '\'';
+                        insert_line[pos++] = *p;
+                    }
+                    pos += snprintf(insert_line + pos, sizeof(insert_line) - pos, "'");
+                }
+            }
+            snprintf(insert_line + pos, sizeof(insert_line) - pos, ");\n");
+            
+            size_t line_len = strlen(insert_line);
+            if (data_sql_size + line_len + 1 > data_sql_capacity) {
+                data_sql_capacity *= 2;
+                char *new_data = realloc(data_sql, data_sql_capacity);
+                if (!new_data) {
+                    free(data_sql);
+                    sqlite3_finalize(data_stmt);
+                    return false;
+                }
+                data_sql = new_data;
+            }
+            
+            strcat(data_sql, insert_line);
+            data_sql_size += line_len;
+        }
+        sqlite3_finalize(data_stmt);
+    }
+
+    time_t now = time(NULL);
+    char timestamp[64];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+    char username[256] = "unknown";
+    getlogin_r(username, sizeof(username));
+
+    const char *insert_sql = 
+        "INSERT INTO dropped_tables (source_database, table_name, create_sql, "
+        "row_count, data_sql, dropped_at, dropped_by) VALUES (?, ?, ?, ?, ?, ?, ?);";
+
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(manager->trash_db, insert_sql, -1, &stmt, NULL) != SQLITE_OK) {
+        free(data_sql);
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, source_db, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, table_name, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, create_sql, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 4, row_count);
+    sqlite3_bind_text(stmt, 5, data_sql, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 6, timestamp, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 7, username, -1, SQLITE_TRANSIENT);
+
+    int result = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    free(data_sql);
+
+    return (result == SQLITE_DONE);
+}
+
+char** trash_manager_list_tables(TrashManager *manager,
+                                  const char *source_db,
+                                  int *count) {
+    if (!manager || !count) return NULL;
+
+    *count = 0;
+
+    const char *select_sql = 
+        "SELECT id, table_name, row_count, dropped_at, dropped_by FROM dropped_tables "
+        "WHERE source_database = ? ORDER BY id DESC;";
+
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(manager->trash_db, select_sql, -1, &stmt, NULL) != SQLITE_OK) {
+        return NULL;
+    }
+
+    sqlite3_bind_text(stmt, 1, source_db, -1, SQLITE_TRANSIENT);
+
+    char **entries = NULL;
+    int capacity = 10;
+    entries = malloc(sizeof(char*) * capacity);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        if (*count >= capacity) {
+            capacity *= 2;
+            entries = realloc(entries, sizeof(char*) * capacity);
+        }
+
+        char entry[512];
+        snprintf(entry, sizeof(entry), "ID: %lld | Table: %s | Rows: %d | Dropped: %s | By: %s",
+                 sqlite3_column_int64(stmt, 0),
+                 sqlite3_column_text(stmt, 1),
+                 sqlite3_column_int(stmt, 2),
+                 sqlite3_column_text(stmt, 3),
+                 sqlite3_column_text(stmt, 4));
+        
+        entries[*count] = strdup(entry);
+        (*count)++;
+    }
+
+    sqlite3_finalize(stmt);
+    return entries;
+}
+
+bool trash_manager_recover_table(TrashManager *manager,
+                                  const char *source_db,
+                                  const char *table_name,
+                                  long trash_id) {
+    // Recovery would require opening the source database and executing CREATE + INSERT statements
+    // This is a placeholder implementation
+    (void)manager;
+    (void)source_db;
+    (void)table_name;
+    (void)trash_id;
+    return false;
 }
 
 void trash_manager_close(TrashManager *manager) {

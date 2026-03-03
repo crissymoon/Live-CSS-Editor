@@ -34,6 +34,8 @@ MODULE_SOURCES = modules/app_state.c \
                  modules/misc_callbacks.c \
                  modules/data_protection.c \
                  modules/auth.c \
+                 modules/trash_manager.c \
+                 modules/row_operations.c \
                  modules/function_runner.c \
                  modules/functions/aggregate_functions.c \
                  modules/functions/statistical_functions.c \

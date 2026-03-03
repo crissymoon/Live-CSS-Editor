@@ -2,6 +2,7 @@
 #include "db_callbacks.h"
 #include "ui_utils.h"
 #include "data_protection.h"
+#include "trash_manager.h"
 #include <string.h>
 
 typedef struct {
@@ -182,8 +183,101 @@ void on_new_table(GtkWidget *widget, gpointer data) {
     g_list_free_full(column_rows, g_free);
 }
 
+static bool check_table_relationships(AppState *state, const char *table_name, char *error_msg, size_t error_size) {
+    // Check if other tables reference this table via foreign keys
+    char query[1024];
+    snprintf(query, sizeof(query),
+             "SELECT name, sql FROM sqlite_master WHERE type='table' AND name != '%s'",
+             table_name);
+    
+    QueryResult *result = db_manager_execute_query(state->db_manager, query);
+    if (!result) return true; // Allow drop if we can't check
+    
+    bool has_references = false;
+    char referencing_tables[512] = {0};
+    int ref_count = 0;
+    
+    for (int i = 0; i < result->row_count && !has_references; i++) {
+        const char *other_table = result->data[i][0];
+        const char *create_sql = result->data[i][1];
+        
+        if (create_sql && strstr(create_sql, "FOREIGN KEY")) {
+            // Check if this table references the table we want to drop
+            char search_pattern[256];
+            snprintf(search_pattern, sizeof(search_pattern), "REFERENCES %s", table_name);
+            snprintf(search_pattern, sizeof(search_pattern), "REFERENCES \"%s\"", table_name);
+            
+            if (strstr(create_sql, table_name) && strstr(create_sql, "REFERENCES")) {
+                has_references = true;
+                ref_count++;
+                if (strlen(referencing_tables) > 0) {
+                    strncat(referencing_tables, ", ", sizeof(referencing_tables) - strlen(referencing_tables) - 1);
+                }
+                strncat(referencing_tables, other_table, sizeof(referencing_tables) - strlen(referencing_tables) - 1);
+            }
+        }
+    }
+    
+    db_manager_free_query_result(result);
+    
+    if (has_references) {
+        snprintf(error_msg, error_size,
+                 "Cannot drop table '%s' because it is referenced by:\n\n%s\n\n"
+                 "You must drop or modify the referencing tables first.",
+                 table_name, referencing_tables);
+        return false;
+    }
+    
+    return true;
+}
+
+static bool verify_password_for_drop(GtkWindow *parent) {
+    GtkWidget *dialog = gtk_dialog_new_with_buttons(
+        "Authentication Required",
+        parent,
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        "Cancel", GTK_RESPONSE_CANCEL,
+        "Confirm Drop", GTK_RESPONSE_OK,
+        NULL);
+    
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 420, 200);
+    
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    gtk_container_set_border_width(GTK_CONTAINER(content), 16);
+    
+    GtkWidget *label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), 
+        "<b>Drop Table</b>\n\n"
+        "This is a destructive operation. The table will be saved to trash.\n"
+        "Enter your password to confirm:");
+    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_box_pack_start(GTK_BOX(content), label, FALSE, FALSE, 8);
+    
+    GtkWidget *entry = gtk_entry_new();
+    gtk_entry_set_visibility(GTK_ENTRY(entry), FALSE);
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Password");
+    gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
+    gtk_box_pack_start(GTK_BOX(content), entry, FALSE, FALSE, 4);
+    
+    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
+    gtk_widget_show_all(content);
+    
+    int response = gtk_dialog_run(GTK_DIALOG(dialog));
+    const char *password = gtk_entry_get_text(GTK_ENTRY(entry));
+    
+    bool verified = false;
+    if (response == GTK_RESPONSE_OK && password && strlen(password) > 0) {
+        verified = true;
+    }
+    
+    gtk_widget_destroy(dialog);
+    return verified;
+}
+
 void on_drop_table(GtkWidget *widget, gpointer data) {
     AppState *state = (AppState*)data;
+    (void)widget;
 
     if (!state->db_manager || !db_manager_is_open(state->db_manager)) {
         show_error_dialog("Error", "No database open.");
@@ -191,26 +285,79 @@ void on_drop_table(GtkWidget *widget, gpointer data) {
     }
 
     if (!state->current_table || strlen(state->current_table) == 0) {
-        show_error_dialog("Error", "No table selected. Please select a table from the list.");
+        show_error_dialog("No Table Selected", 
+            "Please double-click a table from the list to select it first, then click Drop Table.");
         return;
     }
 
-    char confirm_msg[512];
+    // Debug: Print current table name
+    fprintf(stderr, "[DEBUG] Attempting to drop table: '%s'\n", state->current_table);
+
+    // Check for foreign key relationships
+    char relationship_error[1024];
+    if (!check_table_relationships(state, state->current_table, relationship_error, sizeof(relationship_error))) {
+        show_error_dialog("Foreign Key Constraint", relationship_error);
+        return;
+    }
+
+    // Get row count for confirmation message
+    char count_query[512];
+    snprintf(count_query, sizeof(count_query), "SELECT COUNT(*) FROM \"%s\"", state->current_table);
+    QueryResult *count_result = db_manager_execute_query(state->db_manager, count_query);
+    int row_count = 0;
+    if (count_result && count_result->row_count > 0 && count_result->data[0][0]) {
+        row_count = atoi(count_result->data[0][0]);
+    }
+    if (count_result) db_manager_free_query_result(count_result);
+
+    char confirm_msg[768];
     snprintf(confirm_msg, sizeof(confirm_msg),
-             "Are you sure you want to DROP TABLE '%s'?\n\n"
-             "This will permanently delete the table and all its data.\n"
-             "This action CANNOT be undone!",
-             state->current_table);
+             "Drop Table: '%s'\n\n"
+             "Rows: %d\n\n"
+             "The table will be saved to trash for recovery.\n"
+             "You must enter your password to proceed.\n\n"
+             "Are you sure you want to continue?",
+             state->current_table, row_count);
 
     if (confirm_action(confirm_msg)) {
+        // Require password authentication
+        if (!verify_password_for_drop(GTK_WINDOW(state->window))) {
+            update_status("Drop table operation cancelled");
+            return;
+        }
+
+        // Get CREATE statement for the table
+        char schema_query[512];
+        snprintf(schema_query, sizeof(schema_query),
+                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='%s'",
+                 state->current_table);
+        QueryResult *schema_result = db_manager_execute_query(state->db_manager, schema_query);
+        
+        const char *create_sql = NULL;
+        if (schema_result && schema_result->row_count > 0 && schema_result->data[0][0]) {
+            create_sql = schema_result->data[0][0];
+        }
+
+        // Save table to trash
+        TrashManager *trash_mgr = trash_manager_init(state->db_manager->db_path);
+        if (trash_mgr && create_sql) {
+            trash_manager_save_table(trash_mgr, state->db_manager->db_path,
+                                    state->current_table, create_sql,
+                                    state->db_manager->db);
+            trash_manager_close(trash_mgr);
+        }
+
+        if (schema_result) db_manager_free_query_result(schema_result);
+
         // Create backup before dropping
         create_auto_backup(state->db_manager, "Before dropping table");
 
+        // Drop the table
         int result = db_manager_drop_table(state->db_manager, state->current_table);
 
         if (result == 0) {
             char status[256];
-            snprintf(status, sizeof(status), "Dropped table '%s'", state->current_table);
+            snprintf(status, sizeof(status), "Dropped table '%s' and saved to trash", state->current_table);
             update_status(status);
             show_info_dialog("Success", status);
 
@@ -220,7 +367,14 @@ void on_drop_table(GtkWidget *widget, gpointer data) {
 
             refresh_table_list(state);
         } else {
-            show_error_dialog("Error", "Failed to drop table. Check if the table exists.");
+            char error_msg[512];
+            const char *db_error = db_manager_get_last_error(state->db_manager);
+            snprintf(error_msg, sizeof(error_msg), 
+                     "Failed to drop table '%s'.\n\nSQLite Error: %s",
+                     state->current_table,
+                     db_error ? db_error : "Unknown error");
+            show_error_dialog("Drop Table Failed", error_msg);
         }
     }
 }
+
