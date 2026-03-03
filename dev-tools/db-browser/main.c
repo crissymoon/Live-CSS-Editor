@@ -26,12 +26,17 @@ typedef struct {
 
     char *current_table;
     bool modified;
-    GtkWidget *recent_combo;   /* dropdown of recently opened databases */
+    GtkWidget *recent_btn;     /* "Recent" menu button in toolbar */
     GList    *recent_paths;    /* GList of gchar*, most-recent first, max 10 */
+
+    bool       theme_is_dark;  /* true = dark (Crissy), false = light (simple) */
+    GtkWidget *theme_btn;      /* toolbar button used to toggle theme label */
 } AppState;
 
 /* Global app state */
-static AppState *app = NULL;
+static AppState       *app              = NULL;
+static GtkCssProvider *app_css_provider = NULL;  /* active CSS provider */
+static char            app_exe_dir[1024] = {0};  /* directory of the binary */
 
 /* Forward declarations */
 static void create_main_window(AppState *state);
@@ -62,6 +67,11 @@ static void on_help_tutorial(GtkWidget *widget, gpointer data);
 static void on_help_about(GtkWidget *widget, gpointer data);
 static void on_open_recent_db(GtkWidget *widget, gpointer data);
 static void on_open_sql_file(GtkWidget *widget, gpointer data);
+static void on_toggle_theme(GtkWidget *widget, gpointer data);
+
+/* Theme preference helpers */
+static bool load_theme_pref(void);
+static void save_theme_pref(bool is_dark);
 
 /* Recent database helpers */
 static char  *get_recent_config_path(void);
@@ -80,44 +90,31 @@ static bool confirm_action(const char *message);
 int main(int argc, char *argv[]) {
     gtk_init(&argc, &argv);
 
-    // Load app theme CSS
-    GtkCssProvider *css_provider = gtk_css_provider_new();
-    GdkDisplay *display = gdk_display_get_default();
-    GdkScreen *screen = gdk_display_get_default_screen(display);
-
-    // Try to load css/theme.css from same directory as executable
-    char css_path[1024];
+    /* Save the executable directory so on_toggle_theme can locate css files */
     if (argv[0] && strrchr(argv[0], '/')) {
-        snprintf(css_path, sizeof(css_path), "%.*s/css/theme.css",
+        snprintf(app_exe_dir, sizeof(app_exe_dir), "%.*s",
                  (int)(strrchr(argv[0], '/') - argv[0]), argv[0]);
     } else {
-        snprintf(css_path, sizeof(css_path), "css/theme.css");
+        snprintf(app_exe_dir, sizeof(app_exe_dir), ".");
     }
 
-    fprintf(stderr, "[css-debug] argv[0] = %s\n", argv[0] ? argv[0] : "(null)");
-    fprintf(stderr, "[css-debug] Trying theme path: %s\n", css_path);
+    /* Load saved theme preference (dark = default) */
+    bool pref_dark     = load_theme_pref();
+    const char *css_file = pref_dark ? "theme.css" : "theme-simple.css";
 
-    // Check if file exists before trying to load
+    /* Load app theme CSS */
+    GtkCssProvider *css_provider = gtk_css_provider_new();
+    GdkDisplay *display = gdk_display_get_default();
+    GdkScreen  *screen  = gdk_display_get_default_screen(display);
+
+    /* Build the CSS path from exe dir; fall back to cwd-relative */
+    char css_path[1024];
+    snprintf(css_path, sizeof(css_path), "%s/css/%s", app_exe_dir, css_file);
     FILE *css_check = fopen(css_path, "r");
     if (css_check) {
-        fseek(css_check, 0, SEEK_END);
-        long css_size = ftell(css_check);
         fclose(css_check);
-        fprintf(stderr, "[css-debug] File found, size: %ld bytes\n", css_size);
     } else {
-        fprintf(stderr, "[css-debug] File NOT found at: %s\n", css_path);
-        // Try fallback: relative to cwd
-        snprintf(css_path, sizeof(css_path), "css/theme.css");
-        fprintf(stderr, "[css-debug] Trying fallback path: %s\n", css_path);
-        css_check = fopen(css_path, "r");
-        if (css_check) {
-            fseek(css_check, 0, SEEK_END);
-            long css_size = ftell(css_check);
-            fclose(css_check);
-            fprintf(stderr, "[css-debug] Fallback found, size: %ld bytes\n", css_size);
-        } else {
-            fprintf(stderr, "[css-debug] Fallback also NOT found\n");
-        }
+        snprintf(css_path, sizeof(css_path), "css/%s", css_file);
     }
 
     GError *error = NULL;
@@ -127,21 +124,16 @@ int main(int argc, char *argv[]) {
             GTK_STYLE_PROVIDER(css_provider),
             GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
         );
-        fprintf(stderr, "[css-debug] Theme loaded successfully: %s\n", css_path);
-        printf("[INFO] App theme loaded: %s\n", css_path);
+        app_css_provider = css_provider;
+        printf("[INFO] Theme loaded: %s\n", css_path);
     } else {
-        fprintf(stderr, "[css-debug] gtk_css_provider_load_from_path FAILED\n");
-        if (error) {
-            fprintf(stderr, "[css-debug] Error: %s\n", error->message);
-            printf("[WARN] Could not load theme: %s\n", error->message);
-            g_error_free(error);
-        }
-        // Continue without theme - will use GTK default
-        fprintf(stderr, "[css-debug] Continuing with default GTK theme\n");
+        if (error) { g_error_free(error); }
+        g_object_unref(css_provider);
     }
 
-    // Create application state
+    /* Create application state */
     app = g_malloc0(sizeof(AppState));
+    app->theme_is_dark = pref_dark;
     app->tooltip_manager = tooltip_manager_create();
     tooltip_manager_register_all(app->tooltip_manager);
 
@@ -219,6 +211,88 @@ static void create_menu_bar(AppState *state) {
     // TODO: Implement full menu bar with File, Edit, View, Tools, Help
 }
 
+/* Theme preference helpers */
+static char *get_theme_pref_path(void) {
+    const char *cfg = g_get_user_config_dir();
+    char *dir  = g_build_filename(cfg, "crissy-db-browser", NULL);
+    g_mkdir_with_parents(dir, 0755);
+    char *path = g_build_filename(dir, "theme", NULL);
+    g_free(dir);
+    return path;
+}
+
+static bool load_theme_pref(void) {
+    char *path = get_theme_pref_path();
+    FILE *f = fopen(path, "r");
+    g_free(path);
+    if (!f) return true;  /* default: dark */
+    char buf[32] = {0};
+    fgets(buf, sizeof(buf), f);
+    fclose(f);
+    return strncmp(buf, "light", 5) != 0;
+}
+
+static void save_theme_pref(bool is_dark) {
+    char *path = get_theme_pref_path();
+    FILE *f = fopen(path, "w");
+    g_free(path);
+    if (!f) return;
+    fprintf(f, "%s\n", is_dark ? "dark" : "light");
+    fclose(f);
+}
+
+/* Theme toggle callback */
+static void on_toggle_theme(GtkWidget *widget, gpointer data) {
+    AppState   *state   = (AppState *)data;
+    GdkDisplay *display = gdk_display_get_default();
+    GdkScreen  *screen  = gdk_display_get_default_screen(display);
+    (void)widget;
+
+    /* Remove the current provider */
+    if (app_css_provider) {
+        gtk_style_context_remove_provider_for_screen(
+            screen, GTK_STYLE_PROVIDER(app_css_provider));
+        g_object_unref(app_css_provider);
+        app_css_provider = NULL;
+    }
+
+    /* Flip the flag */
+    state->theme_is_dark = !state->theme_is_dark;
+
+    /* Build path for new theme */
+    const char *css_file = state->theme_is_dark ? "theme.css" : "theme-simple.css";
+    char css_path[1024];
+    snprintf(css_path, sizeof(css_path), "%s/css/%s", app_exe_dir, css_file);
+    FILE *f = fopen(css_path, "r");
+    if (f) {
+        fclose(f);
+    } else {
+        snprintf(css_path, sizeof(css_path), "css/%s", css_file);
+    }
+
+    /* Load and apply new provider */
+    GtkCssProvider *provider = gtk_css_provider_new();
+    GError *error = NULL;
+    if (gtk_css_provider_load_from_path(provider, css_path, &error)) {
+        gtk_style_context_add_provider_for_screen(
+            screen, GTK_STYLE_PROVIDER(provider),
+            GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+        app_css_provider = provider;
+    } else {
+        if (error) { g_error_free(error); }
+        g_object_unref(provider);
+    }
+
+    /* Update button label to show what clicking next will switch TO */
+    if (state->theme_btn) {
+        gtk_tool_button_set_label(GTK_TOOL_BUTTON(state->theme_btn),
+                                  state->theme_is_dark ? "Light" : "Dark");
+    }
+
+    /* Persist the choice */
+    save_theme_pref(state->theme_is_dark);
+}
+
 /* Create toolbar */
 static void create_toolbar(AppState *state) {
     GtkWidget *toolbar = gtk_toolbar_new();
@@ -294,26 +368,37 @@ static void create_toolbar(AppState *state) {
     // Separator before recent databases section
     gtk_toolbar_insert(GTK_TOOLBAR(toolbar), gtk_separator_tool_item_new(), -1);
 
-    // "Recent:" label
-    GtkToolItem *recent_label_item = gtk_tool_item_new();
-    GtkWidget *recent_label = gtk_label_new("  Recent: ");
-    gtk_widget_set_name(recent_label, "toolbar-recent-label");
-    gtk_container_add(GTK_CONTAINER(recent_label_item), recent_label);
-    gtk_toolbar_insert(GTK_TOOLBAR(toolbar), recent_label_item, -1);
-
-    // Recent databases dropdown
+    // Recent databases menu button
     GtkToolItem *recent_item = gtk_tool_item_new();
-    state->recent_combo = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(state->recent_combo),
-                                   "(no recent databases)");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(state->recent_combo), 0);
-    gtk_widget_set_tooltip_text(state->recent_combo,
-        "Recently opened databases - select one to re-open it");
-    gtk_widget_set_size_request(state->recent_combo, 320, -1);
-    g_signal_connect(state->recent_combo, "changed",
-                     G_CALLBACK(on_open_recent_db), state);
-    gtk_container_add(GTK_CONTAINER(recent_item), state->recent_combo);
+    state->recent_btn = gtk_menu_button_new();
+    gtk_button_set_label(GTK_BUTTON(state->recent_btn), "Recent");
+    gtk_widget_set_tooltip_text(state->recent_btn,
+        "Recently opened databases - click to select one");
+    GtkWidget *recent_menu = gtk_menu_new();
+    GtkWidget *placeholder = gtk_menu_item_new_with_label("(no recent databases)");
+    gtk_widget_set_sensitive(placeholder, FALSE);
+    gtk_menu_shell_append(GTK_MENU_SHELL(recent_menu), placeholder);
+    gtk_widget_show_all(recent_menu);
+    gtk_menu_button_set_popup(GTK_MENU_BUTTON(state->recent_btn), recent_menu);
+    gtk_container_add(GTK_CONTAINER(recent_item), state->recent_btn);
     gtk_toolbar_insert(GTK_TOOLBAR(toolbar), recent_item, -1);
+
+    /* Spacer to push the theme toggle to the far right */
+    GtkToolItem *spacer = gtk_separator_tool_item_new();
+    gtk_separator_tool_item_set_draw(GTK_SEPARATOR_TOOL_ITEM(spacer), FALSE);
+    gtk_tool_item_set_expand(spacer, TRUE);
+    gtk_toolbar_insert(GTK_TOOLBAR(toolbar), spacer, -1);
+
+    /* Theme toggle button - label shows what clicking will switch TO */
+    GtkToolItem *btn_theme = gtk_tool_button_new(
+        NULL, state->theme_is_dark ? "Light" : "Dark");
+    gtk_tool_button_set_label(GTK_TOOL_BUTTON(btn_theme),
+                              state->theme_is_dark ? "Light" : "Dark");
+    gtk_widget_set_tooltip_text(GTK_WIDGET(btn_theme),
+                                "Toggle between dark and light theme");
+    g_signal_connect(btn_theme, "clicked", G_CALLBACK(on_toggle_theme), state);
+    gtk_toolbar_insert(GTK_TOOLBAR(toolbar), btn_theme, -1);
+    state->theme_btn = GTK_WIDGET(btn_theme);
 
     gtk_box_pack_start(GTK_BOX(gtk_bin_get_child(GTK_BIN(state->window))),
                        toolbar, FALSE, FALSE, 0);
@@ -1009,12 +1094,327 @@ static void on_execute_query(GtkWidget *widget, gpointer data) {
     }
 }
 
-static void on_import_csv(GtkWidget *widget, gpointer data) {
-    show_info_dialog("Not Implemented", "CSV import wizard coming soon!");
+/* =========================================================================
+ * CSV import / export helpers
+ * ========================================================================= */
+
+/* Write one CSV field, quoting if needed (RFC 4180). */
+static void csv_write_field(FILE *f, const char *val) {
+    if (!val) return;  /* NULL -> empty field */
+    bool need_quote = (strchr(val, ',') || strchr(val, '"') ||
+                       strchr(val, '\n') || strchr(val, '\r'));
+    if (need_quote) {
+        fputc('"', f);
+        for (const char *p = val; *p; p++) {
+            if (*p == '"') fputc('"', f);
+            fputc(*p, f);
+        }
+        fputc('"', f);
+    } else {
+        fputs(val, f);
+    }
+}
+
+/* Parse one CSV line from a buffer.  Returns a NULL-terminated array of
+ * g_strdup'd strings the caller must free.  *col_count receives the count. */
+static char **csv_parse_line(const char *line, int *col_count) {
+    GPtrArray *fields = g_ptr_array_new();
+    const char *p = line;
+    while (1) {
+        GString *field = g_string_new("");
+        if (*p == '"') {
+            p++; /* skip opening quote */
+            while (*p) {
+                if (*p == '"') {
+                    p++;
+                    if (*p == '"') { g_string_append_c(field, '"'); p++; }
+                    else break; /* closing quote */
+                } else {
+                    g_string_append_c(field, *p++);
+                }
+            }
+        } else {
+            while (*p && *p != ',' && *p != '\n' && *p != '\r')
+                g_string_append_c(field, *p++);
+        }
+        g_ptr_array_add(fields, g_string_free(field, FALSE));
+        if (*p == ',') { p++; continue; }
+        break;
+    }
+    *col_count = (int)fields->len;
+    g_ptr_array_add(fields, NULL); /* NULL-terminate */
+    return (char **)g_ptr_array_free(fields, FALSE);
 }
 
 static void on_export_csv(GtkWidget *widget, gpointer data) {
-    show_info_dialog("Not Implemented", "CSV export wizard coming soon!");
+    AppState *state = (AppState *)data;
+    (void)widget;
+
+    if (!state->db_manager || !db_manager_is_open(state->db_manager)) {
+        show_error_dialog("No Database", "Open a database first.");
+        return;
+    }
+    if (!state->current_table) {
+        show_error_dialog("No Table Selected", "Select a table in the Tables tab first.");
+        return;
+    }
+
+    /* File chooser */
+    GtkWidget *dialog = gtk_file_chooser_dialog_new(
+        "Export CSV", GTK_WINDOW(state->window),
+        GTK_FILE_CHOOSER_ACTION_SAVE,
+        "_Cancel", GTK_RESPONSE_CANCEL,
+        "_Save",   GTK_RESPONSE_ACCEPT,
+        NULL);
+    gtk_file_chooser_set_do_overwrite_confirmation(
+        GTK_FILE_CHOOSER(dialog), TRUE);
+    char default_name[256];
+    snprintf(default_name, sizeof(default_name), "%s.csv", state->current_table);
+    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), default_name);
+
+    GtkFileFilter *ff = gtk_file_filter_new();
+    gtk_file_filter_set_name(ff, "CSV files (*.csv)");
+    gtk_file_filter_add_pattern(ff, "*.csv");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), ff);
+
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_ACCEPT) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+    gtk_widget_destroy(dialog);
+
+    /* Query all rows */
+    char query[512];
+    snprintf(query, sizeof(query), "SELECT * FROM \"%s\"", state->current_table);
+    QueryResult *result = db_manager_execute_query(state->db_manager, query);
+    if (!result) {
+        show_error_dialog("Export Failed", "Could not query table data.");
+        g_free(filename);
+        return;
+    }
+
+    FILE *f = fopen(filename, "w");
+    if (!f) {
+        show_error_dialog("Export Failed", "Could not open file for writing. Check permissions.");
+        db_manager_free_query_result(result);
+        g_free(filename);
+        return;
+    }
+
+    /* Header row */
+    for (int c = 0; c < result->column_count; c++) {
+        if (c) fputc(',', f);
+        csv_write_field(f, result->column_names[c]);
+    }
+    fputc('\n', f);
+
+    /* Data rows */
+    for (int r = 0; r < result->row_count; r++) {
+        for (int c = 0; c < result->column_count; c++) {
+            if (c) fputc(',', f);
+            csv_write_field(f, result->data[r][c]);
+        }
+        fputc('\n', f);
+    }
+    fclose(f);
+
+    char msg[512];
+    snprintf(msg, sizeof(msg), "Exported %d rows to %s", result->row_count, filename);
+    update_status(msg);
+    show_info_dialog("Export Complete", msg);
+
+    db_manager_free_query_result(result);
+    g_free(filename);
+}
+
+static void on_import_csv(GtkWidget *widget, gpointer data) {
+    AppState *state = (AppState *)data;
+    (void)widget;
+
+    if (!state->db_manager || !db_manager_is_open(state->db_manager)) {
+        show_error_dialog("No Database", "Open a database first.");
+        return;
+    }
+
+    /* File chooser */
+    GtkWidget *dialog = gtk_file_chooser_dialog_new(
+        "Import CSV", GTK_WINDOW(state->window),
+        GTK_FILE_CHOOSER_ACTION_OPEN,
+        "_Cancel", GTK_RESPONSE_CANCEL,
+        "_Open",   GTK_RESPONSE_ACCEPT,
+        NULL);
+
+    GtkFileFilter *ff = gtk_file_filter_new();
+    gtk_file_filter_set_name(ff, "CSV files (*.csv)");
+    gtk_file_filter_add_pattern(ff, "*.csv");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), ff);
+
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_ACCEPT) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+    gtk_widget_destroy(dialog);
+
+    FILE *f = fopen(filename, "r");
+    if (!f) {
+        show_error_dialog("Import Failed", "Could not open the selected file.");
+        g_free(filename);
+        return;
+    }
+
+    /* Derive default table name from filename (strip path and extension) */
+    const char *base = strrchr(filename, '/');
+    base = base ? base + 1 : filename;
+    char table_name[256];
+    snprintf(table_name, sizeof(table_name), "%s", base);
+    char *dot = strrchr(table_name, '.');
+    if (dot) *dot = '\0';
+
+    /* Ask user to confirm / change the target table name */
+    GtkWidget *name_dialog = gtk_dialog_new_with_buttons(
+        "Import CSV - Table Name", GTK_WINDOW(state->window),
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        "_Cancel", GTK_RESPONSE_CANCEL,
+        "_Import", GTK_RESPONSE_ACCEPT,
+        NULL);
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(name_dialog));
+    GtkWidget *lbl = gtk_label_new(
+        "Import CSV data into table (will be created if it does not exist):");
+    gtk_widget_set_halign(lbl, GTK_ALIGN_START);
+    gtk_box_pack_start(GTK_BOX(content), lbl, FALSE, FALSE, 8);
+    GtkWidget *entry = gtk_entry_new();
+    gtk_entry_set_text(GTK_ENTRY(entry), table_name);
+    gtk_box_pack_start(GTK_BOX(content), entry, FALSE, FALSE, 4);
+    gtk_widget_show_all(name_dialog);
+
+    if (gtk_dialog_run(GTK_DIALOG(name_dialog)) != GTK_RESPONSE_ACCEPT) {
+        gtk_widget_destroy(name_dialog);
+        fclose(f);
+        g_free(filename);
+        return;
+    }
+    snprintf(table_name, sizeof(table_name), "%s",
+             gtk_entry_get_text(GTK_ENTRY(entry)));
+    gtk_widget_destroy(name_dialog);
+
+    if (!table_name[0]) {
+        show_error_dialog("Import Failed", "Table name cannot be empty.");
+        fclose(f);
+        g_free(filename);
+        return;
+    }
+
+    /* Read header row */
+    char line_buf[65536];
+    if (!fgets(line_buf, sizeof(line_buf), f)) {
+        show_error_dialog("Import Failed", "CSV file is empty.");
+        fclose(f);
+        g_free(filename);
+        return;
+    }
+    /* Strip trailing newline */
+    char *nl = strpbrk(line_buf, "\r\n");
+    if (nl) *nl = '\0';
+
+    int col_count = 0;
+    char **headers = csv_parse_line(line_buf, &col_count);
+    if (col_count == 0) {
+        show_error_dialog("Import Failed", "Could not parse CSV headers.");
+        fclose(f);
+        g_free(filename);
+        return;
+    }
+
+    /* Create table if it does not exist */
+    GString *create_sql = g_string_new(NULL);
+    g_string_printf(create_sql, "CREATE TABLE IF NOT EXISTS \"%s\" (", table_name);
+    for (int c = 0; c < col_count; c++) {
+        if (c) g_string_append(create_sql, ", ");
+        g_string_append_printf(create_sql, "\"%s\" TEXT", headers[c]);
+    }
+    g_string_append(create_sql, ")");
+
+    QueryResult *cr = db_manager_execute_query(state->db_manager, create_sql->str);
+    g_string_free(create_sql, TRUE);
+    if (cr) db_manager_free_query_result(cr);
+
+    /* Build the INSERT template */
+    GString *insert_sql = g_string_new(NULL);
+    g_string_printf(insert_sql, "INSERT INTO \"%s\" (", table_name);
+    for (int c = 0; c < col_count; c++) {
+        if (c) g_string_append(insert_sql, ", ");
+        g_string_append_printf(insert_sql, "\"%s\"", headers[c]);
+    }
+    g_string_append(insert_sql, ") VALUES (");
+    for (int c = 0; c < col_count; c++) {
+        if (c) g_string_append(insert_sql, ", ");
+        g_string_append(insert_sql, "?");
+    }
+    g_string_append(insert_sql, ")");
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(state->db_manager->db, insert_sql->str, -1, &stmt, NULL) != SQLITE_OK) {
+        show_error_dialog("Import Failed", sqlite3_errmsg(state->db_manager->db));
+        g_string_free(insert_sql, TRUE);
+        g_strfreev(headers);
+        fclose(f);
+        g_free(filename);
+        return;
+    }
+    g_string_free(insert_sql, TRUE);
+
+    db_manager_begin_transaction(state->db_manager);
+
+    int rows_imported = 0;
+    int rows_failed   = 0;
+    while (fgets(line_buf, sizeof(line_buf), f)) {
+        nl = strpbrk(line_buf, "\r\n");
+        if (nl) *nl = '\0';
+        if (!line_buf[0]) continue;  /* skip blank lines */
+
+        int fc = 0;
+        char **fields = csv_parse_line(line_buf, &fc);
+
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        for (int c = 0; c < col_count; c++) {
+            if (c < fc && fields[c]) {
+                sqlite3_bind_text(stmt, c + 1, fields[c], -1, SQLITE_TRANSIENT);
+            } else {
+                sqlite3_bind_null(stmt, c + 1);
+            }
+        }
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            rows_imported++;
+        } else {
+            rows_failed++;
+        }
+        g_strfreev(fields);
+    }
+
+    sqlite3_finalize(stmt);
+    db_manager_commit(state->db_manager);
+    fclose(f);
+    g_strfreev(headers);
+    g_free(filename);
+
+    refresh_table_list(state);
+
+    char msg[512];
+    if (rows_failed == 0) {
+        snprintf(msg, sizeof(msg), "Imported %d rows into table '%s'.",
+                 rows_imported, table_name);
+        update_status(msg);
+        show_info_dialog("Import Complete", msg);
+    } else {
+        snprintf(msg, sizeof(msg),
+                 "Imported %d rows into '%s'. %d rows failed to insert.",
+                 rows_imported, table_name, rows_failed);
+        update_status(msg);
+        show_error_dialog("Import Partial", msg);
+    }
 }
 
 static void on_backup_database(GtkWidget *widget, gpointer data) {
@@ -1113,29 +1513,36 @@ static char *get_recent_config_path(void) {
 /* Rebuild the recent-databases combo from state->recent_paths.
  * Blocks the "changed" signal while repopulating to avoid spurious opens. */
 static void populate_recent_combo(AppState *state) {
-    if (!state || !state->recent_combo) {
-        fprintf(stderr, "[db-browser] populate_recent_combo: state or recent_combo is NULL\n");
+    if (!state || !state->recent_btn) {
+        fprintf(stderr, "[db-browser] populate_recent_combo: state or recent_btn is NULL\n");
         return;
     }
 
-    g_signal_handlers_block_by_func(state->recent_combo,
-                                     G_CALLBACK(on_open_recent_db), state);
+    GtkMenu *menu = GTK_MENU(gtk_menu_button_get_popup(
+                                 GTK_MENU_BUTTON(state->recent_btn)));
+    if (!menu) return;
 
-    GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(state->recent_combo);
-    gtk_combo_box_text_remove_all(combo);
-    gtk_combo_box_text_append_text(combo, "(select a recent database)");
+    /* Remove all existing items */
+    GList *children = gtk_container_get_children(GTK_CONTAINER(menu));
+    for (GList *l = children; l; l = l->next)
+        gtk_widget_destroy(GTK_WIDGET(l->data));
+    g_list_free(children);
 
     int n = 0;
-    for (GList *l = state->recent_paths; l != NULL; l = l->next) {
-        gtk_combo_box_text_append_text(combo, (const char *)l->data);
-        n++;
+    if (!state->recent_paths) {
+        GtkWidget *item = gtk_menu_item_new_with_label("(no recent databases)");
+        gtk_widget_set_sensitive(item, FALSE);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+    } else {
+        for (GList *l = state->recent_paths; l != NULL; l = l->next) {
+            GtkWidget *item = gtk_menu_item_new_with_label((const char *)l->data);
+            g_signal_connect(item, "activate", G_CALLBACK(on_open_recent_db), state);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+            n++;
+        }
     }
 
-    gtk_combo_box_set_active(GTK_COMBO_BOX(state->recent_combo), 0);
-
-    g_signal_handlers_unblock_by_func(state->recent_combo,
-                                       G_CALLBACK(on_open_recent_db), state);
-
+    gtk_widget_show_all(GTK_WIDGET(menu));
     printf("[db-browser] populate_recent_combo: %d entries\n", n);
 }
 
@@ -1233,14 +1640,9 @@ static void add_to_recent(AppState *state, const char *path) {
 static void on_open_recent_db(GtkWidget *widget, gpointer data) {
     AppState *state = (AppState *)data;
 
-    gint index = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
-    if (index <= 0) return;  /* 0 is the placeholder item */
-
-    gchar *path = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(widget));
-    if (!path) {
-        fprintf(stderr, "[db-browser] on_open_recent_db: null path at index %d\n", index);
-        return;
-    }
+    /* path is owned by the menu item -- do not g_free it */
+    const gchar *path = gtk_menu_item_get_label(GTK_MENU_ITEM(widget));
+    if (!path || strlen(path) == 0) return;
 
     printf("[db-browser] on_open_recent_db: opening '%s'\n", path);
 
@@ -1253,7 +1655,6 @@ static void on_open_recent_db(GtkWidget *widget, gpointer data) {
     if (!state->db_manager) {
         fprintf(stderr, "[db-browser] on_open_recent_db: db_manager_create failed for '%s'\n", path);
         show_error_dialog("Error", "Failed to create database manager");
-        g_free(path);
         return;
     }
 
@@ -1277,8 +1678,6 @@ static void on_open_recent_db(GtkWidget *widget, gpointer data) {
         db_manager_destroy(state->db_manager);
         state->db_manager = NULL;
     }
-
-    g_free(path);
 }
 
 /* =========================================================================

@@ -8,6 +8,10 @@
 
 set -e  # Exit on error
 
+# Always run from the directory the script lives in so all relative paths work
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -55,8 +59,9 @@ validate_theme() {
         return 1
     fi
 
-    # Check for invalid properties (GTK CSS doesn't support these)
-    local invalid_props=("text-transform" "letter-spacing" "@media")
+    # Check for invalid properties (GTK CSS doesn't support these).
+    # Match "property:" to avoid false positives from comments.
+    local invalid_props=("text-transform:" "letter-spacing:" "@media")
     local has_errors=0
 
     for prop in "${invalid_props[@]}"; do
@@ -229,7 +234,7 @@ compile() {
 # Function to copy theme
 copy_theme() {
     local theme_src="$1"
-    print_status "$CYAN" "->" "Copying theme to build directory..."
+    print_status "$CYAN" "->" "Copying themes to build directory..."
 
     if [ ! -d "build/bin/css" ]; then
         mkdir -p build/bin/css
@@ -240,6 +245,7 @@ copy_theme() {
         fi
     fi
 
+    # Copy the active/dark theme
     cp "$theme_src" build/bin/css/theme.css
     if [ $? -ne 0 ]; then
         print_status "$RED" "x" "cp failed: $theme_src -> build/bin/css/theme.css"
@@ -247,11 +253,28 @@ copy_theme() {
         return 1
     fi
 
+    # Copy the light theme so the in-app toggle can find it
+    if [ -f "css/theme-simple.css" ]; then
+        cp css/theme-simple.css build/bin/css/theme-simple.css
+        if [ $? -ne 0 ]; then
+            print_status "$YELLOW" "!" "Warning: could not copy css/theme-simple.css"
+            log "WARN" "cp failed: css/theme-simple.css -> build/bin/css/theme-simple.css"
+        else
+            local simple_size
+            simple_size=$(ls -lh build/bin/css/theme-simple.css | awk '{print $5}')
+            print_status "$GREEN" "v" "Light theme copied ($simple_size)"
+            log "SUCCESS" "Light theme copied: $simple_size"
+        fi
+    else
+        print_status "$YELLOW" "!" "Warning: css/theme-simple.css not found, skipping"
+        log "WARN" "css/theme-simple.css not found"
+    fi
+
     if [ -f "build/bin/css/theme.css" ]; then
         local theme_size
         theme_size=$(ls -lh build/bin/css/theme.css | awk '{print $5}')
-        print_status "$GREEN" "v" "Theme copied successfully ($theme_size)"
-        log "SUCCESS" "Theme copied: $theme_size"
+        print_status "$GREEN" "v" "Dark theme copied successfully ($theme_size)"
+        log "SUCCESS" "Dark theme copied: $theme_size"
         return 0
     else
         print_status "$RED" "x" "Failed to copy theme"
@@ -271,11 +294,19 @@ run_tests() {
         return 1
     fi
 
-    # Check if theme file exists in build at the correct path
+    # Check if dark theme file exists in build
     if [ ! -f "build/bin/css/theme.css" ]; then
-        print_status "$RED" "x" "Theme file missing from build/bin/css/"
+        print_status "$RED" "x" "Dark theme file missing from build/bin/css/"
         log "ERROR" "Theme missing at build/bin/css/theme.css"
         return 1
+    fi
+
+    # Warn if light theme is missing (not fatal - dark theme still works)
+    if [ ! -f "build/bin/css/theme-simple.css" ]; then
+        print_status "$YELLOW" "!" "Warning: light theme missing from build/bin/css/ (in-app toggle will not work)"
+        log "WARN" "theme-simple.css missing from build/bin/css/"
+    else
+        print_status "$GREEN" "v" "Both themes present in build/bin/css/"
     fi
 
     print_status "$GREEN" "v" "Post-build validation passed"
@@ -289,7 +320,9 @@ print_summary() {
     echo "  Crissy's DB Browser - Build Complete"
     echo ""
     echo "  Binary  : build/bin/db-browser"
-    echo "  Theme   : build/bin/css/theme.css"
+    echo "  Theme   : build/bin/css/theme.css  (dark)"
+    echo "  Theme   : build/bin/css/theme-simple.css  (light)"
+    echo "  Toggle  : use the Dark/Light button in the toolbar"
     echo "  Log     : $LOG_FILE"
     echo ""
     echo "  Run with: ./build/bin/db-browser <database.db>"

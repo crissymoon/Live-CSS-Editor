@@ -41,8 +41,9 @@ $(OBJ_DIR)/%.o: %.c
 $(BINARY): $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 	@cp css/theme.css $(BIN_DIR)/css/
+	@cp css/theme-simple.css $(BIN_DIR)/css/
 	@echo "Crissy's DB Browser built successfully: $(BINARY)"
-	@echo "Theme copied to: $(BIN_DIR)/css/theme.css"
+	@echo "Themes copied to: $(BIN_DIR)/css/"
 
 # Clean
 clean:

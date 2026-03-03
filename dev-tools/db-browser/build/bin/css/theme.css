@@ -1,170 +1,1001 @@
-/* Crissy's DB Browser - Simple Theme (light, high contrast) */
+/* Crissy's DB Browser - GTK 3.20+ Theme
+ *
+ * All properties use GTK-compatible CSS only:
+ *   - background-image for gradients (NOT background shorthand)
+ *   - background-color for solid backgrounds
+ *   - No box-shadow, text-transform, or letter-spacing
+ *
+ * Palette:
+ *   bg-deep:       #080412
+ *   bg-main:       #0c071c
+ *   bg-panel:      #110830
+ *   bg-active:     #1a0f42
+ *   border-dim:    #1f1044
+ *   border-mid:    #2a1a55
+ *   border-accent: #4d31bf
+ *   border-focus:  #7c5ce8
+ *   accent:        #6e4fd4
+ *   text-primary:  #eceaf6
+ *   text-secondary:#c8c0e8
+ *   text-muted:    #a89fcc
+ *   red-danger:    #cc3355
+ *   green-ok:      #3dbd7d
+ */
 
+/* ---- Window ---- */
 window {
-    background-color: #f5f5f5;
-    color: #111111;
+    background-color: #0c071c;
+    color: #eceaf6;
 }
 
 window.dialog {
-    border: 2px solid #4466cc;
+    background-color: #110830;
+    border: 2px solid #4d31bf;
+    border-radius: 6px;
 }
 
-menubar {
-    background-color: #2c3e50;
-    color: #ffffff;
-    border-bottom: 1px solid #34495e;
-    min-height: 32px;
-}
-
-menubar > menuitem {
-    color: #ffffff;
-    padding: 6px 14px;
-}
-
-menubar > menuitem:hover {
-    background-color: #3498db;
-}
-
+/* ---- Toolbar ---- */
 toolbar {
-    background-color: #ecf0f1;
-    border-bottom: 1px solid #bdc3c7;
+    background-color: #080412;
+    border-bottom: 1px solid #2a1a55;
+    padding: 6px 10px;
+    min-height: 38px;
 }
 
 toolbar button {
-    background-color: #3498db;
-    color: #ffffff;
-    border: 1px solid #2980b9;
-    padding: 4px 12px;
-    min-height: 26px;
-    font-size: 11px;
+    background-image: none;
+    background-color: #1a0f42;
+    background: #1a0f42;
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    padding: 5px 14px;
+    margin: 0 2px;
+    min-height: 28px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: none;
+    text-shadow: none;
 }
 
 toolbar button:hover {
-    background-color: #2980b9;
+    background-image: none;
+    background-color: #2a1a55;
+    background: #2a1a55;
+    color: #eceaf6;
+    border-color: #4d31bf;
+    box-shadow: none;
 }
 
-button {
-    background-color: #3498db;
-    color: #ffffff;
-    border: 1px solid #2980b9;
-    padding: 5px 14px;
-    min-height: 28px;
+toolbar button:active {
+    background-image: none;
+    background-color: #4d31bf;
+    background: #4d31bf;
+    color: #eceaf6;
+    border-color: #7c5ce8;
+    box-shadow: none;
+}
+
+toolbar separator {
+    background-color: #2a1a55;
+    min-width: 1px;
+    margin: 4px 6px;
+}
+
+toolbar label {
+    color: #a89fcc;
     font-size: 11px;
+    margin: 0 4px;
 }
 
-button:hover {
-    background-color: #2980b9;
+/* ---- Notebook tabs ---- */
+notebook {
+    background-color: #0c071c;
+    border: none;
 }
 
-button:active {
-    background-color: #1a6ea0;
+notebook > header {
+    background-color: #080412;
+    border-bottom: 2px solid #2a1a55;
+    padding: 0 4px;
 }
 
-button label {
-    color: #ffffff;
+notebook > header > tabs > tab {
+    background-color: transparent;
+    color: #a89fcc;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 22px;
+    margin: 0 1px;
+    margin-bottom: -2px;
+    font-size: 12px;
+    font-weight: 600;
 }
 
-label {
-    color: #111111;
+notebook > header > tabs > tab:checked {
+    background-color: rgba(77, 49, 191, 0.12);
+    color: #eceaf6;
+    border-bottom: 2px solid #6e4fd4;
 }
 
-entry {
-    background-color: #ffffff;
-    color: #111111;
-    border: 1px solid #3498db;
-    padding: 6px 10px;
+notebook > header > tabs > tab:hover:not(:checked) {
+    background-color: rgba(26, 15, 66, 0.6);
+    color: #c8c0e8;
+    border-bottom: 2px solid #2a1a55;
 }
 
+notebook > stack {
+    background-color: #0c071c;
+}
+
+/* ---- Text views (query editor, examples) ---- */
 textview {
-    background-color: #ffffff;
-    color: #111111;
-    border: 1px solid #bdc3c7;
-    padding: 8px;
-    font-family: monospace;
+    background-color: #080412;
+    color: #c8c0e8;
+    caret-color: #7c5ce8;
     font-size: 12px;
 }
 
 textview text {
-    background-color: #ffffff;
-    color: #111111;
+    background-color: #080412;
+    color: #c8c0e8;
 }
 
+textview:focus {
+    border-color: #4d31bf;
+}
+
+textview selection {
+    background-color: rgba(77, 49, 191, 0.55);
+    color: #eceaf6;
+}
+
+/* Query builder editor and examples */
+#query-builder-editor,
+#query-builder-editor text {
+    background-color: #080412;
+    color: #c8c0e8;
+}
+
+#query-builder-examples,
+#query-builder-examples text {
+    background-color: #0c071c;
+    color: #a89fcc;
+}
+
+/* ---- Entry fields ---- */
+entry {
+    background-color: #110830;
+    color: #eceaf6;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    padding: 8px 12px;
+    caret-color: #7c5ce8;
+    font-size: 12px;
+    min-height: 20px;
+}
+
+entry:focus {
+    border-color: #4d31bf;
+    border: 2px solid #4d31bf;
+}
+
+entry selection {
+    background-color: rgba(77, 49, 191, 0.55);
+    color: #eceaf6;
+}
+
+/* ---- Buttons ---- */
+button {
+    background-image: none;
+    background-color: #1a0f42;
+    background: #1a0f42;
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    padding: 5px 14px;
+    min-height: 28px;
+    font-weight: 600;
+    font-size: 12px;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+button:hover {
+    background-image: none;
+    background-color: #2a1a55;
+    background: #2a1a55;
+    color: #eceaf6;
+    border-color: #4d31bf;
+    box-shadow: none;
+}
+
+button:active {
+    background-image: none;
+    background-color: #4d31bf;
+    background: #4d31bf;
+    color: #eceaf6;
+    border-color: #7c5ce8;
+    box-shadow: none;
+}
+
+button:disabled {
+    background-image: none;
+    background-color: #0c071c;
+    background: #0c071c;
+    color: #3a2870;
+    border-color: #1f1044;
+    box-shadow: none;
+}
+
+button label {
+    color: inherit;
+}
+
+/* Primary action button */
+#btn-primary {
+    background-image: none;
+    background-color: #4d31bf;
+    background: #4d31bf;
+    color: #eceaf6;
+    border: 1px solid #7c5ce8;
+    font-weight: 700;
+    box-shadow: none;
+}
+
+#btn-primary:hover {
+    background-image: none;
+    background-color: #6e4fd4;
+    background: #6e4fd4;
+    border-color: #9b7ff0;
+    box-shadow: none;
+}
+
+/* Destructive button */
+#btn-destructive {
+    background-image: none;
+    background-color: #2a0e1e;
+    background: #2a0e1e;
+    color: #cc6680;
+    border: 1px solid #662244;
+    box-shadow: none;
+}
+
+#btn-destructive:hover {
+    background-image: none;
+    background-color: #3a1428;
+    background: #3a1428;
+    color: #ee8899;
+    border-color: #993355;
+    box-shadow: none;
+}
+
+#btn-destructive:active {
+    background-image: none;
+    background-color: #883344;
+    background: #883344;
+    color: #eceaf6;
+    box-shadow: none;
+}
+
+/* ---- Tree views (table list, results, data browser) ---- */
 treeview {
-    background-color: #ffffff;
-    color: #111111;
-    border: 1px solid #bdc3c7;
+    background-color: #0c071c;
+    color: #c8c0e8;
+    font-size: 12px;
+    border: none;
+    border-radius: 0;
+}
+
+treeview.view {
+    background-color: #0c071c;
+    color: #c8c0e8;
+}
+
+treeview.view:hover {
+    background-color: #0c071c;
 }
 
 treeview.view:selected {
-    background-color: #3498db;
-    color: #ffffff;
+    background-color: #2a1a55;
+    color: #eceaf6;
+}
+
+treeview.view:selected:focus {
+    background-color: rgba(77, 49, 191, 0.5);
+    color: #eceaf6;
+}
+
+treeview.view cell {
+    background-color: transparent;
+    color: inherit;
+    padding: 5px 10px;
+    border-radius: 0;
+}
+
+treeview.view cell:selected {
+    background-color: transparent;
+    color: #eceaf6;
 }
 
 treeview.view row {
-    border-bottom: 1px solid #ecf0f1;
+    border-bottom: 1px solid rgba(42, 26, 85, 0.35);
+    min-height: 30px;
+    border-radius: 0;
+}
+
+treeview.view row:nth-child(odd) {
+    background-color: #0c071c;
+}
+
+treeview.view row:nth-child(even) {
+    background-color: #110a28;
+}
+
+treeview.view row:hover {
+    background-color: #1a0f42;
+}
+
+treeview.view row:selected {
+    background-color: #2a1a55;
+    color: #eceaf6;
+    border-bottom: 1px solid rgba(77, 49, 191, 0.4);
+}
+
+treeview.view row:selected:focus {
+    background-color: rgba(77, 49, 191, 0.5);
+    color: #eceaf6;
+}
+
+/* Tree view column headers */
+treeview header {
+    background-color: #080412;
+    border-bottom: 2px solid #4d31bf;
 }
 
 treeview header button {
-    background-color: #2c3e50;
-    color: #ffffff;
-    border-right: 1px solid #34495e;
-    padding: 6px 10px;
+    background-image: none;
+    background-color: #080412;
+    background: #080412;
+    color: #a89fcc;
+    border: none;
+    border-right: 1px solid #1f1044;
+    border-radius: 0;
+    padding: 8px 12px;
+    font-weight: 700;
     font-size: 11px;
-    font-weight: bold;
+    box-shadow: none;
+    text-shadow: none;
 }
 
-notebook {
-    background-color: #ecf0f1;
-    border: 1px solid #bdc3c7;
+treeview header button:hover {
+    background-image: none;
+    background-color: #0f0826;
+    background: #0f0826;
+    color: #eceaf6;
+    box-shadow: none;
 }
 
-notebook > header > tabs > tab {
-    background-color: #dfe6e9;
-    color: #2c3e50;
-    border: 1px solid #bdc3c7;
-    padding: 6px 16px;
+treeview header button label {
+    color: inherit;
 }
 
-notebook > header > tabs > tab:checked {
-    background-color: #3498db;
-    color: #ffffff;
+/* ---- Scrolled windows ---- */
+scrolledwindow {
+    background-color: #0c071c;
+    border: none;
 }
 
+scrolledwindow viewport {
+    background-color: #0c071c;
+}
+
+scrolledwindow.frame {
+    border: none;
+}
+
+frame {
+    border: none;
+}
+
+frame > border {
+    border: none;
+}
+
+paned {
+    background-color: #080412;
+}
+
+paned > separator {
+    background-color: #2a1a55;
+    min-width: 1px;
+    min-height: 1px;
+    border: none;
+}
+
+/* ---- Scrollbars ---- */
+scrollbar {
+    background-color: #080412;
+    border: none;
+}
+
+scrollbar slider {
+    background-color: #2a1a55;
+    border: none;
+    border-radius: 6px;
+    min-width: 10px;
+    min-height: 10px;
+}
+
+scrollbar slider:hover {
+    background-color: #4d31bf;
+}
+
+scrollbar slider:active {
+    background-color: #6e4fd4;
+}
+
+scrollbar.horizontal slider {
+    min-height: 10px;
+}
+
+scrollbar.vertical slider {
+    min-width: 10px;
+}
+
+scrollbar trough {
+    background-color: #0a0518;
+    border-radius: 6px;
+    min-width: 12px;
+    min-height: 12px;
+}
+
+/* ---- Status bar ---- */
 statusbar {
-    background-color: #2c3e50;
-    color: #bdc3c7;
-    border-top: 1px solid #34495e;
-    padding: 3px 10px;
+    background-color: #080412;
+    color: #a89fcc;
+    border-top: 1px solid #2a1a55;
+    padding: 4px 12px;
     font-size: 11px;
+    min-height: 24px;
 }
 
 statusbar label {
-    color: #bdc3c7;
+    color: #a89fcc;
 }
 
+/* ---- Labels ---- */
+label {
+    color: #c8c0e8;
+}
+
+toolbar label {
+    color: #a89fcc;
+    font-size: 11px;
+}
+
+treeview header button label {
+    color: #a89fcc;
+}
+
+/* ---- Separators ---- */
+separator {
+    background-color: #2a1a55;
+    min-height: 1px;
+    min-width: 1px;
+}
+
+separator.horizontal {
+    min-height: 1px;
+}
+
+separator.vertical {
+    min-width: 1px;
+}
+
+/* ---- Combo box (recent databases dropdown) ---- */
+combobox button {
+    background-color: #110830;
+    background-image: linear-gradient(to bottom, #160d3a, #110830);
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    padding: 5px 10px;
+    min-height: 28px;
+}
+
+combobox button:hover {
+    background-color: #1e1350;
+    background-image: linear-gradient(to bottom, #1e1350, #160d3a);
+    color: #eceaf6;
+    border-color: #4d31bf;
+}
+
+combobox button:focus {
+    border-color: #4d31bf;
+    border: 2px solid #4d31bf;
+}
+
+combobox arrow {
+    color: #a89fcc;
+    min-width: 16px;
+}
+
+combobox cellview {
+    color: #c8c0e8;
+}
+
+/* Combo popup / dropdown */
+combobox window.popup {
+    background-color: #0c071c;
+    border: 1px solid #4d31bf;
+    border-radius: 4px;
+}
+
+combobox window.popup > frame > treeview {
+    background-color: #0c071c;
+    color: #c8c0e8;
+}
+
+combobox window.popup > frame > treeview:hover {
+    background-color: #1a0f42;
+    color: #eceaf6;
+}
+
+combobox window.popup > frame > treeview:selected {
+    background-color: #4d31bf;
+    color: #eceaf6;
+}
+
+/* ---- Dialogs ---- */
 dialog {
-    background-color: #ffffff;
-    color: #111111;
-    border: 2px solid #3498db;
+    background-color: #110830;
+    color: #eceaf6;
+}
+
+dialog > box,
+dialog > .dialog-vbox {
+    background-color: #110830;
+}
+
+/* Action strip - covers both GTK CSS node names */
+dialog .dialog-action-area,
+dialog actionbar,
+dialog .action-area,
+buttonbox.dialog-action-area {
+    background-color: #0c071c;
+    border-top: 1px solid #2a1a55;
+    padding: 10px 16px;
+}
+
+/* ------------------------------------------------------------------
+ * Dialog / popup buttons.
+ * Use background-image:none + solid background-color so macOS GTK3
+ * native rendering cannot override it (same technique as theme-simple).
+ * Cover every selector path GTK3 uses on macOS.
+ * ------------------------------------------------------------------ */
+
+/* Cancel / default button */
+buttonbox button,
+buttonbox button.text-button,
+dialog button,
+dialog button.text-button,
+dialog .dialog-action-area button,
+dialog .action-area button,
+dialog actionbar button {
+    background-image: none;
+    background-color: #1a0f42;
+    background: #1a0f42;
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    padding: 5px 18px;
+    min-height: 28px;
+    min-width: 80px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 0 4px;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+buttonbox button:hover,
+buttonbox button.text-button:hover,
+dialog button:hover,
+dialog button.text-button:hover,
+dialog .dialog-action-area button:hover,
+dialog .action-area button:hover,
+dialog actionbar button:hover {
+    background-image: none;
+    background-color: #2a1a55;
+    background: #2a1a55;
+    color: #eceaf6;
+    border-color: #4d31bf;
+    box-shadow: none;
+}
+
+buttonbox button:active,
+buttonbox button.text-button:active,
+dialog button:active,
+dialog button.text-button:active,
+dialog .dialog-action-area button:active,
+dialog .action-area button:active,
+dialog actionbar button:active {
+    background-image: none;
+    background-color: #4d31bf;
+    background: #4d31bf;
+    color: #eceaf6;
+    border-color: #7c5ce8;
+    box-shadow: none;
+}
+
+/* Accept / OK / Import - accent purple */
+buttonbox button.suggested-action,
+buttonbox button.text-button.suggested-action,
+dialog button.suggested-action,
+dialog button.text-button.suggested-action,
+dialog .dialog-action-area button.suggested-action,
+dialog .action-area button.suggested-action,
+dialog actionbar button.suggested-action {
+    background-image: none;
+    background-color: #4d31bf;
+    background: #4d31bf;
+    color: #eceaf6;
+    border: 1px solid #7c5ce8;
+    font-weight: 700;
+    box-shadow: none;
+}
+
+buttonbox button.suggested-action:hover,
+buttonbox button.text-button.suggested-action:hover,
+dialog button.suggested-action:hover,
+dialog button.text-button.suggested-action:hover,
+dialog .dialog-action-area button.suggested-action:hover,
+dialog .action-area button.suggested-action:hover,
+dialog actionbar button.suggested-action:hover {
+    background-image: none;
+    background-color: #6e4fd4;
+    background: #6e4fd4;
+    border-color: #9b7ff0;
+    box-shadow: none;
+}
+
+/* Destructive */
+buttonbox button.destructive-action,
+buttonbox button.text-button.destructive-action,
+dialog button.destructive-action,
+dialog .dialog-action-area button.destructive-action,
+dialog .action-area button.destructive-action {
+    background-image: none;
+    background-color: #2a0e1e;
+    background: #2a0e1e;
+    color: #cc6680;
+    border: 1px solid #662244;
+    box-shadow: none;
+}
+
+buttonbox button.destructive-action:hover,
+buttonbox button.text-button.destructive-action:hover,
+dialog button.destructive-action:hover,
+dialog .dialog-action-area button.destructive-action:hover,
+dialog .action-area button.destructive-action:hover {
+    background-image: none;
+    background-color: #3a1428;
+    background: #3a1428;
+    color: #ee8899;
+    border-color: #993355;
+    box-shadow: none;
 }
 
 messagedialog {
-    background-color: #ffffff;
-    color: #111111;
+    background-color: #110830;
+    color: #eceaf6;
+}
+
+messagedialog .dialog-vbox {
+    background-color: #110830;
+    padding: 24px;
+}
+
+messagedialog .dialog-action-area {
+    background-color: #0c071c;
+    border-top: 1px solid #2a1a55;
+    padding: 12px 16px;
 }
 
 messagedialog label {
-    color: #111111;
+    color: #c8c0e8;
     font-size: 13px;
 }
 
-filechooser {
-    background-color: #ffffff;
-    border: 2px solid #3498db;
-    min-width: 800px;
-    min-height: 560px;
+messagedialog label.title {
+    color: #eceaf6;
+    font-size: 15px;
+    font-weight: 700;
 }
 
-filechooser treeview {
-    min-height: 380px;
+/* ---- File chooser dialog ---- */
+filechooser,
+filechooserdialog {
+    background-color: #0c071c;
+}
+
+/* Path bar at top */
+filechooser #pathbarbox,
+filechooser .path-bar-box {
+    background-color: #080412;
+    border-bottom: 1px solid #2a1a55;
+    padding: 6px 8px;
+}
+
+filechooser .path-bar button,
+filechooser #pathbarbox button {
+    background-color: #1a0f42;
+    background-image: linear-gradient(to bottom, #1e1350, #160d3a);
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-radius: 3px;
+    padding: 4px 12px;
+    margin: 0 1px;
+    font-size: 12px;
+}
+
+filechooser .path-bar button:hover,
+filechooser #pathbarbox button:hover {
+    background-color: #2a1a55;
+    background-image: linear-gradient(to bottom, #2a1a55, #1e1350);
+    color: #eceaf6;
+    border-color: #4d31bf;
+}
+
+filechooser .path-bar button:checked,
+filechooser #pathbarbox button:checked {
+    background-color: #1a0f42;
+    background-image: none;
+    color: #eceaf6;
+    border-color: #4d31bf;
+}
+
+/* Places sidebar */
+filechooser placessidebar,
+placessidebar {
+    background-color: #080412;
+    border-right: 1px solid #1f1044;
+    min-width: 180px;
+}
+
+filechooser placessidebar row,
+placessidebar row {
+    background-color: transparent;
+    color: #a89fcc;
+    border: none;
+    border-left: 3px solid transparent;
+    padding: 8px 14px;
+    min-height: 32px;
+    margin: 1px 0;
+}
+
+filechooser placessidebar row:hover,
+placessidebar row:hover {
+    background-color: #110830;
+    color: #eceaf6;
+    border-left: 3px solid #4d31bf;
+}
+
+filechooser placessidebar row:selected,
+placessidebar row:selected {
+    background-color: #1a0f42;
+    color: #eceaf6;
+    border-left: 3px solid #6e4fd4;
+}
+
+filechooser placessidebar row image,
+placessidebar row image {
+    color: #a89fcc;
+}
+
+filechooser placessidebar row:hover image,
+placessidebar row:hover image {
+    color: #c8c0e8;
+}
+
+filechooser placessidebar row:selected image,
+placessidebar row:selected image {
+    color: #eceaf6;
+}
+
+filechooser placessidebar row label,
+placessidebar row label {
+    color: inherit;
+}
+
+filechooser placessidebar > separator,
+placessidebar > separator {
+    background-color: #1f1044;
+    min-height: 1px;
+    margin: 4px 8px;
+}
+
+/* File browser list */
+filechooser treeview,
+filechooser iconview {
+    background-color: #0c071c;
+    color: #c8c0e8;
+}
+
+filechooser treeview:hover,
+filechooser iconview:hover {
+    background-color: #110830;
+}
+
+filechooser treeview:selected,
+filechooser iconview:selected {
+    background-color: rgba(77, 49, 191, 0.4);
+    color: #eceaf6;
+}
+
+/* File name entry at bottom */
+filechooser entry {
+    background-color: #110830;
+    color: #eceaf6;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+filechooser entry:focus {
+    border-color: #4d31bf;
+    border: 2px solid #4d31bf;
+}
+
+/* Filter dropdown */
+filechooser combobox button {
+    background-color: #110830;
+    background-image: linear-gradient(to bottom, #160d3a, #110830);
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* Action area buttons */
+filechooser actionbar,
+filechooserdialog actionbar,
+filechooserdialog .dialog-action-area {
+    background-color: #080412;
+    border-top: 1px solid #2a1a55;
+    padding: 10px 12px;
+}
+
+filechooser actionbar button,
+filechooserdialog .dialog-action-area button {
+    background-color: #1a0f42;
+    background-image: linear-gradient(to bottom, #1e1350, #160d3a);
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    padding: 5px 18px;
+    min-height: 28px;
+    min-width: 90px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 0 4px;
+}
+
+filechooser actionbar button:hover,
+filechooserdialog .dialog-action-area button:hover {
+    background-color: #2a1a55;
+    background-image: linear-gradient(to bottom, #2a1a55, #1e1350);
+    color: #eceaf6;
+    border-color: #4d31bf;
+}
+
+filechooser actionbar button:active,
+filechooserdialog .dialog-action-area button:active {
+    background-color: #4d31bf;
+    background-image: none;
+    color: #eceaf6;
+    border-color: #7c5ce8;
+}
+
+/* "Open" / accept button */
+filechooser actionbar button.suggested-action,
+filechooserdialog .dialog-action-area button.suggested-action {
+    background-color: #4d31bf;
+    background-image: linear-gradient(to bottom, #5a3ad4, #4027b0);
+    color: #eceaf6;
+    border: 1px solid #7c5ce8;
+    font-weight: 700;
+}
+
+filechooser actionbar button.suggested-action:hover,
+filechooserdialog .dialog-action-area button.suggested-action:hover {
+    background-color: #5a3ad4;
+    background-image: linear-gradient(to bottom, #6e4fd4, #5a3ad4);
+    border-color: #9b7ff0;
+}
+
+/* ---- Focus ring ---- */
+*:focus {
+    outline: none;
+}
+
+entry:focus,
+textview:focus,
+button:focus,
+combobox button:focus {
+    border: 2px solid #7c5ce8;
+}
+
+/* ---- Popover ---- */
+popover {
+    background-color: #110830;
+    border: 1px solid #2a1a55;
+    border-radius: 6px;
+}
+
+popover > contents {
+    background-color: #110830;
+    padding: 10px;
+}
+
+/* ---- Tooltip ---- */
+tooltip,
+tooltip.background {
+    background-color: #110830;
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+tooltip label {
+    color: #c8c0e8;
+}
+
+/* ---- Dropdown menus ---- */
+menu {
+    background-color: #0c071c;
+    color: #c8c0e8;
+    border: 1px solid #2a1a55;
+    border-top: 2px solid #4d31bf;
+    border-radius: 0 0 4px 4px;
+}
+
+menuitem {
+    background-color: transparent;
+    color: #c8c0e8;
+    padding: 8px 20px;
+    border-left: 2px solid transparent;
+}
+
+menuitem:hover {
+    background-color: #1a0f42;
+    color: #eceaf6;
+    border-left: 2px solid #4d31bf;
+}
+
+menuitem:disabled {
+    color: #3a2870;
+}
+
+/* ---- Utility classes ---- */
+.status-success {
+    color: #3dbd7d;
+    font-weight: 600;
+}
+
+.status-error {
+    color: #cc3355;
+    font-weight: 600;
+}
+
+.code {
+    background-color: #1a0f42;
+    border: 1px solid #2a1a55;
+    border-radius: 3px;
+    padding: 2px 6px;
+    color: #c8c0e8;
 }

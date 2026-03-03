@@ -1,6 +1,9 @@
 #!/bin/bash
 # Setup script for GTK+ Database Browser
 
+# Always run from the directory the script lives in
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
 echo "============================================================"
 echo "  GTK+ Database Browser - Setup"
 echo "============================================================"
@@ -77,16 +80,29 @@ make clean
 make
 
 if [ -f "build/bin/db-browser" ]; then
+    # Sync both theme files to the build output
+    mkdir -p build/bin/css
+    if [ -f "css/theme.css" ]; then
+        cp css/theme.css build/bin/css/theme.css
+    fi
+    if [ -f "css/theme-simple.css" ]; then
+        cp css/theme-simple.css build/bin/css/theme-simple.css
+        echo "[OK] Light theme synced to build/bin/css/theme-simple.css"
+    fi
+
     echo ""
     echo "============================================================"
     echo "  Setup Complete - Crissy's DB Browser"
     echo "============================================================"
     echo ""
     echo "Binary: build/bin/db-browser"
-    echo "Theme:  css/theme.css"
+    echo "Theme:  build/bin/css/theme.css  (dark, default)"
+    echo "Theme:  build/bin/css/theme-simple.css  (light)"
+    echo "        Use the Dark/Light button in the toolbar to toggle"
     echo ""
     echo "Usage:"
     echo "  ./build/bin/db-browser <database.db>"
+    echo "  ./quick-launch.sh"
     echo ""
     echo "============================================================"
 else
