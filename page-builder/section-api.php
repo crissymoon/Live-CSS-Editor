@@ -187,6 +187,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         error_log('[section-api] Migrated manifest written for page: ' . $page);
     }
 
+    // Augment each manifest entry with settings.bg (and settings.padding) read
+    // from the section file so the composer can show the bg colour chip without
+    // a separate per-section API call.
+    foreach ($manifest['sections'] as &$entry) {
+        $sFile = $pageDir . '/' . ($entry['file'] ?? '');
+        if ($sFile && file_exists($sFile)) {
+            $sRaw = file_get_contents($sFile);
+            if ($sRaw !== false) {
+                $sData = json_decode($sRaw, true);
+                if (is_array($sData)) {
+                    $entry['settings_bg']      = $sData['settings']['bg']      ?? '';
+                    $entry['settings_padding'] = $sData['settings']['padding'] ?? '';
+                }
+            }
+        }
+    }
+    unset($entry); // break reference
+
     apiOk(['data' => $manifest]);
 }
 
@@ -404,6 +422,69 @@ if ($action === 'update_section_json') {
 
     error_log('[section-api] Updated JSON for section id=' . $id . ' file=' . $entry['file'] . ' page=' . $page);
     apiOk(['id' => $id, 'file' => $entry['file']]);
+}
+
+// ---- POST: patch_section_setting ----------------------------------------- //
+// Updates a single field inside the top-level "settings" object of a section
+// file without replacing the whole content.
+// Body: { "id": "pb-sec-abc", "setting": "bg", "value": "#0a0a14" }
+if ($action === 'patch_section_setting') {
+    $id      = $body['id']      ?? '';
+    $setting = $body['setting'] ?? '';
+    $value   = $body['value']   ?? null;
+
+    if (!$id || !$setting || $value === null) {
+        apiErr('"id", "setting", and "value" are required');
+    }
+
+    // Allow only simple setting keys (letters, digits, underscore)
+    if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $setting)) {
+        apiErr('Invalid "setting" key: ' . $setting);
+    }
+
+    $manifest = loadPageManifest($pageDir);
+    $entry    = null;
+    foreach ($manifest['sections'] as $s) {
+        if ($s['id'] === $id) { $entry = $s; break; }
+    }
+    if (!$entry) {
+        apiErr('Section not found: ' . $id, 404);
+    }
+
+    // Guard against path traversal
+    $file = $entry['file'];
+    if (strpos($file, '/') !== false || strpos($file, '..') !== false) {
+        apiErr('Invalid section file path', 400);
+    }
+
+    $filePath = $pageDir . '/' . $file;
+    if (!file_exists($filePath)) {
+        apiErr('Section file not found on disk: ' . $file, 404);
+    }
+
+    $raw  = file_get_contents($filePath);
+    $data = $raw !== false ? json_decode($raw, true) : null;
+    if (!is_array($data)) {
+        apiErr('Cannot read or parse section file: ' . $file, 500);
+    }
+
+    // Sanitise value - strip tags; max 500 chars
+    $value = strip_tags((string) $value);
+    if (strlen($value) > 500) {
+        apiErr('"value" exceeds maximum length');
+    }
+
+    if (!isset($data['settings']) || !is_array($data['settings'])) {
+        $data['settings'] = [];
+    }
+    $data['settings'][$setting] = $value;
+
+    if (file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) === false) {
+        apiErr('Cannot write section file: ' . $file, 500);
+    }
+
+    error_log('[section-api] patch_section_setting id=' . $id . ' setting=' . $setting . ' page=' . $page);
+    apiOk(['id' => $id, 'setting' => $setting, 'value' => $value]);
 }
 
 // ---- POST: rename_section ------------------------------------------------- //

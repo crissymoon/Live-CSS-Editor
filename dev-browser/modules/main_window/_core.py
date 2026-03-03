@@ -310,18 +310,27 @@ class MainWindow(
         # a macOS Qt bug where removing a createWindowContainer widget (used
         # by WKBrowserTab to embed the native NSView) while it is the last
         # tab corrupts the main window's native view hierarchy.
-        self.add_new_tab(QUrl(url_str) if url_str else None, label, engine=new_engine)
-        new_idx = self.tabs.currentIndex()  # add_new_tab always sets current to new tab
+        #
+        # Suppress repaints during the add/move/remove sequence so the UI
+        # does not flash or snap to the intermediate states (the new empty
+        # tab and the tab-bar slide).  Re-enable updates before the single
+        # final setCurrentIndex so the transition is one clean repaint.
+        self.tabs.setUpdatesEnabled(False)
+        self.add_new_tab(QUrl(url_str) if url_str else None, label, engine=new_engine,
+                         make_current=False)
+        new_idx = self.tabs.count() - 1  # add_new_tab appended without switching
         # Slide the new tab into the slot the old tab occupied so tab order
         # is preserved (new_idx > idx because add_new_tab appends at end).
         self.tabs.tabBar().moveTab(new_idx, idx)
-        self.tabs.setCurrentIndex(idx)
-        # After the move the old tab sits at idx + 1; remove it.
+        # After moveTab the old tab shifted right to idx + 1; remove it.
         self.tabs.removeTab(idx + 1)
         self._loading_tabs.discard(id(browser))
         if hasattr(browser, 'cleanup'):
             browser.cleanup()
         browser.deleteLater()
+        self.tabs.setUpdatesEnabled(True)
+        # One clean repaint: make the new tab current now that everything is settled.
+        self.tabs.setCurrentIndex(idx)
 
     def _update_engine_btn(self, tab=None):
         """Refresh the engine button label and window title."""
@@ -445,15 +454,19 @@ class MainWindow(
             pass
         # Add the WK tab first so count never drops to zero (avoids the
         # macOS Qt native-view corruption that can blank the main window).
-        self.add_new_tab(QUrl(url_str), label, engine='wk')
-        new_idx = self.tabs.currentIndex()
+        # Suppress repaints during the swap for the same reason as
+        # _switch_engine – prevents the pop/snap of intermediate states.
+        self.tabs.setUpdatesEnabled(False)
+        self.add_new_tab(QUrl(url_str), label, engine='wk', make_current=False)
+        new_idx = self.tabs.count() - 1
         self.tabs.tabBar().moveTab(new_idx, idx)
-        self.tabs.setCurrentIndex(idx)
         self.tabs.removeTab(idx + 1)
         self._loading_tabs.discard(id(browser))
         if hasattr(browser, 'cleanup'):
             browser.cleanup()
         browser.deleteLater()
+        self.tabs.setUpdatesEnabled(True)
+        self.tabs.setCurrentIndex(idx)
 
     # ── DevTools ──────────────────────────────────────────────────
 
@@ -554,7 +567,7 @@ class MainWindow(
 
     # ── Tabs ──────────────────────────────────────────────────────
 
-    def add_new_tab(self, qurl=None, label='New Tab', engine=None):
+    def add_new_tab(self, qurl=None, label='New Tab', engine=None, make_current=True):
         if engine is None:
             engine = self._force_engine if self._force_engine is not None else self._engine_for_url(qurl)
 
@@ -573,7 +586,8 @@ class MainWindow(
             browser.setUrl(QUrl('http://localhost:8080/pb_admin/login.php'))
 
         i = self.tabs.addTab(browser, label)
-        self.tabs.setCurrentIndex(i)
+        if make_current:
+            self.tabs.setCurrentIndex(i)
 
         browser.urlChanged.connect(lambda u, b=browser: self.update_urlbar(u, b))
         if engine != 'wk':

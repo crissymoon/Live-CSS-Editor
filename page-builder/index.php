@@ -434,16 +434,22 @@ $projectConfig['slugs'] = is_array($projectConfig['slugs'] ?? null) ? $projectCo
         .stage-log .log-info { color: var(--pb-text-faint); }
 
         .page-card-actions {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 6px;
-            flex-wrap: wrap;
         }
 
         .page-card-actions .btn {
             font-size: 11px;
             padding: 5px 10px;
-            flex: 1;
             justify-content: center;
+        }
+
+        /* Full-width actions that should not share a row */
+        .page-card-actions .btn-blocked,
+        .page-card-actions .btn-block-toggle,
+        .page-card-actions .btn-landing-set {
+            grid-column: 1 / -1;
         }
 
         /* ---- Empty state ---- */
@@ -512,9 +518,11 @@ $projectConfig['slugs'] = is_array($projectConfig['slugs'] ?? null) ? $projectCo
 
 <header>
     <h1><span>&gt;</span> page-builder</h1>
-    <div class="header-actions">        <button class="btn btn-primary" id="pb-stage-btn" onclick="stageAll()">stage all</button>        <button class="pb-theme-toggle" id="pb-idx-theme-btn" onclick="toggleTheme()" style="font-size:11px;padding:4px 10px;">light mode</button>
-        <a href="/pb_admin/dashboard.php" class="back-link">← admin dashboard</a>
-        <a href="../index.php" class="back-link">← style tool</a>
+    <div class="header-actions">
+        <button class="btn btn-primary" id="pb-stage-btn" onclick="stageAll()">stage all</button>
+        <button class="btn" id="pb-idx-theme-btn" onclick="toggleTheme()">light mode</button>
+        <a href="/pb_admin/dashboard.php" class="back-link">admin dashboard</a>
+        <a href="../index.php" class="back-link">style tool</a>
     </div>
 </header>
 

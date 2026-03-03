@@ -416,6 +416,41 @@ if (is_dir($toolsDir)) {
 </head>
 <body>
 
+<script>
+/* -- Shared globals declared here so tool <script> blocks that run during
+   HTML parsing can call registerTool() and apiFetch() safely. ---------- */
+var toolRefreshHandlers = {};
+
+function registerTool(id, fn) {
+    toolRefreshHandlers[id] = fn;
+}
+
+function refreshTool(id) {
+    var handler = toolRefreshHandlers[id];
+    if (typeof handler === 'function') {
+        console.log('[pb_admin/dashboard] refreshing tool:', id);
+        handler();
+    } else {
+        console.warn('[pb_admin/dashboard] no refresh handler registered for tool:', id);
+    }
+}
+
+function apiFetch(action, params, cb) {
+    var qs = Object.keys(params || {}).map(function(k) {
+        return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    }).join('&');
+    var url = 'api_proxy.php?action=' + encodeURIComponent(action) + (qs ? '&' + qs : '');
+    console.log('[pb_admin] apiFetch:', url);
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(d) { cb(null, d); })
+        .catch(function(e) {
+            console.error('[pb_admin] apiFetch error:', action, e);
+            cb(e, null);
+        });
+}
+</script>
+
 <header>
     <div class="header-left">
         <h1><span>&gt;</span> <?= htmlspecialchars(APP_NAME) ?></h1>
@@ -530,39 +565,6 @@ if (is_dir($toolsDir)) {
     // Sync button label to current theme on load
     applyTheme(getTheme());
 })();
-
-/* ── Tool refresh registry ───────────────────────────────────────────────── */
-var toolRefreshHandlers = {};
-
-function registerTool(id, fn) {
-    toolRefreshHandlers[id] = fn;
-}
-
-function refreshTool(id) {
-    var handler = toolRefreshHandlers[id];
-    if (typeof handler === 'function') {
-        console.log('[pb_admin/dashboard] refreshing tool:', id);
-        handler();
-    } else {
-        console.warn('[pb_admin/dashboard] no refresh handler registered for tool:', id);
-    }
-}
-
-/* ── Shared fetch helper ─────────────────────────────────────────────────── */
-function apiFetch(action, params, cb) {
-    var qs = Object.keys(params || {}).map(function(k) {
-        return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
-    }).join('&');
-    var url = 'api_proxy.php?action=' + encodeURIComponent(action) + (qs ? '&' + qs : '');
-    console.log('[pb_admin] apiFetch:', url);
-    fetch(url)
-        .then(function(r) { return r.json(); })
-        .then(function(d) { cb(null, d); })
-        .catch(function(e) {
-            console.error('[pb_admin] apiFetch error:', action, e);
-            cb(e, null);
-        });
-}
 
 /* ── Clock ───────────────────────────────────────────────────────────────── */
 function updateClock() {

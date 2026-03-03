@@ -194,6 +194,18 @@
             var isSelected = (s.id === PBC.selectedId);
             var rowCls = 'pbc-sec-row' + (isSelected ? ' selected' : '');
             var editActive = isSelected ? ' active' : '';
+
+            // Background colour chip - shows section's settings.bg, click to edit 
+            var bgColor = s.settings_bg || '';
+            var chipStyle = bgColor
+                ? 'background:' + escHtml(bgColor) + ';'
+                : 'background:repeating-linear-gradient(45deg,#2a2a3a 0 3px,#1a1a2a 3px 6px);';
+            var bgTitle = bgColor ? 'bg: ' + bgColor : 'no background set — click to add';
+            var bgChip = '<button class="pbc-sec-bg-chip" style="' + chipStyle + '"'
+                + ' onclick="PBC.openBgEdit(\'' + escHtml(s.id) + '\',this)"'
+                + ' title="' + escHtml(bgTitle) + '">'
+                + '</button>';
+
             html += '<div class="' + rowCls + '" id="row-' + escHtml(s.id) + '" draggable="true" data-sec-id="' + escHtml(s.id) + '">'
                 + '<div class="pbc-sec-handle" title="Drag to reorder">&#8597;</div>'
                 + '<div class="pbc-sec-info">'
@@ -201,6 +213,7 @@
                 +   typeBadge(s.type)
                 +   '<span class="pbc-sec-file">' + escHtml(s.file) + '</span>'
                 + '</div>'
+                + '<div class="pbc-sec-controls">' + bgChip + '</div>'
                 + '<div class="pbc-sec-actions">'
                 +   '<button class="pbc-sec-btn' + editActive + '" onclick="PBC.selectSection(\'' + escHtml(s.id) + '\')" title="Edit JSON">edit JSON</button>'
                 +   '<button class="pbc-sec-btn" onclick="PBC.renameSection(\'' + escHtml(s.id) + '\')" title="Rename">rename</button>'
@@ -212,6 +225,115 @@
         wrap.innerHTML = html;
         bindDragDrop();
     }
+
+    /* ========== Section background quick-edit ============================== */
+
+    // _bgPop: currently open bg popover element, so we can close it
+    PBC._bgPop = null;
+
+    PBC.openBgEdit = function (sectionId, chipEl) {
+        // Close any already-open popover
+        if (PBC._bgPop) {
+            PBC._bgPop.remove();
+            PBC._bgPop = null;
+        }
+
+        var section = PBC.manifest.sections.find(function (s) { return s.id === sectionId; });
+        if (!section) {
+            console.error('[pb-composer] openBgEdit: section not found', sectionId);
+            return;
+        }
+
+        var currentBg = section.settings_bg || '#0a0a14';
+
+        // Build popover
+        var pop = document.createElement('div');
+        pop.className = 'pbc-bg-pop';
+        pop.innerHTML =
+            '<div class="pbc-bg-pop-row">'
+          +   '<input type="color" id="pbc-bg-swatch" value="' + escHtml(currentBg) + '">'
+          +   '<input type="text"  id="pbc-bg-hex"    value="' + escHtml(currentBg) + '" placeholder="#rrggbb" maxlength="7">'
+          +   '<button class="pbc-sec-btn" id="pbc-bg-save"  title="Apply">apply</button>'
+          +   '<button class="pbc-sec-btn" id="pbc-bg-close" title="Cancel">✕</button>'
+          + '</div>';
+
+        // Position below the chip (position:fixed uses viewport coords)
+        document.body.appendChild(pop);
+        var chipRect = chipEl.getBoundingClientRect();
+        var popW = 200;
+        var left = Math.min(chipRect.left, window.innerWidth - popW - 8);
+        pop.style.top  = (chipRect.bottom + 4) + 'px';
+        pop.style.left = Math.max(8, left) + 'px';
+
+        var swatch = pop.querySelector('#pbc-bg-swatch');
+        var hexInp = pop.querySelector('#pbc-bg-hex');
+        var saveBtn = pop.querySelector('#pbc-bg-save');
+        var closeBtn = pop.querySelector('#pbc-bg-close');
+
+        // Sync swatch ↔ hex
+        swatch.addEventListener('input', function () {
+            hexInp.value = swatch.value;
+        });
+        hexInp.addEventListener('input', function () {
+            if (/^#[0-9a-fA-F]{6}$/.test(hexInp.value)) {
+                swatch.value = hexInp.value;
+            }
+        });
+
+        saveBtn.addEventListener('click', function () {
+            var color = /^#[0-9a-fA-F]{6}$/.test(hexInp.value) ? hexInp.value : swatch.value;
+            PBC.saveBgSetting(sectionId, color, chipEl);
+            pop.remove();
+            PBC._bgPop = null;
+        });
+
+        closeBtn.addEventListener('click', function () {
+            pop.remove();
+            PBC._bgPop = null;
+        });
+
+        // Close on outside click
+        function onOutside(e) {
+            if (!pop.contains(e.target) && e.target !== chipEl) {
+                pop.remove();
+                PBC._bgPop = null;
+                document.removeEventListener('mousedown', onOutside);
+            }
+        }
+        setTimeout(function () { document.addEventListener('mousedown', onOutside); }, 0);
+
+        PBC._bgPop = pop;
+        swatch.focus();
+    };
+
+    PBC.saveBgSetting = function (sectionId, color, chipEl) {
+        console.log('[pb-composer] saveBgSetting id=' + sectionId + ' color=' + color);
+        showStatus('saving bg...');
+
+        apiPost(
+            'section-api.php?action=patch_section_setting&page=' + encodeURIComponent(PBC.page),
+            { id: sectionId, setting: 'bg', value: color },
+            function (e, d) {
+                if (e || !d || !d.ok) {
+                    var msg = (d && d.error) ? d.error : (e ? e.message : 'unknown error');
+                    showStatus('bg save failed', 'err');
+                    showMsg('Background save failed: ' + msg, 'err');
+                    console.error('[pb-composer] saveBgSetting error:', msg);
+                    return;
+                }
+                // Update in-memory manifest
+                var section = PBC.manifest.sections.find(function (s) { return s.id === sectionId; });
+                if (section) section.settings_bg = color;
+                // Update chip colour live
+                if (chipEl) {
+                    chipEl.style.background = color;
+                    chipEl.title = 'bg: ' + color;
+                }
+                showStatus('bg saved', 'ok');
+                showMsg('Background updated — rebuild to apply', 'ok');
+            }
+        );
+    };
 
     /* ========== Drag and drop ============================================== */
 

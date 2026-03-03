@@ -152,6 +152,58 @@ switch ($action) {
         $resp = xcm_request('PATCH', '/admin/users/' . $id, ['is_active' => true], access_token());
         echo json_encode($resp);
         break;
+
+    // ── Dev tools: launch db-browser in a Terminal window ────────────────
+    case 'launch_db_browser':
+        if (!is_logged_in()) {
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'error' => 'not authenticated']);
+            break;
+        }
+        $scriptPath = '/Users/mac/Documents/live-css/dev-tools/db-browser/quick-launch.sh';
+        if (!file_exists($scriptPath)) {
+            echo json_encode(['ok' => false, 'error' => 'quick-launch.sh not found at ' . $scriptPath]);
+            break;
+        }
+        // Open a new macOS Terminal window and run the interactive quick-launch script
+        $escapedPath = escapeshellarg($scriptPath);
+        $cmd = 'osascript -e \'tell application "Terminal" to do script ' . escapeshellarg($scriptPath) . '\' > /dev/null 2>&1 &';
+        exec('osascript -e \'tell application "Terminal" to do script "' . addslashes($scriptPath) . '" activate\' > /dev/null 2>&1 &');
+        error_log('[pb_admin/api_proxy] launch_db_browser: opened Terminal with ' . $scriptPath);
+        echo json_encode(['ok' => true, 'msg' => 'Terminal opened']);
+        break;
+
+    // ── Dev tools: db-browser status ─────────────────────────────────────
+    case 'db_browser_status':
+        if (!is_logged_in()) {
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'error' => 'not authenticated']);
+            break;
+        }
+        $binPath    = '/Users/mac/Documents/live-css/dev-tools/db-browser/build/bin/db-browser';
+        $scriptPath = '/Users/mac/Documents/live-css/dev-tools/db-browser/quick-launch.sh';
+        $dbFiles    = [];
+        $dbScan     = [
+            '/Users/mac/Documents/live-css/xcm-editor.db',
+            '/Users/mac/Documents/live-css/debug-tool/db/errors.db',
+            '/Users/mac/Documents/live-css/xcm_auth/xcm_auth_dev.db',
+            '/Users/mac/Documents/live-css/vscode-bridge/data/projects.db',
+            '/Users/mac/Documents/live-css/ai/data/phrases.db',
+        ];
+        foreach ($dbScan as $p) {
+            if (file_exists($p)) {
+                $dbFiles[] = ['path' => $p, 'name' => basename($p), 'size' => filesize($p)];
+            }
+        }
+        echo json_encode([
+            'ok'         => true,
+            'binary_ok'  => file_exists($binPath),
+            'script_ok'  => file_exists($scriptPath),
+            'binary_path'=> $binPath,
+            'db_files'   => $dbFiles,
+        ]);
+        break;
+
     default:
         http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'unknown action: ' . htmlspecialchars($action)]);

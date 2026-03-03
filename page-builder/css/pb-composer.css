@@ -253,6 +253,74 @@
 .pbc-sec-btn.active              { background: var(--pb-acc-bg2); border-color: var(--pb-border-acc2); color: var(--pb-acc-text); }
 .pbc-sec-btn.danger:hover        { background: var(--pb-err-bg); border-color: var(--pb-err-border); color: var(--pb-err); }
 
+/* Section background chip + controls column */
+.pbc-sec-controls {
+    display:     flex;
+    align-items: center;
+    padding:     0 8px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--pb-border);
+}
+
+/* Small coloured square showing the section's background colour.
+   Clicking it opens the bg quick-edit popover. */
+.pbc-sec-bg-chip {
+    width:   20px;
+    height:  20px;
+    border:  1px solid rgba(255, 255, 255, 0.15);
+    cursor:  pointer;
+    flex-shrink: 0;
+    transition: border-color 0.12s, box-shadow 0.12s;
+    padding: 0;
+}
+.pbc-sec-bg-chip:hover {
+    border-color: var(--pb-border-acc);
+    box-shadow: 0 0 0 2px var(--pb-acc-bg);
+}
+.pbc-sec-bg-chip:focus-visible {
+    outline: 2px solid var(--pb-acc);
+    outline-offset: 2px;
+}
+
+/* Floating bg colour popover */
+.pbc-bg-pop {
+    position:   fixed;
+    z-index:    2000;
+    background: var(--pb-bg-3);
+    border:     1px solid var(--pb-border-2);
+    box-shadow: var(--pb-shadow-lg);
+    padding:    8px;
+    min-width:  200px;
+}
+.pbc-bg-pop-row {
+    display:     flex;
+    align-items: center;
+    gap:         6px;
+}
+.pbc-bg-pop-row input[type="color"] {
+    width:   32px;
+    height:  28px;
+    border:  1px solid var(--pb-border-2);
+    background: var(--pb-bg-input);
+    cursor:  pointer;
+    padding: 2px;
+    flex-shrink: 0;
+}
+.pbc-bg-pop-row input[type="text"] {
+    flex:       1;
+    background: var(--pb-bg-input);
+    border:     1px solid var(--pb-border-2);
+    color:      var(--pb-text);
+    font-family: inherit;
+    font-size:  12px;
+    padding:    4px 6px;
+    outline:    none;
+    min-width:  0;
+}
+.pbc-bg-pop-row input[type="text"]:focus {
+    border-color: var(--pb-border-acc);
+}
+
 /* ---- Right panel: JSON Editor -------------------------------------------- */
 .pbc-json-panel {
     width:        340px;

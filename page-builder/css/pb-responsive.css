@@ -14,8 +14,10 @@
     grid-template-columns: 1fr !important;
 }
 
-/* Give collapsed column-layout sections tighter padding */
-.pb-collapsed {
+/* Give collapsed column-layout sections tighter gutters on the inner
+   content div (not the wrapper) so the full-bleed background is
+   preserved while content margins tighten on narrow containers. */
+.pb-collapsed > div {
     padding-left: 16px !important;
     padding-right: 16px !important;
 }
