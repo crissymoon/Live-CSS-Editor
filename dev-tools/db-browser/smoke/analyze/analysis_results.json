@@ -1,31 +1,31 @@
 {
   "metadata": {
-    "analysis_date": "2026-03-03T15:00:54.770499",
+    "analysis_date": "2026-03-03T15:32:31.339226",
     "project_root": "/Users/mac/Documents/live-css/dev-tools/db-browser",
     "analyzer_version": "1.0.0",
     "stats": {
-      "total_files": 76,
-      "total_lines": 14357,
-      "code_lines": 10673,
-      "comment_lines": 1271,
-      "blank_lines": 2413,
+      "total_files": 87,
+      "total_lines": 17299,
+      "code_lines": 12760,
+      "comment_lines": 1578,
+      "blank_lines": 2961,
       "files_by_type": {
-        "C": 31,
-        "Header": 23,
-        "Python": 9,
+        "C": 35,
+        "Header": 26,
+        "Python": 10,
         "Shell": 5,
-        "Markdown": 8
+        "Markdown": 11
       },
       "lines_by_directory": {}
     }
   },
   "complexity": {
     "metrics": {
-      "total_functions": 255,
-      "average_complexity": 4.447058823529412,
+      "total_functions": 313,
+      "average_complexity": 4.5495207667731625,
       "max_complexity": 34,
-      "high_complexity_count": 10,
-      "average_function_length": 25.050980392156863,
+      "high_complexity_count": 12,
+      "average_function_length": 24.03514376996805,
       "long_function_count": 12
     },
     "files": [
@@ -220,7 +220,7 @@
         "functions": [
           {
             "name": "db_manager_create",
-            "line": 8,
+            "line": 9,
             "lines": 15,
             "complexity": 2,
             "max_nesting": 2,
@@ -228,7 +228,7 @@
           },
           {
             "name": "db_manager_destroy",
-            "line": 25,
+            "line": 26,
             "lines": 11,
             "complexity": 3,
             "max_nesting": 2,
@@ -236,15 +236,15 @@
           },
           {
             "name": "db_manager_open",
-            "line": 38,
-            "lines": 17,
-            "complexity": 4,
+            "line": 39,
+            "lines": 22,
+            "complexity": 5,
             "max_nesting": 2,
             "parameter_count": 1
           },
           {
             "name": "db_manager_close",
-            "line": 57,
+            "line": 63,
             "lines": 12,
             "complexity": 4,
             "max_nesting": 2,
@@ -252,7 +252,7 @@
           },
           {
             "name": "db_manager_is_open",
-            "line": 71,
+            "line": 77,
             "lines": 3,
             "complexity": 2,
             "max_nesting": 1,
@@ -260,7 +260,7 @@
           },
           {
             "name": "db_manager_begin_transaction",
-            "line": 76,
+            "line": 82,
             "lines": 18,
             "complexity": 7,
             "max_nesting": 3,
@@ -268,7 +268,7 @@
           },
           {
             "name": "db_manager_commit",
-            "line": 96,
+            "line": 102,
             "lines": 19,
             "complexity": 7,
             "max_nesting": 3,
@@ -276,7 +276,7 @@
           },
           {
             "name": "db_manager_rollback",
-            "line": 117,
+            "line": 123,
             "lines": 17,
             "complexity": 6,
             "max_nesting": 2,
@@ -284,15 +284,15 @@
           },
           {
             "name": "get_tables_callback",
-            "line": 136,
-            "lines": 16,
-            "complexity": 3,
-            "max_nesting": 2,
+            "line": 142,
+            "lines": 21,
+            "complexity": 5,
+            "max_nesting": 3,
             "parameter_count": 4
           },
           {
             "name": "db_manager_get_tables",
-            "line": 154,
+            "line": 165,
             "lines": 25,
             "complexity": 6,
             "max_nesting": 2,
@@ -300,15 +300,15 @@
           },
           {
             "name": "get_columns_callback",
-            "line": 181,
-            "lines": 17,
-            "complexity": 4,
+            "line": 192,
+            "lines": 18,
+            "complexity": 5,
             "max_nesting": 2,
             "parameter_count": 4
           },
           {
             "name": "db_manager_get_columns",
-            "line": 200,
+            "line": 212,
             "lines": 30,
             "complexity": 7,
             "max_nesting": 2,
@@ -316,7 +316,7 @@
           },
           {
             "name": "db_manager_create_table",
-            "line": 232,
+            "line": 244,
             "lines": 58,
             "complexity": 17,
             "max_nesting": 3,
@@ -324,7 +324,7 @@
           },
           {
             "name": "db_manager_drop_table",
-            "line": 292,
+            "line": 304,
             "lines": 21,
             "complexity": 7,
             "max_nesting": 2,
@@ -332,7 +332,7 @@
           },
           {
             "name": "db_manager_rename_table",
-            "line": 315,
+            "line": 327,
             "lines": 19,
             "complexity": 8,
             "max_nesting": 2,
@@ -340,15 +340,15 @@
           },
           {
             "name": "db_manager_execute_query",
-            "line": 336,
-            "lines": 49,
-            "complexity": 12,
-            "max_nesting": 3,
+            "line": 348,
+            "lines": 84,
+            "complexity": 20,
+            "max_nesting": 5,
             "parameter_count": 2
           },
           {
             "name": "db_manager_get_table_row_count",
-            "line": 387,
+            "line": 434,
             "lines": 21,
             "complexity": 6,
             "max_nesting": 2,
@@ -356,7 +356,7 @@
           },
           {
             "name": "db_manager_get_database_size",
-            "line": 410,
+            "line": 457,
             "lines": 20,
             "complexity": 5,
             "max_nesting": 2,
@@ -364,7 +364,7 @@
           },
           {
             "name": "db_manager_get_last_error",
-            "line": 432,
+            "line": 479,
             "lines": 4,
             "complexity": 2,
             "max_nesting": 1,
@@ -372,7 +372,7 @@
           },
           {
             "name": "db_manager_is_valid_identifier",
-            "line": 438,
+            "line": 485,
             "lines": 26,
             "complexity": 11,
             "max_nesting": 2,
@@ -380,7 +380,7 @@
           },
           {
             "name": "db_manager_is_valid_type",
-            "line": 466,
+            "line": 513,
             "lines": 13,
             "complexity": 4,
             "max_nesting": 2,
@@ -388,7 +388,7 @@
           },
           {
             "name": "db_manager_free_table_info",
-            "line": 481,
+            "line": 528,
             "lines": 23,
             "complexity": 6,
             "max_nesting": 4,
@@ -396,7 +396,7 @@
           },
           {
             "name": "db_manager_free_column_info",
-            "line": 506,
+            "line": 553,
             "lines": 10,
             "complexity": 2,
             "max_nesting": 2,
@@ -404,14 +404,330 @@
           },
           {
             "name": "db_manager_free_query_result",
-            "line": 518,
+            "line": 565,
             "lines": 25,
             "complexity": 8,
             "max_nesting": 5,
             "parameter_count": 1
           }
         ],
-        "lines": 542
+        "lines": 589
+      },
+      {
+        "path": "core/table_versioning.c",
+        "functions": [
+          {
+            "name": "execute_sql",
+            "line": 15,
+            "lines": 12,
+            "complexity": 3,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_init",
+            "line": 32,
+            "lines": 33,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "versioning_is_enabled",
+            "line": 66,
+            "lines": 21,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_enable",
+            "line": 88,
+            "lines": 15,
+            "complexity": 5,
+            "max_nesting": 1,
+            "parameter_count": 3
+          },
+          {
+            "name": "versioning_disable",
+            "line": 104,
+            "lines": 10,
+            "complexity": 3,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_get_current_version",
+            "line": 149,
+            "lines": 22,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 192,
+            "lines": 15,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "versioning_get_history",
+            "line": 213,
+            "lines": 77,
+            "complexity": 13,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_get_latest",
+            "line": 291,
+            "lines": 8,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_get_schema_sql",
+            "line": 304,
+            "lines": 24,
+            "complexity": 6,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_parse_columns",
+            "line": 329,
+            "lines": 48,
+            "complexity": 16,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_has_schema_changed",
+            "line": 378,
+            "lines": 19,
+            "complexity": 5,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_validate_schema",
+            "line": 398,
+            "lines": 9,
+            "complexity": 5,
+            "max_nesting": 1,
+            "parameter_count": 2
+          },
+          {
+            "name": "versioning_free_version",
+            "line": 412,
+            "lines": 10,
+            "complexity": 6,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "versioning_free_history",
+            "line": 423,
+            "lines": 16,
+            "complexity": 5,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "versioning_free_diff",
+            "line": 440,
+            "lines": 28,
+            "complexity": 12,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "versioning_free_stats",
+            "line": 469,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 471
+      },
+      {
+        "path": "core/search_helpers.c",
+        "functions": [
+          {
+            "name": "if",
+            "line": 23,
+            "lines": 3,
+            "complexity": 6,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 31,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 66,
+            "lines": 9,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "for",
+            "line": 82,
+            "lines": 23,
+            "complexity": 7,
+            "max_nesting": 5,
+            "parameter_count": 1
+          },
+          {
+            "name": "search_find_node",
+            "line": 109,
+            "lines": 10,
+            "complexity": 4,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 125,
+            "lines": 3,
+            "complexity": 5,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 133,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 177,
+            "lines": 9,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 200,
+            "lines": 3,
+            "complexity": 5,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 208,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 255,
+            "lines": 9,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 277,
+            "lines": 3,
+            "complexity": 5,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 285,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 321,
+            "lines": 9,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 345,
+            "lines": 3,
+            "complexity": 6,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 372,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 381,
+            "lines": 14,
+            "complexity": 5,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "search_free_tree_result",
+            "line": 405,
+            "lines": 16,
+            "complexity": 5,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "search_free_tree_node",
+            "line": 422,
+            "lines": 10,
+            "complexity": 6,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "search_free_string_array",
+            "line": 433,
+            "lines": 8,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "if",
+            "line": 445,
+            "lines": 3,
+            "complexity": 4,
+            "max_nesting": 1,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 467
       },
       {
         "path": "core/db_crypto.c",
@@ -776,7 +1092,15 @@
           },
           {
             "name": "if",
-            "line": 240,
+            "line": 223,
+            "lines": 7,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 250,
             "lines": 14,
             "complexity": 5,
             "max_nesting": 4,
@@ -784,7 +1108,7 @@
           },
           {
             "name": "if",
-            "line": 263,
+            "line": 273,
             "lines": 3,
             "complexity": 4,
             "max_nesting": 1,
@@ -792,15 +1116,15 @@
           },
           {
             "name": "if",
-            "line": 286,
-            "lines": 26,
-            "complexity": 7,
-            "max_nesting": 5,
+            "line": 296,
+            "lines": 29,
+            "complexity": 8,
+            "max_nesting": 6,
             "parameter_count": 1
           },
           {
             "name": "if",
-            "line": 316,
+            "line": 329,
             "lines": 3,
             "complexity": 2,
             "max_nesting": 1,
@@ -808,7 +1132,7 @@
           },
           {
             "name": "db_transfer_open_for_use",
-            "line": 324,
+            "line": 337,
             "lines": 37,
             "complexity": 7,
             "max_nesting": 3,
@@ -816,7 +1140,7 @@
           },
           {
             "name": "if",
-            "line": 366,
+            "line": 379,
             "lines": 3,
             "complexity": 4,
             "max_nesting": 1,
@@ -824,7 +1148,7 @@
           },
           {
             "name": "if",
-            "line": 373,
+            "line": 386,
             "lines": 5,
             "complexity": 3,
             "max_nesting": 1,
@@ -832,7 +1156,7 @@
           },
           {
             "name": "if",
-            "line": 381,
+            "line": 394,
             "lines": 3,
             "complexity": 2,
             "max_nesting": 1,
@@ -840,7 +1164,7 @@
           },
           {
             "name": "if",
-            "line": 386,
+            "line": 399,
             "lines": 4,
             "complexity": 2,
             "max_nesting": 1,
@@ -848,15 +1172,23 @@
           },
           {
             "name": "if",
-            "line": 392,
+            "line": 405,
             "lines": 5,
             "complexity": 2,
             "max_nesting": 1,
             "parameter_count": 1
           },
           {
+            "name": "if",
+            "line": 412,
+            "lines": 6,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
             "name": "db_transfer_delete",
-            "line": 416,
+            "line": 437,
             "lines": 29,
             "complexity": 10,
             "max_nesting": 3,
@@ -864,7 +1196,7 @@
           },
           {
             "name": "if",
-            "line": 450,
+            "line": 471,
             "lines": 3,
             "complexity": 4,
             "max_nesting": 1,
@@ -872,7 +1204,7 @@
           },
           {
             "name": "if",
-            "line": 466,
+            "line": 487,
             "lines": 4,
             "complexity": 3,
             "max_nesting": 1,
@@ -880,7 +1212,7 @@
           },
           {
             "name": "if",
-            "line": 481,
+            "line": 502,
             "lines": 3,
             "complexity": 4,
             "max_nesting": 1,
@@ -888,7 +1220,7 @@
           },
           {
             "name": "if",
-            "line": 497,
+            "line": 518,
             "lines": 4,
             "complexity": 3,
             "max_nesting": 1,
@@ -896,7 +1228,7 @@
           },
           {
             "name": "db_transfer_prepare_for_remote",
-            "line": 509,
+            "line": 530,
             "lines": 25,
             "complexity": 7,
             "max_nesting": 3,
@@ -904,7 +1236,7 @@
           },
           {
             "name": "if",
-            "line": 539,
+            "line": 560,
             "lines": 3,
             "complexity": 5,
             "max_nesting": 1,
@@ -912,7 +1244,7 @@
           },
           {
             "name": "if",
-            "line": 544,
+            "line": 565,
             "lines": 3,
             "complexity": 2,
             "max_nesting": 1,
@@ -920,7 +1252,7 @@
           },
           {
             "name": "if",
-            "line": 550,
+            "line": 571,
             "lines": 4,
             "complexity": 2,
             "max_nesting": 1,
@@ -928,7 +1260,7 @@
           },
           {
             "name": "if",
-            "line": 556,
+            "line": 577,
             "lines": 5,
             "complexity": 2,
             "max_nesting": 1,
@@ -936,7 +1268,15 @@
           },
           {
             "name": "if",
-            "line": 575,
+            "line": 584,
+            "lines": 7,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "if",
+            "line": 605,
             "lines": 5,
             "complexity": 2,
             "max_nesting": 1,
@@ -944,7 +1284,7 @@
           },
           {
             "name": "db_transfer_generate_password",
-            "line": 587,
+            "line": 617,
             "lines": 26,
             "complexity": 6,
             "max_nesting": 2,
@@ -952,7 +1292,7 @@
           },
           {
             "name": "db_transfer_get_info",
-            "line": 615,
+            "line": 645,
             "lines": 30,
             "complexity": 6,
             "max_nesting": 2,
@@ -960,7 +1300,7 @@
           },
           {
             "name": "db_transfer_free_info",
-            "line": 646,
+            "line": 676,
             "lines": 7,
             "complexity": 2,
             "max_nesting": 1,
@@ -968,14 +1308,108 @@
           },
           {
             "name": "db_transfer_verify_integrity",
-            "line": 655,
+            "line": 685,
             "lines": 39,
             "complexity": 10,
             "max_nesting": 5,
             "parameter_count": 1
           }
         ],
-        "lines": 693
+        "lines": 723
+      },
+      {
+        "path": "core/db_optimization.c",
+        "functions": [
+          {
+            "name": "if",
+            "line": 16,
+            "lines": 3,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
+            "name": "while",
+            "line": 32,
+            "lines": 25,
+            "complexity": 11,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_optimization_register_collations",
+            "line": 62,
+            "lines": 28,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_optimization_enable_wal",
+            "line": 92,
+            "lines": 19,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_optimization_set_cache_size",
+            "line": 113,
+            "lines": 23,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_optimization_set_page_size",
+            "line": 138,
+            "lines": 22,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_optimization_set_auto_vacuum",
+            "line": 162,
+            "lines": 23,
+            "complexity": 3,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_optimization_set_synchronous",
+            "line": 187,
+            "lines": 22,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_optimization_init",
+            "line": 211,
+            "lines": 48,
+            "complexity": 6,
+            "max_nesting": 3,
+            "parameter_count": 2
+          },
+          {
+            "name": "db_optimization_maintenance",
+            "line": 261,
+            "lines": 33,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "db_optimization_analyze",
+            "line": 296,
+            "lines": 56,
+            "complexity": 6,
+            "max_nesting": 4,
+            "parameter_count": 1
+          }
+        ],
+        "lines": 351
       },
       {
         "path": "legacy/main.c",
@@ -1352,6 +1786,44 @@
         "lines": 2045
       },
       {
+        "path": "examples/search_and_versioning_demo.c",
+        "functions": [
+          {
+            "name": "example_tree_operations",
+            "line": 18,
+            "lines": 63,
+            "complexity": 7,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "example_table_versioning",
+            "line": 88,
+            "lines": 84,
+            "complexity": 10,
+            "max_nesting": 3,
+            "parameter_count": 1
+          },
+          {
+            "name": "example_index_optimization",
+            "line": 176,
+            "lines": 11,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
+            "name": "main",
+            "line": 191,
+            "lines": 25,
+            "complexity": 2,
+            "max_nesting": 2,
+            "parameter_count": 0
+          }
+        ],
+        "lines": 237
+      },
+      {
         "path": "modules/app_state.c",
         "functions": [],
         "lines": 5
@@ -1554,21 +2026,21 @@
           {
             "name": "on_add_row_clicked",
             "line": 64,
-            "lines": 129,
-            "complexity": 16,
+            "lines": 151,
+            "complexity": 20,
             "max_nesting": 5,
             "parameter_count": 2
           },
           {
             "name": "on_delete_row_clicked",
-            "line": 194,
+            "line": 216,
             "lines": 80,
             "complexity": 13,
             "max_nesting": 3,
             "parameter_count": 2
           }
         ],
-        "lines": 273
+        "lines": 295
       },
       {
         "path": "modules/trash_manager.c",
@@ -1584,22 +2056,30 @@
           {
             "name": "trash_manager_init",
             "line": 20,
-            "lines": 65,
-            "complexity": 7,
+            "lines": 75,
+            "complexity": 9,
             "max_nesting": 3,
             "parameter_count": 1
           },
           {
             "name": "if",
-            "line": 93,
+            "line": 103,
             "lines": 3,
             "complexity": 6,
             "max_nesting": 1,
             "parameter_count": 1
           },
           {
+            "name": "if",
+            "line": 111,
+            "lines": 4,
+            "complexity": 2,
+            "max_nesting": 1,
+            "parameter_count": 1
+          },
+          {
             "name": "for",
-            "line": 105,
+            "line": 124,
             "lines": 19,
             "complexity": 8,
             "max_nesting": 2,
@@ -1607,15 +2087,15 @@
           },
           {
             "name": "if",
-            "line": 186,
-            "lines": 4,
-            "complexity": 2,
-            "max_nesting": 1,
+            "line": 210,
+            "lines": 12,
+            "complexity": 4,
+            "max_nesting": 2,
             "parameter_count": 1
           },
           {
             "name": "trash_manager_purge_entry",
-            "line": 215,
+            "line": 247,
             "lines": 16,
             "complexity": 3,
             "max_nesting": 2,
@@ -1623,7 +2103,7 @@
           },
           {
             "name": "if",
-            "line": 237,
+            "line": 269,
             "lines": 3,
             "complexity": 6,
             "max_nesting": 1,
@@ -1631,7 +2111,7 @@
           },
           {
             "name": "for",
-            "line": 273,
+            "line": 305,
             "lines": 22,
             "complexity": 9,
             "max_nesting": 3,
@@ -1639,7 +2119,7 @@
           },
           {
             "name": "if",
-            "line": 298,
+            "line": 330,
             "lines": 10,
             "complexity": 3,
             "max_nesting": 2,
@@ -1647,22 +2127,30 @@
           },
           {
             "name": "if",
-            "line": 370,
+            "line": 400,
             "lines": 4,
             "complexity": 2,
             "max_nesting": 1,
             "parameter_count": 1
           },
           {
+            "name": "if",
+            "line": 406,
+            "lines": 12,
+            "complexity": 4,
+            "max_nesting": 2,
+            "parameter_count": 1
+          },
+          {
             "name": "trash_manager_close",
-            "line": 404,
+            "line": 448,
             "lines": 11,
             "complexity": 3,
             "max_nesting": 2,
             "parameter_count": 1
           }
         ],
-        "lines": 414
+        "lines": 458
       },
       {
         "path": "modules/theme_manager.c",
@@ -2419,7 +2907,7 @@
       },
       {
         "name": "db_manager_create",
-        "line": 8,
+        "line": 9,
         "lines": 15,
         "complexity": 2,
         "max_nesting": 2,
@@ -2427,7 +2915,7 @@
       },
       {
         "name": "db_manager_destroy",
-        "line": 25,
+        "line": 26,
         "lines": 11,
         "complexity": 3,
         "max_nesting": 2,
@@ -2435,15 +2923,15 @@
       },
       {
         "name": "db_manager_open",
-        "line": 38,
-        "lines": 17,
-        "complexity": 4,
+        "line": 39,
+        "lines": 22,
+        "complexity": 5,
         "max_nesting": 2,
         "parameter_count": 1
       },
       {
         "name": "db_manager_close",
-        "line": 57,
+        "line": 63,
         "lines": 12,
         "complexity": 4,
         "max_nesting": 2,
@@ -2451,7 +2939,7 @@
       },
       {
         "name": "db_manager_is_open",
-        "line": 71,
+        "line": 77,
         "lines": 3,
         "complexity": 2,
         "max_nesting": 1,
@@ -2459,7 +2947,7 @@
       },
       {
         "name": "db_manager_begin_transaction",
-        "line": 76,
+        "line": 82,
         "lines": 18,
         "complexity": 7,
         "max_nesting": 3,
@@ -2467,7 +2955,7 @@
       },
       {
         "name": "db_manager_commit",
-        "line": 96,
+        "line": 102,
         "lines": 19,
         "complexity": 7,
         "max_nesting": 3,
@@ -2475,7 +2963,7 @@
       },
       {
         "name": "db_manager_rollback",
-        "line": 117,
+        "line": 123,
         "lines": 17,
         "complexity": 6,
         "max_nesting": 2,
@@ -2483,15 +2971,15 @@
       },
       {
         "name": "get_tables_callback",
-        "line": 136,
-        "lines": 16,
-        "complexity": 3,
-        "max_nesting": 2,
+        "line": 142,
+        "lines": 21,
+        "complexity": 5,
+        "max_nesting": 3,
         "parameter_count": 4
       },
       {
         "name": "db_manager_get_tables",
-        "line": 154,
+        "line": 165,
         "lines": 25,
         "complexity": 6,
         "max_nesting": 2,
@@ -2499,15 +2987,15 @@
       },
       {
         "name": "get_columns_callback",
-        "line": 181,
-        "lines": 17,
-        "complexity": 4,
+        "line": 192,
+        "lines": 18,
+        "complexity": 5,
         "max_nesting": 2,
         "parameter_count": 4
       },
       {
         "name": "db_manager_get_columns",
-        "line": 200,
+        "line": 212,
         "lines": 30,
         "complexity": 7,
         "max_nesting": 2,
@@ -2515,7 +3003,7 @@
       },
       {
         "name": "db_manager_create_table",
-        "line": 232,
+        "line": 244,
         "lines": 58,
         "complexity": 17,
         "max_nesting": 3,
@@ -2523,7 +3011,7 @@
       },
       {
         "name": "db_manager_drop_table",
-        "line": 292,
+        "line": 304,
         "lines": 21,
         "complexity": 7,
         "max_nesting": 2,
@@ -2531,7 +3019,7 @@
       },
       {
         "name": "db_manager_rename_table",
-        "line": 315,
+        "line": 327,
         "lines": 19,
         "complexity": 8,
         "max_nesting": 2,
@@ -2539,15 +3027,15 @@
       },
       {
         "name": "db_manager_execute_query",
-        "line": 336,
-        "lines": 49,
-        "complexity": 12,
-        "max_nesting": 3,
+        "line": 348,
+        "lines": 84,
+        "complexity": 20,
+        "max_nesting": 5,
         "parameter_count": 2
       },
       {
         "name": "db_manager_get_table_row_count",
-        "line": 387,
+        "line": 434,
         "lines": 21,
         "complexity": 6,
         "max_nesting": 2,
@@ -2555,7 +3043,7 @@
       },
       {
         "name": "db_manager_get_database_size",
-        "line": 410,
+        "line": 457,
         "lines": 20,
         "complexity": 5,
         "max_nesting": 2,
@@ -2563,7 +3051,7 @@
       },
       {
         "name": "db_manager_get_last_error",
-        "line": 432,
+        "line": 479,
         "lines": 4,
         "complexity": 2,
         "max_nesting": 1,
@@ -2571,7 +3059,7 @@
       },
       {
         "name": "db_manager_is_valid_identifier",
-        "line": 438,
+        "line": 485,
         "lines": 26,
         "complexity": 11,
         "max_nesting": 2,
@@ -2579,7 +3067,7 @@
       },
       {
         "name": "db_manager_is_valid_type",
-        "line": 466,
+        "line": 513,
         "lines": 13,
         "complexity": 4,
         "max_nesting": 2,
@@ -2587,7 +3075,7 @@
       },
       {
         "name": "db_manager_free_table_info",
-        "line": 481,
+        "line": 528,
         "lines": 23,
         "complexity": 6,
         "max_nesting": 4,
@@ -2595,7 +3083,7 @@
       },
       {
         "name": "db_manager_free_column_info",
-        "line": 506,
+        "line": 553,
         "lines": 10,
         "complexity": 2,
         "max_nesting": 2,
@@ -2603,10 +3091,314 @@
       },
       {
         "name": "db_manager_free_query_result",
-        "line": 518,
+        "line": 565,
         "lines": 25,
         "complexity": 8,
         "max_nesting": 5,
+        "parameter_count": 1
+      },
+      {
+        "name": "execute_sql",
+        "line": 15,
+        "lines": 12,
+        "complexity": 3,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_init",
+        "line": 32,
+        "lines": 33,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "versioning_is_enabled",
+        "line": 66,
+        "lines": 21,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_enable",
+        "line": 88,
+        "lines": 15,
+        "complexity": 5,
+        "max_nesting": 1,
+        "parameter_count": 3
+      },
+      {
+        "name": "versioning_disable",
+        "line": 104,
+        "lines": 10,
+        "complexity": 3,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_get_current_version",
+        "line": 149,
+        "lines": 22,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 192,
+        "lines": 15,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "versioning_get_history",
+        "line": 213,
+        "lines": 77,
+        "complexity": 13,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_get_latest",
+        "line": 291,
+        "lines": 8,
+        "complexity": 4,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_get_schema_sql",
+        "line": 304,
+        "lines": 24,
+        "complexity": 6,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_parse_columns",
+        "line": 329,
+        "lines": 48,
+        "complexity": 16,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_has_schema_changed",
+        "line": 378,
+        "lines": 19,
+        "complexity": 5,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_validate_schema",
+        "line": 398,
+        "lines": 9,
+        "complexity": 5,
+        "max_nesting": 1,
+        "parameter_count": 2
+      },
+      {
+        "name": "versioning_free_version",
+        "line": 412,
+        "lines": 10,
+        "complexity": 6,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "versioning_free_history",
+        "line": 423,
+        "lines": 16,
+        "complexity": 5,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "versioning_free_diff",
+        "line": 440,
+        "lines": 28,
+        "complexity": 12,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "versioning_free_stats",
+        "line": 469,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 23,
+        "lines": 3,
+        "complexity": 6,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 31,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 66,
+        "lines": 9,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "for",
+        "line": 82,
+        "lines": 23,
+        "complexity": 7,
+        "max_nesting": 5,
+        "parameter_count": 1
+      },
+      {
+        "name": "search_find_node",
+        "line": 109,
+        "lines": 10,
+        "complexity": 4,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 125,
+        "lines": 3,
+        "complexity": 5,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 133,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 177,
+        "lines": 9,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 200,
+        "lines": 3,
+        "complexity": 5,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 208,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 255,
+        "lines": 9,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 277,
+        "lines": 3,
+        "complexity": 5,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 285,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 321,
+        "lines": 9,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 345,
+        "lines": 3,
+        "complexity": 6,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 372,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 381,
+        "lines": 14,
+        "complexity": 5,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "search_free_tree_result",
+        "line": 405,
+        "lines": 16,
+        "complexity": 5,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "search_free_tree_node",
+        "line": 422,
+        "lines": 10,
+        "complexity": 6,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "search_free_string_array",
+        "line": 433,
+        "lines": 8,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "if",
+        "line": 445,
+        "lines": 3,
+        "complexity": 4,
+        "max_nesting": 1,
         "parameter_count": 1
       },
       {
@@ -2963,7 +3755,15 @@
       },
       {
         "name": "if",
-        "line": 240,
+        "line": 223,
+        "lines": 7,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 250,
         "lines": 14,
         "complexity": 5,
         "max_nesting": 4,
@@ -2971,7 +3771,7 @@
       },
       {
         "name": "if",
-        "line": 263,
+        "line": 273,
         "lines": 3,
         "complexity": 4,
         "max_nesting": 1,
@@ -2979,15 +3779,15 @@
       },
       {
         "name": "if",
-        "line": 286,
-        "lines": 26,
-        "complexity": 7,
-        "max_nesting": 5,
+        "line": 296,
+        "lines": 29,
+        "complexity": 8,
+        "max_nesting": 6,
         "parameter_count": 1
       },
       {
         "name": "if",
-        "line": 316,
+        "line": 329,
         "lines": 3,
         "complexity": 2,
         "max_nesting": 1,
@@ -2995,7 +3795,7 @@
       },
       {
         "name": "db_transfer_open_for_use",
-        "line": 324,
+        "line": 337,
         "lines": 37,
         "complexity": 7,
         "max_nesting": 3,
@@ -3003,7 +3803,7 @@
       },
       {
         "name": "if",
-        "line": 366,
+        "line": 379,
         "lines": 3,
         "complexity": 4,
         "max_nesting": 1,
@@ -3011,7 +3811,7 @@
       },
       {
         "name": "if",
-        "line": 373,
+        "line": 386,
         "lines": 5,
         "complexity": 3,
         "max_nesting": 1,
@@ -3019,7 +3819,7 @@
       },
       {
         "name": "if",
-        "line": 381,
+        "line": 394,
         "lines": 3,
         "complexity": 2,
         "max_nesting": 1,
@@ -3027,7 +3827,7 @@
       },
       {
         "name": "if",
-        "line": 386,
+        "line": 399,
         "lines": 4,
         "complexity": 2,
         "max_nesting": 1,
@@ -3035,15 +3835,23 @@
       },
       {
         "name": "if",
-        "line": 392,
+        "line": 405,
         "lines": 5,
         "complexity": 2,
         "max_nesting": 1,
         "parameter_count": 1
       },
       {
+        "name": "if",
+        "line": 412,
+        "lines": 6,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
         "name": "db_transfer_delete",
-        "line": 416,
+        "line": 437,
         "lines": 29,
         "complexity": 10,
         "max_nesting": 3,
@@ -3051,7 +3859,7 @@
       },
       {
         "name": "if",
-        "line": 450,
+        "line": 471,
         "lines": 3,
         "complexity": 4,
         "max_nesting": 1,
@@ -3059,7 +3867,7 @@
       },
       {
         "name": "if",
-        "line": 466,
+        "line": 487,
         "lines": 4,
         "complexity": 3,
         "max_nesting": 1,
@@ -3067,7 +3875,7 @@
       },
       {
         "name": "if",
-        "line": 481,
+        "line": 502,
         "lines": 3,
         "complexity": 4,
         "max_nesting": 1,
@@ -3075,7 +3883,7 @@
       },
       {
         "name": "if",
-        "line": 497,
+        "line": 518,
         "lines": 4,
         "complexity": 3,
         "max_nesting": 1,
@@ -3083,7 +3891,7 @@
       },
       {
         "name": "db_transfer_prepare_for_remote",
-        "line": 509,
+        "line": 530,
         "lines": 25,
         "complexity": 7,
         "max_nesting": 3,
@@ -3091,7 +3899,7 @@
       },
       {
         "name": "if",
-        "line": 539,
+        "line": 560,
         "lines": 3,
         "complexity": 5,
         "max_nesting": 1,
@@ -3099,7 +3907,7 @@
       },
       {
         "name": "if",
-        "line": 544,
+        "line": 565,
         "lines": 3,
         "complexity": 2,
         "max_nesting": 1,
@@ -3107,7 +3915,7 @@
       },
       {
         "name": "if",
-        "line": 550,
+        "line": 571,
         "lines": 4,
         "complexity": 2,
         "max_nesting": 1,
@@ -3115,7 +3923,7 @@
       },
       {
         "name": "if",
-        "line": 556,
+        "line": 577,
         "lines": 5,
         "complexity": 2,
         "max_nesting": 1,
@@ -3123,7 +3931,15 @@
       },
       {
         "name": "if",
-        "line": 575,
+        "line": 584,
+        "lines": 7,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 605,
         "lines": 5,
         "complexity": 2,
         "max_nesting": 1,
@@ -3131,7 +3947,7 @@
       },
       {
         "name": "db_transfer_generate_password",
-        "line": 587,
+        "line": 617,
         "lines": 26,
         "complexity": 6,
         "max_nesting": 2,
@@ -3139,7 +3955,7 @@
       },
       {
         "name": "db_transfer_get_info",
-        "line": 615,
+        "line": 645,
         "lines": 30,
         "complexity": 6,
         "max_nesting": 2,
@@ -3147,7 +3963,7 @@
       },
       {
         "name": "db_transfer_free_info",
-        "line": 646,
+        "line": 676,
         "lines": 7,
         "complexity": 2,
         "max_nesting": 1,
@@ -3155,10 +3971,98 @@
       },
       {
         "name": "db_transfer_verify_integrity",
-        "line": 655,
+        "line": 685,
         "lines": 39,
         "complexity": 10,
         "max_nesting": 5,
+        "parameter_count": 1
+      },
+      {
+        "name": "if",
+        "line": 16,
+        "lines": 3,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
+        "name": "while",
+        "line": 32,
+        "lines": 25,
+        "complexity": 11,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_optimization_register_collations",
+        "line": 62,
+        "lines": 28,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_optimization_enable_wal",
+        "line": 92,
+        "lines": 19,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_optimization_set_cache_size",
+        "line": 113,
+        "lines": 23,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_optimization_set_page_size",
+        "line": 138,
+        "lines": 22,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_optimization_set_auto_vacuum",
+        "line": 162,
+        "lines": 23,
+        "complexity": 3,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_optimization_set_synchronous",
+        "line": 187,
+        "lines": 22,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_optimization_init",
+        "line": 211,
+        "lines": 48,
+        "complexity": 6,
+        "max_nesting": 3,
+        "parameter_count": 2
+      },
+      {
+        "name": "db_optimization_maintenance",
+        "line": 261,
+        "lines": 33,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "db_optimization_analyze",
+        "line": 296,
+        "lines": 56,
+        "complexity": 6,
+        "max_nesting": 4,
         "parameter_count": 1
       },
       {
@@ -3530,6 +4434,38 @@
         "parameter_count": 2
       },
       {
+        "name": "example_tree_operations",
+        "line": 18,
+        "lines": 63,
+        "complexity": 7,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "example_table_versioning",
+        "line": 88,
+        "lines": 84,
+        "complexity": 10,
+        "max_nesting": 3,
+        "parameter_count": 1
+      },
+      {
+        "name": "example_index_optimization",
+        "line": 176,
+        "lines": 11,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
+        "name": "main",
+        "line": 191,
+        "lines": 25,
+        "complexity": 2,
+        "max_nesting": 2,
+        "parameter_count": 0
+      },
+      {
         "name": "on_backup_database",
         "line": 4,
         "lines": 3,
@@ -3700,14 +4636,14 @@
       {
         "name": "on_add_row_clicked",
         "line": 64,
-        "lines": 129,
-        "complexity": 16,
+        "lines": 151,
+        "complexity": 20,
         "max_nesting": 5,
         "parameter_count": 2
       },
       {
         "name": "on_delete_row_clicked",
-        "line": 194,
+        "line": 216,
         "lines": 80,
         "complexity": 13,
         "max_nesting": 3,
@@ -3724,22 +4660,30 @@
       {
         "name": "trash_manager_init",
         "line": 20,
-        "lines": 65,
-        "complexity": 7,
+        "lines": 75,
+        "complexity": 9,
         "max_nesting": 3,
         "parameter_count": 1
       },
       {
         "name": "if",
-        "line": 93,
+        "line": 103,
         "lines": 3,
         "complexity": 6,
         "max_nesting": 1,
         "parameter_count": 1
       },
       {
+        "name": "if",
+        "line": 111,
+        "lines": 4,
+        "complexity": 2,
+        "max_nesting": 1,
+        "parameter_count": 1
+      },
+      {
         "name": "for",
-        "line": 105,
+        "line": 124,
         "lines": 19,
         "complexity": 8,
         "max_nesting": 2,
@@ -3747,15 +4691,15 @@
       },
       {
         "name": "if",
-        "line": 186,
-        "lines": 4,
-        "complexity": 2,
-        "max_nesting": 1,
+        "line": 210,
+        "lines": 12,
+        "complexity": 4,
+        "max_nesting": 2,
         "parameter_count": 1
       },
       {
         "name": "trash_manager_purge_entry",
-        "line": 215,
+        "line": 247,
         "lines": 16,
         "complexity": 3,
         "max_nesting": 2,
@@ -3763,7 +4707,7 @@
       },
       {
         "name": "if",
-        "line": 237,
+        "line": 269,
         "lines": 3,
         "complexity": 6,
         "max_nesting": 1,
@@ -3771,7 +4715,7 @@
       },
       {
         "name": "for",
-        "line": 273,
+        "line": 305,
         "lines": 22,
         "complexity": 9,
         "max_nesting": 3,
@@ -3779,7 +4723,7 @@
       },
       {
         "name": "if",
-        "line": 298,
+        "line": 330,
         "lines": 10,
         "complexity": 3,
         "max_nesting": 2,
@@ -3787,15 +4731,23 @@
       },
       {
         "name": "if",
-        "line": 370,
+        "line": 400,
         "lines": 4,
         "complexity": 2,
         "max_nesting": 1,
         "parameter_count": 1
       },
       {
+        "name": "if",
+        "line": 406,
+        "lines": 12,
+        "complexity": 4,
+        "max_nesting": 2,
+        "parameter_count": 1
+      },
+      {
         "name": "trash_manager_close",
-        "line": 404,
+        "line": 448,
         "lines": 11,
         "complexity": 3,
         "max_nesting": 2,
@@ -4310,10 +5262,34 @@
       {
         "type": "HIGH_COMPLEXITY",
         "severity": "MEDIUM",
+        "file": "core/db_manager.c",
+        "function": "db_manager_execute_query",
+        "complexity": 20,
+        "message": "Function has cyclomatic complexity of 20"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
+        "file": "core/table_versioning.c",
+        "function": "versioning_parse_columns",
+        "complexity": 16,
+        "message": "Function has cyclomatic complexity of 16"
+      },
+      {
+        "type": "HIGH_COMPLEXITY",
+        "severity": "MEDIUM",
         "file": "core/db_transfer.c",
         "function": "db_transfer_list_databases",
         "complexity": 19,
         "message": "Function has cyclomatic complexity of 19"
+      },
+      {
+        "type": "DEEP_NESTING",
+        "severity": "MEDIUM",
+        "file": "core/db_transfer.c",
+        "function": "if",
+        "nesting": 6,
+        "message": "Function has nesting depth of 6"
       },
       {
         "type": "LONG_FUNCTION",
@@ -4368,16 +5344,16 @@
         "severity": "MEDIUM",
         "file": "modules/row_operations.c",
         "function": "on_add_row_clicked",
-        "complexity": 16,
-        "message": "Function has cyclomatic complexity of 16"
+        "complexity": 20,
+        "message": "Function has cyclomatic complexity of 20"
       },
       {
         "type": "LONG_FUNCTION",
         "severity": "MEDIUM",
         "file": "modules/row_operations.c",
         "function": "on_add_row_clicked",
-        "lines": 129,
-        "message": "Function is 129 lines long"
+        "lines": 151,
+        "message": "Function is 151 lines long"
       },
       {
         "type": "HIGH_COMPLEXITY",
@@ -4479,11 +5455,11 @@
   },
   "scalability": {
     "patterns": {
-      "global_state": 145,
+      "global_state": 174,
       "singleton_usage": 0,
       "memory_pooling": 0,
-      "lazy_loading": 3,
-      "caching": 0,
+      "lazy_loading": 4,
+      "caching": 1,
       "async_patterns": 0,
       "connection_pooling": 0
     },
@@ -4503,15 +5479,32 @@
       {
         "type": "UNBOUNDED_ALLOCATION",
         "severity": "MEDIUM",
+        "file": "core/table_versioning.c",
+        "message": "Dynamic allocation without apparent size limits"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "core/table_versioning.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "MISSING_PAGINATION",
+        "severity": "MEDIUM",
+        "file": "core/search_helpers.c",
+        "message": "Queries without LIMIT clause may not scale"
+      },
+      {
+        "type": "UNBOUNDED_ALLOCATION",
+        "severity": "MEDIUM",
         "file": "core/db_crypto.c",
         "message": "Dynamic allocation without apparent size limits"
       },
       {
-        "type": "LARGE_STATIC_BUFFER",
-        "severity": "LOW",
-        "file": "core/db_transfer.c",
-        "size": 8192,
-        "message": "Large static buffer of 8192 bytes allocated"
+        "type": "N_PLUS_ONE_QUERY",
+        "severity": "HIGH",
+        "file": "core/db_optimization.c",
+        "message": "Potential N+1 query pattern detected"
       },
       {
         "type": "LARGE_STATIC_BUFFER",
@@ -4525,13 +5518,6 @@
         "severity": "MEDIUM",
         "file": "modules/function_runner.c",
         "message": "Dynamic allocation without apparent size limits"
-      },
-      {
-        "type": "LARGE_STATIC_BUFFER",
-        "severity": "LOW",
-        "file": "modules/row_operations.c",
-        "size": 8192,
-        "message": "Large static buffer of 8192 bytes allocated"
       },
       {
         "type": "MISSING_PAGINATION",
@@ -4595,10 +5581,10 @@
       }
     ],
     "recommendations": [
-      "High usage of global state (145 instances). Consider encapsulating state in structures passed to functions.",
-      "No caching patterns detected. Consider implementing caching for frequently accessed data.",
+      "High usage of global state (174 instances). Consider encapsulating state in structures passed to functions.",
       "No asynchronous patterns detected. Consider async operations for I/O-bound tasks.",
       "No memory pooling detected. Consider implementing memory pools for frequently allocated objects.",
+      "N+1 query patterns detected. Use batch queries or JOIN operations to improve performance.",
       "Add LIMIT clauses to queries to prevent loading excessive data."
     ],
     "architecture": {
@@ -4624,22 +5610,26 @@
       ],
       "core_components": [
         "db_manager.c",
+        "table_versioning.c",
+        "search_helpers.c",
         "db_crypto.c",
-        "db_transfer.c"
+        "db_transfer.c",
+        "db_optimization.c"
       ]
     }
   },
   "dependencies": {
     "metrics": {
-      "total_files": 54,
-      "avg_dependencies": 1.6296296296296295,
+      "total_files": 61,
+      "avg_dependencies": 1.540983606557377,
       "max_dependencies": 15,
-      "avg_dependents": 0.3148148148148148,
+      "avg_dependents": 0.3114754098360656,
       "max_dependents": 2,
       "tight_coupling_count": 0,
       "hub_files": [],
       "isolated_files": [
         "core/db_crypto.h",
+        "core/db_optimization.h",
         "modules/trash_manager.h",
         "modules/functions/function_categories.h"
       ]
@@ -4670,7 +5660,14 @@
         "../core/db_transfer.h"
       ],
       "core/db_manager.c": [
-        "db_manager.h"
+        "db_manager.h",
+        "db_optimization.h"
+      ],
+      "core/table_versioning.c": [
+        "table_versioning.h"
+      ],
+      "core/search_helpers.c": [
+        "search_helpers.h"
       ],
       "core/db_crypto.c": [
         "db_crypto.h"
@@ -4679,9 +5676,16 @@
         "db_transfer.h",
         "db_crypto.h"
       ],
+      "core/db_optimization.c": [
+        "db_optimization.h"
+      ],
       "legacy/main.c": [
         "core/db_manager.h",
         "ui/tooltips.h"
+      ],
+      "examples/search_and_versioning_demo.c": [
+        "core/search_helpers.h",
+        "core/table_versioning.h"
       ],
       "modules/app_state.c": [
         "app_state.h"
@@ -4783,11 +5787,14 @@
       "core/export.h": [
         "db_manager.h"
       ],
+      "core/search_helpers.h": [],
       "core/db_crypto.h": [],
+      "core/db_optimization.h": [],
       "core/import.h": [
         "db_manager.h"
       ],
       "core/db_manager.h": [],
+      "core/table_versioning.h": [],
       "modules/table_callbacks.h": [
         "app_state.h"
       ],
@@ -4878,7 +5885,20 @@
       },
       "core/db_manager.c": {
         "depends_on": [
-          "db_manager.h"
+          "db_manager.h",
+          "db_optimization.h"
+        ],
+        "depended_by": []
+      },
+      "core/table_versioning.c": {
+        "depends_on": [
+          "table_versioning.h"
+        ],
+        "depended_by": []
+      },
+      "core/search_helpers.c": {
+        "depends_on": [
+          "search_helpers.h"
         ],
         "depended_by": []
       },
@@ -4895,10 +5915,23 @@
         ],
         "depended_by": []
       },
+      "core/db_optimization.c": {
+        "depends_on": [
+          "db_optimization.h"
+        ],
+        "depended_by": []
+      },
       "legacy/main.c": {
         "depends_on": [
           "core/db_manager.h",
           "ui/tooltips.h"
+        ],
+        "depended_by": []
+      },
+      "examples/search_and_versioning_demo.c": {
+        "depends_on": [
+          "core/search_helpers.h",
+          "core/table_versioning.h"
         ],
         "depended_by": []
       },
@@ -5088,7 +6121,17 @@
         ],
         "depended_by": []
       },
+      "core/search_helpers.h": {
+        "depends_on": [],
+        "depended_by": [
+          "examples/search_and_versioning_demo.c"
+        ]
+      },
       "core/db_crypto.h": {
+        "depends_on": [],
+        "depended_by": []
+      },
+      "core/db_optimization.h": {
         "depends_on": [],
         "depended_by": []
       },
@@ -5103,6 +6146,12 @@
         "depended_by": [
           "main.c",
           "legacy/main.c"
+        ]
+      },
+      "core/table_versioning.h": {
+        "depends_on": [],
+        "depended_by": [
+          "examples/search_and_versioning_demo.c"
         ]
       },
       "modules/table_callbacks.h": {
@@ -5235,6 +6284,18 @@
         "message": "Memory allocation inside loop detected"
       },
       {
+        "type": "ALLOCATION_IN_LOOP",
+        "severity": "MEDIUM",
+        "file": "core/table_versioning.c",
+        "message": "Memory allocation inside loop detected"
+      },
+      {
+        "type": "ALLOCATION_IN_LOOP",
+        "severity": "MEDIUM",
+        "file": "core/search_helpers.c",
+        "message": "Memory allocation inside loop detected"
+      },
+      {
         "type": "REPEATED_STRLEN",
         "severity": "LOW",
         "file": "core/db_transfer.c",
@@ -5246,12 +6307,6 @@
         "severity": "MEDIUM",
         "file": "core/db_transfer.c",
         "message": "Memory allocation inside loop detected"
-      },
-      {
-        "type": "INEFFICIENT_STRING_OP",
-        "severity": "LOW",
-        "file": "modules/trash_manager.c",
-        "message": "Using strcat which requires scanning to find end of string"
       },
       {
         "type": "ALLOCATION_IN_LOOP",
@@ -5292,25 +6347,36 @@
         "severity_score": 3
       },
       {
-        "file": "modules/trash_manager.c",
-        "issue_count": 2,
-        "severity_score": 3
+        "file": "core/db_manager.c",
+        "issue_count": 1,
+        "severity_score": 2
       },
       {
-        "file": "core/db_manager.c",
+        "file": "core/table_versioning.c",
+        "issue_count": 1,
+        "severity_score": 2
+      },
+      {
+        "file": "core/search_helpers.c",
+        "issue_count": 1,
+        "severity_score": 2
+      },
+      {
+        "file": "modules/trash_manager.c",
         "issue_count": 1,
         "severity_score": 2
       }
     ]
   },
   "technical_debt": {
-    "total_debt_hours": 173.5,
+    "total_debt_hours": 194.5,
     "debt_by_type": {
-      "LONG_FUNCTION": 78,
-      "MISSING_DOCUMENTATION": 77.5,
-      "TODO": 4,
-      "MAGIC_NUMBERS": 12,
-      "DEPRECATED_FUNCTION": 2
+      "LONG_FUNCTION": 84,
+      "MISSING_DOCUMENTATION": 82.5,
+      "CODE_DUPLICATION": 4,
+      "MAGIC_NUMBERS": 18,
+      "DEPRECATED_FUNCTION": 2,
+      "TODO": 4
     },
     "items": [
       {
@@ -5344,16 +6410,58 @@
         "estimated_hours": 9.5
       },
       {
+        "type": "LONG_FUNCTION",
+        "file": "core/table_versioning.c",
+        "message": "1 functions need refactoring",
+        "estimated_hours": 3
+      },
+      {
+        "type": "CODE_DUPLICATION",
+        "file": "core/search_helpers.c",
+        "message": "Potential code duplication detected",
+        "estimated_hours": 4
+      },
+      {
+        "type": "MAGIC_NUMBERS",
+        "file": "core/search_helpers.c",
+        "message": "12 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
+        "type": "DEPRECATED_FUNCTION",
+        "file": "core/search_helpers.c",
+        "message": "Using deprecated unsafe functions",
+        "estimated_hours": 2
+      },
+      {
         "type": "MISSING_DOCUMENTATION",
         "file": "core/db_crypto.c",
         "message": "11 functions lack documentation",
         "estimated_hours": 5.5
       },
       {
+        "type": "MAGIC_NUMBERS",
+        "file": "core/db_transfer.c",
+        "message": "13 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
         "type": "MISSING_DOCUMENTATION",
         "file": "core/db_transfer.c",
         "message": "14 functions lack documentation",
         "estimated_hours": 7.0
+      },
+      {
+        "type": "MAGIC_NUMBERS",
+        "file": "core/db_optimization.c",
+        "message": "12 magic numbers should be constants",
+        "estimated_hours": 2
+      },
+      {
+        "type": "MISSING_DOCUMENTATION",
+        "file": "core/db_optimization.c",
+        "message": "10 functions lack documentation",
+        "estimated_hours": 5.0
       },
       {
         "type": "TODO",
@@ -5381,6 +6489,12 @@
         "estimated_hours": 21.5
       },
       {
+        "type": "LONG_FUNCTION",
+        "file": "examples/search_and_versioning_demo.c",
+        "message": "1 functions need refactoring",
+        "estimated_hours": 3
+      },
+      {
         "type": "MISSING_DOCUMENTATION",
         "file": "modules/auth.c",
         "message": "7 functions lack documentation",
@@ -5389,7 +6503,7 @@
       {
         "type": "MAGIC_NUMBERS",
         "file": "modules/row_operations.c",
-        "message": "16 magic numbers should be constants",
+        "message": "18 magic numbers should be constants",
         "estimated_hours": 2
       },
       {
@@ -5401,13 +6515,7 @@
       {
         "type": "MAGIC_NUMBERS",
         "file": "modules/trash_manager.c",
-        "message": "17 magic numbers should be constants",
-        "estimated_hours": 2
-      },
-      {
-        "type": "DEPRECATED_FUNCTION",
-        "file": "modules/trash_manager.c",
-        "message": "Using deprecated unsafe functions",
+        "message": "19 magic numbers should be constants",
         "estimated_hours": 2
       },
       {
@@ -5516,138 +6624,81 @@
         "item_count": 1
       },
       {
+        "file": "core/db_transfer.c",
+        "total_hours": 9.0,
+        "item_count": 2
+      },
+      {
+        "file": "core/search_helpers.c",
+        "total_hours": 8,
+        "item_count": 3
+      },
+      {
         "file": "modules/data_protection.c",
         "total_hours": 8.0,
         "item_count": 2
       },
       {
-        "file": "modules/trash_manager.c",
-        "total_hours": 7.5,
-        "item_count": 3
-      },
-      {
-        "file": "core/db_transfer.c",
+        "file": "core/db_optimization.c",
         "total_hours": 7.0,
-        "item_count": 1
-      },
-      {
-        "file": "core/db_crypto.c",
-        "total_hours": 5.5,
-        "item_count": 1
+        "item_count": 2
       }
     ]
   },
   "memory": {
-    "score": 0.0,
+    "score": 20.0,
     "issues": [
       {
         "type": "UNGUARDED_ALLOCATION",
         "severity": "MEDIUM",
-        "file": "core/db_manager.c",
-        "line": 140,
+        "file": "core/table_versioning.c",
+        "line": 191,
         "message": "Memory allocation without NULL check"
+      },
+      {
+        "type": "FIXED_BUFFER_OVERUSE",
+        "severity": "LOW",
+        "file": "core/table_versioning.c",
+        "message": "7 fixed-size buffers - consider dynamic allocation",
+        "count": 7
       },
       {
         "type": "UNGUARDED_ALLOCATION",
         "severity": "MEDIUM",
-        "file": "core/db_manager.c",
-        "line": 185,
+        "file": "core/search_helpers.c",
+        "line": 92,
         "message": "Memory allocation without NULL check"
       },
       {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_manager.c",
-        "line": 348,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_manager.c",
-        "line": 354,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_manager.c",
-        "line": 368,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_manager.c",
-        "line": 372,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
+        "type": "BUFFER_OVERFLOW_RISK",
         "severity": "HIGH",
-        "file": "core/db_manager.c",
-        "line": 512,
-        "message": "Variable info may be freed multiple times",
-        "variable": "info"
+        "file": "core/search_helpers.c",
+        "line": 385,
+        "message": "Using unsafe function strcpy() - use safe alternative",
+        "function": "strcpy"
       },
       {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_crypto.c",
-        "line": 145,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_crypto.c",
-        "line": 187,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_crypto.c",
-        "line": 241,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_crypto.c",
-        "line": 277,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
+        "type": "BUFFER_OVERFLOW_RISK",
         "severity": "HIGH",
-        "file": "core/db_crypto.c",
-        "line": 106,
-        "message": "Variable ctx may be freed multiple times",
-        "variable": "ctx"
+        "file": "core/search_helpers.c",
+        "line": 391,
+        "message": "Using unsafe function strcpy() - use safe alternative",
+        "function": "strcpy"
       },
       {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_crypto.c",
-        "line": 115,
-        "message": "Variable ctx may be freed multiple times",
-        "variable": "ctx"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_crypto.c",
-        "line": 126,
-        "message": "Variable ctx may be freed multiple times",
-        "variable": "ctx"
+        "type": "FIXED_BUFFER_OVERUSE",
+        "severity": "LOW",
+        "file": "core/search_helpers.c",
+        "message": "6 fixed-size buffers - consider dynamic allocation",
+        "count": 6
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_crypto.c",
         "line": 368,
-        "message": "Variable plaintext may be freed multiple times",
+        "function": "crypto_encrypt_file",
+        "message": "Variable plaintext may be freed multiple times in function crypto_encrypt_file",
         "variable": "plaintext"
       },
       {
@@ -5655,7 +6706,8 @@
         "severity": "HIGH",
         "file": "core/db_crypto.c",
         "line": 396,
-        "message": "Variable ciphertext may be freed multiple times",
+        "function": "crypto_encrypt_file",
+        "message": "Variable ciphertext may be freed multiple times in function crypto_encrypt_file",
         "variable": "ciphertext"
       },
       {
@@ -5663,7 +6715,8 @@
         "severity": "HIGH",
         "file": "core/db_crypto.c",
         "line": 405,
-        "message": "Variable ciphertext may be freed multiple times",
+        "function": "crypto_encrypt_file",
+        "message": "Variable ciphertext may be freed multiple times in function crypto_encrypt_file",
         "variable": "ciphertext"
       },
       {
@@ -5671,15 +6724,8 @@
         "severity": "HIGH",
         "file": "core/db_crypto.c",
         "line": 411,
-        "message": "Variable ciphertext may be freed multiple times",
-        "variable": "ciphertext"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_crypto.c",
-        "line": 482,
-        "message": "Variable ciphertext may be freed multiple times",
+        "function": "crypto_encrypt_file",
+        "message": "Variable ciphertext may be freed multiple times in function crypto_encrypt_file",
         "variable": "ciphertext"
       },
       {
@@ -5687,23 +6733,17 @@
         "severity": "HIGH",
         "file": "core/db_crypto.c",
         "line": 497,
-        "message": "Variable ciphertext may be freed multiple times",
+        "function": "crypto_decrypt_file",
+        "message": "Variable ciphertext may be freed multiple times in function crypto_decrypt_file",
         "variable": "ciphertext"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_crypto.c",
-        "line": 510,
-        "message": "Variable plaintext may be freed multiple times",
-        "variable": "plaintext"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_crypto.c",
         "line": 518,
-        "message": "Variable plaintext may be freed multiple times",
+        "function": "crypto_decrypt_file",
+        "message": "Variable plaintext may be freed multiple times in function crypto_decrypt_file",
         "variable": "plaintext"
       },
       {
@@ -5711,319 +6751,178 @@
         "severity": "HIGH",
         "file": "core/db_crypto.c",
         "line": 524,
-        "message": "Variable plaintext may be freed multiple times",
+        "function": "crypto_decrypt_file",
+        "message": "Variable plaintext may be freed multiple times in function crypto_decrypt_file",
         "variable": "plaintext"
+      },
+      {
+        "type": "UNGUARDED_ALLOCATION",
+        "severity": "MEDIUM",
+        "file": "core/db_transfer.c",
+        "line": 308,
+        "message": "Memory allocation without NULL check"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
         "line": 218,
-        "message": "Variable dest_path may be freed multiple times",
+        "function": "db_transfer_import",
+        "message": "Variable dest_path may be freed multiple times in function db_transfer_import",
         "variable": "dest_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 229,
-        "message": "Variable dest_path may be freed multiple times",
+        "line": 227,
+        "function": "db_transfer_import",
+        "message": "Variable dest_path may be freed multiple times in function db_transfer_import",
         "variable": "dest_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 255,
-        "message": "Variable dest_path may be freed multiple times",
+        "line": 238,
+        "function": "db_transfer_import",
+        "message": "Variable dest_path may be freed multiple times in function db_transfer_import",
         "variable": "dest_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 280,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
+        "line": 243,
+        "function": "db_transfer_import",
+        "message": "Variable buffer may be freed multiple times in function db_transfer_import",
+        "variable": "buffer"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 313,
-        "message": "Variable source_path may be freed multiple times",
+        "line": 265,
+        "function": "db_transfer_import",
+        "message": "Variable dest_path may be freed multiple times in function db_transfer_import",
+        "variable": "dest_path"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "core/db_transfer.c",
+        "line": 326,
+        "function": "db_transfer_export",
+        "message": "Variable source_path may be freed multiple times in function db_transfer_export",
         "variable": "source_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 314,
-        "message": "Variable enc_path may be freed multiple times",
+        "line": 327,
+        "function": "db_transfer_export",
+        "message": "Variable enc_path may be freed multiple times in function db_transfer_export",
         "variable": "enc_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 334,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 343,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 351,
-        "message": "Variable local_path may be freed multiple times",
-        "variable": "local_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 352,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 357,
-        "message": "Variable local_path may be freed multiple times",
-        "variable": "local_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 358,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 375,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 387,
-        "message": "Variable dest_path may be freed multiple times",
+        "line": 407,
+        "function": "db_transfer_save_changes",
+        "message": "Variable dest_path may be freed multiple times in function db_transfer_save_changes",
         "variable": "dest_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 394,
-        "message": "Variable dest_path may be freed multiple times",
+        "line": 415,
+        "function": "db_transfer_save_changes",
+        "message": "Variable dest_path may be freed multiple times in function db_transfer_save_changes",
         "variable": "dest_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 410,
-        "message": "Variable dest_path may be freed multiple times",
+        "line": 431,
+        "function": "db_transfer_save_changes",
+        "message": "Variable dest_path may be freed multiple times in function db_transfer_save_changes",
         "variable": "dest_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 440,
-        "message": "Variable local_path may be freed multiple times",
+        "line": 492,
+        "function": "db_transfer_encrypt_database",
+        "message": "Variable local_path may be freed multiple times in function db_transfer_encrypt_database",
         "variable": "local_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 441,
-        "message": "Variable enc_path may be freed multiple times",
+        "line": 493,
+        "function": "db_transfer_encrypt_database",
+        "message": "Variable enc_path may be freed multiple times in function db_transfer_encrypt_database",
         "variable": "enc_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 459,
-        "message": "Variable local_path may be freed multiple times",
+        "line": 523,
+        "function": "db_transfer_decrypt_database",
+        "message": "Variable local_path may be freed multiple times in function db_transfer_decrypt_database",
         "variable": "local_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 460,
-        "message": "Variable enc_path may be freed multiple times",
+        "line": 524,
+        "function": "db_transfer_decrypt_database",
+        "message": "Variable enc_path may be freed multiple times in function db_transfer_decrypt_database",
         "variable": "enc_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 471,
-        "message": "Variable local_path may be freed multiple times",
-        "variable": "local_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 472,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 490,
-        "message": "Variable local_path may be freed multiple times",
-        "variable": "local_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 491,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 502,
-        "message": "Variable local_path may be freed multiple times",
-        "variable": "local_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 503,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 525,
-        "message": "Variable local_path may be freed multiple times",
-        "variable": "local_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 530,
-        "message": "Variable local_path may be freed multiple times",
-        "variable": "local_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 531,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 558,
-        "message": "Variable dest_enc_path may be freed multiple times",
+        "line": 579,
+        "function": "db_transfer_receive_from_remote",
+        "message": "Variable dest_enc_path may be freed multiple times in function db_transfer_receive_from_remote",
         "variable": "dest_enc_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 577,
-        "message": "Variable dest_enc_path may be freed multiple times",
+        "line": 588,
+        "function": "db_transfer_receive_from_remote",
+        "message": "Variable dest_enc_path may be freed multiple times in function db_transfer_receive_from_remote",
         "variable": "dest_enc_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 582,
-        "message": "Variable dest_enc_path may be freed multiple times",
+        "line": 607,
+        "function": "db_transfer_receive_from_remote",
+        "message": "Variable dest_enc_path may be freed multiple times in function db_transfer_receive_from_remote",
         "variable": "dest_enc_path"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "core/db_transfer.c",
-        "line": 689,
-        "message": "Variable local_path may be freed multiple times",
-        "variable": "local_path"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "core/db_transfer.c",
-        "line": 690,
-        "message": "Variable enc_path may be freed multiple times",
-        "variable": "enc_path"
-      },
-      {
-        "type": "FIXED_BUFFER_OVERUSE",
-        "severity": "LOW",
-        "file": "core/db_transfer.c",
-        "message": "7 fixed-size buffers - consider dynamic allocation",
-        "count": 7
-      },
-      {
-        "type": "LARGE_STACK_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_transfer.c",
-        "line": 222,
-        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
-        "size": 8192
-      },
-      {
-        "type": "LARGE_STACK_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_transfer.c",
-        "line": 298,
-        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
-        "size": 8192
-      },
-      {
-        "type": "LARGE_STACK_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_transfer.c",
-        "line": 398,
-        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
-        "size": 8192
-      },
-      {
-        "type": "LARGE_STACK_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_transfer.c",
-        "line": 562,
-        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
-        "size": 8192
+        "line": 612,
+        "function": "db_transfer_receive_from_remote",
+        "message": "Variable dest_enc_path may be freed multiple times in function db_transfer_receive_from_remote",
+        "variable": "dest_enc_path"
       },
       {
         "type": "FIXED_BUFFER_OVERUSE",
@@ -6041,159 +6940,126 @@
         "size": 65536
       },
       {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
         "file": "modules/row_operations.c",
-        "line": 117,
-        "message": "Memory allocation without NULL check"
+        "line": 206,
+        "function": "on_add_row_clicked",
+        "message": "Variable insert_query may be freed multiple times in function on_add_row_clicked",
+        "variable": "insert_query"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/row_operations.c",
+        "line": 207,
+        "function": "on_add_row_clicked",
+        "message": "Variable columns may be freed multiple times in function on_add_row_clicked",
+        "variable": "columns"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/row_operations.c",
+        "line": 208,
+        "function": "on_add_row_clicked",
+        "message": "Variable values may be freed multiple times in function on_add_row_clicked",
+        "variable": "values"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/row_operations.c",
+        "line": 211,
+        "function": "on_add_row_clicked",
+        "message": "Variable entries may be freed multiple times in function on_add_row_clicked",
+        "variable": "entries"
       },
       {
         "type": "FIXED_BUFFER_OVERUSE",
         "severity": "LOW",
         "file": "modules/row_operations.c",
-        "message": "10 fixed-size buffers - consider dynamic allocation",
-        "count": 10
-      },
-      {
-        "type": "LARGE_STACK_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "modules/row_operations.c",
-        "line": 142,
-        "message": "Large stack allocation (8192 bytes) - consider heap allocation",
-        "size": 8192
+        "message": "7 fixed-size buffers - consider dynamic allocation",
+        "count": 7
       },
       {
         "type": "UNGUARDED_ALLOCATION",
         "severity": "MEDIUM",
         "file": "modules/trash_manager.c",
-        "line": 29,
+        "line": 207,
         "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "modules/trash_manager.c",
-        "line": 39,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "modules/trash_manager.c",
-        "line": 183,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "modules/trash_manager.c",
-        "line": 188,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "modules/trash_manager.c",
-        "line": 367,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "UNGUARDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "modules/trash_manager.c",
-        "line": 372,
-        "message": "Memory allocation without NULL check"
-      },
-      {
-        "type": "BUFFER_OVERFLOW_RISK",
-        "severity": "HIGH",
-        "file": "modules/trash_manager.c",
-        "line": 30,
-        "message": "Using unsafe function sprintf() - use safe alternative",
-        "function": "sprintf"
-      },
-      {
-        "type": "BUFFER_OVERFLOW_RISK",
-        "severity": "HIGH",
-        "file": "modules/trash_manager.c",
-        "line": 40,
-        "message": "Using unsafe function sprintf() - use safe alternative",
-        "function": "sprintf"
-      },
-      {
-        "type": "BUFFER_OVERFLOW_RISK",
-        "severity": "HIGH",
-        "file": "modules/trash_manager.c",
-        "line": 309,
-        "message": "Using unsafe function strcat() - use safe alternative",
-        "function": "strcat"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "modules/trash_manager.c",
-        "line": 45,
-        "message": "Variable manager may be freed multiple times",
-        "variable": "manager"
+        "line": 163,
+        "function": "trash_manager_save_row",
+        "message": "Variable names_json may be freed multiple times in function trash_manager_save_row",
+        "variable": "names_json"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "modules/trash_manager.c",
-        "line": 79,
-        "message": "Variable manager may be freed multiple times",
-        "variable": "manager"
+        "line": 179,
+        "function": "trash_manager_save_row",
+        "message": "Variable names_json may be freed multiple times in function trash_manager_save_row",
+        "variable": "names_json"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "modules/trash_manager.c",
-        "line": 328,
-        "message": "Variable data_sql may be freed multiple times",
+        "line": 180,
+        "function": "trash_manager_save_row",
+        "message": "Variable values_json may be freed multiple times in function trash_manager_save_row",
+        "variable": "values_json"
+      },
+      {
+        "type": "DOUBLE_FREE_RISK",
+        "severity": "HIGH",
+        "file": "modules/trash_manager.c",
+        "line": 360,
+        "function": "trash_manager_save_table",
+        "message": "Variable data_sql may be freed multiple times in function trash_manager_save_table",
         "variable": "data_sql"
       },
       {
         "type": "DOUBLE_FREE_RISK",
         "severity": "HIGH",
         "file": "modules/trash_manager.c",
-        "line": 342,
-        "message": "Variable data_sql may be freed multiple times",
+        "line": 374,
+        "function": "trash_manager_save_table",
+        "message": "Variable data_sql may be freed multiple times in function trash_manager_save_table",
         "variable": "data_sql"
-      },
-      {
-        "type": "DOUBLE_FREE_RISK",
-        "severity": "HIGH",
-        "file": "modules/trash_manager.c",
-        "line": 413,
-        "message": "Variable manager may be freed multiple times",
-        "variable": "manager"
       },
       {
         "type": "FIXED_BUFFER_OVERUSE",
         "severity": "LOW",
         "file": "modules/trash_manager.c",
-        "message": "11 fixed-size buffers - consider dynamic allocation",
-        "count": 11
+        "message": "9 fixed-size buffers - consider dynamic allocation",
+        "count": 9
       },
       {
         "type": "UNSAFE_REALLOC",
         "severity": "MEDIUM",
         "file": "modules/trash_manager.c",
-        "line": 188,
+        "line": 212,
         "message": "realloc without NULL check - original pointer may be lost"
       },
       {
         "type": "UNSAFE_REALLOC",
         "severity": "MEDIUM",
         "file": "modules/trash_manager.c",
-        "line": 300,
+        "line": 332,
         "message": "realloc without NULL check - original pointer may be lost"
       },
       {
         "type": "UNSAFE_REALLOC",
         "severity": "MEDIUM",
         "file": "modules/trash_manager.c",
-        "line": 372,
+        "line": 408,
         "message": "realloc without NULL check - original pointer may be lost"
       },
       {
@@ -6214,8 +7080,8 @@
     "allocations_total": 0,
     "frees_total": 0,
     "potential_leaks": 0,
-    "unguarded_allocations": 17,
-    "buffer_risks": 3,
+    "unguarded_allocations": 4,
+    "buffer_risks": 2,
     "memory_patterns": {
       "uses_memory_pools": false,
       "uses_arena_allocation": false,
@@ -6223,21 +7089,20 @@
       "has_cleanup_functions": true
     },
     "recommendations": [
-      "Add NULL checks for 17 unguarded memory allocations",
-      "Replace 3 unsafe string functions with safe alternatives (strncpy, snprintf, etc.)",
-      "Review 52 potential double-free issues and set pointers to NULL after freeing",
-      "Move 6 large stack allocations to heap to prevent stack overflow"
+      "Replace 2 unsafe string functions with safe alternatives (strncpy, snprintf, etc.)",
+      "Review 34 potential double-free issues and set pointers to NULL after freeing",
+      "Move 1 large stack allocations to heap to prevent stack overflow"
     ]
   },
   "summary": {
-    "overall_score": 53.4,
+    "overall_score": 55.2,
     "scores": {
       "complexity": 100.0,
       "scalability": 50.0,
       "dependencies": 100.0,
-      "performance": 36.0,
+      "performance": 28.0,
       "technical_debt": 20.0,
-      "memory": 0.0
+      "memory": 20.0
     },
     "critical_issues": [],
     "recommendations": [],

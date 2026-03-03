@@ -7,6 +7,7 @@ Comprehensive analyzer for code quality, complexity, and scalability.
 import os
 import sys
 import json
+import gc
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -48,6 +49,9 @@ class CodebaseAnalyzer:
     def analyze(self, verbose=True) -> Dict[str, Any]:
         """Run all analysis modules."""
         
+        # Optimize garbage collection for large analysis runs
+        gc.disable()
+        
         if verbose:
             print("=" * 80)
             print("Database Browser Code Analysis System")
@@ -66,41 +70,57 @@ class CodebaseAnalyzer:
             print("\n[2/7] Analyzing code complexity...")
         complexity_analyzer = ComplexityAnalyzer(self.project_root)
         self.results['complexity'] = complexity_analyzer.analyze()
+        del complexity_analyzer
+        gc.collect()
         
         # Run scalability analysis
         if verbose:
             print("\n[3/7] Analyzing scalability patterns...")
         scalability_analyzer = ScalabilityAnalyzer(self.project_root)
         self.results['scalability'] = scalability_analyzer.analyze()
+        del scalability_analyzer
+        gc.collect()
         
         # Run dependency analysis
         if verbose:
             print("\n[4/7] Analyzing dependencies and coupling...")
         dependency_analyzer = DependencyAnalyzer(self.project_root)
         self.results['dependencies'] = dependency_analyzer.analyze()
+        del dependency_analyzer
+        gc.collect()
         
         # Run performance analysis
         if verbose:
             print("\n[5/7] Analyzing performance patterns...")
         performance_analyzer = PerformanceAnalyzer(self.project_root)
         self.results['performance'] = performance_analyzer.analyze()
+        del performance_analyzer
+        gc.collect()
         
         # Run technical debt analysis
         if verbose:
             print("\n[6/7] Analyzing technical debt...")
         debt_analyzer = TechnicalDebtAnalyzer(self.project_root)
         self.results['technical_debt'] = debt_analyzer.analyze()
+        del debt_analyzer
+        gc.collect()
         
         # Run memory management analysis
         if verbose:
             print("\n[7/7] Analyzing memory management...")
         memory_analyzer = MemoryAnalyzer(self.project_root)
         self.results['memory'] = memory_analyzer.analyze()
+        del memory_analyzer
+        gc.collect()
         
         # Generate summary
         if verbose:
             print("\n[*] Generating summary...")
         self.results['summary'] = self._generate_summary()
+        
+        # Re-enable garbage collection and perform final cleanup
+        gc.enable()
+        gc.collect()
         
         if verbose:
             print("\n" + "=" * 80)

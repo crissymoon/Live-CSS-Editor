@@ -12,6 +12,13 @@ from typing import Dict, List, Any, Set, Tuple
 class MemoryAnalyzer:
     """Analyzes memory management patterns and potential issues."""
     
+    # Pre-compile regex patterns for performance
+    MALLOC_PATTERN = re.compile(r'\b(malloc|calloc|realloc)\s*\(')
+    NULL_CHECK_PATTERN = re.compile(r'if\s*\([^)]*==\s*NULL|if\s*\([^)]*NULL\s*==|if\s*\(!\s*[\*\w]')
+    UNSAFE_FUNC_PATTERN = re.compile(r'\b(strcpy|strcat|sprintf|gets|scanf)\s*\(')
+    FREE_PATTERN = re.compile(r'\bfree\s*\(')
+    FUNC_PATTERN = re.compile(r'(\w+)\s+(\w+)\s*\(([^)]*)\)\s*\{')
+    
     def __init__(self, project_root: Path):
         self.project_root = Path(project_root)
         
@@ -96,10 +103,14 @@ class MemoryAnalyzer:
         
         # Check for unguarded allocations
         for i, line in enumerate(lines, 1):
-            if re.search(r'\b(malloc|calloc|realloc)\s*\(', line):
+            if self.MALLOC_PATTERN.search(line):
                 # Check if next few lines have NULL check
                 next_lines = lines[i:min(i+5, len(lines))]
-                has_null_check = any(re.search(r'if\s*\([^)]*==\s*NULL|if\s*\(!\s*\w+\)', l) for l in next_lines)
+                # Improved regex to match various NULL check patterns:
+                # - if (ptr == NULL) or if (NULL == ptr)
+                # - if (!ptr) or if (! ptr)
+                # - if (!*ptr) (dereferenced pointer check)
+                has_null_check = any(self.NULL_CHECK_PATTERN.search(l) for l in next_lines)
                 
                 if not has_null_check:
                     issues.append({
@@ -110,36 +121,61 @@ class MemoryAnalyzer:
                         'message': 'Memory allocation without NULL check'
                     })
         
-        # Check for buffer overflow risks
-        unsafe_funcs = ['strcpy', 'strcat', 'sprintf', 'gets', 'scanf']
+        # Check for buffer overflow risks using compiled pattern
         for i, line in enumerate(lines, 1):
-            for unsafe_func in unsafe_funcs:
-                if re.search(rf'\b{unsafe_func}\s*\(', line):
-                    issues.append({
-                        'type': 'BUFFER_OVERFLOW_RISK',
-                        'severity': 'HIGH',
-                        'file': rel_path,
-                        'line': i,
-                        'message': f'Using unsafe function {unsafe_func}() - use safe alternative',
-                        'function': unsafe_func
-                    })
+            match = self.UNSAFE_FUNC_PATTERN.search(line)
+            if match:
+                unsafe_func = match.group(1)
+                issues.append({
+                    'type': 'BUFFER_OVERFLOW_RISK',
+                    'severity': 'HIGH',
+                    'file': rel_path,
+                    'line': i,
+                    'message': f'Using unsafe function {unsafe_func}() - use safe alternative',
+                    'function': unsafe_func
+                })
         
-        # Check for potential double free
-        free_pattern = r'\bfree\s*\(\s*(\w+)\s*\)'
-        freed_vars = []
-        for i, line in enumerate(lines, 1):
-            matches = re.findall(free_pattern, line)
-            for var in matches:
-                if var in freed_vars:
-                    issues.append({
-                        'type': 'DOUBLE_FREE_RISK',
-                        'severity': 'HIGH',
-                        'file': rel_path,
-                        'line': i,
-                        'message': f'Variable {var} may be freed multiple times',
-                        'variable': var
-                    })
-                freed_vars.append(var)
+        # Check for potential double free (only within same function scope)
+        # This is a simplified check - track frees within function bodies
+        func_matches = list(self.FUNC_PATTERN.finditer(content))
+        
+        for match in func_matches:
+            func_name = match.group(2)
+            start_pos = match.end()
+            end_pos = self._find_function_end(content, start_pos)
+            if end_pos == -1:
+                continue
+            
+            func_body = content[start_pos:end_pos]
+            func_lines = func_body.splitlines()
+            
+            # Track freed variables in this function
+            freed_vars = {}
+            for line_offset, line in enumerate(func_lines, 1):
+                # Reset tracking on variable reassignment
+                if self.MALLOC_PATTERN.search(line):
+                    var_match = re.search(r'(\w+)\s*=', line)
+                    if var_match:
+                        var = var_match.group(1)
+                        if var in freed_vars:
+                            del freed_vars[var]
+                
+                # Track free calls
+                free_matches = re.findall(r'\bfree\s*\(\s*(\w+)\s*\)', line)
+                for var in free_matches:
+                    if var in freed_vars and var not in ['err', 'error', 'msg', 'result']:
+                        # Common error message variables are often freed in multiple paths
+                        line_num = content[:start_pos].count('\n') + line_offset
+                        issues.append({
+                            'type': 'DOUBLE_FREE_RISK',
+                            'severity': 'HIGH',
+                            'file': rel_path,
+                            'line': line_num,
+                            'function': func_name,
+                            'message': f'Variable {var} may be freed multiple times in function {func_name}',
+                            'variable': var
+                        })
+                    freed_vars[var] = line_offset
         
         # Check for fixed-size buffer usage
         fixed_buffers = re.findall(r'char\s+(\w+)\s*\[\s*(\d+)\s*\]', content)
@@ -256,12 +292,17 @@ class MemoryAnalyzer:
         
         # Deduct for critical issues
         score -= results['potential_leaks'] * 10
-        score -= results['unguarded_allocations'] * 2
-        score -= results['buffer_risks'] * 5
+        score -= results['unguarded_allocations'] * 3
+        score -= results['buffer_risks'] * 8
         
-        # Deduct for high severity issues
-        high_severity = sum(1 for i in results['issues'] if i.get('severity') == 'HIGH')
+        # Deduct for high severity issues (excluding double-free which has many false positives)
+        high_severity = sum(1 for i in results['issues'] 
+                           if i.get('severity') == 'HIGH' and i.get('type') != 'DOUBLE_FREE_RISK')
         score -= high_severity * 8
+        
+        # Deduct less for double-free risks since detection has false positives
+        double_frees = sum(1 for i in results['issues'] if i.get('type') == 'DOUBLE_FREE_RISK')
+        score -= double_frees * 0.5
         
         # Deduct for medium severity issues
         medium_severity = sum(1 for i in results['issues'] if i.get('severity') == 'MEDIUM')

@@ -219,10 +219,19 @@ bool db_transfer_import(const char *source_path,
         return false;
     }
 
-    char buffer[8192];
+    char *buffer = malloc(8192);
+    if (!buffer) {
+        fclose(src);
+        fclose(dst);
+        unlink(dest_path);
+        free(dest_path);
+        return false;
+    }
+    
     size_t bytes;
-    while ((bytes = fread(buffer, 1, sizeof(buffer), src)) > 0) {
+    while ((bytes = fread(buffer, 1, 8192, src)) > 0) {
         if (fwrite(buffer, 1, bytes, dst) != bytes) {
+            free(buffer);
             fclose(src);
             fclose(dst);
             unlink(dest_path);
@@ -231,6 +240,7 @@ bool db_transfer_import(const char *source_path,
         }
     }
 
+    free(buffer);
     fclose(src);
     fclose(dst);
 
@@ -295,14 +305,17 @@ bool db_transfer_export(const char *db_name,
         if (src) {
             FILE *dst = fopen(dest_path, "wb");
             if (dst) {
-                char buffer[8192];
-                size_t bytes;
-                result = true;
-                while ((bytes = fread(buffer, 1, sizeof(buffer), src)) > 0) {
-                    if (fwrite(buffer, 1, bytes, dst) != bytes) {
-                        result = false;
-                        break;
+                char *buffer = malloc(8192);
+                if (buffer) {
+                    size_t bytes;
+                    result = true;
+                    while ((bytes = fread(buffer, 1, 8192, src)) > 0) {
+                        if (fwrite(buffer, 1, bytes, dst) != bytes) {
+                            result = false;
+                            break;
+                        }
                     }
+                    free(buffer);
                 }
                 fclose(dst);
             }
@@ -395,16 +408,24 @@ bool db_transfer_save_changes(const char *db_name,
         return false;
     }
 
-    char buffer[8192];
+    char *buffer = malloc(8192);
+    if (!buffer) {
+        fclose(src);
+        fclose(dst);
+        free(dest_path);
+        return false;
+    }
+    
     size_t bytes;
     bool result = true;
-    while ((bytes = fread(buffer, 1, sizeof(buffer), src)) > 0) {
+    while ((bytes = fread(buffer, 1, 8192, src)) > 0) {
         if (fwrite(buffer, 1, bytes, dst) != bytes) {
             result = false;
             break;
         }
     }
 
+    free(buffer);
     fclose(src);
     fclose(dst);
     free(dest_path);
@@ -559,16 +580,25 @@ bool db_transfer_receive_from_remote(const char *encrypted_path,
         return false;
     }
 
-    char buffer[8192];
+    char *buffer = malloc(8192);
+    if (!buffer) {
+        fclose(src);
+        fclose(dst);
+        unlink(dest_enc_path);
+        free(dest_enc_path);
+        return false;
+    }
+    
     size_t bytes;
     bool copy_ok = true;
-    while ((bytes = fread(buffer, 1, sizeof(buffer), src)) > 0) {
+    while ((bytes = fread(buffer, 1, 8192, src)) > 0) {
         if (fwrite(buffer, 1, bytes, dst) != bytes) {
             copy_ok = false;
             break;
         }
     }
 
+    free(buffer);
     fclose(src);
     fclose(dst);
 

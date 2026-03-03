@@ -1,13 +1,13 @@
 # Database Browser Code Analysis Report
 
-**Generated:** 2026-03-03T15:00:54.770499  
+**Generated:** 2026-03-03T15:32:31.339226  
 **Analyzer Version:** 1.0.0  
 **Project Root:** /Users/mac/Documents/live-css/dev-tools/db-browser
 
 
 ## Executive Summary
 
-**Overall Score:** 53.4/100  
+**Overall Score:** 55.2/100  
 **Risk Level:** 🔶 HIGH
 
 ### Score Breakdown
@@ -17,9 +17,9 @@
 | Complexity | 100.0/100 | Excellent ✅ |
 | Scalability | 50.0/100 | Needs Improvement ⚠️ |
 | Dependencies | 100.0/100 | Excellent ✅ |
-| Performance | 36.0/100 | Critical 🔴 |
+| Performance | 28.0/100 | Critical 🔴 |
 | Technical Debt | 20.0/100 | Critical 🔴 |
-| Memory Management | 0.0/100 | Critical 🔴 |
+| Memory Management | 20.0/100 | Critical 🔴 |
 
 
 ## Project Statistics
@@ -28,44 +28,44 @@
 
 | Language | Files |
 |----------|-------|
-| C | 31 |
-| Header | 23 |
-| Python | 9 |
+| C | 35 |
+| Header | 26 |
+| Python | 10 |
 | Shell | 5 |
-| Markdown | 8 |
+| Markdown | 11 |
 
 ### Code Metrics
 
-- **Total Lines:** 14,357
-- **Code Lines:** 10,673
-- **Comment Lines:** 1,271
-- **Blank Lines:** 2,413
-- **Comment Ratio:** 11.9%
+- **Total Lines:** 17,299
+- **Code Lines:** 12,760
+- **Comment Lines:** 1,578
+- **Blank Lines:** 2,961
+- **Comment Ratio:** 12.4%
 
 
 ## Code Complexity Analysis
 
 ### Metrics
 
-- **Total Functions:** 255
-- **Average Complexity:** 4.45
+- **Total Functions:** 313
+- **Average Complexity:** 4.55
 - **Maximum Complexity:** 34
-- **High Complexity Functions:** 10
-- **Average Function Length:** 25.1 lines
+- **High Complexity Functions:** 12
+- **Average Function Length:** 24.0 lines
 - **Long Functions (>100 lines):** 12
 
 ### High Complexity Functions
 
 - **db_manager_create_table** in `core/db_manager.c` (complexity: 17)
+- **db_manager_execute_query** in `core/db_manager.c` (complexity: 20)
+- **versioning_parse_columns** in `core/table_versioning.c` (complexity: 16)
 - **db_transfer_list_databases** in `core/db_transfer.c` (complexity: 19)
 - **on_import_csv** in `legacy/main.c` (complexity: 27)
-- **on_add_row_clicked** in `modules/row_operations.c` (complexity: 16)
+- **on_add_row_clicked** in `modules/row_operations.c` (complexity: 20)
 - **extract_query_type** in `modules/data_protection.c` (complexity: 20)
 - **analyze_query_risk** in `modules/data_protection.c` (complexity: 16)
 - **on_new_table** in `modules/table_callbacks.c` (complexity: 16)
 - **on_drop_table** in `modules/table_callbacks.c` (complexity: 20)
-- **on_sql_query_builder** in `modules/query_callbacks.c` (complexity: 34)
-- **on_execute_query** in `modules/query_callbacks.c` (complexity: 18)
 
 ## Scalability Analysis
 
@@ -79,26 +79,27 @@
 
 | Pattern | Count |
 |---------|-------|
-| Global State Usage | 145 |
+| Global State Usage | 174 |
 | Singleton Pattern | 0 |
 | Memory Pooling | 0 |
-| Lazy Loading | 3 |
-| Caching | 0 |
+| Lazy Loading | 4 |
+| Caching | 1 |
 | Async Patterns | 0 |
 
 
-### Issues Found (17)
+### Issues Found (19)
 
-- **Missing Pagination:** 8
-- **Unbounded Allocation:** 6
-- **Large Static Buffer:** 3
+- **Missing Pagination:** 10
+- **Unbounded Allocation:** 7
+- **N Plus One Query:** 1
+- **Large Static Buffer:** 1
 
 ## Dependency Analysis
 
 ### Metrics
 
-- **Total Files:** 54
-- **Average Dependencies:** 1.6
+- **Total Files:** 61
+- **Average Dependencies:** 1.5
 - **Maximum Dependencies:** 15
 - **Average Dependents:** 0.3
 - **Maximum Dependents:** 2
@@ -109,35 +110,37 @@
 
 ### Issues Found
 
-**Total Issues:** 8
+**Total Issues:** 9
 
 
 | Severity | Count |
 |----------|-------|
-| MEDIUM | 4 |
-| LOW | 4 |
+| MEDIUM | 6 |
+| LOW | 3 |
 
 ### Performance Hotspots
 
 - `modules/table_callbacks.c` (3 issues, severity score: 4)
 - `core/db_transfer.c` (2 issues, severity score: 3)
-- `modules/trash_manager.c` (2 issues, severity score: 3)
 - `core/db_manager.c` (1 issues, severity score: 2)
+- `core/table_versioning.c` (1 issues, severity score: 2)
+- `core/search_helpers.c` (1 issues, severity score: 2)
 
 ## Technical Debt Analysis
 
 ### Summary
 
-**Total Estimated Debt:** 173.5 hours (21.7 days)
+**Total Estimated Debt:** 194.5 hours (24.3 days)
 
 
 ### Debt by Type
 
 | Type | Hours |
 |------|-------|
-| Long Function | 78.0 |
-| Missing Documentation | 77.5 |
-| Magic Numbers | 12.0 |
+| Long Function | 84.0 |
+| Missing Documentation | 82.5 |
+| Magic Numbers | 18.0 |
+| Code Duplication | 4.0 |
 | Todo | 4.0 |
 | Deprecated Function | 2.0 |
 
@@ -153,12 +156,12 @@
 
 ### Summary
 
-**Memory Score:** 0.0/100  
+**Memory Score:** 20.0/100  
 **Total Allocations:** 0  
 **Total Frees:** 0  
 **Potential Leaks:** 0  
-**Unguarded Allocations:** 17  
-**Buffer Risks:** 3
+**Unguarded Allocations:** 4  
+**Buffer Risks:** 2
 
 
 ### Good Patterns Detected
@@ -170,39 +173,38 @@
 
 | Issue Type | Count |
 |------------|-------|
-| Double Free Risk | 52 |
-| Unguarded Allocation | 17 |
-| Fixed Buffer Overuse | 6 |
-| Large Stack Allocation | 6 |
-| Buffer Overflow Risk | 3 |
+| Double Free Risk | 34 |
+| Fixed Buffer Overuse | 7 |
+| Unguarded Allocation | 4 |
 | Unsafe Realloc | 3 |
+| Buffer Overflow Risk | 2 |
+| Large Stack Allocation | 1 |
 
-### High Severity Issues (55)
+### High Severity Issues (36)
 
-- **core/db_manager.c** (Line 512): Variable info may be freed multiple times
-- **core/db_crypto.c** (Line 106): Variable ctx may be freed multiple times
-- **core/db_crypto.c** (Line 115): Variable ctx may be freed multiple times
-- **core/db_crypto.c** (Line 126): Variable ctx may be freed multiple times
-- **core/db_crypto.c** (Line 368): Variable plaintext may be freed multiple times
-- **core/db_crypto.c** (Line 396): Variable ciphertext may be freed multiple times
-- **core/db_crypto.c** (Line 405): Variable ciphertext may be freed multiple times
-- **core/db_crypto.c** (Line 411): Variable ciphertext may be freed multiple times
-- **core/db_crypto.c** (Line 482): Variable ciphertext may be freed multiple times
-- **core/db_crypto.c** (Line 497): Variable ciphertext may be freed multiple times
+- **core/search_helpers.c** (Line 385): Using unsafe function strcpy() - use safe alternative
+- **core/search_helpers.c** (Line 391): Using unsafe function strcpy() - use safe alternative
+- **core/db_crypto.c** (Line 368): Variable plaintext may be freed multiple times in function crypto_encrypt_file
+- **core/db_crypto.c** (Line 396): Variable ciphertext may be freed multiple times in function crypto_encrypt_file
+- **core/db_crypto.c** (Line 405): Variable ciphertext may be freed multiple times in function crypto_encrypt_file
+- **core/db_crypto.c** (Line 411): Variable ciphertext may be freed multiple times in function crypto_encrypt_file
+- **core/db_crypto.c** (Line 497): Variable ciphertext may be freed multiple times in function crypto_decrypt_file
+- **core/db_crypto.c** (Line 518): Variable plaintext may be freed multiple times in function crypto_decrypt_file
+- **core/db_crypto.c** (Line 524): Variable plaintext may be freed multiple times in function crypto_decrypt_file
+- **core/db_transfer.c** (Line 218): Variable dest_path may be freed multiple times in function db_transfer_import
 
 ### Memory Recommendations
 
-- Add NULL checks for 17 unguarded memory allocations
-- Replace 3 unsafe string functions with safe alternatives (strncpy, snprintf, etc.)
-- Review 52 potential double-free issues and set pointers to NULL after freeing
-- Move 6 large stack allocations to heap to prevent stack overflow
+- Replace 2 unsafe string functions with safe alternatives (strncpy, snprintf, etc.)
+- Review 34 potential double-free issues and set pointers to NULL after freeing
+- Move 1 large stack allocations to heap to prevent stack overflow
 
 ## Recommendations
 
-1. High usage of global state (145 instances). Consider encapsulating state in structures passed to functions.
-2. No caching patterns detected. Consider implementing caching for frequently accessed data.
-3. No asynchronous patterns detected. Consider async operations for I/O-bound tasks.
-4. No memory pooling detected. Consider implementing memory pools for frequently allocated objects.
+1. High usage of global state (174 instances). Consider encapsulating state in structures passed to functions.
+2. No asynchronous patterns detected. Consider async operations for I/O-bound tasks.
+3. No memory pooling detected. Consider implementing memory pools for frequently allocated objects.
+4. N+1 query patterns detected. Use batch queries or JOIN operations to improve performance.
 5. Add LIMIT clauses to queries to prevent loading excessive data.
 
 ---

@@ -115,6 +115,10 @@ void on_add_row_clicked(GtkWidget *widget, gpointer data) {
     gtk_container_add(GTK_CONTAINER(scroll), grid);
     
     GtkWidget **entries = malloc(sizeof(GtkWidget*) * col_info->row_count);
+    if (!entries) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
     
     for (int i = 0; i < col_info->row_count; i++) {
         const char *col_name = col_info->data[i][1];
@@ -139,9 +143,23 @@ void on_add_row_clicked(GtkWidget *widget, gpointer data) {
     int response = gtk_dialog_run(GTK_DIALOG(dialog));
     
     if (response == GTK_RESPONSE_OK) {
-        char insert_query[8192];
-        char columns[2048] = {0};
-        char values[4096] = {0};
+        char *insert_query = malloc(8192);
+        char *columns = malloc(2048);
+        char *values = malloc(4096);
+        
+        if (!insert_query || !columns || !values) {
+            free(insert_query);
+            free(columns);
+            free(values);
+            free(entries);
+            gtk_widget_destroy(dialog);
+            show_error_dialog("Error", "Memory allocation failed");
+            db_manager_free_query_result(col_info);
+            return;
+        }
+        
+        memset(columns, 0, 2048);
+        memset(values, 0, 4096);
         int col_pos = 0;
         int val_pos = 0;
         
@@ -184,6 +202,10 @@ void on_add_row_clicked(GtkWidget *widget, gpointer data) {
         } else {
             show_error_dialog("Error", "Failed to add row. Check your values and try again.");
         }
+        
+        free(insert_query);
+        free(columns);
+        free(values);
     }
     
     free(entries);

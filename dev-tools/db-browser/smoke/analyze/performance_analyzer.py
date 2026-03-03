@@ -12,6 +12,14 @@ from typing import Dict, List, Any
 class PerformanceAnalyzer:
     """Analyzes code for performance issues."""
     
+    # Pre-compile regex patterns for better performance
+    STRCAT_PATTERN = re.compile(r'strcat|strncat')
+    STRLEN_PATTERN = re.compile(r'strlen\s*\(')
+    ALLOC_IN_LOOP_PATTERN = re.compile(r'(for|while)\s*\([^)]+\)[^}]*(malloc|calloc|realloc)', re.DOTALL)
+    NON_CONST_PARAMS_PATTERN = re.compile(r'\(.*?char\s*\*\s*\w+.*?\)')
+    LINEAR_SEARCH_PATTERN = re.compile(r'for\s*\([^)]+\)[^}]*if\s*\([^)]*==', re.DOTALL)
+    UNNECESSARY_COPY_PATTERN = re.compile(r'strcpy\s*\(.*?,\s*.*?\)\s*;[^}]*\breturn\b', re.DOTALL)
+    
     def __init__(self, project_root: Path):
         self.project_root = Path(project_root)
         
@@ -43,10 +51,9 @@ class PerformanceAnalyzer:
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
-                lines = content.splitlines()
                 
                 # Check for inefficient string operations
-                if re.search(r'strcat|strncat', content):
+                if self.STRCAT_PATTERN.search(content):
                     issues.append({
                         'type': 'INEFFICIENT_STRING_OP',
                         'severity': 'LOW',
@@ -55,7 +62,8 @@ class PerformanceAnalyzer:
                     })
                 
                 # Check for repeated strlen calls
-                strlen_count = len(re.findall(r'strlen\s*\(', content))
+                strlen_matches = self.STRLEN_PATTERN.findall(content)
+                strlen_count = len(strlen_matches)
                 if strlen_count > 5:
                     issues.append({
                         'type': 'REPEATED_STRLEN',
@@ -66,7 +74,7 @@ class PerformanceAnalyzer:
                     })
                 
                 # Check for memory allocation in loops
-                if re.search(r'(for|while)\s*\([^)]+\)[^}]*(malloc|calloc|realloc)', content, re.DOTALL):
+                if self.ALLOC_IN_LOOP_PATTERN.search(content):
                     issues.append({
                         'type': 'ALLOCATION_IN_LOOP',
                         'severity': 'MEDIUM',
@@ -75,7 +83,7 @@ class PerformanceAnalyzer:
                     })
                 
                 # Check for missing const qualifiers
-                non_const_params = re.findall(r'\\(.*?char\\s*\\*\\s*\\w+.*?\\)', content)
+                non_const_params = self.NON_CONST_PARAMS_PATTERN.findall(content)
                 if len(non_const_params) > 3:
                     issues.append({
                         'type': 'MISSING_CONST',
@@ -85,7 +93,7 @@ class PerformanceAnalyzer:
                     })
                 
                 # Check for linear search patterns
-                if re.search(r'for\\s*\\([^)]+\\)[^}]*if\\s*\\([^)]*==', content, re.DOTALL):
+                if self.LINEAR_SEARCH_PATTERN.search(content):
                     issues.append({
                         'type': 'LINEAR_SEARCH',
                         'severity': 'LOW',
@@ -94,7 +102,7 @@ class PerformanceAnalyzer:
                     })
                 
                 # Check for unnecessary copying
-                if re.search(r'strcpy\\s*\\(.*?,\\s*.*?\\)\\s*;[^}]*\\breturn\\b', content, re.DOTALL):
+                if self.UNNECESSARY_COPY_PATTERN.search(content):
                     issues.append({
                         'type': 'UNNECESSARY_COPY',
                         'severity': 'LOW',

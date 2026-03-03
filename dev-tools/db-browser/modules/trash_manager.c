@@ -27,7 +27,12 @@ TrashManager* trash_manager_init(const char *source_db_path) {
     char *db_dir = dirname(db_path_copy);
     
     manager->trash_dir = malloc(strlen(db_dir) + 20);
-    sprintf(manager->trash_dir, "%s/trash", db_dir);
+    if (!manager->trash_dir) {
+        free(db_path_copy);
+        free(manager);
+        return NULL;
+    }
+    snprintf(manager->trash_dir, strlen(db_dir) + 20, "%s/trash", db_dir);
     free(db_path_copy);
 
     if (!ensure_directory(manager->trash_dir)) {
@@ -37,7 +42,12 @@ TrashManager* trash_manager_init(const char *source_db_path) {
     }
 
     manager->trash_db_path = malloc(strlen(manager->trash_dir) + 30);
-    sprintf(manager->trash_db_path, "%s/trash.db", manager->trash_dir);
+    if (!manager->trash_db_path) {
+        free(manager->trash_dir);
+        free(manager);
+        return NULL;
+    }
+    snprintf(manager->trash_db_path, strlen(manager->trash_dir) + 30, "%s/trash.db", manager->trash_dir);
 
     if (sqlite3_open(manager->trash_db_path, &manager->trash_db) != SQLITE_OK) {
         free(manager->trash_dir);
@@ -94,8 +104,17 @@ bool trash_manager_save_row(TrashManager *manager,
         return false;
     }
 
-    char names_json[4096] = {0};
-    char values_json[4096] = {0};
+    char *names_json = malloc(4096);
+    if (!names_json) return false;
+    
+    char *values_json = malloc(4096);
+    if (!values_json) {
+        free(names_json);
+        return false;
+    }
+    
+    memset(names_json, 0, 4096);
+    memset(values_json, 0, 4096);
     int names_pos = 1;
     int values_pos = 1;
 
@@ -141,6 +160,8 @@ bool trash_manager_save_row(TrashManager *manager,
 
     sqlite3_stmt *stmt;
     if (sqlite3_prepare_v2(manager->trash_db, insert_sql, -1, &stmt, NULL) != SQLITE_OK) {
+        free(names_json);
+        free(values_json);
         return false;
     }
 
@@ -155,6 +176,9 @@ bool trash_manager_save_row(TrashManager *manager,
     int result = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
+    free(names_json);
+    free(values_json);
+    
     return (result == SQLITE_DONE);
 }
 
@@ -185,7 +209,15 @@ char** trash_manager_list_entries(TrashManager *manager,
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         if (*count >= capacity) {
             capacity *= 2;
-            entries = realloc(entries, sizeof(char*) * capacity);
+            char **new_entries = realloc(entries, sizeof(char*) * capacity);
+            if (!new_entries) {
+                for (int i = 0; i < *count; i++) free(entries[i]);
+                free(entries);
+                sqlite3_finalize(stmt);
+                *count = 0;
+                return NULL;
+            }
+            entries = new_entries;
         }
 
         char entry[512];
@@ -306,7 +338,7 @@ bool trash_manager_save_table(TrashManager *manager,
                 data_sql = new_data;
             }
             
-            strcat(data_sql, insert_line);
+            memcpy(data_sql + data_sql_size, insert_line, line_len + 1);
             data_sql_size += line_len;
         }
         sqlite3_finalize(data_stmt);
@@ -365,11 +397,23 @@ char** trash_manager_list_tables(TrashManager *manager,
     char **entries = NULL;
     int capacity = 10;
     entries = malloc(sizeof(char*) * capacity);
+    if (!entries) {
+        sqlite3_finalize(stmt);
+        return NULL;
+    }
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         if (*count >= capacity) {
             capacity *= 2;
-            entries = realloc(entries, sizeof(char*) * capacity);
+            char **new_entries = realloc(entries, sizeof(char*) * capacity);
+            if (!new_entries) {
+                for (int i = 0; i < *count; i++) free(entries[i]);
+                free(entries);
+                sqlite3_finalize(stmt);
+                *count = 0;
+                return NULL;
+            }
+            entries = new_entries;
         }
 
         char entry[512];

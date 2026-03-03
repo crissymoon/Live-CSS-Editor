@@ -1,4 +1,5 @@
 #include "db_manager.h"
+#include "db_optimization.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,9 +39,10 @@ void db_manager_destroy(DBManager *mgr) {
 int db_manager_open(DBManager *mgr) {
     if (!mgr) return SQLITE_ERROR;
 
+    /* Use NOMUTEX for single-threaded performance improvement */
     int flags = mgr->read_only ?
-                SQLITE_OPEN_READONLY :
-                (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+                (SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX) :
+                (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX);
 
     int rc = sqlite3_open_v2(mgr->db_path, &mgr->db, flags, NULL);
     if (rc != SQLITE_OK) {
@@ -48,6 +50,11 @@ int db_manager_open(DBManager *mgr) {
         mgr->last_error = strdup(sqlite3_errmsg(mgr->db));
         fprintf(stderr, "[db_manager] open failed (%s): %s\n", mgr->db_path, mgr->last_error);
         return rc;
+    }
+
+    /* Apply database optimizations */
+    if (!mgr->read_only) {
+        db_optimization_init(mgr->db, NULL);
     }
 
     return SQLITE_OK;
@@ -138,7 +145,12 @@ static int get_tables_callback(void *data, int argc, char **argv, char **col_nam
 
     if (argc > 0 && argv[0]) {
         TableInfo *info = (TableInfo*)malloc(sizeof(TableInfo));
+        if (!info) return 1;  // Signal error
         info->name = strdup(argv[0]);
+        if (!info->name) {
+            free(info);
+            return 1;
+        }
         info->column_count = 0;
         info->row_count = 0;
         info->column_names = NULL;
@@ -183,6 +195,7 @@ static int get_columns_callback(void *data, int argc, char **argv, char **col_na
 
     if (argc >= 6) {
         ColumnInfo *info = (ColumnInfo*)malloc(sizeof(ColumnInfo));
+        if (!info) return 1;  // Signal error
         info->name = argv[1] ? strdup(argv[1]) : NULL;
         info->type = argv[2] ? strdup(argv[2]) : NULL;
         info->not_null = argv[3] && strcmp(argv[3], "1") == 0;
@@ -346,12 +359,21 @@ QueryResult* db_manager_execute_query(DBManager *mgr, const char *query) {
     }
 
     QueryResult *result = (QueryResult*)malloc(sizeof(QueryResult));
+    if (!result) {
+        sqlite3_finalize(stmt);
+        return NULL;
+    }
     result->column_count = sqlite3_column_count(stmt);
     result->row_count = 0;
     result->error = NULL;
 
     // Get column names
     result->column_names = (char**)malloc(result->column_count * sizeof(char*));
+    if (!result->column_names) {
+        free(result);
+        sqlite3_finalize(stmt);
+        return NULL;
+    }
     for (int i = 0; i < result->column_count; i++) {
         const char *name = sqlite3_column_name(stmt, i);
         result->column_names[i] = name ? strdup(name) : strdup("");
@@ -366,10 +388,36 @@ QueryResult* db_manager_execute_query(DBManager *mgr, const char *query) {
     // Reset and fetch data
     sqlite3_reset(stmt);
     result->data = (char***)malloc(result->row_count * sizeof(char**));
+    if (!result->data) {
+        for (int i = 0; i < result->column_count; i++) {
+            free(result->column_names[i]);
+        }
+        free(result->column_names);
+        free(result);
+        sqlite3_finalize(stmt);
+        return NULL;
+    }
 
     int row = 0;
     while (sqlite3_step(stmt) == SQLITE_ROW && row < result->row_count) {
         result->data[row] = (char**)malloc(result->column_count * sizeof(char*));
+        if (!result->data[row]) {
+            // Clean up previous rows
+            for (int r = 0; r < row; r++) {
+                for (int c = 0; c < result->column_count; c++) {
+                    free(result->data[r][c]);
+                }
+                free(result->data[r]);
+            }
+            free(result->data);
+            for (int i = 0; i < result->column_count; i++) {
+                free(result->column_names[i]);
+            }
+            free(result->column_names);
+            free(result);
+            sqlite3_finalize(stmt);
+            return NULL;
+        }
 
         for (int col = 0; col < result->column_count; col++) {
             const unsigned char *text = sqlite3_column_text(stmt, col);

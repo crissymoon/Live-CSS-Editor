@@ -19,7 +19,10 @@ BIN_DIR = $(BUILD_DIR)/bin
 # Source files
 CORE_SOURCES = core/db_manager.c \
                core/db_crypto.c \
-               core/db_transfer.c
+               core/db_transfer.c \
+               core/db_optimization.c \
+               core/search_helpers.c \
+               core/table_versioning.c
 UI_SOURCES = ui/tooltips.c
 MODULE_SOURCES = modules/app_state.c \
                  modules/ui_drawing.c \
