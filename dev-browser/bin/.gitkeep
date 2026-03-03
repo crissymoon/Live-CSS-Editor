@@ -1,0 +1,3 @@
+# This directory holds the bundled PHP binary during a PyInstaller build.
+# The binary itself (bin/php) is gitignored.
+# Run dev-browser/build_app.sh to populate it before building the .app.

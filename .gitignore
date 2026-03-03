@@ -9,6 +9,12 @@ dev-browser/venv/
 dev-browser/.venv/
 .venv/
 
+# dev-browser build output and bundled binaries
+dev-browser/bin/php
+dev-browser/bin/*.dylib
+dev-browser/build/
+dev-browser/dist/
+
 # Python compiled files
 __pycache__/
 *.pyc

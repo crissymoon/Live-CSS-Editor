@@ -12,7 +12,10 @@ from PyQt6.QtWidgets import QMessageBox
 class _AppsMixin:
     """Methods for the Apps dropdown and Commander."""
 
-    _PHP_BIN       = '/usr/local/bin/php'
+    @property
+    def _PHP_BIN(self) -> str:  # type: ignore[override]
+        from ..apps_manager import find_php
+        return find_php()
 
     def _rebuild_apps_menu(self):
         """Populate the Apps dropdown from the apps/ directory each time it opens."""

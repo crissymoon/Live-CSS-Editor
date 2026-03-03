@@ -2,3 +2,13 @@ PyQt6
 PyQt6-WebEngine
 cryptography
 markdown
+
+# macOS WKWebView (native WebKit engine)
+pyobjc-core
+pyobjc-framework-Cocoa
+pyobjc-framework-WebKit
+pyobjc-framework-Quartz
+pyobjc-framework-AppKit
+
+# Build the .app bundle (optional -- only needed when running build_app.sh)
+# pyinstaller

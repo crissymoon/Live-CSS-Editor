@@ -45,6 +45,8 @@ import os
 import json
 import uuid
 import time
+import sys
+import shutil
 import threading
 import subprocess
 import importlib.util
@@ -53,6 +55,45 @@ from typing import Optional
 _HERE      = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APPS_DIR   = os.path.join(_HERE, 'apps')
 PHP_PORT   = 9879
+
+# ---------------------------------------------------------------------------
+# PHP binary resolver
+# ---------------------------------------------------------------------------
+
+def find_php() -> str:
+    """Return the path to a usable PHP binary.
+
+    Priority:
+      1. sys._MEIPASS/php  -- bundled inside a PyInstaller .app
+      2. dev-browser/bin/php  -- local copy placed by build_app.sh (dev mode)
+      3. shutil.which('php')  -- system PHP on PATH
+      4. /usr/local/bin/php   -- Homebrew fallback
+      5. 'php'                -- last resort; let the OS resolve it
+    """
+    # 1. Inside a PyInstaller frozen bundle
+    if getattr(sys, 'frozen', False):
+        bundled = os.path.join(sys._MEIPASS, 'php')  # type: ignore[attr-defined]
+        if os.path.isfile(bundled):
+            return bundled
+
+    # 2. Local bin/ copy (placed by build_app.sh for dev/testing)
+    local = os.path.normpath(os.path.join(_HERE, 'bin', 'php'))
+    if os.path.isfile(local):
+        return local
+
+    # 3. System PHP on PATH
+    sys_php = shutil.which('php')
+    if sys_php:
+        return sys_php
+
+    # 4. Homebrew locations
+    for candidate in ('/opt/homebrew/bin/php', '/usr/local/bin/php'):
+        if os.path.isfile(candidate):
+            return candidate
+
+    # 5. Last resort
+    return 'php'
+
 
 _manager_instance: Optional['AppsManager'] = None
 
@@ -113,10 +154,11 @@ class AppsManager:
         """Start php -S serving APPS_DIR on PHP_PORT. Returns True on success."""
         if self._php_proc and self._php_proc.poll() is None:
             return True  # already running
+        php_bin = find_php()
         try:
             os.makedirs(self.APPS_DIR, exist_ok=True)
             self._php_proc = subprocess.Popen(
-                ['php', '-S', f'127.0.0.1:{self.PHP_PORT}', '-t', self.APPS_DIR],
+                [php_bin, '-S', f'127.0.0.1:{self.PHP_PORT}', '-t', self.APPS_DIR],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
