@@ -1,0 +1,390 @@
+#include "function_runner.h"
+#include "ui_utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    const char *name;
+    const char *category;
+    const char *description;
+    const char *sql_template;
+} SQLFunction;
+
+static const SQLFunction builtin_functions[] = {
+    // Aggregate Functions
+    {"SUM", "Aggregate", "Calculate total sum of a column", 
+     "SELECT SUM(column_name) as total\nFROM table_name;"},
+    {"AVG", "Aggregate", "Calculate average of a column",
+     "SELECT AVG(column_name) as average\nFROM table_name;"},
+    {"COUNT", "Aggregate", "Count rows",
+     "SELECT COUNT(*) as row_count\nFROM table_name;"},
+    {"COUNT DISTINCT", "Aggregate", "Count unique values",
+     "SELECT COUNT(DISTINCT column_name) as unique_count\nFROM table_name;"},
+    {"MIN", "Aggregate", "Find minimum value",
+     "SELECT MIN(column_name) as minimum\nFROM table_name;"},
+    {"MAX", "Aggregate", "Find maximum value",
+     "SELECT MAX(column_name) as maximum\nFROM table_name;"},
+    {"GROUP BY", "Aggregate", "Group and aggregate data",
+     "SELECT column_name, COUNT(*) as count, SUM(value_column) as total\nFROM table_name\nGROUP BY column_name\nORDER BY count DESC;"},
+    {"GROUP BY with HAVING", "Aggregate", "Filter grouped results",
+     "SELECT column_name, COUNT(*) as count\nFROM table_name\nGROUP BY column_name\nHAVING count > 1;"},
+    
+    // Statistical Functions
+    {"Standard Deviation", "Statistical", "Calculate standard deviation",
+     "SELECT AVG(column_name) as mean,\n       SQRT(AVG(column_name * column_name) - AVG(column_name) * AVG(column_name)) as std_dev\nFROM table_name;"},
+    {"Variance", "Statistical", "Calculate variance",
+     "SELECT AVG(column_name * column_name) - AVG(column_name) * AVG(column_name) as variance\nFROM table_name;"},
+    {"Percentile", "Statistical", "Calculate percentiles using NTILE",
+     "SELECT column_name, NTILE(4) OVER (ORDER BY column_name) as quartile\nFROM table_name;"},
+    
+    // Window Functions
+    {"Row Number", "Window", "Add sequential row numbers",
+     "SELECT *, ROW_NUMBER() OVER (ORDER BY column_name) as row_num\nFROM table_name;"},
+    {"Rank", "Window", "Rank rows with ties",
+     "SELECT *, RANK() OVER (ORDER BY column_name DESC) as rank\nFROM table_name;"},
+    {"Running Total", "Window", "Calculate cumulative sum",
+     "SELECT *, SUM(column_name) OVER (ORDER BY date_column) as running_total\nFROM table_name;"},
+    {"Moving Average", "Window", "Calculate rolling average",
+     "SELECT *, AVG(column_name) OVER (ORDER BY date_column ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) as moving_avg_7\nFROM table_name;"},
+    {"LAG/LEAD", "Window", "Compare with previous/next row",
+     "SELECT *, LAG(column_name, 1) OVER (ORDER BY date_column) as previous_value,\n       LEAD(column_name, 1) OVER (ORDER BY date_column) as next_value\nFROM table_name;"},
+    {"Top N per Group", "Window", "Get top records per category",
+     "SELECT * FROM (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY category_column ORDER BY value_column DESC) as rn\n  FROM table_name\n) WHERE rn <= 5;"},
+    
+    // Date Functions
+    {"Date Extraction", "Date/Time", "Extract date parts",
+     "SELECT STRFTIME('%Y', date_column) as year,\n       STRFTIME('%m', date_column) as month,\n       STRFTIME('%d', date_column) as day\nFROM table_name;"},
+    {"Date Difference", "Date/Time", "Calculate days between dates",
+     "SELECT JULIANDAY(end_date) - JULIANDAY(start_date) as days_difference\nFROM table_name;"},
+    {"Group by Date", "Date/Time", "Aggregate by day/month/year",
+     "SELECT DATE(date_column) as date, COUNT(*) as count\nFROM table_name\nGROUP BY DATE(date_column)\nORDER BY date;"},
+    {"Current Date", "Date/Time", "Filter by date ranges",
+     "SELECT * FROM table_name\nWHERE date_column >= DATE('now', '-30 days');"},
+    
+    // String Functions
+    {"UPPER/LOWER", "String", "Change text case",
+     "SELECT UPPER(text_column) as uppercase, LOWER(text_column) as lowercase\nFROM table_name;"},
+    {"SUBSTR", "String", "Extract substring",
+     "SELECT SUBSTR(text_column, 1, 10) as first_10_chars\nFROM table_name;"},
+    {"TRIM", "String", "Remove whitespace",
+     "SELECT TRIM(text_column) as trimmed\nFROM table_name;"},
+    {"LIKE Pattern", "String", "Search text patterns",
+     "SELECT * FROM table_name\nWHERE text_column LIKE '%search%';"},
+    {"LENGTH", "String", "Get text length",
+     "SELECT text_column, LENGTH(text_column) as length\nFROM table_name\nORDER BY length DESC;"},
+    {"CONCATENATE", "String", "Combine columns",
+     "SELECT column1 || ' ' || column2 as combined\nFROM table_name;"},
+    
+    // Mathematical Functions
+    {"ROUND", "Math", "Round numbers",
+     "SELECT ROUND(number_column, 2) as rounded\nFROM table_name;"},
+    {"ABS", "Math", "Absolute value",
+     "SELECT ABS(number_column) as absolute_value\nFROM table_name;"},
+    {"POWER", "Math", "Raise to power",
+     "SELECT POWER(number_column, 2) as squared\nFROM table_name;"},
+    {"SQRT", "Math", "Square root",
+     "SELECT SQRT(number_column) as square_root\nFROM table_name;"},
+    
+    // Business Analytics
+    {"Revenue Analysis", "Business", "Revenue by period",
+     "SELECT DATE(date_column) as date,\n       SUM(amount_column) as revenue,\n       COUNT(*) as transactions,\n       AVG(amount_column) as avg_transaction\nFROM table_name\nGROUP BY DATE(date_column)\nORDER BY date;"},
+    {"Growth Rate", "Business", "Period over period growth",
+     "SELECT date_column,\n       value_column,\n       LAG(value_column) OVER (ORDER BY date_column) as previous_value,\n       ROUND(((value_column - LAG(value_column) OVER (ORDER BY date_column)) * 100.0 / \n              LAG(value_column) OVER (ORDER BY date_column)), 2) as growth_pct\nFROM table_name;"},
+    {"Customer Metrics", "Business", "Customer analysis",
+     "SELECT customer_id,\n       COUNT(*) as purchase_count,\n       SUM(amount) as total_spent,\n       AVG(amount) as avg_order_value,\n       MAX(date) as last_purchase\nFROM table_name\nGROUP BY customer_id\nORDER BY total_spent DESC;"},
+    
+    // Data Quality
+    {"NULL Check", "Data Quality", "Find NULL values",
+     "SELECT COUNT(*) as total_rows,\n       SUM(CASE WHEN column_name IS NULL THEN 1 ELSE 0 END) as null_count,\n       ROUND(SUM(CASE WHEN column_name IS NULL THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as null_pct\nFROM table_name;"},
+    {"Duplicates", "Data Quality", "Find duplicate rows",
+     "SELECT column_name, COUNT(*) as count\nFROM table_name\nGROUP BY column_name\nHAVING COUNT(*) > 1;"},
+    {"Value Distribution", "Data Quality", "Analyze value frequency",
+     "SELECT column_name, COUNT(*) as frequency,\n       ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM table_name), 2) as percentage\nFROM table_name\nGROUP BY column_name\nORDER BY frequency DESC;"},
+    
+    // Advanced Queries
+    {"Pivot Data", "Advanced", "Pivot rows to columns",
+     "SELECT category,\n       SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,\n       SUM(CASE WHEN status = 'Inactive' THEN 1 ELSE 0 END) as inactive\nFROM table_name\nGROUP BY category;"},
+    {"Running Percentage", "Advanced", "Calculate running percentage",
+     "SELECT *,\n       ROUND(SUM(value_column) OVER (ORDER BY date_column) * 100.0 / \n             SUM(value_column) OVER (), 2) as cumulative_pct\nFROM table_name;"},
+    {"Cohort Analysis", "Advanced", "Group by time periods",
+     "SELECT STRFTIME('%Y-%m', signup_date) as cohort,\n       COUNT(DISTINCT user_id) as cohort_size\nFROM table_name\nGROUP BY cohort\nORDER BY cohort;"},
+    
+    {NULL, NULL, NULL, NULL}
+};
+
+
+
+// Forward declaration
+static void on_run_function_execute(GtkWidget *button, gpointer user_data);
+
+static void on_function_double_clicked(GtkTreeView *tree_view, GtkTreePath *path,
+                                        GtkTreeViewColumn *column, gpointer user_data) {
+    (void)tree_view;  // Unused parameter
+    (void)path;  // Unused parameter
+    (void)column;  // Unused parameter
+    // Double-click immediately loads the function
+    on_run_function_execute(NULL, user_data);
+}
+
+static void on_run_function_execute(GtkWidget *button, gpointer user_data) {
+    (void)button;  // Unused parameter
+    GtkWidget **widgets = (GtkWidget**)user_data;
+    GtkDialog *dialog = GTK_DIALOG(widgets[2]);
+    AppState *state = (AppState*)widgets[3];
+    GtkTreeView *tree_view = GTK_TREE_VIEW(widgets[4]);
+    
+    // Get selected function file
+    GtkTreeSelection *selection = gtk_tree_view_get_selection(tree_view);
+    GtkTreeModel *model;
+    GtkTreeIter iter;
+    
+    if (!gtk_tree_selection_get_selected(selection, &model, &iter)) {
+        show_error_dialog("Error", "Please select a function to run.");
+        return;
+    }
+    
+    gchar *filename = NULL;
+    gtk_tree_model_get(model, &iter, 1, &filename, -1);
+    
+    if (!filename) {
+        show_error_dialog("Error", "Failed to get selected function.");
+        return;
+    }
+    
+    // Read function file
+    char *content = read_function_file(filename);
+    g_free(filename);
+    
+    if (!content) {
+        show_error_dialog("Error", "Failed to read function file.");
+        return;
+    }
+    
+    // Check if we have a current table
+    if (!state->current_table || strlen(state->current_table) == 0) {
+        // No table selected, just load the SQL into the query editor
+        GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(state->query_editor));
+        gtk_text_buffer_set_text(buffer, content, -1);
+        gtk_notebook_set_current_page(GTK_NOTEBOOK(state->notebook), 1);
+        update_status("Function loaded into SQL editor. Modify the query and execute it.");
+        g_free(content);
+        gtk_dialog_response(dialog, GTK_RESPONSE_CLOSE);
+        return;
+    }
+    
+    // Extract first meaningful query from the file
+static void on_function_double_clicked(GtkTreeView *tree_view, GtkTreePath *path,
+                                        GtkTreeViewColumn *column, gpointer user_data) {
+    (void)tree_view;  // Unused
+    (void)path;  // Unused
+    (void)column;  // Unused
+    
+    GtkWidget **widgets = (GtkWidget**)user_data;
+    GtkDialog *dialog = GTK_DIALOG(widgets[2]);
+    AppState *state = (AppState*)widgets[3];
+    GtkTreeView *func_tree = GTK_TREE_VIEW(widgets[4]);
+    
+    // Get selected function
+    GtkTreeSeleload_function_clicked(GtkWidget *button, gpointer user_data) {
+    (void)button;  // Unused
+    on_function_double_clicked(NULL, NULL, NULL, user_data
+        NULL
+    );
+    
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 900, 650);
+    
+    GtkWidget *content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    gtk_container_set_border_width(GTK_CONTAINER(content_area), 12);
+    
+    // Info label
+    GtkWidget *info_label = gtk_label_new(NULL);
+    char markup[1024];
+    if (table_count > 0) {
+        snprintf(markup, sizeof(markup),
+                 "<b>SQL Function Library for Current Database</b>\n"
+                 "Database contains <b>%d table%s</b>. Select a function below to load into the SQL editor.",
+                 table_count, table_count == 1 ? "" : "s");
+    } else {
+        snprintf(markup, sizeof(markup),
+                 "<b>SQL Function Library for Current Database</b>\n"
+                 "Database is empty. Load a function to see SQL examples.");
+    }
+    gtk_label_set_markup(GTK_LABEL(info_label), markup);
+    gtk_label_set_line_wrap(GTK_LABEL(info_label), TRUE);
+    gtk_widget_set_halign(info_label, GTK_ALIGN_START);
+    gtk_box_pack_start(GTK_BOX(content_area), info_label, FALSE, FALSE, 6);
+    
+    // Table selector row if tables exist
+    if (table_count > 0) {
+        GtkWidget *table_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+        gtk_widget_set_margin_top(table_row, 4);
+        gtk_widget_set_margin_bottom(table_row, 4);
+        
+        GtkWidget *table_label = gtk_label_new("Target table:");
+        gtk_widget_set_halign(table_label, GTK_ALIGN_START);
+        gtk_box_pack_start(GTK_BOX(table_row), table_label, FALSE, FALSE, 0);
+        
+        GtkWidget *table_combo = gtk_combo_box_text_new();
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(table_combo), "(use table names from query)");
+        
+        for (TableInfo *t = tables; t != NULL; t = t->next) {
+            char table_info[256];
+            snprintf(table_info, sizeof(table_info), "%s (%d rows)", t->name, t->row_count);
+            gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(table_combo), table_info);
+        }
+        
+        // Set current table if available
+        if (state->current_table && strlen(state->current_table) > 0) {
+        } else {
+            gtk_combo_box_set_active(GTK_COMBO_BOX(table_combo), 0);
+        }
+        
+        gtk_widget_set_tooltip_text(table_combo, 
+            "Select a table to reference when loading the function (optional)");
+        gtk_box_pack_start(GTK_BOX(table_row), table_combo, TRUE, TRUE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(content_area), table_row, FALSE, FALSE, 0);
+    }
+    
+    // Horizontal paned for list and preview
+    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_paned_set_position(GTK_PANED(paned), 300);
+    gtk_box_pack_start(GTK_BOX(content_area), paned, TRUE, TRUE, 6);
+    
+    // Left side: Function list
+    GtkWidget *list_scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(list_scroll),
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(list_scroll), GTK_SHADOW_IN);
+    
+    GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
+    GtkWidget *tree_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(tree_view), TRUE);
+    
+    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+    GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(
+        "Available Functions", renderer, "text", 0, NULL);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), column);
+    
+    // Populate list
+    for (GList *l = files; l != NULL; l = l->next) {
+        FunctionFile *file = (FunctionFile*)l->data;
+        GtkTreeIter iter;
+        gtk_list_store_append(store, &iter);
+        gtk_list_store_set(store, &iter,
+                          0, file->display_name,
+                          1, file->filename,
+                          -1);
+        g_free(file);
+    }
+    g_list_free(files);
+    g_object_unref(store);
+    
+    gtk_container_add(GTK_CONTAINER(list_scroll), tree_view);
+    gtk_paned_add1(GTK_PANED(paned), list_scroll);
+    
+    // Right side: Preview
+    GtkWidget *preview_scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(preview_scroll),
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(preview_scroll), GTK_SHADOW_IN);
+    
+    GtkWidget *preview = gtk_text_view_new();
+    gtk_text_view_set_editable(GTK_TEXT_VIEW(preview), FALSE);
+    gtk_text_view_set_monospace(GTK_TEXT_VIEW(preview), TRUE);
+    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(preview), 8);
+    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(preview), 8);
+    gtk_text_view_set_top_margin(GTK_TEXT_VIEW(preview), 6);
+    gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(preview), 6);
+    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(preview), GTK_WRAP_NONE);
+    
+    GtkTextBuffer *preview_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(preview));
+    gtk_text_buffer_set_text(preview_buffer, "Select a function to preview...", -1);
+    
+    gtk_container_add(GTK_CONTAINER(preview_scroll), preview);
+    gtk_paned_add2(GTK_PANED(paned), preview_scroll);
+    
+    // Button box
+    GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_margin_top(button_box, 6);
+    
+    GtkWidget *load_button = gtk_button_new_with_label("Load into Editor");
+    gtk_widget_set_name(load_button, "btn-primary");
+    gtk_widget_set_tooltip_text(load_button, "Load the selected function into the SQL query editor");
+    gtk_box_pack_start(GTK_BOX(button_box), load_button, FALSE, FALSE, 0);
+    
+    gtk_box_pack_start(GTK_BOX(content_area), button_box, FALSE, FALSE, 0);
+    
+    // Connect signals - store widgets array for callbacks
+    GtkWidget **widgets = g_malloc(sizeof(GtkWidget*) * 5);
+    widgets[0] = preview;
+    widgets[1] = tree_view;
+    widgets[2] = dialog;
+    widgets[3] = (GtkWidget*)state;
+    widgets[4] = tree_view;
+    Function list with categories
+    GtkWidget *list_scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(list_scroll),
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(list_scroll), GTK_SHADOW_IN);
+    
+    // Columns: Name, Category, Index, Description
+    GtkListStore *store = gtk_list_store_new(4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_INT, G_TYPE_STRING);
+    GtkWidget *tree_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(tree_view), TRUE);
+    
+    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+    GtkTreeViewColumn *col_name = gtk_tree_view_column_new_with_attributes(
+        "Function", renderer, "text", 0, NULL);
+    gtk_tree_view_column_set_min_width(col_name, 150);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), col_name);
+    
+    GtkTreeViewColumn *col_category = gtk_tree_view_column_new_with_attributes(
+        "Category", renderer, "text", 1, NULL);
+    gtk_tree_view_column_set_min_width(col_category, 100);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), col_category);
+    
+    GtkTreeViewColumn *col_desc = gtk_tree_view_column_new_with_attributes(
+        "Description", renderer, "text", 3, NULL);
+    gtk_tree_view_column_set_min_width(col_desc, 250);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), col_desc);
+    
+    // Populate with built-in functions
+    for (int i = 0; builtin_functions[i].name != NULL; i++) {
+        GtkTreeIter iter;
+        gtk_list_store_append(store, &iter);
+        gtk_list_store_set(store, &iter,
+                          0, builtin_functions[i].name,
+                          1, builtin_functions[i].category,
+                          2, i,
+                          3, builtin_functions[i].description,
+                          -1);
+    }
+    g_object_unref(store);
+    
+    gtk_container_add(GTK_CONTAINER(list_scroll), tree_view);
+    gtk_box_pack_start(GTK_BOX(content_area), list_scroll, TRUE, TRUE, 6info_text = gtk_label_new("Double-click a function to load it into the SQL editor");
+    gtk_widget_set_halign(info_text, GTK_ALIGN_START);
+    gtk_box_pack_start(GTK_BOX(button_box), info_text, TRUE, TRUE, 0);
+    
+    GtkWidget *load_button = gtk_button_new_with_label("Load Selected");
+    gtk_widget_set_name(load_button, "btn-primary");
+    gtk_widget_set_tooltip_text(load_button, "Load the selected function into the SQL query editor");
+    gtk_box_pack_end(GTK_BOX(button_box), load_button, FALSE, FALSE, 0);
+    
+    gtk_box_pack_start(GTK_BOX(content_area), button_box, FALSE, FALSE, 0);
+    
+    // Connect signals
+    GtkWidget **widgets = g_malloc(sizeof(GtkWidget*) * 5);
+    widgets[0] = NULL;  // No preview pane
+    widgets[1] = tree_view;
+    widgets[2] = dialog;
+    widgets[3] = (GtkWidget*)state;
+    widgets[4] = tree_view;
+    
+    g_signal_connect(tree_view, "row-activated", 
+                     G_CALLBACK(on_function_double_clicked), widgets);
+    
+    g_signal_connect(load_button, "clicked",
+                     G_CALLBACK(on_load_function_clicked

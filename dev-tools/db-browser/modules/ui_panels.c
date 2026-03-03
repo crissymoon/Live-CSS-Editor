@@ -20,6 +20,7 @@ void on_drop_table(GtkWidget *widget, gpointer data);
 void on_data_cell_activated(GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer data);
 void on_toggle_theme(GtkWidget *widget, gpointer data);
 void on_query_buffer_changed(GtkTextBuffer *buffer, gpointer data);
+void on_run_function(GtkWidget *widget, gpointer data);
 
 void create_main_window(AppState *state) {
     state->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -294,6 +295,17 @@ void create_data_panel(AppState *state) {
     g_signal_connect(state->data_view, "row-activated", G_CALLBACK(on_data_cell_activated), state);
     gtk_container_add(GTK_CONTAINER(scroll), state->data_view);
     gtk_box_pack_start(GTK_BOX(vbox), scroll, TRUE, TRUE, 0);
+
+    GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_margin_top(hbox, 6);
+
+    GtkWidget *btn_run_function = gtk_button_new_with_label("Run Function");
+    gtk_widget_set_name(btn_run_function, "btn-primary");
+    gtk_widget_set_tooltip_text(btn_run_function, "Browse and load SQL functions for data analysis on the current table");
+    g_signal_connect(btn_run_function, "clicked", G_CALLBACK(on_run_function), state);
+    gtk_box_pack_start(GTK_BOX(hbox), btn_run_function, FALSE, FALSE, 0);
+
+    gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 
     gtk_notebook_append_page(GTK_NOTEBOOK(state->notebook), vbox,
                             gtk_label_new("Data Browser"));

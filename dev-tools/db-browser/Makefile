@@ -33,7 +33,16 @@ MODULE_SOURCES = modules/app_state.c \
                  modules/csv_handler.c \
                  modules/misc_callbacks.c \
                  modules/data_protection.c \
-                 modules/auth.c
+                 modules/auth.c \
+                 modules/function_runner.c \
+                 modules/functions/aggregate_functions.c \
+                 modules/functions/statistical_functions.c \
+                 modules/functions/mathematical_functions.c \
+                 modules/functions/datetime_functions.c \
+                 modules/functions/string_functions.c \
+                 modules/functions/window_functions.c \
+                 modules/functions/business_functions.c \
+                 modules/functions/function_categories.c
 MAIN_SOURCE = main.c
 
 SOURCES = $(MAIN_SOURCE) $(CORE_SOURCES) $(UI_SOURCES) $(MODULE_SOURCES)
@@ -51,6 +60,7 @@ dirs:
 	@mkdir -p $(OBJ_DIR)/core
 	@mkdir -p $(OBJ_DIR)/ui
 	@mkdir -p $(OBJ_DIR)/modules
+	@mkdir -p $(OBJ_DIR)/modules/functions
 	@mkdir -p $(BIN_DIR)
 	@mkdir -p $(BIN_DIR)/css
 
