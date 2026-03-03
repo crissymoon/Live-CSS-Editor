@@ -55,6 +55,11 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Tauri build output
+**/src-tauri/target/
+**/src-tauri/www/
+**/src-tauri/gen/
 EOF
     echo ".gitignore created."
 fi

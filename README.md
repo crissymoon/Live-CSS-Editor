@@ -1,6 +1,6 @@
 # Crissy's Style Tool
 
-A live CSS/HTML/JavaScript editor with real-time preview, an integrated AI agent, a page builder, a VSCode Copilot bridge, and a built-in admin panel. Runs as a desktop app via Tauri v2 or directly through the PHP built-in server.
+A live CSS/HTML/JavaScript editor with real-time preview, an integrated AI agent, a page builder, a VSCode Copilot bridge, and a built-in admin panel. Runs as a desktop app through the built-in Python/PyQt6 browser or directly through the PHP built-in server in any browser.
 
 **Author:** Crissy Deutsch
 **Company:** XcaliburMoon Web Development
@@ -14,6 +14,8 @@ A live CSS/HTML/JavaScript editor with real-time preview, an integrated AI agent
 Crissy's Style Tool is a multi-panel coding environment designed for rapid CSS prototyping, page composition, and AI-assisted front-end development. Three resizable CodeMirror editors (CSS, HTML, JS) sit alongside a live preview iframe. All panels are freely draggable, minimizable, and restore their positions between sessions.
 
 The tool ships with a page builder, a section library, a drag-and-drop composer, a VSCode Copilot bridge (MCP server), an AI agent with streaming output, an AI chat interface, a color harmony tool, a wireframe prototyping tool, an admin panel with user management, and a debug/ticket tracking tool.
+
+The project previously used a Tauri v2 desktop shell. That has been replaced with a native Python/PyQt6 custom browser (`dev-browser/`) that embeds macOS WKWebView or QtWebEngine depending on the URL. All Tauri source files are archived under `dev-tools/legacy/`.
 
 ---
 
@@ -635,7 +637,9 @@ Every directory that contains hardcoded model strings also has a `model-context.
 
 | Layer | Technology |
 |-------|-----------|
-| Desktop shell | Tauri v2 (Rust) |
+| Desktop shell | Python 3 + PyQt6 custom browser (dev-browser/) |
+| Native web engine | macOS WKWebView (WebKit, via pyobjc) for DRM/H.264 URLs |
+| Fallback web engine | QtWebEngine (Chromium) for general browsing |
 | Backend | PHP 8.x built-in server |
 | Auth API | Go (xcm_auth) |
 | Editors | CodeMirror 5.65.16 (local vendor) |
@@ -873,27 +877,67 @@ live-css/
     codemirror/
     linters/
 
-  src-tauri/                   Tauri desktop app shell (Rust)
+  dev-browser/                 Python/PyQt6 custom browser (replaces Tauri)
+    webbrowse.py               Entry point
+    video_proxy.php            Server-side video stream proxy
+    requirements.txt
+    modules/
+      main_window/             MainWindow and mixins
+      browser_profile.py       QTBrowserTab and persistent QT profile
+      wkwebview_widget.py      WKBrowserTab (native WKWebView via pyobjc)
+      console_panel.py         Bottom dock console capture
+      command_server.py        Inter-process command queue
+      tools_manager.py
+      apps_manager.py
+      cdm.py
+      native_bridge.py
+    apps/
+      dom-inspector/
+      page-inspector/
+    WidevineCdm/               GITIGNORED -- Widevine binary
+    widevine/                  GITIGNORED -- Widevine support files
+    venv/                      GITIGNORED -- Python virtual environment
+
+  dev-tools/
+    legacy/                    Archived Tauri shell and old launchers
+      src-tauri/               Rust Tauri source (target/ gitignored)
+      launcher.sh              Tauri-era TUI launcher (archived)
+      launcher.sh.bak          Backup of original launcher (archived)
+      vscode-bridge-server/
+      legacy_context/
+    db-browser/                GTK+3 SQLite browser (C)
+    email_smoke/               Local SMTP smoke test suite
+    zyx_planning_and_visuals/  Planning notes and report generator
+
   scripts/
-    copy-www.js
-    split-learn-json.js
+    refresh-preview.sh
     gen-icon.js
     write-readme.js
     write-neural.js
-    refresh-preview.sh
 ```
 
 ---
 
 ## Running Locally
 
-### PHP server (browser only)
+### Desktop browser (recommended)
+
+```bash
+cd dev-browser
+python webbrowse.py
+```
+
+Opens the full app in the custom PyQt6 browser with tabs, a navigation bar, engine switching (WKWebView / QtWebEngine), and a dev tools console panel. Requires the PHP and Go auth servers to be running first.
+
+Alternatively, double-click `Live CSS Editor.command` in Finder and choose option 1 from the TUI menu.
+
+### PHP server only
 
 ```bash
 php -S 127.0.0.1:8080 index.php
 ```
 
-Open http://127.0.0.1:8080.
+Open http://127.0.0.1:8080 in any browser.
 
 ### PHP server with admin panel and page builder
 
@@ -925,20 +969,70 @@ node vscode-bridge/server/mcp-server.js
 
 ---
 
-## Building the Desktop App
+## Dev Browser
+
+A custom desktop browser at `dev-browser/`, built with Python 3 and PyQt6. It replaced the former Tauri v2 desktop shell.
+
+### Engines
+
+Two web engines are available per tab and selected automatically based on the URL:
+
+| Engine | Technology | Used for |
+|--------|-----------|----------|
+| WKWebView | macOS native WebKit (pyobjc) | DRM video, H.264/HLS, FairPlay, LinkedIn, OAuth flows |
+| QtWebEngine | Chromium via PyQt6 | Everything else |
+
+The engine button in the toolbar shows the active engine for the current tab and lets you switch or force one engine for all new tabs.
+
+### Engine Switching Fix
+
+Tab engine switching was fixed to create the new tab before removing the old one. Previously, removing the last tab while its native NSView container was still attached would corrupt the main window view hierarchy on macOS, blanking the entire window. The fix keeps the QTabWidget count above zero at all times during the swap.
+
+### Features
+
+- Multi-tab browsing with persistent cookies and localStorage per engine
+- Back, forward, reload, new tab, URL/search bar
+- Ad-block content rules injected into all WKWebView tabs at startup
+- Shared WebKit process pool across WK tabs
+- Console capture panel (dock, bottom) for JS console and network messages
+- Color picker eyedropper in the status bar
+- Viewport size picker in the status bar
+- Network throughput display (TX/RX KB/s) in the status bar
+- Tools, Apps, and Debug buttons in the toolbar
+- Credential autofill for the dev admin panel
+- Video proxy (`video_proxy.php`) for server-side stream proxying
+- Command server: receives reload/navigate commands from external processes
+
+### Running
 
 ```bash
-node scripts/copy-www.js
-npm run tauri build
+cd dev-browser
+python webbrowse.py
+# optional: start at a specific URL
+python webbrowse.py --url http://localhost:8080
 ```
 
-Requires Rust, Cargo, and the Tauri CLI. `copy-www.js` must run before every build to sync web assets into `src-tauri/www/`.
+---
 
-For live development:
+## Legacy (Tauri)
 
-```bash
-npx tauri dev
+All files from the former Tauri v2 desktop shell are archived at `dev-tools/legacy/` and are not part of the active build.
+
 ```
+dev-tools/legacy/
+  src-tauri/          Rust Tauri app shell source
+    target/           GITIGNORED -- Rust build artifacts
+    src/
+    capabilities/
+    icons/
+    tauri.conf.json
+  launcher.sh         Tauri-era TUI launcher (archived)
+  launcher.sh.bak     Backup of original launcher (archived)
+  vscode-bridge-server/
+  legacy_context/
+```
+
+The `.gitignore` uses `**/src-tauri/target/` (with the `**/` prefix) so the Rust build artifacts are excluded regardless of how deep `src-tauri/` is nested in the tree.
 
 ---
 
