@@ -1,6 +1,6 @@
 # Crissy's Style Tool
 
-A live CSS/HTML/JavaScript editor with real-time preview, an integrated AI agent, a page builder, a VSCode Copilot bridge, and a built-in admin panel. Runs as a desktop app through the built-in Python/PyQt6 browser or directly through the PHP built-in server in any browser.
+A live CSS/HTML/JavaScript editor with real-time preview, an integrated AI agent, a page builder, a VSCode Copilot bridge, and a built-in admin panel. Runs as a desktop app through the built-in Python/PyQt6/WkWebView browser or directly through the PHP built-in server in any browser.
 
 **Author:** Crissy Deutsch
 **Company:** XcaliburMoon Web Development
