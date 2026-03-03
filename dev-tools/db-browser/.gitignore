@@ -1,0 +1,60 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# Databases
+databases/*.db
+databases/*.db.enc
+databases/*.db.tmp
+databases/*.sqlite
+databases/*.sqlite3
+databases/.DS_Store
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/*.log
+logs/*.txt
+
+# Backup files
+*.bak
+*.backup
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-*
+.project
+.cproject
+.settings/
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Test databases
+test*.db
+smoke/*.db
+
+# Generated documentation
+*.pdf
+*.html
+
+# Core dumps
+core
+core.*
+
+# Keep these files
+!databases/README.md
+!databases/example_usage.c
+!logs/.gitkeep
