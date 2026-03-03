@@ -1,7 +1,7 @@
 {
-  "_comment": "Canonical map of all AI API models used across live-css. Referenced by model-context.json files in each subdirectory. Costs are USD per 1K tokens. Updated: 2026-03-02.",
+  "_comment": "Canonical map of all AI API models used across live-css. Referenced by model-context.json files in each subdirectory. Costs are USD per 1K tokens. Updated: 2026-03-03.",
   "version": "1.0.0",
-  "last_updated": "2026-03-02",
+  "last_updated": "2026-03-03",
   "config_ref": "ai/config.json",
   "key_dir": "~/Desktop/my_keys",
 
@@ -249,10 +249,10 @@
           ],
           "flow": "mood_check.py reads text (stdin or --file) -> splits into chunks (default 250 words, 30 overlap) -> passes each chunk to EMIEngine.analyze() -> aggregates scores by match_rate weight -> prints dominant mood + top patterns + valence/arousal",
           "hardcoded_in": [
-            "mood_ck/mood_check.py (EMIEngine import via emi_model symlink)",
-            "mood_ck/emi_model/engine.py (the engine itself)"
+            "agent-flow/mood_ck/mood_check.py (EMIEngine import via emi_model symlink)",
+            "agent-flow/mood_ck/emi_model/engine.py (the engine itself)"
           ],
-          "local_path": "mood_ck/emi_model"
+          "local_path": "agent-flow/mood_ck/emi_model"
         }
       }
     }

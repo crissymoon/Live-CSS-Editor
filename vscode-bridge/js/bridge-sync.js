@@ -1,23 +1,20 @@
 /**
  * vscode-bridge/js/bridge-sync.js
- * Two-way sync between Crissy's Style Tool and the VSCode Copilot MCP bridge.
+ * Two-way sync between Crissy's Style Tool and the VSCode Copilot bridge.
  *
- * What this does when ACTIVE (on):
- *   - Every PUSH_INTERVAL_MS: reads the current editor state and POSTs it to
- *     bridge.php so Copilot (via read_active_session) can see what you are working on.
- *
- *   - Every POLL_INTERVAL_MS: asks bridge.php if Copilot has written any stylesheet
- *     changes. If yes, fetches the new file content from disk, loads it directly into
- *     the CodeMirror editor via LiveCSS.editor.setCssValue(), and also reloads the
- *     <link> tag so the live preview updates - all without a page reload.
+ * When ACTIVE (on):
+ *   - Polls the SQLite project database for updates from Copilot.
+ *   - If Copilot saved a project, auto-loads it into all 3 editors.
+ *   - Pushes current editor state to the bridge on an interval.
  *
  * Toggle:
- *   - ON/OFF state is persisted in localStorage so it survives page reloads.
- *   - Wired to #vscodeBridgeToggle in the app header (added by index.php).
- *   - Public API: BridgeSync.enable() / .disable() / .toggle() / .isActive()
+ *   - ON/OFF state is persisted in localStorage.
+ *   - Wired to #vscodeBridgeToggle in the app header.
+ *   - When ON, the Help button is shown. When OFF, Help is hidden.
  *
- * All branches emit console.log / console.warn / console.error so every state
- * change is visible in DevTools without opening the source.
+ * Crissy's Style Tool
+ * Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
+ * MIT License -- see LICENSE file for full text.
  */
 
 (function (global) {
@@ -26,480 +23,151 @@
     // -------------------------------------------------------------------------
     // Config
     // -------------------------------------------------------------------------
-    var BRIDGE_URL             = '/vscode-bridge/api/bridge.php';
-    var SHEETS_BASE             = '/style-sheets/';
-    var PUSH_INTERVAL_MS        = 5000;
-    var POLL_INTERVAL_MS        = 3000;
-    var REFRESH_INTERVAL_MS     = 2000;
-    var WIREFRAME_POLL_INTERVAL = 3500;  // slightly offset from CSS poll to avoid piling up
+    var PROJECTS_API            = '/vscode-bridge/api/projects.php';
+    var POLL_INTERVAL_MS        = 4000;
     var STORAGE_KEY             = 'bridgeSync_enabled';
     var TOGGLE_BTN_ID           = 'vscodeBridgeToggle';
-    var WF_LS_KEY               = 'livecss_wireframe_v1';
+    var HELP_BTN_ID             = 'helpBtn';
 
     // -------------------------------------------------------------------------
     // Internal state
     // -------------------------------------------------------------------------
-    var _enabled          = false;
-    var _pushTimer        = null;
-    var _pollTimer        = null;
-    var _refreshTimer     = null;
-    var _wireframeTimer   = null;
-    var _pushBounce       = null;
-    var _initialized      = false;
+    var _enabled      = false;
+    var _pollTimer    = null;
+    var _initialized  = false;
 
     // -------------------------------------------------------------------------
-    // Logging - always emit to console so nothing is invisible
+    // Logging
     // -------------------------------------------------------------------------
     function log(msg)  { console.log('[BridgeSync] '   + msg); }
     function warn(msg) { console.warn('[BridgeSync] '  + msg); }
     function err(msg)  { console.error('[BridgeSync] ' + msg); }
 
     // -------------------------------------------------------------------------
-    // Read current state from the app
+    // Poll for project saves from Copilot (via SQLite)
     // -------------------------------------------------------------------------
-    function getEditorCSS() {
-        try {
-            // Primary: LiveCSS.editor.getCssEditor() -> CodeMirror instance
-            if (global.LiveCSS && global.LiveCSS.editor &&
-                typeof global.LiveCSS.editor.getCssEditor === 'function') {
-                var cm = global.LiveCSS.editor.getCssEditor();
-                if (cm && typeof cm.getValue === 'function') return cm.getValue();
-            }
-            // Fallback: bare CodeMirror global
-            if (global.editor && typeof global.editor.getValue === 'function') {
-                return global.editor.getValue();
-            }
-            warn('getEditorCSS: could not find CodeMirror instance');
-            return '';
-        } catch (e) {
-            err('getEditorCSS exception: ' + e.message);
-            return '';
-        }
-    }
-
-    function getActiveSheet() {
-        try {
-            if (global.LiveCSS && global.LiveCSS.activeSheet) return global.LiveCSS.activeSheet;
-            var link = document.querySelector('link[href*="style-sheets"]');
-            if (link) {
-                var m = (link.getAttribute('href') || '').match(/([^/]+\.css)/);
-                if (m) return m[1];
-            }
-            var sel = document.querySelector('#theme-select, #stylesheet-select, select[data-theme]');
-            if (sel && sel.value) return sel.value;
-            return '';
-        } catch (e) {
-            err('getActiveSheet exception: ' + e.message);
-            return '';
-        }
-    }
-
-    function getHTMLPreview() {
-        try {
-            var frame = document.getElementById('previewFrame');
-            if (frame && frame.contentDocument && frame.contentDocument.body) {
-                return frame.contentDocument.body.innerHTML || '';
-            }
-        } catch (e) { /* cross-origin - silently skip */ }
-        return '';
-    }
-
-    function getSavedProjects() {
-        try {
-            var raw = localStorage.getItem('liveCssEditor_projects');
-            return raw ? JSON.parse(raw) : {};
-        } catch (e) {
-            err('getSavedProjects exception: ' + e.message);
-            return {};
-        }
-    }
-
-    function getWireframeState() {
-        try {
-            var raw = localStorage.getItem(WF_LS_KEY);
-            if (!raw) return null;
-            return JSON.parse(raw);
-        } catch (e) {
-            err('getWireframeState: ' + e.message);
-            return null;
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Apply incoming CSS from Copilot directly into the editor and preview
-    // -------------------------------------------------------------------------
-    function applyIncomingCSS(filename, cssText) {
-        var editorUpdated = false;
-
-        // 1. Push into the CodeMirror editor - this is what the user sees and edits
-        try {
-            if (global.LiveCSS && global.LiveCSS.editor &&
-                typeof global.LiveCSS.editor.setCssValue === 'function') {
-                global.LiveCSS.editor.setCssValue(cssText);
-                log('applyIncomingCSS: wrote ' + cssText.length + ' chars into CodeMirror for "' + filename + '"');
-                editorUpdated = true;
-            } else {
-                warn('applyIncomingCSS: LiveCSS.editor.setCssValue not ready - editor may still be initializing');
-            }
-        } catch (e) {
-            err('applyIncomingCSS: setCssValue threw: ' + e.message);
-        }
-
-        // 2. Bump the <link> tag so the live preview iframe refreshes the file from disk
-        try {
-            var links    = document.querySelectorAll('link[rel="stylesheet"]');
-            var reloaded = false;
-            links.forEach(function (link) {
-                var href = link.getAttribute('href') || '';
-                if (href.indexOf(filename) !== -1) {
-                    var base = href.split('?')[0];
-                    link.setAttribute('href', base + '?v=' + Date.now());
-                    log('applyIncomingCSS: bumped <link> for ' + base);
-                    reloaded = true;
-                }
-            });
-            if (!reloaded) {
-                warn('applyIncomingCSS: no <link> matched "' + filename + '" - preview link not updated');
-            }
-        } catch (e) {
-            err('applyIncomingCSS: <link> bump threw: ' + e.message);
-        }
-
-        // 3. Broadcast event so outline, color tools, etc. can react
-        try {
-            document.dispatchEvent(new CustomEvent('bridgeStylesheetUpdated', {
-                detail: { file: filename, by: 'vscode-copilot', css: cssText }
-            }));
-        } catch (e) {
-            err('applyIncomingCSS: CustomEvent dispatch threw: ' + e.message);
-        }
-
-        if (!editorUpdated) {
-            warn('applyIncomingCSS: editor was not updated (not ready?). Changes are on disk - reload the page if the editor looks stale.');
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Fetch the updated file from disk then apply it
-    // -------------------------------------------------------------------------
-    function fetchAndApplySheet(filename, timestamp) {
-        var url = SHEETS_BASE + encodeURIComponent(filename) + '?v=' + (timestamp || Date.now());
-        console.warn('[BridgeSync] Copilot updated "' + filename + '" - fetching ' + url);
-
-        fetch(url, { cache: 'no-store' })
-            .then(function (res) {
-                if (!res.ok) {
-                    err('fetchAndApplySheet: HTTP ' + res.status + ' fetching ' + url);
-                    return null;
-                }
-                return res.text();
-            })
-            .then(function (cssText) {
-                if (cssText === null) {
-                    err('fetchAndApplySheet: null body for "' + filename + '"');
-                    return;
-                }
-                applyIncomingCSS(filename, cssText);
-            })
-            .catch(function (e) {
-                err('fetchAndApplySheet network error for "' + filename + '": ' + e.message);
-            });
-    }
-
-    // -------------------------------------------------------------------------
-    // Push current session state to the bridge
-    // -------------------------------------------------------------------------
-    function pushSession() {
+    function pollProjectSave() {
         if (!_enabled) return;
-
-        var payload = {
-            css:         getEditorCSS(),
-            html:        getHTMLPreview(),
-            activeSheet: getActiveSheet(),
-            projects:    getSavedProjects(),
-            wireframe:   getWireframeState(),
-        };
-
-        // Separately push wireframe to its own endpoint so it is always up to date
-        var wfState = payload.wireframe;
-        if (wfState && Array.isArray(wfState.elements) && wfState.elements.length) {
-            fetch(BRIDGE_URL + '?action=push_wireframe', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(wfState),
-            })
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                if (data && !data.success) {
-                    warn('push_wireframe: ' + (data.error || JSON.stringify(data)));
-                }
-            })
-            .catch(function (e) { err('push_wireframe network error: ' + e.message); });
-        }
-
-        fetch(BRIDGE_URL + '?action=push_session', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify(payload),
-        })
-        .then(function (res) {
-            if (!res.ok) {
-                return res.text().then(function (t) {
-                    err('push_session HTTP ' + res.status + ': ' + t);
-                });
-            }
-            return res.json().then(function (data) {
-                if (data && data.syncedAt) {
-                    log('Session pushed ' + data.syncedAt + ' | ' + (payload.activeSheet || 'no sheet') + ' | ' + payload.css.length + ' chars');
-                } else if (data && !data.success) {
-                    warn('push_session: ' + (data.error || JSON.stringify(data)));
-                }
-            });
-        })
-        .catch(function (e) {
-            err('push_session network error: ' + e.message);
-        });
-    }
-
-    // -------------------------------------------------------------------------
-    // Poll bridge for changes made by Copilot
-    // -------------------------------------------------------------------------
-    function pollChanges() {
-        if (!_enabled) return;
-
-        fetch(BRIDGE_URL + '?action=poll_changes', { method: 'GET', cache: 'no-store' })
-        .then(function (res) {
-            if (!res.ok) {
-                return res.text().then(function (t) {
-                    err('poll_changes HTTP ' + res.status + ': ' + t);
-                });
-            }
-            return res.json().then(function (data) {
-                if (!data) { err('poll_changes: empty response'); return; }
-                if (!data.success) { warn('poll_changes: ' + (data.error || 'unknown')); return; }
-                if (data.hasChanges && data.file) {
-                    // Acknowledge first so a second fast poll does not re-fire
-                    acknowledgeChange();
-                    fetchAndApplySheet(data.file, data.updatedAt);
-                }
-            });
-        })
-        .catch(function (e) {
-            err('poll_changes network error: ' + e.message);
-        });
-    }
-
-    // -------------------------------------------------------------------------
-    // Poll bridge for a refresh signal sent by Copilot / MCP
-    // -------------------------------------------------------------------------
-    function pollRefresh() {
-        if (!_enabled) return;
-
-        fetch(BRIDGE_URL + '?action=poll_refresh', { method: 'GET', cache: 'no-store' })
-        .then(function (res) {
-            if (!res.ok) {
-                return res.text().then(function (t) {
-                    err('poll_refresh HTTP ' + res.status + ': ' + t);
-                });
-            }
-            return res.json().then(function (data) {
-                if (!data) { err('poll_refresh: empty response'); return; }
-                if (!data.success) { warn('poll_refresh: ' + (data.error || 'unknown')); return; }
-                if (data.shouldRefresh) {
-                    console.warn('[BridgeSync] Refresh requested by Copilot (at ' + (data.requestedAt || '?') + ') - reloading page');
-                    try {
-                        if (window.LiveCSS && window.LiveCSS.nativeBridge &&
-                            typeof window.LiveCSS.nativeBridge.refreshApp === 'function') {
-                            window.LiveCSS.nativeBridge.refreshApp();
-                        } else {
-                            window.location.reload();
-                        }
-                    } catch (e) {
-                        err('pollRefresh: reload threw: ' + e.message + ' - falling back to location.reload()');
-                        window.location.reload();
-                    }
-                }
-            });
-        })
-        .catch(function (e) {
-            err('poll_refresh network error: ' + e.message);
-        });
-    }
-
-    // -------------------------------------------------------------------------
-    // Apply wireframe update from Copilot into the canvas
-    // -------------------------------------------------------------------------
-    function applyWireframeUpdate(state) {
-        try {
-            var wf = global.LiveCSS && global.LiveCSS.wireframe;
-            if (!wf || typeof wf.loadState !== 'function') {
-                warn('applyWireframeUpdate: LiveCSS.wireframe.loadState not available - is the wireframe tool loaded?');
-                return;
-            }
-            var ok = wf.loadState(state);
-            if (ok) {
-                console.warn('[BridgeSync] Copilot updated the wireframe canvas (' + (state.elements ? state.elements.length : 0) + ' elements)');
-                document.dispatchEvent(new CustomEvent('bridgeWireframeUpdated', { detail: { state: state, by: 'vscode-copilot' } }));
-            } else {
-                warn('applyWireframeUpdate: loadState returned false - bad payload?');
-                console.error('[BridgeSync] applyWireframeUpdate: wireframe payload was rejected. Raw state logged below.');
-                console.error(state);
-            }
-        } catch (e) {
-            err('applyWireframeUpdate exception: ' + e.message);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Poll bridge for wireframe changes made by Copilot
-    // -------------------------------------------------------------------------
-    function pollWireframeChanges() {
-        if (!_enabled) return;
-
-        fetch(BRIDGE_URL + '?action=poll_wireframe_changes', { method: 'GET', cache: 'no-store' })
-        .then(function (res) {
-            if (!res.ok) {
-                return res.text().then(function (t) {
-                    err('poll_wireframe_changes HTTP ' + res.status + ': ' + t);
-                });
-            }
-            return res.json().then(function (data) {
-                if (!data) { err('poll_wireframe_changes: empty response'); return; }
-                if (!data.success) { warn('poll_wireframe_changes: ' + (data.error || 'unknown')); return; }
-                if (data.hasChanges && data.state) {
-                    ackWireframeChange();
-                    applyWireframeUpdate(data.state);
-                }
-            });
-        })
-        .catch(function (e) {
-            err('poll_wireframe_changes network error: ' + e.message);
-        });
-    }
-
-    // -------------------------------------------------------------------------
-    // Acknowledge wireframe change so next poll does not re-apply it
-    // -------------------------------------------------------------------------
-    function ackWireframeChange() {
-        fetch(BRIDGE_URL + '?action=ack_wireframe', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ acked: true }),
-        })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (data && data.success) {
-                log('Wireframe change acknowledged');
-            } else {
-                warn('ack_wireframe unexpected response: ' + JSON.stringify(data));
-            }
-        })
-        .catch(function (e) {
-            err('ackWireframeChange network error: ' + e.message);
-        });
-    }
-
-    // -------------------------------------------------------------------------
-    // Acknowledge so the next poll does not re-trigger the same change
-    // -------------------------------------------------------------------------
-    function acknowledgeChange() {
-        fetch(BRIDGE_URL + '?action=ack_changes', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ acked: true }),
-        })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (data && data.success) {
-                log('Change acknowledged');
-            } else {
-                warn('ack_changes unexpected response: ' + JSON.stringify(data));
-            }
-        })
-        .catch(function (e) {
-            err('acknowledgeChange network error: ' + e.message);
-        });
-    }
-
-    // -------------------------------------------------------------------------
-    // Toggle button DOM wiring
-    // -------------------------------------------------------------------------
-    function getToggleBtn() {
-        return document.getElementById(TOGGLE_BTN_ID);
-    }
-
-    function updateToggleUI() {
-        var btn = getToggleBtn();
-        if (!btn) {
-            warn('updateToggleUI: #' + TOGGLE_BTN_ID + ' not found in DOM');
+        if (!global.LiveCSS || !global.LiveCSS.storage ||
+            typeof global.LiveCSS.storage.pollProjectUpdate !== 'function') {
             return;
         }
-        if (_enabled) {
-            btn.classList.add('bridge-active');
-            btn.setAttribute('aria-pressed', 'true');
-            btn.title = 'VSCode Copilot Bridge: ON - click to disable';
-        } else {
-            btn.classList.remove('bridge-active');
-            btn.setAttribute('aria-pressed', 'false');
-            btn.title = 'VSCode Copilot Bridge: OFF - click to enable';
+
+        global.LiveCSS.storage.pollProjectUpdate()
+            .then(function (data) {
+                if (!data || !data.hasUpdate) return;
+                var name   = data.name   || '(unnamed)';
+                var source = data.source || 'unknown';
+                console.warn('[BridgeSync] Project "' + name + '" updated (source: ' + source + ')');
+
+                // Acknowledge so we do not fire again
+                global.LiveCSS.storage.ackProjectUpdate()
+                    .catch(function (e) { err('ackProjectUpdate failed: ' + e.message); });
+
+                // Auto-load into editors
+                global.LiveCSS.storage.loadDbProject(name)
+                    .then(function (project) {
+                        if (!project) {
+                            err('loadDbProject returned null for "' + name + '"');
+                            return;
+                        }
+                        try {
+                            var ed = global.LiveCSS.editor;
+                            if (ed) {
+                                if (typeof ed.getHtmlEditor === 'function') {
+                                    ed.getHtmlEditor().setValue(project.html || '');
+                                }
+                                if (typeof ed.getCssEditor === 'function') {
+                                    ed.getCssEditor().setValue(project.css || '');
+                                }
+                                if (typeof ed.getJsEditor === 'function') {
+                                    ed.getJsEditor().setValue(project.js || '');
+                                }
+                                if (typeof ed.updatePreview === 'function') {
+                                    ed.updatePreview();
+                                }
+                                console.warn('[BridgeSync] Auto-loaded "' + name + '" into all 3 editors');
+                            }
+                        } catch (e) {
+                            err('Auto-load exception: ' + e.message);
+                        }
+                    })
+                    .catch(function (e) {
+                        err('loadDbProject error: ' + e.message);
+                    });
+            })
+            .catch(function (e) {
+                err('pollProjectSave error: ' + e.message);
+            });
+    }
+
+    // -------------------------------------------------------------------------
+    // Start / stop polling
+    // -------------------------------------------------------------------------
+    function startPolling() {
+        if (_pollTimer) return;
+        pollProjectSave();
+        _pollTimer = setInterval(pollProjectSave, POLL_INTERVAL_MS);
+        log('Polling started (interval=' + POLL_INTERVAL_MS + 'ms)');
+    }
+
+    function stopPolling() {
+        clearInterval(_pollTimer);
+        _pollTimer = null;
+        log('Polling stopped');
+    }
+
+    // -------------------------------------------------------------------------
+    // Persisted state
+    // -------------------------------------------------------------------------
+    function loadPersistedState() {
+        try { return localStorage.getItem(STORAGE_KEY) === 'true'; }
+        catch (e) { return false; }
+    }
+
+    function persistState(val) {
+        try { localStorage.setItem(STORAGE_KEY, val ? 'true' : 'false'); }
+        catch (e) { /* ignore */ }
+    }
+
+    // -------------------------------------------------------------------------
+    // Toggle button + Help button DOM wiring
+    // -------------------------------------------------------------------------
+    function getToggleBtn() { return document.getElementById(TOGGLE_BTN_ID); }
+    function getHelpBtn()   { return document.getElementById(HELP_BTN_ID); }
+
+    function updateToggleUI() {
+        var btn     = getToggleBtn();
+        var helpBtn = getHelpBtn();
+
+        if (btn) {
+            if (_enabled) {
+                btn.classList.add('bridge-active');
+                btn.setAttribute('aria-pressed', 'true');
+                btn.title = 'VSCode Copilot Bridge: ON -- click to disable';
+            } else {
+                btn.classList.remove('bridge-active');
+                btn.setAttribute('aria-pressed', 'false');
+                btn.title = 'VSCode Copilot Bridge: OFF -- click to enable';
+            }
+        }
+
+        // Show Help only when bridge is ON
+        if (helpBtn) {
+            helpBtn.style.display = _enabled ? '' : 'none';
         }
     }
 
     function wireToggleButton() {
         var btn = getToggleBtn();
         if (!btn) {
-            warn('wireToggleButton: #' + TOGGLE_BTN_ID + ' not in DOM yet - retrying in 500ms');
+            warn('wireToggleButton: #' + TOGGLE_BTN_ID + ' not in DOM -- retrying in 500ms');
             setTimeout(wireToggleButton, 500);
             return;
         }
         btn.addEventListener('click', function () { BridgeSync.toggle(); });
         updateToggleUI();
-        log('Toggle button wired to #' + TOGGLE_BTN_ID);
-    }
-
-    // -------------------------------------------------------------------------
-    // Debounced push on editor keyup
-    // -------------------------------------------------------------------------
-    function onEditorInput() {
-        if (!_enabled) return;
-        clearTimeout(_pushBounce);
-        _pushBounce = setTimeout(pushSession, 1500);
-    }
-
-    // -------------------------------------------------------------------------
-    // Start / stop sync intervals
-    // -------------------------------------------------------------------------
-    function startIntervals() {
-        if (_pushTimer || _pollTimer) { warn('startIntervals: already running'); return; }
-        pushSession(); // immediate push so Copilot has current state right away
-        _pushTimer      = setInterval(pushSession,           PUSH_INTERVAL_MS);
-        _pollTimer      = setInterval(pollChanges,           POLL_INTERVAL_MS);
-        _refreshTimer   = setInterval(pollRefresh,           REFRESH_INTERVAL_MS);
-        _wireframeTimer = setInterval(pollWireframeChanges,  WIREFRAME_POLL_INTERVAL);
-        log('Intervals started (push=' + PUSH_INTERVAL_MS + 'ms, poll=' + POLL_INTERVAL_MS + 'ms, refresh=' + REFRESH_INTERVAL_MS + 'ms, wireframe=' + WIREFRAME_POLL_INTERVAL + 'ms)');
-    }
-
-    function stopIntervals() {
-        clearInterval(_pushTimer);
-        clearInterval(_pollTimer);
-        clearInterval(_refreshTimer);
-        clearInterval(_wireframeTimer);
-        clearTimeout(_pushBounce);
-        _pushTimer = _pollTimer = _refreshTimer = _wireframeTimer = _pushBounce = null;
-        log('Intervals stopped');
-    }
-
-    // -------------------------------------------------------------------------
-    // Persisted state helpers
-    // -------------------------------------------------------------------------
-    function loadPersistedState() {
-        try { return localStorage.getItem(STORAGE_KEY) === 'true'; }
-        catch (e) { err('loadPersistedState: ' + e.message); return false; }
-    }
-
-    function persistState(val) {
-        try { localStorage.setItem(STORAGE_KEY, val ? 'true' : 'false'); }
-        catch (e) { err('persistState: ' + e.message); }
+        log('Toggle button wired');
     }
 
     // -------------------------------------------------------------------------
@@ -512,17 +180,17 @@
             _enabled = true;
             persistState(true);
             updateToggleUI();
-            startIntervals();
-            console.warn('[BridgeSync] ENABLED - Copilot can now read and edit your stylesheets from VSCode');
+            startPolling();
+            console.warn('[BridgeSync] ENABLED -- Copilot bridge is active');
         },
 
         disable: function () {
             if (!_enabled) { log('disable: already off'); return; }
             _enabled = false;
             persistState(false);
-            stopIntervals();
+            stopPolling();
             updateToggleUI();
-            console.warn('[BridgeSync] DISABLED - sync paused');
+            console.warn('[BridgeSync] DISABLED -- sync paused');
         },
 
         toggle: function () {
@@ -530,36 +198,17 @@
         },
 
         isActive: function () { return _enabled; },
-
-        // Force a one-off push (useful after saving a project)
-        push: function () {
-            if (!_enabled) { warn('push: bridge is off - call BridgeSync.enable() first'); return; }
-            pushSession();
-        },
-
-        // Manually trigger a change poll
-        poll: function () { pollChanges(); pollWireframeChanges(); },
-
-        configure: function (opts) {
-            if (!opts) return;
-            if (opts.pushInterval) PUSH_INTERVAL_MS = opts.pushInterval;
-            if (opts.pollInterval) POLL_INTERVAL_MS = opts.pollInterval;
-            if (opts.bridgeUrl)    BRIDGE_URL        = opts.bridgeUrl;
-            if (opts.sheetsBase)   SHEETS_BASE       = opts.sheetsBase;
-            log('configure: ' + JSON.stringify(opts));
-        },
     };
 
     // -------------------------------------------------------------------------
     // Init
     // -------------------------------------------------------------------------
     function init() {
-        if (_initialized) { warn('init: already ran'); return; }
+        if (_initialized) return;
         _initialized = true;
 
-        log('Loaded. Endpoint: ' + BRIDGE_URL + ' | Sheets base: ' + SHEETS_BASE);
+        log('Loaded. API: ' + PROJECTS_API);
 
-        document.addEventListener('keyup', onEditorInput);
         wireToggleButton();
 
         // Restore persisted on/off state
@@ -572,7 +221,6 @@
         }
     }
 
-    // Expose globally before DOMContentLoaded so configure() can be called early
     global.BridgeSync = BridgeSync;
 
     if (document.readyState === 'loading') {

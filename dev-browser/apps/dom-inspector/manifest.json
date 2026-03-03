@@ -1,0 +1,6 @@
+{
+  "name": "DOM Inspector",
+  "slug": "dom-inspector",
+  "description": "Load any webpage through a local proxy and click any element to inspect its tag, ID, classes, attributes, CSS selector, XPath, computed styles, and children.",
+  "version": "1.0"
+}

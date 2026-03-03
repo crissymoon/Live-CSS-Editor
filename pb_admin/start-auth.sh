@@ -68,8 +68,8 @@ cd "$ROOT_DIR"
 
 # Give Go time to compile and bind
 echo "[start-auth] waiting for xcm_auth to bind..."
-for i in 1 2 3 4 5 6 7 8 9 10; do
-    sleep 1
+for i in $(seq 1 60); do
+    sleep 0.5
     if lsof -iTCP:"$AUTH_PORT" -sTCP:LISTEN -t &>/dev/null; then
         echo "[start-auth] xcm_auth is ready on :$AUTH_PORT"
         break
@@ -129,7 +129,7 @@ run_tests() {
     # Test 2: PHP server responds on the root
     if command -v curl &>/dev/null; then
         local php_code
-        php_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "http://localhost:$PHP_PORT/" 2>/dev/null || true)
+        php_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "http://127.0.0.1:$PHP_PORT/" 2>/dev/null || true)
         if [ "$php_code" = "200" ] || [ "$php_code" = "302" ] || [ "$php_code" = "301" ]; then
             echo "[test] PASS  PHP server responded HTTP $php_code on :$PHP_PORT"
             pass=$((pass + 1))
@@ -142,7 +142,7 @@ run_tests() {
     # Test 3: PHP proxy health check (PHP -> Go)
     if command -v curl &>/dev/null; then
         local proxy
-        proxy=$(curl -s --max-time 5 "http://localhost:$PHP_PORT/pb_admin/api_proxy.php?action=health" 2>/dev/null || true)
+        proxy=$(curl -s --max-time 5 "http://127.0.0.1:$PHP_PORT/pb_admin/api_proxy.php?action=health" 2>/dev/null || true)
         if echo "$proxy" | grep -q '"ok":true'; then
             echo "[test] PASS  PHP proxy can reach xcm_auth"
             pass=$((pass + 1))
@@ -168,7 +168,7 @@ cd "$ROOT_DIR"
 echo "[start-auth] starting PHP dev server on :$PHP_PORT (router: pb_admin/router.php) ..."
 # The router script is required so PHP's built-in server does NOT fall back
 # to serving root index.php for unknown paths like /dashboard.php.
-php -S "localhost:$PHP_PORT" pb_admin/router.php &>/tmp/pb_admin_php.log &
+php -S "127.0.0.1:$PHP_PORT" pb_admin/router.php &>/tmp/pb_admin_php.log &
 PHP_PID=$!
 echo "[start-auth] PHP started (PID $PHP_PID)"
 

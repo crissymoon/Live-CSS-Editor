@@ -104,6 +104,178 @@ window.LiveCSS.storage = (function () {
         return null;
     }
 
+    // ── SQLite-backed project storage (via vscode-bridge API) ──────
+
+    var PROJECTS_API = '/vscode-bridge/api/projects.php';
+
+    /**
+     * Fetch all projects from the SQLite database.
+     * Returns a Promise that resolves to an array of {name, source, updated_at, html_len, css_len, js_len}.
+     */
+    function listDbProjects() {
+        return fetch(PROJECTS_API + '?action=list', { cache: 'no-store' })
+            .then(function (res) {
+                if (!res.ok) {
+                    console.error('[storage] listDbProjects HTTP ' + res.status);
+                    return [];
+                }
+                return res.json();
+            })
+            .then(function (data) {
+                if (data && data.success) return data.projects || [];
+                console.error('[storage] listDbProjects failed:', data ? data.error : 'no data');
+                return [];
+            })
+            .catch(function (e) {
+                console.error('[storage] listDbProjects network error:', e.message);
+                return [];
+            });
+    }
+
+    /**
+     * Load a single project from SQLite by name.
+     * Returns a Promise that resolves to {name, html, css, js, source, updated_at} or null.
+     */
+    function loadDbProject(name) {
+        return fetch(PROJECTS_API + '?action=get&name=' + encodeURIComponent(name), { cache: 'no-store' })
+            .then(function (res) {
+                if (!res.ok) {
+                    console.error('[storage] loadDbProject HTTP ' + res.status + ' for "' + name + '"');
+                    return null;
+                }
+                return res.json();
+            })
+            .then(function (data) {
+                if (data && data.success) return data.project;
+                console.error('[storage] loadDbProject failed for "' + name + '":', data ? data.error : 'no data');
+                return null;
+            })
+            .catch(function (e) {
+                console.error('[storage] loadDbProject network error:', e.message);
+                return null;
+            });
+    }
+
+    /**
+     * Save a project to SQLite. Auto-backs up previous version.
+     * Returns a Promise that resolves to {success, name, updatedAt, backedUp} or null.
+     */
+    function saveDbProject(name, html, css, js, source) {
+        return fetch(PROJECTS_API + '?action=save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                name:   name,
+                html:   html || '',
+                css:    css  || '',
+                js:     js   || '',
+                source: source || 'browser',
+            }),
+        })
+        .then(function (res) {
+            if (!res.ok) {
+                console.error('[storage] saveDbProject HTTP ' + res.status);
+                return null;
+            }
+            return res.json();
+        })
+        .then(function (data) {
+            if (data && data.success) {
+                console.log('[storage] Saved "' + name + '" to SQLite at ' + data.updatedAt + (data.backedUp ? ' (backup created)' : ''));
+                return data;
+            }
+            console.error('[storage] saveDbProject failed:', data ? data.error : 'no data');
+            return null;
+        })
+        .catch(function (e) {
+            console.error('[storage] saveDbProject network error:', e.message);
+            return null;
+        });
+    }
+
+    /**
+     * Delete a project from SQLite.
+     */
+    function deleteDbProject(name) {
+        return fetch(PROJECTS_API + '?action=delete&name=' + encodeURIComponent(name), {
+            method: 'POST',
+        })
+        .then(function (res) {
+            if (!res.ok) {
+                console.error('[storage] deleteDbProject HTTP ' + res.status);
+                return false;
+            }
+            return res.json();
+        })
+        .then(function (data) {
+            if (data && data.success) {
+                console.log('[storage] Deleted "' + name + '" from SQLite');
+                return true;
+            }
+            console.error('[storage] deleteDbProject failed:', data ? data.error : 'no data');
+            return false;
+        })
+        .catch(function (e) {
+            console.error('[storage] deleteDbProject network error:', e.message);
+            return false;
+        });
+    }
+
+    /**
+     * List backups for a project from SQLite.
+     */
+    function listDbBackups(name) {
+        return fetch(PROJECTS_API + '?action=backups&name=' + encodeURIComponent(name), { cache: 'no-store' })
+            .then(function (res) {
+                if (!res.ok) return [];
+                return res.json();
+            })
+            .then(function (data) {
+                if (data && data.success) return data.backups || [];
+                console.error('[storage] listDbBackups failed:', data ? data.error : 'no data');
+                return [];
+            })
+            .catch(function (e) {
+                console.error('[storage] listDbBackups network error:', e.message);
+                return [];
+            });
+    }
+
+    /**
+     * Poll for a project update signal (from Copilot).
+     * Returns a Promise that resolves to {hasUpdate, name, source, updatedAt} or {hasUpdate: false}.
+     */
+    function pollProjectUpdate() {
+        return fetch(PROJECTS_API + '?action=poll_update', { cache: 'no-store' })
+            .then(function (res) {
+                if (!res.ok) return { hasUpdate: false };
+                return res.json();
+            })
+            .then(function (data) {
+                if (data && data.success) return data;
+                return { hasUpdate: false };
+            })
+            .catch(function (e) {
+                console.error('[storage] pollProjectUpdate network error:', e.message);
+                return { hasUpdate: false };
+            });
+    }
+
+    /**
+     * Acknowledge a project update signal.
+     */
+    function ackProjectUpdate() {
+        return fetch(PROJECTS_API + '?action=ack_update', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ acked: true }),
+        })
+        .then(function (res) { return res.json(); })
+        .catch(function (e) {
+            console.error('[storage] ackProjectUpdate network error:', e.message);
+        });
+    }
+
     return {
         getSavedProjects: getSavedProjects,
         saveProject:      saveProject,
@@ -114,7 +286,15 @@ window.LiveCSS.storage = (function () {
         pushHistory:      pushHistory,
         getHistory:       getHistory,
         saveUIState:      saveUIState,
-        loadUIState:      loadUIState
+        loadUIState:      loadUIState,
+        // SQLite-backed methods
+        listDbProjects:    listDbProjects,
+        loadDbProject:     loadDbProject,
+        saveDbProject:     saveDbProject,
+        deleteDbProject:   deleteDbProject,
+        listDbBackups:     listDbBackups,
+        pollProjectUpdate: pollProjectUpdate,
+        ackProjectUpdate:  ackProjectUpdate,
     };
 
 }());

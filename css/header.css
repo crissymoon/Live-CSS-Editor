@@ -768,7 +768,7 @@ body.search-outline-on .cm-jump-target {
     position: fixed;
     bottom: 0;
     left: 0;
-    right: 100px;
+    right: 0;
     height: 34px;
     background: #0c071c;
     border-top: 1px solid #2a1a55;

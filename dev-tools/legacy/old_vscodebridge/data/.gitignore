@@ -1,0 +1,15 @@
+# Transient sync files (auto-created at runtime)
+session.json
+pending-changes.json
+changes-ack.json
+html-content.json
+html-ack.json
+refresh-signal.json
+wireframe.json
+wireframe-changes.json
+wireframe-ack.json
+project-update-signal.json
+project-update-ack.json
+
+# SQLite database (local runtime data)
+projects.db

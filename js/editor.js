@@ -639,16 +639,28 @@ window.LiveCSS.editor = (function () {
             '<style data-livecss-user="1">' + (userCss || '') + '<\/style>';
         var scriptBlocks = buildNavFixScript() + buildContextMenuScript() + safeJs;
 
+        // Build a <base> tag so srcdoc iframes can resolve absolute paths
+        // (images, fonts, etc.) back to the app server origin.
+        var baseTag = '';
+        try {
+            baseTag = '<base href="' + window.location.origin + '/">';
+        } catch (e) {
+            console.error('[editor] Could not build base tag:', e);
+        }
+
         // If the HTML editor contains a full document, inject our extras into its <head>
         // rather than double-wrapping it in another HTML shell.
         var isFullDoc = /^\s*<!doctype\s|^\s*<html[\s>]/i.test(htmlVal);
         if (isFullDoc) {
             var injected = htmlVal;
-            // Inject styles into <head>, scripts before </body>
+            // Inject base + styles into <head>, scripts before </body>
+            if (/<head[^>]*>/i.test(injected)) {
+                injected = injected.replace(/<head([^>]*)>/i, '<head$1>' + baseTag);
+            }
             if (/<\/head>/i.test(injected)) {
                 injected = injected.replace(/<\/head>/i, styleBlocks + '<\/head>');
             } else {
-                injected = styleBlocks + injected;
+                injected = baseTag + styleBlocks + injected;
             }
             if (/<\/body>/i.test(injected)) {
                 injected = injected.replace(/<\/body>/i, scriptBlocks + '<\/body>');
@@ -659,6 +671,7 @@ window.LiveCSS.editor = (function () {
         } else {
             frame.srcdoc =
                 '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+                baseTag +
                 styleBlocks +
                 '<\/head><body>' +
                 htmlVal +

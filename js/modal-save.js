@@ -37,12 +37,26 @@ window.LiveCSS.modalSave = (function () {
             var projects = LiveCSS.storage.getSavedProjects();
             if (projects[name] && !confirm('A save named "' + name + '" already exists. Overwrite it?')) return;
 
-            LiveCSS.storage.saveProject(
-                name,
-                LiveCSS.editor.getHtmlEditor().getValue(),
-                LiveCSS.editor.getCssEditor().getValue(),
-                LiveCSS.editor.getJsEditor().getValue()
-            );
+            var html = LiveCSS.editor.getHtmlEditor().getValue();
+            var css  = LiveCSS.editor.getCssEditor().getValue();
+            var js   = LiveCSS.editor.getJsEditor().getValue();
+
+            // Save to localStorage (legacy)
+            LiveCSS.storage.saveProject(name, html, css, js);
+
+            // Also save to SQLite so the bridge and Copilot can access it
+            LiveCSS.storage.saveDbProject(name, html, css, js, 'browser')
+                .then(function (result) {
+                    if (result && result.success) {
+                        console.log('[save] Saved "' + name + '" to both localStorage and SQLite');
+                    } else {
+                        console.error('[save] SQLite save failed for "' + name + '" -- localStorage save was still successful');
+                    }
+                })
+                .catch(function (e) {
+                    console.error('[save] SQLite save error for "' + name + '":', e.message);
+                });
+
             close();
         });
 

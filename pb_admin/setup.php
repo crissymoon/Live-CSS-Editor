@@ -97,6 +97,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $success = 'Account created. Promotion to admin skipped (no user ID returned).';
             }
+
+            // Write dev-credentials.json so the launcher can display the password.
+            // This file is gitignored and is for local dev use only.
+            $credFile = __DIR__ . '/../xcm_auth/dev-credentials.json';
+            $credData = json_encode([
+                'username' => $username,
+                'email'    => $email,
+                'password' => $password,
+                'role'     => $promoted ? 'admin' : 'user',
+                'note'     => 'dev only -- do not commit',
+            ], JSON_PRETTY_PRINT);
+            file_put_contents($credFile, $credData, LOCK_EX);
         }
     }
 }

@@ -51,7 +51,6 @@ sort($allPropertyNames);
     <meta name="format-detection" content="telephone=no, date=no, email=no, address=no">
     <title>Crissy's Style Tool</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="css/native-bridge.css">
     <link rel="stylesheet" href="css/wireframe.css">
     <link rel="stylesheet" href="css/agent.css">
     <link rel="stylesheet" href="css/ai-chat.css">
@@ -68,6 +67,9 @@ sort($allPropertyNames);
                 <ul class="menu-dropdown">
                     <li><button id="saveBtn">Save</button></li>
                     <li><button id="loadBtn">Load</button></li>
+                    <li class="menu-sep"></li>
+                    <li><button id="syncToBridgeBtn">Sync to Bridge</button></li>
+                    <li><button id="pullFromVscodeBtn">Pull from VSCode</button></li>
                     <li class="menu-sep"></li>
                     <li><button id="resetBtn">Reset</button></li>
                     <li><button id="resetLayoutBtn">Reset Layout</button></li>
@@ -90,7 +92,7 @@ sort($allPropertyNames);
             <span id="autosaveStatus" class="autosave-status"></span>
         </div>
         <div class="header-right">
-            <button id="helpBtn" class="btn-action btn-help" title="Copilot section help">? Help</button>
+            <button id="helpBtn" class="btn-action btn-help" title="Copilot design help" style="display:none">? Help</button>
             <button id="vscodeBridgeToggle" class="btn-action btn-vscode-bridge" title="Toggle VSCode Copilot Bridge" aria-pressed="false">VSCode Bridge</button>
             <button id="agentBtn" class="btn-action btn-agent" title="Open Code Agent">Agent</button>
         </div>
@@ -216,7 +218,7 @@ sort($allPropertyNames);
         </section>
     </main>
 
-    <!-- Minimized panel taskbar -->
+    <!-- Minimized panel taskbar (hidden when empty) -->
     <div id="panel-taskbar"></div>
 
     <!-- Floating Color Harmony Tool -->
@@ -311,175 +313,32 @@ sort($allPropertyNames);
         </div>
     </div>
 
-    <!-- Help Modal: Copilot + Page Builder Sections -->
+    <!-- Help Modal: Prompt Builder -->
     <div class="modal-overlay hidden" id="helpModal">
         <div class="modal-box help-modal-box">
             <div class="modal-header">
-                <span class="modal-title">Copilot + Page Builder Sections</span>
+                <span class="modal-title">Create a Copilot Prompt</span>
                 <button class="modal-close" id="helpModalClose">&times;</button>
             </div>
             <div class="modal-body help-modal-body">
 
                 <p class="help-intro">
-                    Use VSCode Copilot (Agent mode) to create, edit, audit, and preview page builder sections.
-                    Copy a prompt below, fill in the bracketed parts, and paste it into Copilot Chat.
-                    Copilot will read the schema file automatically and produce valid JSON.
+                    Describe the design change you want and click Create Prompt. Copy the result and paste it into Copilot. Copilot will edit the files in vscode-bridge/projects/ and push them to the tool for you.
                 </p>
 
-                <p class="help-tip">
-                    Tip: Copilot Agent mode can read and write files on disk directly.
-                    New template files appear in the section library the next time you open the composer.
-                </p>
-
-                <div class="help-prompt-list">
-
-                    <div class="help-prompt-card">
-                        <div class="help-prompt-card-header">
-                            <span class="help-prompt-title">Create a new section template</span>
-                            <button class="help-copy-btn" data-target="prompt-create">Copy</button>
-                        </div>
-                        <p class="help-prompt-desc">Creates a reusable template in the section library. Replace the MY REQUEST line with what you want.</p>
-                        <pre class="help-prompt-code" id="prompt-create">I am working on a PHP page builder called Crissy's Style Tool.
-PROJECT ROOT: /Users/mac/Documents/live-css
-
-Read vscode-bridge/context/section-schema.md before doing anything else.
-
-MY REQUEST: [describe the section, e.g. "a pricing table with three tiers: Free, Pro, and Enterprise"]
-SECTION TYPE: [header / footer / section / panel]
-SAVE LOCATION: page-builder/sections/[headers|footers|sections|panels]/[name].json
-
-Requirements:
-- Valid JSON only, no comments
-- All numeric values as quoted strings with units ("16px" not 16)
-- Every block has a unique id
-- Every heading block has a tag key
-- Every button block has an href key
-- Include _meta at the top
-- Use dark palette from schema unless told otherwise
-- All JS fetch calls need .catch(err => console.error('[section] error:', err))
-
-After saving: list the file path, block ids, and any notes for overrides.json.</pre>
+                <div class="help-input-row">
+                    <label for="helpRequestInput" class="help-label">What do you want to do?</label>
+                    <textarea id="helpRequestInput" class="help-textarea" rows="3" placeholder="e.g. create a pricing section with three tiers, or fix the header layout on mobile"></textarea>
+                </div>
+                <div class="help-actions-row">
+                    <button id="helpCreateBtn" class="help-create-btn">Create Prompt</button>
+                </div>
+                <div class="help-output-wrap hidden" id="helpOutputWrap">
+                    <div class="help-output-header">
+                        <span class="help-output-label">Generated prompt</span>
+                        <button id="helpCopyBtn" class="help-copy-btn">Copy</button>
                     </div>
-
-                    <div class="help-prompt-card">
-                        <div class="help-prompt-card-header">
-                            <span class="help-prompt-title">Add a section to a specific page</span>
-                            <button class="help-copy-btn" data-target="prompt-add">Copy</button>
-                        </div>
-                        <p class="help-prompt-desc">Adds a new section directly into a live page and updates the page.json manifest. Replace PAGE NAME and the section description.</p>
-                        <pre class="help-prompt-code" id="prompt-add">I am working on the Crissy Style Tool page builder.
-PROJECT ROOT: /Users/mac/Documents/live-css
-
-Read vscode-bridge/context/section-schema.md first.
-
-PAGE NAME: [page-folder-name, e.g. "demo"]
-PAGE DIRECTORY: page-builder/pages/[page-name]/
-
-TASK:
-1. Read page-builder/pages/[page-name]/page.json to see the current manifest.
-2. Create a new section file: section-[short-slug].json in that page directory.
-3. Add it to page.json sections array before the footer entry:
-   { "id": "pb-[short-slug]", "file": "section-[short-slug].json", "type": "section", "label": "[Label]" }
-4. Do NOT include _meta in page-specific files.
-
-THE SECTION I WANT: [describe it]
-Use dark palette (bg #0a0a14, text #e8e8f0, accent #6366f1).
-All block ids must be unique and not conflict with existing ids in the page.
-
-After finishing: list the new file path, updated page.json sections array, and all block ids used.</pre>
-                    </div>
-
-                    <div class="help-prompt-card">
-                        <div class="help-prompt-card-header">
-                            <span class="help-prompt-title">Preview a section in the browser</span>
-                            <button class="help-copy-btn" data-target="prompt-preview">Copy</button>
-                        </div>
-                        <p class="help-prompt-desc">Generates a standalone HTML preview file for a single section. Replace the file path.</p>
-                        <pre class="help-prompt-code" id="prompt-preview">I am working on the Crissy Style Tool page builder.
-PROJECT ROOT: /Users/mac/Documents/live-css
-
-Read vscode-bridge/context/section-schema.md first.
-Also read page-builder/build.php so you understand how sections are rendered.
-
-SECTION FILE: page-builder/[sections/type/name.json OR pages/page-name/file.json]
-
-TASK:
-Generate a standalone HTML preview file for this single section.
-Save it to page-builder/pages/_preview/index.html
-
-Requirements:
-- Inline all CSS as a style block (no external files)
-- Render only this one section, centered on a dark background (#08080f)
-- Add a small label at the top showing the section file path
-- Include a browser console.error fallback if any dynamic rendering fails
-
-After saving, tell me the URL to open:
-http://localhost:8080/page-builder/pages/_preview/index.html</pre>
-                    </div>
-
-                    <div class="help-prompt-card">
-                        <div class="help-prompt-card-header">
-                            <span class="help-prompt-title">Audit a section file for errors</span>
-                            <button class="help-copy-btn" data-target="prompt-audit">Copy</button>
-                        </div>
-                        <p class="help-prompt-desc">Checks a section JSON file against the full schema and reports every issue with the fix needed.</p>
-                        <pre class="help-prompt-code" id="prompt-audit">I am working on the Crissy Style Tool page builder.
-PROJECT ROOT: /Users/mac/Documents/live-css
-
-Read vscode-bridge/context/section-schema.md first.
-
-FILE TO AUDIT: page-builder/[sections/type/name.json OR pages/page-name/file.json]
-
-Check for:
-1. Valid JSON (no trailing commas, all strings quoted)
-2. Required top-level keys for the section type
-3. All blocks have unique non-empty id values
-4. Every heading block has a tag key
-5. Every button block has an href key
-6. Every card block has a non-empty children array
-7. All numeric values are quoted strings with units ("16px" not 16)
-8. _meta present if template, absent if page-specific
-
-Report each issue as:
-  PATH: [json path to the field]
-  PROBLEM: [what is wrong]
-  FIX: [the corrected value or structure]
-
-If no issues found, confirm the file is valid and list all block ids.</pre>
-                    </div>
-
-                    <div class="help-prompt-card">
-                        <div class="help-prompt-card-header">
-                            <span class="help-prompt-title">Convert active stylesheet into section defaults</span>
-                            <button class="help-copy-btn" data-target="prompt-convert">Copy</button>
-                        </div>
-                        <p class="help-prompt-desc">Reads the active stylesheet and style-context.txt to pull colors and typography into a new section template. Replace the stylesheet name and section description.</p>
-                        <pre class="help-prompt-code" id="prompt-convert">I am working on the Crissy Style Tool page builder.
-PROJECT ROOT: /Users/mac/Documents/live-css
-
-Read vscode-bridge/context/section-schema.md first.
-Also read:
-- style-sheets/[stylesheet-name].css
-- style-context.txt
-
-EXTRACT these values from the stylesheet and map them:
-  Background  ->  section settings.bg
-  Primary text  ->  heading settings.color
-  Muted text  ->  text block settings.color
-  Accent color  ->  button settings.bg, heading accent
-  Card bg  ->  card settings.bg
-  Border  ->  card settings.border
-  Border radius  ->  button and card settings.borderRadius
-  Body font  ->  do not set (inherited)
-
-SECTION TO CREATE: [describe the section]
-SECTION TYPE: [section / header / footer / panel]
-SAVE TO: page-builder/sections/[type-folder]/[name].json
-
-Output the JSON with _meta included.
-After saving, list which CSS rule or variable each extracted value came from.</pre>
-                    </div>
-
+                    <pre class="help-prompt-code" id="helpOutputPre"></pre>
                 </div>
             </div>
         </div>
@@ -555,7 +414,7 @@ After saving, list which CSS rule or variable each extracted value came from.</p
     <style>
     /* ---- Help Modal ---- */
     .help-modal-box {
-        max-width: 820px;
+        max-width: 580px;
         width: 96vw;
     }
     .help-modal-body {
@@ -570,45 +429,64 @@ After saving, list which CSS rule or variable each extracted value came from.</p
         line-height: 1.55;
         margin: 0;
     }
-    .help-tip {
-        font-size: 12px;
-        color: #8888a0;
-        background: rgba(77,49,191,0.12);
-        border-left: 3px solid #4d31bf;
-        padding: 8px 12px;
-        margin: 0;
-        line-height: 1.5;
-    }
-    .help-prompt-list {
+    .help-input-row {
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 6px;
     }
-    .help-prompt-card {
+    .help-label {
+        font-size: 12px;
+        color: #8888a0;
+        letter-spacing: 0.03em;
+    }
+    .help-textarea {
         background: #0c071c;
         border: 1px solid #2d1c6e;
-        padding: 14px 16px;
+        color: #eceaf6;
+        font-family: inherit;
+        font-size: 13px;
+        padding: 10px 12px;
+        resize: vertical;
+        outline: none;
+        line-height: 1.5;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .help-textarea:focus {
+        border-color: #4d31bf;
+    }
+    .help-actions-row {
+        display: flex;
+        justify-content: flex-end;
+    }
+    .help-create-btn {
+        background: #4d31bf;
+        border: 1px solid #6d51df;
+        color: #fff;
+        font-size: 13px;
+        font-family: inherit;
+        padding: 7px 20px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+        transition: background 0.12s;
+    }
+    .help-create-btn:hover {
+        background: #6d51df;
+    }
+    .help-output-wrap {
         display: flex;
         flex-direction: column;
         gap: 8px;
     }
-    .help-prompt-card-header {
+    .help-output-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
     }
-    .help-prompt-title {
-        font-size: 13px;
-        font-weight: 700;
-        color: #eceaf6;
-        letter-spacing: 0.02em;
-    }
-    .help-prompt-desc {
+    .help-output-label {
         font-size: 12px;
         color: #8888a0;
-        line-height: 1.5;
-        margin: 0;
+        letter-spacing: 0.03em;
     }
     .help-prompt-code {
         background: #1b1825;
@@ -621,7 +499,7 @@ After saving, list which CSS rule or variable each extracted value came from.</p
         margin: 0;
         white-space: pre-wrap;
         word-break: break-word;
-        max-height: 200px;
+        max-height: 300px;
         overflow-y: auto;
         user-select: text;
     }
@@ -688,8 +566,6 @@ After saving, list which CSS rule or variable each extracted value came from.</p
     <script src="js/agent/agent-neural.js"></script>
     <script src="js/agent.js"></script>
     <script src="js/ai-chat.js"></script>
-    <!-- Dev/native bridge: file browse, refresh, debug overlay -->
-    <script src="js/native-bridge.js"></script>
     <!-- VSCode Copilot bridge: two-way sync with MCP server -->
     <script src="vscode-bridge/js/bridge-sync.js"></script>
     <script>
@@ -723,71 +599,96 @@ After saving, list which CSS rule or variable each extracted value came from.</p
         });
     }());
 
-    // Help modal
+    // Help modal - prompt builder
     (function () {
-        var btn   = document.getElementById('helpBtn');
-        var modal = document.getElementById('helpModal');
-        var close = document.getElementById('helpModalClose');
+        var btn        = document.getElementById('helpBtn');
+        var modal      = document.getElementById('helpModal');
+        var close      = document.getElementById('helpModalClose');
+        var input      = document.getElementById('helpRequestInput');
+        var createBtn  = document.getElementById('helpCreateBtn');
+        var outputWrap = document.getElementById('helpOutputWrap');
+        var outputPre  = document.getElementById('helpOutputPre');
+        var copyBtn    = document.getElementById('helpCopyBtn');
 
         if (!btn || !modal || !close) {
             console.error('[Help] Missing helpBtn, helpModal, or helpModalClose element');
             return;
         }
 
-        function openHelp() {
-            modal.classList.remove('hidden');
-        }
-
-        function closeHelp() {
-            modal.classList.add('hidden');
-        }
+        function openHelp()  { modal.classList.remove('hidden'); }
+        function closeHelp() { modal.classList.add('hidden'); }
 
         btn.addEventListener('click', openHelp);
         close.addEventListener('click', closeHelp);
-
         modal.addEventListener('click', function (e) {
             if (e.target === modal) { closeHelp(); }
         });
-
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
                 closeHelp();
             }
         });
 
-        // Copy prompt buttons
-        modal.querySelectorAll('.help-copy-btn').forEach(function (copyBtn) {
-            copyBtn.addEventListener('click', function () {
-                var targetId = copyBtn.getAttribute('data-target');
-                if (!targetId) {
-                    console.error('[Help] help-copy-btn missing data-target');
-                    return;
-                }
-                var pre = document.getElementById(targetId);
-                if (!pre) {
-                    console.error('[Help] copy target not found: #' + targetId);
-                    return;
-                }
-                var text = pre.textContent || '';
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text).then(function () {
-                        copyBtn.textContent = 'Copied!';
-                        copyBtn.classList.add('copied');
-                        setTimeout(function () {
-                            copyBtn.textContent = 'Copy';
-                            copyBtn.classList.remove('copied');
-                        }, 2000);
-                    }).catch(function (err) {
-                        console.error('[Help] clipboard.writeText failed:', err);
-                        fallbackCopy(text, copyBtn);
-                    });
-                } else {
-                    fallbackCopy(text, copyBtn);
-                }
-            });
+        function buildPrompt(request) {
+            var req = (request || '').trim() || '[describe what you want to do]';
+            return [
+                "I am working in Crissy's Style Tool, a live HTML/CSS/JS editor running at http://localhost:8080.",
+                '',
+                'PROJECT ROOT: /Users/mac/Documents/live-css',
+                '',
+                'The design lives in three files inside vscode-bridge/projects/:',
+                '  vscode-bridge/projects/html-editor.html   -- the HTML markup',
+                '  vscode-bridge/projects/css-editor.css     -- styles for the design',
+                '  vscode-bridge/projects/js-editor.js       -- optional JS (leave empty if not needed)',
+                '',
+                'Image assets are in vscode-bridge/projects/custom_design_assets/ and should be',
+                'referenced with absolute paths like /vscode-bridge/projects/custom_design_assets/...',
+                '',
+                'After editing the files, run this command to push them to the tool:',
+                '  php push-pull.php push',
+                '',
+                'The tool will auto-detect the update and load it into all three editors.',
+                'To pull the current state from the tool back to files:',
+                '  php push-pull.php pull',
+                '',
+                'To see all saved projects:',
+                '  php push-pull.php list',
+                '',
+                'DESIGN REQUEST: ' + req,
+            ].join('\n');
+        }
+
+        createBtn.addEventListener('click', function () {
+            var prompt = buildPrompt(input.value);
+            outputPre.textContent = prompt;
+            outputWrap.classList.remove('hidden');
+            outputPre.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
 
-        function fallbackCopy(text, copyBtn) {
+        input.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { createBtn.click(); }
+        });
+
+        copyBtn.addEventListener('click', function () {
+            var text = outputPre.textContent || '';
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () {
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.classList.add('copied');
+                    setTimeout(function () {
+                        copyBtn.textContent = 'Copy';
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                }).catch(function (err) {
+                    console.error('[Help] clipboard.writeText failed:', err);
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        });
+
+        function fallbackCopy(text) {
             try {
                 var ta = document.createElement('textarea');
                 ta.value = text;

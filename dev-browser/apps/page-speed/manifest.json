@@ -1,0 +1,6 @@
+{
+  "name": "Page Speed",
+  "slug": "page-speed",
+  "description": "Measure real page load performance using a headless browser: TTFB, DOM ready, full load, resource counts, page weight, and a live screenshot.",
+  "version": "1.0"
+}

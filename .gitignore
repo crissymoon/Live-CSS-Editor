@@ -1,3 +1,24 @@
+# Widevine CDM -- Google proprietary DRM binary, cannot be distributed publicly
+dev-browser/WidevineCdm/
+dev-browser/widevine/
+*.dylib
+*.dylib.sig
+
+# Python virtual environments
+dev-browser/venv/
+dev-browser/.venv/
+.venv/
+
+# Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Browser runtime data -- URL history, private browsing data
+dev-browser/url_history.json
+dev-browser/modules/url_history.json
+
 # Environment and secrets
 .env
 .env.*
@@ -36,9 +57,9 @@ config.local.*
 node_modules/
 
 # Tauri
-src-tauri/target/
-src-tauri/www/
-src-tauri/gen/
+**/src-tauri/target/
+**/src-tauri/www/
+**/src-tauri/gen/
 
 # External project symlinks - worked on locally but not part of this repo
 moon-lang
@@ -55,3 +76,4 @@ style-sheets/TESTING_DIR_4_LRN.TXT
 # prompt_inj_guard -- model weights are too large for git
 prompt_inj_guard/model/spam_injection_model/
 prompt_inj_guard/model/spam_injection_model/**
+xcm_auth/dev-credentials.json

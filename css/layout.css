@@ -5,10 +5,10 @@
 .editor-layout {
     position: relative;
     width: 100%;
-    height: calc(100vh - 54px);
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
     background: #080412;
-    flex: 1;
 }
 
 /* ── Panels ── */

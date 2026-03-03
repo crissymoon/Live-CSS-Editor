@@ -13,8 +13,13 @@ html, body {
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 18px;
-    color: #1b1825;
-    background: #fcfcfd;
+    color: #eceaf6;
+    background: #0c071c;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
 }
 
 /* Locks cursor and prevents text selection while dragging a gutter */

@@ -154,6 +154,131 @@
             }
         });
 
+        // Sync to Bridge: saves current editors to DB + writes files to projects/
+        (function () {
+            var syncBtn = document.getElementById('syncToBridgeBtn');
+            if (!syncBtn) {
+                console.warn('[app] syncToBridgeBtn not found in DOM, skipping sync setup');
+                return;
+            }
+            syncBtn.addEventListener('click', function () {
+                try {
+                    var name = prompt('Project name to sync:', 'crissys-style-tool');
+                    if (!name) { return; }
+
+                    var htmlVal = LiveCSS.editor.getHtmlEditor().getValue();
+                    var cssVal  = LiveCSS.editor.getCssEditor().getValue();
+                    var jsVal   = LiveCSS.editor.getJsEditor().getValue();
+
+                    console.log('[sync] Syncing project "' + name + '" to bridge (' +
+                        htmlVal.length + ' html, ' + cssVal.length + ' css, ' + jsVal.length + ' js)');
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/vscode-bridge/api/projects.php?action=sync_to_bridge', true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.onload = function () {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.success) {
+                                console.log('[sync] OK: project "' + name + '" saved + exported', res.files);
+                                alert('Synced "' + name + '" to bridge.\nFiles written: ' + (res.files || []).join(', '));
+                            } else {
+                                console.error('[sync] Server error:', res.error || res);
+                                alert('Sync failed: ' + (res.error || 'Unknown error'));
+                            }
+                        } catch (parseErr) {
+                            console.error('[sync] Response parse error:', parseErr, xhr.responseText);
+                            alert('Sync failed: could not parse response');
+                        }
+                    };
+                    xhr.onerror = function () {
+                        console.error('[sync] Network error, status:', xhr.status);
+                        alert('Sync failed: network error');
+                    };
+                    xhr.send(JSON.stringify({ name: name, html: htmlVal, css: cssVal, js: jsVal }));
+                } catch (err) {
+                    console.error('[sync] Unexpected error:', err);
+                    alert('Sync failed: ' + err.message);
+                }
+            });
+        }());
+
+        // Pull from VSCode: runs update-live-css.sh then reloads the project
+        (function () {
+            var pullBtn = document.getElementById('pullFromVscodeBtn');
+            if (!pullBtn) {
+                console.warn('[app] pullFromVscodeBtn not found in DOM, skipping pull setup');
+                return;
+            }
+            pullBtn.addEventListener('click', function () {
+                try {
+                    var name = prompt('Project name to pull:', 'crissys-style-tool');
+                    if (!name) { return; }
+
+                    console.log('[pull] Running update-live-css.sh for "' + name + '"...');
+                    pullBtn.disabled = true;
+                    pullBtn.textContent = 'Pulling...';
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', '/vscode-bridge/api/pull-from-vscode.php?project=' + encodeURIComponent(name), true);
+                    xhr.onload = function () {
+                        pullBtn.disabled = false;
+                        pullBtn.textContent = 'Pull from VSCode';
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.success) {
+                                var stepLog = (res.steps || []).map(function (s) {
+                                    return (s.ok ? '[ok]' : '[fail]') + ' ' + s.label + (s.detail ? ': ' + s.detail : '');
+                                }).join('\n');
+                                console.log('[pull] OK:\n' + stepLog);
+                                // Load the updated project into the editors
+                                if (typeof LiveCSS.storage.loadDbProject === 'function') {
+                                    LiveCSS.storage.loadDbProject(name)
+                                        .then(function (proj) {
+                                            if (proj && LiveCSS.editor) {
+                                                LiveCSS.editor.setHtmlValue(proj.html || '');
+                                                LiveCSS.editor.setCssValue(proj.css || '');
+                                                LiveCSS.editor.setJsValue(proj.js || '');
+                                                LiveCSS.editor.updatePreview();
+                                                console.log('[pull] Loaded "' + name + '" into editors');
+                                                alert('Pulled and loaded "' + name + '" from VSCode.');
+                                            } else {
+                                                console.warn('[pull] Pull complete but editors not ready -- use Load to apply');
+                                                alert('Pull complete. Use Load to apply the project.');
+                                            }
+                                        })
+                                        .catch(function (e) {
+                                            console.error('[pull] loadDbProject failed:', e);
+                                            alert('Pull complete but could not auto-load. Use Load to apply.');
+                                        });
+                                } else {
+                                    console.warn('[pull] loadDbProject not available');
+                                    alert('Pull complete. Click Load to apply the project.');
+                                }
+                            } else {
+                                var errDetail = (res.errors || []).join(', ') || res.error || 'Unknown error';
+                                console.error('[pull] Failed:', errDetail, res.steps || []);
+                                alert('Pull failed: ' + errDetail);
+                            }
+                        } catch (parseErr) {
+                            console.error('[pull] Response parse error:', parseErr, xhr.responseText);
+                            alert('Pull failed: could not parse response');
+                        }
+                    };
+                    xhr.onerror = function () {
+                        pullBtn.disabled = false;
+                        pullBtn.textContent = 'Pull from VSCode';
+                        console.error('[pull] Network error, status:', xhr.status);
+                        alert('Pull failed: network error');
+                    };
+                    xhr.send();
+                } catch (err) {
+                    console.error('[pull] Unexpected error:', err);
+                    alert('Pull failed: ' + err.message);
+                }
+            });
+        }());
+
         // 11. Auto-save current work on every editor change (debounced 1.5 s)
         var autosaveEl = document.getElementById('autosaveStatus');
         var autosaveFadeTimer = null;

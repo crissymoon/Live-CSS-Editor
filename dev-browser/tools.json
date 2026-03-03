@@ -1,0 +1,6 @@
+[
+  {"name": "Live CSS Tool",  "url": "http://127.0.0.1:8080/index.php",     "type": "tool"},
+  {"name": "Agent Flow",     "url": "http://127.0.0.1:8080/agent-flow/",   "type": "tool"},
+  {"name": "Page Builder",   "url": "http://127.0.0.1:8080/page-builder/", "type": "tool"},
+  {"name": "PB Admin",       "url": "http://127.0.0.1:8080/pb_admin/",     "type": "tool"}
+]

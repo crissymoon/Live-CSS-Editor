@@ -1,0 +1,6 @@
+{
+  "name": "Page Inspector",
+  "slug": "page-inspector",
+  "description": "Enter any URL to extract page metadata, links, and images using a headless browser. Screenshot is captured and shown live.",
+  "version": "1.0"
+}
