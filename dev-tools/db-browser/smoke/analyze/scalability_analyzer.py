@@ -5,6 +5,7 @@ Analyzes code patterns and architecture for scalability concerns.
 """
 
 import re
+import sqlite3
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -21,11 +22,15 @@ class ScalabilityAnalyzer:
             'patterns': {},
             'issues': [],
             'recommendations': [],
-            'architecture': {}
+            'architecture': {},
+            'database_config': {}
         }
         
         # Analyze architecture
         results['architecture'] = self._analyze_architecture()
+        
+        # Check database configurations
+        results['database_config'] = self._check_database_configs()
         
         # Analyze scalability patterns
         results['patterns'] = self._analyze_patterns()
@@ -65,6 +70,49 @@ class ScalabilityAnalyzer:
             arch['core_components'] = [f.name for f in core_dir.iterdir() if f.suffix == '.c']
         
         return arch
+    
+    def _check_database_configs(self) -> Dict[str, Any]:
+        """Check database configurations for scalability."""
+        config = {
+            'databases_checked': 0,
+            'wal_enabled': 0,
+            'non_wal': [],
+            'errors': []
+        }
+        
+        # Find all .db files in the workspace (excluding build/vendor directories)
+        db_files = []
+        try:
+            # Start from parent of project_root to check full workspace
+            workspace_root = self.project_root.parent.parent if self.project_root.parts[-2:] == ('dev-tools', 'db-browser') else self.project_root.parent
+            db_files = list(workspace_root.rglob('*.db'))
+            db_files = [f for f in db_files if 'build' not in f.parts and 'vendor' not in f.parts and 'node_modules' not in f.parts]
+        except Exception as e:
+            config['errors'].append(f"Error finding databases: {str(e)}")
+            return config
+        
+        for db_path in db_files:
+            config['databases_checked'] += 1
+            try:
+                conn = sqlite3.connect(str(db_path))
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA journal_mode;")
+                result = cursor.fetchone()
+                journal_mode = result[0] if result else "unknown"
+                
+                if journal_mode.upper() == 'WAL':
+                    config['wal_enabled'] += 1
+                else:
+                    config['non_wal'].append({
+                        'path': str(db_path.relative_to(workspace_root)),
+                        'journal_mode': journal_mode
+                    })
+                
+                conn.close()
+            except Exception as e:
+                config['errors'].append(f"{db_path.name}: {str(e)}")
+        
+        return config
     
     def _analyze_patterns(self) -> Dict[str, Any]:
         """Analyze scalability patterns in the codebase."""
@@ -204,6 +252,16 @@ class ScalabilityAnalyzer:
             recommendations.append(
                 "Consider implementing a modular architecture to improve maintainability and scalability"
             )
+        
+        # Database configuration recommendations
+        db_config = results.get('database_config', {})
+        if db_config.get('databases_checked', 0) > 0:
+            non_wal_count = len(db_config.get('non_wal', []))
+            if non_wal_count > 0:
+                recommendations.append(
+                    f"Found {non_wal_count} database(s) not using WAL mode. "
+                    "Enable WAL mode for better concurrency and performance."
+                )
         
         # Pattern recommendations
         patterns = results['patterns']

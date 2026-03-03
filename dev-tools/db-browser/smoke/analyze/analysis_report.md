@@ -1,25 +1,25 @@
 # Database Browser Code Analysis Report
 
-**Generated:** 2026-03-03T15:32:31.339226  
+**Generated:** 2026-03-03T15:57:30.732554  
 **Analyzer Version:** 1.0.0  
 **Project Root:** /Users/mac/Documents/live-css/dev-tools/db-browser
 
 
 ## Executive Summary
 
-**Overall Score:** 55.2/100  
-**Risk Level:** 🔶 HIGH
+**Overall Score:** 53.8/100  
+**Risk Level:** CRITICAL
 
 ### Score Breakdown
 
 | Category | Score | Status |
 |----------|-------|--------|
-| Complexity | 100.0/100 | Excellent ✅ |
-| Scalability | 50.0/100 | Needs Improvement ⚠️ |
-| Dependencies | 100.0/100 | Excellent ✅ |
-| Performance | 28.0/100 | Critical 🔴 |
-| Technical Debt | 20.0/100 | Critical 🔴 |
-| Memory Management | 20.0/100 | Critical 🔴 |
+| Complexity | 100.0/100 | Excellent |
+| Scalability | 50.0/100 | Needs Improvement |
+| Dependencies | 100.0/100 | Excellent |
+| Performance | 20.0/100 | Critical |
+| Technical Debt | 20.0/100 | Critical |
+| Memory Management | 20.0/100 | Critical |
 
 
 ## Project Statistics
@@ -30,17 +30,17 @@
 |----------|-------|
 | C | 35 |
 | Header | 26 |
-| Python | 10 |
-| Shell | 5 |
+| Python | 11 |
+| Shell | 6 |
 | Markdown | 11 |
 
 ### Code Metrics
 
-- **Total Lines:** 17,299
-- **Code Lines:** 12,760
-- **Comment Lines:** 1,578
-- **Blank Lines:** 2,961
-- **Comment Ratio:** 12.4%
+- **Total Lines:** 17,555
+- **Code Lines:** 12,954
+- **Comment Lines:** 1,599
+- **Blank Lines:** 3,002
+- **Comment Ratio:** 12.3%
 
 
 ## Code Complexity Analysis
@@ -71,9 +71,17 @@
 
 ### Architecture
 
-- **Modular Structure:** Yes ✅
-- **Layered Design:** Yes ✅
+- **Modular Structure:** Yes
+- **Layered Design:** Yes
 - **Module Count:** 16
+
+
+### Database Configuration
+
+- **Databases Checked:** 19
+- **WAL Mode Enabled:** 19
+- **Non-WAL Databases:** 0
+
 
 ### Patterns Detected
 
@@ -110,21 +118,21 @@
 
 ### Issues Found
 
-**Total Issues:** 9
+**Total Issues:** 24
 
 
 | Severity | Count |
 |----------|-------|
-| MEDIUM | 6 |
-| LOW | 3 |
+| MEDIUM | 8 |
+| LOW | 16 |
 
 ### Performance Hotspots
 
+- `core/search_helpers.c` (4 issues, severity score: 6)
+- `core/db_transfer.c` (3 issues, severity score: 4)
+- `legacy/main.c` (3 issues, severity score: 4)
 - `modules/table_callbacks.c` (3 issues, severity score: 4)
-- `core/db_transfer.c` (2 issues, severity score: 3)
-- `core/db_manager.c` (1 issues, severity score: 2)
-- `core/table_versioning.c` (1 issues, severity score: 2)
-- `core/search_helpers.c` (1 issues, severity score: 2)
+- `core/db_manager.c` (2 issues, severity score: 3)
 
 ## Technical Debt Analysis
 
@@ -157,8 +165,8 @@
 ### Summary
 
 **Memory Score:** 20.0/100  
-**Total Allocations:** 0  
-**Total Frees:** 0  
+**Total Allocations:** 63  
+**Total Frees:** 205  
 **Potential Leaks:** 0  
 **Unguarded Allocations:** 4  
 **Buffer Risks:** 2
@@ -196,6 +204,7 @@
 ### Memory Recommendations
 
 - Replace 2 unsafe string functions with safe alternatives (strncpy, snprintf, etc.)
+- Consider implementing memory pools for frequent allocations to reduce fragmentation
 - Review 34 potential double-free issues and set pointers to NULL after freeing
 - Move 1 large stack allocations to heap to prevent stack overflow
 

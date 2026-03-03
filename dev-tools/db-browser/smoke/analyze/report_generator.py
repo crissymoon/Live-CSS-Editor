@@ -45,17 +45,10 @@ class ReportGenerator:
         """Generate executive summary."""
         summary = self.results['summary']
         
-        risk_emoji = {
-            'LOW': '✅',
-            'MEDIUM': '⚠️',
-            'HIGH': '🔶',
-            'CRITICAL': '🔴'
-        }
-        
         return f"""## Executive Summary
 
 **Overall Score:** {summary['overall_score']:.1f}/100  
-**Risk Level:** {risk_emoji.get(summary['risk_level'], '❓')} {summary['risk_level']}
+**Risk Level:** {summary['risk_level']}
 
 ### Score Breakdown
 
@@ -132,15 +125,37 @@ class ReportGenerator:
         patterns = scalability.get('patterns', {})
         issues = scalability.get('issues', [])
         arch = scalability.get('architecture', {})
+        db_config = scalability.get('database_config', {})
         
         sections = [f"""## Scalability Analysis
 
 ### Architecture
 
-- **Modular Structure:** {'Yes ✅' if arch.get('modular') else 'No ❌'}
-- **Layered Design:** {'Yes ✅' if arch.get('layered') else 'No ❌'}
+- **Modular Structure:** {'Yes' if arch.get('modular') else 'No'}
+- **Layered Design:** {'Yes' if arch.get('layered') else 'No'}
 - **Module Count:** {len(arch.get('modules', []))}
+"""]
+        
+        # Add database configuration section
+        if db_config.get('databases_checked', 0) > 0:
+            wal_count = db_config.get('wal_enabled', 0)
+            total_dbs = db_config.get('databases_checked', 0)
+            non_wal = db_config.get('non_wal', [])
+            
+            sections.append(f"""
+### Database Configuration
 
+- **Databases Checked:** {total_dbs}
+- **WAL Mode Enabled:** {wal_count}
+- **Non-WAL Databases:** {len(non_wal)}
+""")
+            
+            if non_wal:
+                sections.append("\n#### Databases Not Using WAL Mode\n")
+                for db in non_wal:
+                    sections.append(f"- `{db['path']}` (journal mode: {db['journal_mode']})")
+        
+        sections.append(f"""
 ### Patterns Detected
 
 | Pattern | Count |
@@ -151,7 +166,7 @@ class ReportGenerator:
 | Lazy Loading | {patterns.get('lazy_loading', 0)} |
 | Caching | {patterns.get('caching', 0)} |
 | Async Patterns | {patterns.get('async_patterns', 0)} |
-"""]
+""")
         
         if issues:
             sections.append(f"\n### Issues Found ({len(issues)})\n")
@@ -191,7 +206,7 @@ class ReportGenerator:
         
         circular = [i for i in issues if i['type'] == 'CIRCULAR_DEPENDENCY']
         if circular:
-            sections.append(f"\n### ⚠️ Circular Dependencies\n")
+            sections.append(f"\n### Circular Dependencies\n")
             for issue in circular:
                 sections.append(f"- {' → '.join(issue['files'])}")
         
@@ -355,10 +370,10 @@ truly important for your specific use case.
     def _get_status(self, score: float) -> str:
         """Get status string for a score."""
         if score >= 80:
-            return 'Excellent ✅'
+            return 'Excellent'
         elif score >= 60:
-            return 'Good 👍'
+            return 'Good'
         elif score >= 40:
-            return 'Needs Improvement ⚠️'
+            return 'Needs Improvement'
         else:
-            return 'Critical 🔴'
+            return 'Critical'

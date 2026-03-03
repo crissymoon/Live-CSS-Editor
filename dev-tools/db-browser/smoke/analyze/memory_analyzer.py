@@ -48,10 +48,13 @@ class MemoryAnalyzer:
             file_issues = self._analyze_file_memory(file_path)
             results['issues'].extend(file_issues)
             
-            # Update patterns
+            # Update patterns and count allocations
             content = self._read_file(file_path)
             if content:
                 self._detect_memory_patterns(content, results['memory_patterns'])
+                # Count allocations and frees in this file
+                results['allocations_total'] += len(self.MALLOC_PATTERN.findall(content))
+                results['frees_total'] += len(self.FREE_PATTERN.findall(content))
         
         # Calculate metrics
         for issue in results['issues']:
@@ -61,11 +64,6 @@ class MemoryAnalyzer:
                 results['unguarded_allocations'] += 1
             elif issue['type'] in ['BUFFER_OVERFLOW_RISK', 'UNSAFE_COPY']:
                 results['buffer_risks'] += 1
-            
-            if issue['type'] in ['ALLOCATION', 'REALLOCATION']:
-                results['allocations_total'] += issue.get('count', 1)
-            elif issue['type'] == 'FREE':
-                results['frees_total'] += issue.get('count', 1)
         
         # Calculate score
         results['score'] = self._calculate_memory_score(results)

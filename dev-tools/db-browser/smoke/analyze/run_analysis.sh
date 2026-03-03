@@ -22,6 +22,9 @@ python3 analyzer.py "$@"
 
 exit_code=$?
 
+# Run gap analysis
+python3 recheck_values.py
+
 if [ $exit_code -eq 0 ]; then
     echo ""
     echo "=========================================="

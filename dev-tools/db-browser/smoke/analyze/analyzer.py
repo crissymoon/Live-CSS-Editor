@@ -78,6 +78,20 @@ class CodebaseAnalyzer:
             print("\n[3/7] Analyzing scalability patterns...")
         scalability_analyzer = ScalabilityAnalyzer(self.project_root)
         self.results['scalability'] = scalability_analyzer.analyze()
+        
+        # Print database configuration status
+        if verbose:
+            db_config = self.results['scalability'].get('database_config', {})
+            dbs_checked = db_config.get('databases_checked', 0)
+            wal_enabled = db_config.get('wal_enabled', 0)
+            non_wal = db_config.get('non_wal', [])
+            if dbs_checked > 0:
+                print(f"  Database Config: {wal_enabled}/{dbs_checked} using WAL mode", end='')
+                if non_wal:
+                    print(f" (WARNING: {len(non_wal)} database(s) not using WAL)")
+                else:
+                    print()
+        
         del scalability_analyzer
         gc.collect()
         
@@ -202,28 +216,26 @@ class CodebaseAnalyzer:
             'memory': memory_score
         }
         
-        # Overall score is weighted average
-        weights = {
-            'complexity': 0.20,
-            'scalability': 0.20,
-            'dependencies': 0.15,
-            'performance': 0.15,
-            'technical_debt': 0.15,
-            'memory': 0.15
-        }
-        
-        summary['overall_score'] = sum(
-            summary['scores'][k] * weights[k] 
-            for k in weights.keys()
-        )
-        
-        # Determine risk level
-        if summary['overall_score'] >= 80:
+        # Architectural health score matching recheck_values.py formula
+        comp = complexity_score
+        perf = performance_score
+        scal = scalability_score
+        debt = debt_score
+        mem  = memory_score
+        deps = dependency_score
+
+        friction   = abs(comp - perf) / 2
+        stability  = (mem + (100 - debt)) / 2
+        efficiency = (perf * 0.6) + (scal * 0.4)
+        raw_score  = (efficiency * 0.40) + (stability * 0.30) + (comp * 0.15) + (deps * 0.15)
+
+        summary['overall_score'] = round(max(0.0, min(100.0, raw_score - (friction * 0.1))), 1)
+
+        # Determine risk level (three tiers matching recheck_values.py)
+        if summary['overall_score'] > 80:
             summary['risk_level'] = 'LOW'
-        elif summary['overall_score'] >= 60:
+        elif summary['overall_score'] > 60:
             summary['risk_level'] = 'MEDIUM'
-        elif summary['overall_score'] >= 40:
-            summary['risk_level'] = 'HIGH'
         else:
             summary['risk_level'] = 'CRITICAL'
         
@@ -383,7 +395,7 @@ def main():
     print("=" * 80)
     
     # Exit with appropriate code
-    if results['summary']['risk_level'] in ['CRITICAL', 'HIGH']:
+    if results['summary']['risk_level'] == 'CRITICAL':
         sys.exit(1)
     else:
         sys.exit(0)
