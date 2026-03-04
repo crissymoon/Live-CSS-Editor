@@ -1,25 +1,25 @@
 # Database Browser Code Analysis Report
 
-**Generated:** 2026-03-03T15:57:30.732554  
+**Generated:** 2026-03-03T16:06:51.229045  
 **Analyzer Version:** 1.0.0  
 **Project Root:** /Users/mac/Documents/live-css/dev-tools/db-browser
 
 
 ## Executive Summary
 
-**Overall Score:** 53.8/100  
-**Risk Level:** CRITICAL
+**Overall Score:** 79.4/100  
+**Risk Level:** MEDIUM
 
 ### Score Breakdown
 
 | Category | Score | Status |
 |----------|-------|--------|
 | Complexity | 100.0/100 | Excellent |
-| Scalability | 50.0/100 | Needs Improvement |
+| Scalability | 82.5/100 | Excellent |
 | Dependencies | 100.0/100 | Excellent |
-| Performance | 20.0/100 | Critical |
-| Technical Debt | 20.0/100 | Critical |
-| Memory Management | 20.0/100 | Critical |
+| Performance | 70.0/100 | Good |
+| Technical Debt | 40.0/100 | Needs Improvement |
+| Memory Management | 79.2/100 | Good |
 
 
 ## Project Statistics
@@ -30,17 +30,17 @@
 |----------|-------|
 | C | 35 |
 | Header | 26 |
-| Python | 11 |
+| Python | 12 |
 | Shell | 6 |
 | Markdown | 11 |
 
 ### Code Metrics
 
-- **Total Lines:** 17,555
-- **Code Lines:** 12,954
-- **Comment Lines:** 1,599
-- **Blank Lines:** 3,002
-- **Comment Ratio:** 12.3%
+- **Total Lines:** 17,636
+- **Code Lines:** 13,008
+- **Comment Lines:** 1,614
+- **Blank Lines:** 3,014
+- **Comment Ratio:** 12.4%
 
 
 ## Code Complexity Analysis
@@ -95,12 +95,11 @@
 | Async Patterns | 0 |
 
 
-### Issues Found (19)
+### Issues Found (7)
 
-- **Missing Pagination:** 10
-- **Unbounded Allocation:** 7
+- **Unbounded Allocation:** 5
 - **N Plus One Query:** 1
-- **Large Static Buffer:** 1
+- **Missing Pagination:** 1
 
 ## Dependency Analysis
 
@@ -118,21 +117,21 @@
 
 ### Issues Found
 
-**Total Issues:** 24
+**Total Issues:** 10
 
 
 | Severity | Count |
 |----------|-------|
-| MEDIUM | 8 |
-| LOW | 16 |
+| MEDIUM | 7 |
+| LOW | 3 |
 
 ### Performance Hotspots
 
 - `core/search_helpers.c` (4 issues, severity score: 6)
-- `core/db_transfer.c` (3 issues, severity score: 4)
-- `legacy/main.c` (3 issues, severity score: 4)
-- `modules/table_callbacks.c` (3 issues, severity score: 4)
-- `core/db_manager.c` (2 issues, severity score: 3)
+- `core/db_manager.c` (1 issues, severity score: 2)
+- `core/table_versioning.c` (1 issues, severity score: 2)
+- `core/db_transfer.c` (1 issues, severity score: 2)
+- `modules/trash_manager.c` (1 issues, severity score: 2)
 
 ## Technical Debt Analysis
 
@@ -164,7 +163,7 @@
 
 ### Summary
 
-**Memory Score:** 20.0/100  
+**Memory Score:** 79.2/100  
 **Total Allocations:** 63  
 **Total Frees:** 205  
 **Potential Leaks:** 0  

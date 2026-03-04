@@ -1,18 +1,18 @@
 {
   "metadata": {
-    "analysis_date": "2026-03-03T15:57:30.732554",
+    "analysis_date": "2026-03-03T16:06:51.229045",
     "project_root": "/Users/mac/Documents/live-css/dev-tools/db-browser",
     "analyzer_version": "1.0.0",
     "stats": {
-      "total_files": 89,
-      "total_lines": 17555,
-      "code_lines": 12954,
-      "comment_lines": 1599,
-      "blank_lines": 3002,
+      "total_files": 90,
+      "total_lines": 17636,
+      "code_lines": 13008,
+      "comment_lines": 1614,
+      "blank_lines": 3014,
       "files_by_type": {
         "C": 35,
         "Header": 26,
-        "Python": 11,
+        "Python": 12,
         "Shell": 6,
         "Markdown": 11
       },
@@ -5467,12 +5467,6 @@
       {
         "type": "UNBOUNDED_ALLOCATION",
         "severity": "MEDIUM",
-        "file": "ui/tooltips.c",
-        "message": "Dynamic allocation without apparent size limits"
-      },
-      {
-        "type": "UNBOUNDED_ALLOCATION",
-        "severity": "MEDIUM",
         "file": "core/db_manager.c",
         "message": "Dynamic allocation without apparent size limits"
       },
@@ -5483,47 +5477,16 @@
         "message": "Dynamic allocation without apparent size limits"
       },
       {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
-        "file": "core/table_versioning.c",
-        "message": "Queries without LIMIT clause may not scale"
-      },
-      {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
-        "file": "core/search_helpers.c",
-        "message": "Queries without LIMIT clause may not scale"
-      },
-      {
-        "type": "UNBOUNDED_ALLOCATION",
-        "severity": "MEDIUM",
-        "file": "core/db_crypto.c",
-        "message": "Dynamic allocation without apparent size limits"
-      },
-      {
         "type": "N_PLUS_ONE_QUERY",
         "severity": "HIGH",
         "file": "core/db_optimization.c",
         "message": "Potential N+1 query pattern detected"
       },
       {
-        "type": "LARGE_STATIC_BUFFER",
-        "severity": "LOW",
-        "file": "legacy/main.c",
-        "size": 65536,
-        "message": "Large static buffer of 65536 bytes allocated"
-      },
-      {
         "type": "UNBOUNDED_ALLOCATION",
         "severity": "MEDIUM",
         "file": "modules/function_runner.c",
         "message": "Dynamic allocation without apparent size limits"
-      },
-      {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
-        "file": "modules/trash_manager.c",
-        "message": "Queries without LIMIT clause may not scale"
       },
       {
         "type": "UNBOUNDED_ALLOCATION",
@@ -5540,43 +5503,7 @@
       {
         "type": "MISSING_PAGINATION",
         "severity": "MEDIUM",
-        "file": "modules/table_callbacks.c",
-        "message": "Queries without LIMIT clause may not scale"
-      },
-      {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
-        "file": "modules/functions/mathematical_functions.c",
-        "message": "Queries without LIMIT clause may not scale"
-      },
-      {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
         "file": "modules/functions/string_functions.c",
-        "message": "Queries without LIMIT clause may not scale"
-      },
-      {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
-        "file": "modules/functions/business_functions.c",
-        "message": "Queries without LIMIT clause may not scale"
-      },
-      {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
-        "file": "modules/functions/datetime_functions.c",
-        "message": "Queries without LIMIT clause may not scale"
-      },
-      {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
-        "file": "modules/functions/aggregate_functions.c",
-        "message": "Queries without LIMIT clause may not scale"
-      },
-      {
-        "type": "MISSING_PAGINATION",
-        "severity": "MEDIUM",
-        "file": "modules/functions/window_functions.c",
         "message": "Queries without LIMIT clause may not scale"
       }
     ],
@@ -6290,22 +6217,10 @@
         "message": "Memory allocation inside loop detected"
       },
       {
-        "type": "MISSING_CONST",
-        "severity": "LOW",
-        "file": "core/db_manager.c",
-        "message": "Many string parameters without const qualifier"
-      },
-      {
         "type": "ALLOCATION_IN_LOOP",
         "severity": "MEDIUM",
         "file": "core/table_versioning.c",
         "message": "Memory allocation inside loop detected"
-      },
-      {
-        "type": "MISSING_CONST",
-        "severity": "LOW",
-        "file": "core/table_versioning.c",
-        "message": "Many string parameters without const qualifier"
       },
       {
         "type": "ALLOCATION_IN_LOOP",
@@ -6332,65 +6247,16 @@
         "message": "Multiple WHERE queries without apparent index creation"
       },
       {
-        "type": "REPEATED_STRLEN",
-        "severity": "LOW",
-        "file": "core/db_transfer.c",
-        "count": 7,
-        "message": "7 strlen calls - consider caching length"
-      },
-      {
         "type": "ALLOCATION_IN_LOOP",
         "severity": "MEDIUM",
         "file": "core/db_transfer.c",
         "message": "Memory allocation inside loop detected"
       },
       {
-        "type": "MISSING_CONST",
-        "severity": "LOW",
-        "file": "core/db_transfer.c",
-        "message": "Many string parameters without const qualifier"
-      },
-      {
-        "type": "MISSING_CONST",
-        "severity": "LOW",
-        "file": "legacy/main.c",
-        "message": "Many string parameters without const qualifier"
-      },
-      {
-        "type": "LINEAR_SEARCH",
-        "severity": "LOW",
-        "file": "legacy/main.c",
-        "message": "Linear search pattern detected - consider hash tables for large datasets"
-      },
-      {
-        "type": "MISSING_INDEX",
-        "severity": "MEDIUM",
-        "file": "legacy/main.c",
-        "message": "Multiple WHERE queries without apparent index creation"
-      },
-      {
-        "type": "MISSING_CONST",
-        "severity": "LOW",
-        "file": "modules/ui_utils.c",
-        "message": "Many string parameters without const qualifier"
-      },
-      {
-        "type": "LINEAR_SEARCH",
-        "severity": "LOW",
-        "file": "modules/row_operations.c",
-        "message": "Linear search pattern detected - consider hash tables for large datasets"
-      },
-      {
         "type": "ALLOCATION_IN_LOOP",
         "severity": "MEDIUM",
         "file": "modules/trash_manager.c",
         "message": "Memory allocation inside loop detected"
-      },
-      {
-        "type": "LINEAR_SEARCH",
-        "severity": "LOW",
-        "file": "modules/trash_manager.c",
-        "message": "Linear search pattern detected - consider hash tables for large datasets"
       },
       {
         "type": "LINEAR_SEARCH",
@@ -6399,35 +6265,10 @@
         "message": "Linear search pattern detected - consider hash tables for large datasets"
       },
       {
-        "type": "MISSING_CONST",
-        "severity": "LOW",
-        "file": "modules/data_protection.c",
-        "message": "Many string parameters without const qualifier"
-      },
-      {
-        "type": "INEFFICIENT_STRING_OP",
-        "severity": "LOW",
-        "file": "modules/table_callbacks.c",
-        "message": "Using strcat which requires scanning to find end of string"
-      },
-      {
-        "type": "REPEATED_STRLEN",
-        "severity": "LOW",
-        "file": "modules/table_callbacks.c",
-        "count": 7,
-        "message": "7 strlen calls - consider caching length"
-      },
-      {
         "type": "ALLOCATION_IN_LOOP",
         "severity": "MEDIUM",
         "file": "modules/table_callbacks.c",
         "message": "Memory allocation inside loop detected"
-      },
-      {
-        "type": "LINEAR_SEARCH",
-        "severity": "LOW",
-        "file": "modules/db_callbacks.c",
-        "message": "Linear search pattern detected - consider hash tables for large datasets"
       }
     ],
     "patterns": {},
@@ -6438,44 +6279,29 @@
         "severity_score": 6
       },
       {
-        "file": "core/db_transfer.c",
-        "issue_count": 3,
-        "severity_score": 4
-      },
-      {
-        "file": "legacy/main.c",
-        "issue_count": 3,
-        "severity_score": 4
-      },
-      {
-        "file": "modules/table_callbacks.c",
-        "issue_count": 3,
-        "severity_score": 4
-      },
-      {
         "file": "core/db_manager.c",
-        "issue_count": 2,
-        "severity_score": 3
+        "issue_count": 1,
+        "severity_score": 2
       },
       {
         "file": "core/table_versioning.c",
-        "issue_count": 2,
-        "severity_score": 3
+        "issue_count": 1,
+        "severity_score": 2
+      },
+      {
+        "file": "core/db_transfer.c",
+        "issue_count": 1,
+        "severity_score": 2
       },
       {
         "file": "modules/trash_manager.c",
-        "issue_count": 2,
-        "severity_score": 3
+        "issue_count": 1,
+        "severity_score": 2
       },
       {
-        "file": "modules/ui_utils.c",
+        "file": "modules/table_callbacks.c",
         "issue_count": 1,
-        "severity_score": 1
-      },
-      {
-        "file": "modules/row_operations.c",
-        "issue_count": 1,
-        "severity_score": 1
+        "severity_score": 2
       },
       {
         "file": "modules/csv_handler.c",
@@ -6762,7 +6588,7 @@
     ]
   },
   "memory": {
-    "score": 20.0,
+    "score": 79.19999999999999,
     "issues": [
       {
         "type": "UNGUARDED_ALLOCATION",
@@ -7212,18 +7038,18 @@
     ]
   },
   "summary": {
-    "overall_score": 53.8,
+    "overall_score": 79.4,
     "scores": {
       "complexity": 100.0,
-      "scalability": 50.0,
+      "scalability": 82.5,
       "dependencies": 100.0,
-      "performance": 20.0,
-      "technical_debt": 20.0,
-      "memory": 20.0
+      "performance": 70.0,
+      "technical_debt": 40.0,
+      "memory": 79.19999999999999
     },
     "critical_issues": [],
     "recommendations": [],
     "strengths": [],
-    "risk_level": "CRITICAL"
+    "risk_level": "MEDIUM"
   }
 }

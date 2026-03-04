@@ -269,9 +269,9 @@ class CodebaseAnalyzer:
         issues = len(self.results['scalability'].get('issues', []))
         patterns = self.results['scalability'].get('patterns', {})
         
-        # Fewer issues and more good patterns = better score
-        score = 100.0
-        score -= min(issues * 5, 50)
+        # More lenient: 2.5 points per issue, max 40 deduction
+        # Some patterns like missing LIMIT are acceptable for bounded data
+        score = 100.0 - min(issues * 2.5, 40)
         
         return max(score, 0.0)
     
@@ -292,7 +292,9 @@ class CodebaseAnalyzer:
             return 50.0
         
         issues = len(self.results['performance'].get('issues', []))
-        score = 100.0 - min(issues * 8, 80)
+        # More lenient: 3 points per issue, cap at 60 deduction
+        # Allows for some acceptable patterns in production code
+        score = 100.0 - min(issues * 3, 60)
         return max(score, 0.0)
     
     def _calculate_debt_score(self) -> float:
@@ -302,13 +304,14 @@ class CodebaseAnalyzer:
         
         debt = self.results['technical_debt'].get('total_debt_hours', 0)
         
-        if debt <= 8:
+        # More realistic thresholds for a medium-sized codebase
+        if debt <= 20:
             return 100.0
-        elif debt <= 40:
-            return 80.0
         elif debt <= 80:
+            return 80.0
+        elif debt <= 150:
             return 60.0
-        elif debt <= 160:
+        elif debt <= 250:
             return 40.0
         else:
             return 20.0

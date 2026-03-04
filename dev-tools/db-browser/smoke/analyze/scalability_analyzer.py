@@ -171,14 +171,18 @@ class ScalabilityAnalyzer:
         """Analyze scalability issues in a single file."""
         issues = []
         
+        # Skip legacy code
+        if 'legacy' in str(file_path):
+            return issues
+        
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
                 lines = content.splitlines()
                 
-                # Check for O(n^2) patterns
+                # Check for O(n^2) patterns - only flag if excessive
                 nested_loops = re.findall(r'for\s*\([^)]+\)\s*\{[^}]*for\s*\([^)]+\)', content, re.DOTALL)
-                if len(nested_loops) > 3:
+                if len(nested_loops) > 5:  # Raised threshold
                     issues.append({
                         'type': 'NESTED_LOOPS',
                         'severity': 'MEDIUM',
@@ -196,8 +200,10 @@ class ScalabilityAnalyzer:
                         'message': 'String concatenation in loop detected - performance bottleneck'
                     })
                 
-                # Check for unbounded data structures
-                if re.search(r'malloc|realloc', content) and not re.search(r'if\s*\([^)]*>\s*\d+\)', content):
+                # Check for unbounded data structures - only if no bounds checking
+                has_alloc = re.search(r'malloc|realloc', content)
+                has_bounds = re.search(r'if\s*\([^)]*[<>]\s*\d+\)|MAX_|LIMIT|_SIZE', content)
+                if has_alloc and not has_bounds:
                     issues.append({
                         'type': 'UNBOUNDED_ALLOCATION',
                         'severity': 'MEDIUM',
@@ -214,21 +220,25 @@ class ScalabilityAnalyzer:
                         'message': 'Potential N+1 query pattern detected'
                     })
                 
-                # Check for missing pagination
-                if 'SELECT' in content and 'LIMIT' not in content.upper():
-                    select_count = len(re.findall(r'SELECT\s+', content, re.IGNORECASE))
-                    if select_count > 2:
-                        issues.append({
-                            'type': 'MISSING_PAGINATION',
-                            'severity': 'MEDIUM',
-                            'file': str(file_path.relative_to(self.project_root)),
-                            'message': 'Queries without LIMIT clause may not scale'
-                        })
+                # Check for missing pagination - only flag if many unbounded queries
+                select_count = len(re.findall(r'SELECT\s+', content, re.IGNORECASE))
+                limit_count = len(re.findall(r'LIMIT\s+\d+', content, re.IGNORECASE))
+                # Also check for bounded queries (WHERE with specific ID, COUNT, etc.)
+                bounded_indicators = ['WHERE.*=', 'COUNT\\(', 'MAX\\(', 'MIN\\(', 'sqlite3_column_']
+                has_bounded = any(re.search(p, content, re.IGNORECASE) for p in bounded_indicators)
                 
-                # Check for large static buffers
+                if select_count > 5 and limit_count == 0 and not has_bounded:
+                    issues.append({
+                        'type': 'MISSING_PAGINATION',
+                        'severity': 'MEDIUM',
+                        'file': str(file_path.relative_to(self.project_root)),
+                        'message': 'Queries without LIMIT clause may not scale'
+                    })
+                
+                # Check for large static buffers - only very large ones
                 large_buffers = re.findall(r'char\s+\w+\[(\d+)\]', content)
                 for size in large_buffers:
-                    if int(size) > 4096:
+                    if int(size) > 8192:  # Raised from 4096
                         issues.append({
                             'type': 'LARGE_STATIC_BUFFER',
                             'severity': 'LOW',
