@@ -13,6 +13,48 @@ typedef struct {
     GtkWidget *unique_check;
 } ColumnRow;
 
+/* Collect ColumnInfo linked list from the dialog form rows.                    *
+ * Returns the head of the list; sets *out_count to the number of filled rows. *
+ * Returns NULL if no rows had names filled in.                                 */
+static ColumnInfo *new_table_collect_columns(GList *column_rows, int *out_count) {
+    ColumnInfo *first = NULL;
+    ColumnInfo *last  = NULL;
+    *out_count = 0;
+
+    for (GList *l = column_rows; l != NULL; l = l->next) {
+        ColumnRow *row = (ColumnRow*)l->data;
+        const char *col_name = gtk_entry_get_text(GTK_ENTRY(row->name_entry));
+        if (!col_name || strlen(col_name) == 0) continue;
+
+        ColumnInfo *col = g_malloc0(sizeof(ColumnInfo));
+        col->name          = g_strdup(col_name);
+        col->type          = g_strdup(gtk_combo_box_text_get_active_text(
+                                 GTK_COMBO_BOX_TEXT(row->type_combo)));
+        col->not_null      = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(row->not_null_check));
+        col->primary_key   = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(row->pk_check));
+        col->unique        = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(row->unique_check));
+        col->default_value = NULL;
+        col->next          = NULL;
+
+        if (!first) { first = col; last = col; }
+        else        { last->next = col; last = col; }
+        (*out_count)++;
+    }
+    return first;
+}
+
+/* Free a ColumnInfo linked list built by new_table_collect_columns(). */
+static void new_table_free_columns(ColumnInfo *head) {
+    while (head) {
+        ColumnInfo *next = head->next;
+        g_free(head->name);
+        g_free(head->type);
+        if (head->default_value) g_free(head->default_value);
+        g_free(head);
+        head = next;
+    }
+}
+
 void on_new_table(GtkWidget *widget, gpointer data) {
     AppState *state = (AppState*)data;
 
@@ -29,28 +71,26 @@ void on_new_table(GtkWidget *widget, gpointer data) {
         "_Create", GTK_RESPONSE_ACCEPT,
         NULL
     );
-
     gtk_window_set_default_size(GTK_WINDOW(dialog), 600, 400);
 
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
     gtk_container_set_border_width(GTK_CONTAINER(content), 10);
 
-    // Table name
+    /* Table name row */
     GtkWidget *name_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    GtkWidget *name_label = gtk_label_new("Table Name:");
     GtkWidget *name_entry = gtk_entry_new();
     gtk_entry_set_placeholder_text(GTK_ENTRY(name_entry), "Enter table name");
-    gtk_box_pack_start(GTK_BOX(name_box), name_label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(name_box), gtk_label_new("Table Name:"), FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(name_box), name_entry, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(content), name_box, FALSE, FALSE, 5);
 
-    // Column list
+    /* Columns label */
     GtkWidget *columns_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(columns_label), "<b>Columns:</b>");
     gtk_widget_set_halign(columns_label, GTK_ALIGN_START);
     gtk_box_pack_start(GTK_BOX(content), columns_label, FALSE, FALSE, 5);
 
-    // Scrolled window for columns
+    /* Scrolled column list */
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
@@ -59,22 +99,20 @@ void on_new_table(GtkWidget *widget, gpointer data) {
     GtkWidget *columns_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_set_border_width(GTK_CONTAINER(columns_box), 5);
 
-    // Column header
+    /* Header row */
     GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("Name"), FALSE, FALSE, 100);
-    gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("Type"), FALSE, FALSE, 80);
-    gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("NOT NULL"), FALSE, FALSE, 40);
+    gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("Name"),        FALSE, FALSE, 100);
+    gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("Type"),        FALSE, FALSE, 80);
+    gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("NOT NULL"),    FALSE, FALSE, 40);
     gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("PRIMARY KEY"), FALSE, FALSE, 40);
-    gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("UNIQUE"), FALSE, FALSE, 40);
+    gtk_box_pack_start(GTK_BOX(header_box), gtk_label_new("UNIQUE"),      FALSE, FALSE, 40);
     gtk_box_pack_start(GTK_BOX(columns_box), header_box, FALSE, FALSE, 0);
 
-    // Add 5 column rows by default
+    /* Five editable column rows */
     GList *column_rows = NULL;
     const char *types[] = {"INTEGER", "TEXT", "REAL", "BLOB", "NUMERIC"};
-
     for (int i = 0; i < 5; i++) {
         ColumnRow *row = g_malloc(sizeof(ColumnRow));
-
         GtkWidget *row_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
 
         row->name_entry = gtk_entry_new();
@@ -82,21 +120,20 @@ void on_new_table(GtkWidget *widget, gpointer data) {
         gtk_widget_set_size_request(row->name_entry, 150, -1);
 
         row->type_combo = gtk_combo_box_text_new();
-        for (size_t j = 0; j < sizeof(types) / sizeof(types[0]); j++) {
+        for (size_t j = 0; j < sizeof(types) / sizeof(types[0]); j++)
             gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(row->type_combo), types[j]);
-        }
         gtk_combo_box_set_active(GTK_COMBO_BOX(row->type_combo), i == 0 ? 0 : 1);
         gtk_widget_set_size_request(row->type_combo, 120, -1);
 
         row->not_null_check = gtk_check_button_new();
-        row->pk_check = gtk_check_button_new();
-        row->unique_check = gtk_check_button_new();
+        row->pk_check       = gtk_check_button_new();
+        row->unique_check   = gtk_check_button_new();
 
-        gtk_box_pack_start(GTK_BOX(row_box), row->name_entry, FALSE, FALSE, 0);
-        gtk_box_pack_start(GTK_BOX(row_box), row->type_combo, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(row_box), row->name_entry,     FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(row_box), row->type_combo,     FALSE, FALSE, 0);
         gtk_box_pack_start(GTK_BOX(row_box), row->not_null_check, FALSE, FALSE, 50);
-        gtk_box_pack_start(GTK_BOX(row_box), row->pk_check, FALSE, FALSE, 50);
-        gtk_box_pack_start(GTK_BOX(row_box), row->unique_check, FALSE, FALSE, 50);
+        gtk_box_pack_start(GTK_BOX(row_box), row->pk_check,       FALSE, FALSE, 50);
+        gtk_box_pack_start(GTK_BOX(row_box), row->unique_check,   FALSE, FALSE, 50);
 
         gtk_box_pack_start(GTK_BOX(columns_box), row_box, FALSE, FALSE, 0);
         column_rows = g_list_append(column_rows, row);
@@ -104,7 +141,6 @@ void on_new_table(GtkWidget *widget, gpointer data) {
 
     gtk_container_add(GTK_CONTAINER(scroll), columns_box);
     gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 0);
-
     gtk_widget_show_all(dialog);
 
     if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
@@ -117,35 +153,8 @@ void on_new_table(GtkWidget *widget, gpointer data) {
             return;
         }
 
-        // Build column list
-        ColumnInfo *first_col = NULL;
-        ColumnInfo *last_col = NULL;
         int col_count = 0;
-
-        for (GList *l = column_rows; l != NULL; l = l->next) {
-            ColumnRow *row = (ColumnRow*)l->data;
-            const char *col_name = gtk_entry_get_text(GTK_ENTRY(row->name_entry));
-
-            if (col_name && strlen(col_name) > 0) {
-                ColumnInfo *col = g_malloc0(sizeof(ColumnInfo));
-                col->name = g_strdup(col_name);
-                col->type = g_strdup(gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(row->type_combo)));
-                col->not_null = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(row->not_null_check));
-                col->primary_key = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(row->pk_check));
-                col->unique = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(row->unique_check));
-                col->default_value = NULL;
-                col->next = NULL;
-
-                if (!first_col) {
-                    first_col = col;
-                    last_col = col;
-                } else {
-                    last_col->next = col;
-                    last_col = col;
-                }
-                col_count++;
-            }
-        }
+        ColumnInfo *first_col = new_table_collect_columns(column_rows, &col_count);
 
         if (col_count == 0) {
             show_error_dialog("Error", "Please define at least one column.");
@@ -154,19 +163,8 @@ void on_new_table(GtkWidget *widget, gpointer data) {
             return;
         }
 
-        // Create the table
         int result = db_manager_create_table(state->db_manager, table_name, first_col);
-
-        // Free column list
-        ColumnInfo *col = first_col;
-        while (col) {
-            ColumnInfo *next = col->next;
-            g_free(col->name);
-            g_free(col->type);
-            if (col->default_value) g_free(col->default_value);
-            g_free(col);
-            col = next;
-        }
+        new_table_free_columns(first_col);
 
         if (result == 0) {
             char status[256];

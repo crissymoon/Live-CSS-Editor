@@ -204,6 +204,51 @@ switch ($action) {
         ]);
         break;
 
+    // ── Database bridge (admin.*  and pages.* actions) ────────────────────
+    // All db.* requests are forwarded to db_bridge/api.php internally:
+    //   POST ?action=db&db=<key>&db_action=<action>&params=<json>
+    //
+    // The xcm_auth session already validated above via is_logged_in();
+    // db_bridge/api.php re-checks is_logged_in() for the admin gate.
+    case 'db':
+        if (!is_logged_in()) {
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'error' => 'not authenticated']);
+            break;
+        }
+        $db_bridge = __DIR__ . '/../db_bridge/api.php';
+        if (!file_exists($db_bridge)) {
+            http_response_code(503);
+            echo json_encode(['ok' => false, 'error' => 'db_bridge not available']);
+            break;
+        }
+        // Rebuild the request as the internal API expects it
+        $raw_body  = file_get_contents('php://input');
+        $body      = json_decode($raw_body, true);
+        $db_action = $body['action'] ?? ($_GET['db_action'] ?? '');
+        $db_params = $body['params'] ?? [];
+        $db_name   = $body['db']     ?? ($_GET['db'] ?? '');
+
+        $inner_req = [
+            'action' => $db_action,
+            'db'     => $db_name,
+            'params' => $db_params,
+        ];
+
+        // Call db_bridge/api.php as an include with a spoofed request body.
+        // We isolate it in a closure so it can't pollute our scope.
+        $db_result = (static function (string $bridge_path, array $inner) {
+            ob_start();
+            // Override php://input reading inside api.php by pre-parsing here
+            // and injecting via $_DB_BRIDGE_REQUEST superglobal (api.php checks for this).
+            $GLOBALS['_DB_BRIDGE_REQUEST'] = $inner;
+            include $bridge_path;
+            return ob_get_clean();
+        })($db_bridge, $inner_req);
+
+        echo $db_result;
+        break;
+
     default:
         http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'unknown action: ' . htmlspecialchars($action)]);

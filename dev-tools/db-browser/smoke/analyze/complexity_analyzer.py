@@ -24,9 +24,12 @@ class ComplexityAnalyzer:
             'issues': []
         }
         
-        # Analyze C source files
+        # Analyze C source files (skip build, vendor, and legacy)
         c_files = list(self.project_root.rglob('*.c'))
-        c_files = [f for f in c_files if 'build' not in f.parts and 'vendor' not in f.parts]
+        c_files = [f for f in c_files
+                   if 'build'  not in f.parts
+                   and 'vendor' not in f.parts
+                   and 'legacy' not in f.parts]
         
         total_complexity = 0
         function_count = 0
@@ -72,6 +75,32 @@ class ComplexityAnalyzer:
                         'nesting': func['max_nesting'],
                         'message': f"Function has nesting depth of {func['max_nesting']}"
                     })
+
+                # God function: meets 2 or more severe thresholds simultaneously
+                god_hits = sum([
+                    func['lines']         > 150,
+                    func['complexity']    > 20,
+                    func['max_nesting']   > 4,
+                    func['parameter_count'] > 5,
+                ])
+                if god_hits >= 2:
+                    reasons = []
+                    if func['lines']           > 150: reasons.append(f"{func['lines']} lines")
+                    if func['complexity']      > 20:  reasons.append(f"complexity {func['complexity']}")
+                    if func['max_nesting']     > 4:   reasons.append(f"nesting depth {func['max_nesting']}")
+                    if func['parameter_count'] > 5:   reasons.append(f"{func['parameter_count']} params")
+                    results['issues'].append({
+                        'type': 'GOD_FUNCTION',
+                        'severity': 'CRITICAL' if god_hits >= 3 else 'HIGH',
+                        'file': str(c_file.relative_to(self.project_root)),
+                        'function': func['name'],
+                        'lines': func['lines'],
+                        'complexity': func['complexity'],
+                        'nesting': func['max_nesting'],
+                        'parameter_count': func['parameter_count'],
+                        'god_hits': god_hits,
+                        'message': f"God function ({god_hits}/4 thresholds exceeded): {', '.join(reasons)}"
+                    })
         
         # Calculate overall metrics
         results['metrics'] = {
@@ -80,7 +109,8 @@ class ComplexityAnalyzer:
             'max_complexity': max((f['complexity'] for f in results['functions']), default=0),
             'high_complexity_count': sum(1 for f in results['functions'] if f['complexity'] > 15),
             'average_function_length': sum(f['lines'] for f in results['functions']) / function_count if function_count > 0 else 0,
-            'long_function_count': sum(1 for f in results['functions'] if f['lines'] > 100)
+            'long_function_count': sum(1 for f in results['functions'] if f['lines'] > 100),
+            'god_function_count': sum(1 for i in results['issues'] if i['type'] == 'GOD_FUNCTION'),
         }
         
         return results

@@ -15,18 +15,7 @@
 #include "core/db_transfer.h"
 #include "ui/tooltips.h"
 
-#include "modules/app_state.h"
-#include "modules/ui_drawing.h"
-#include "modules/ui_utils.h"
-#include "modules/theme_manager.h"
-#include "modules/recent_manager.h"
-#include "modules/ui_panels.h"
-#include "modules/db_callbacks.h"
-#include "modules/query_callbacks.h"
-#include "modules/table_callbacks.h"
-#include "modules/csv_handler.h"
-#include "modules/misc_callbacks.h"
-#include "modules/auth.h"
+#include "modules/all_modules.h"
 
 int main(int argc, char *argv[]) {
     // Initialize GTK

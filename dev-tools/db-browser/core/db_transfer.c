@@ -11,6 +11,9 @@
 
 static char storage_directory[1024] = {0};
 
+/* uthash name-cache: head pointer for O(1) lookup by database name */
+static DatabaseInfo *db_name_cache = NULL;
+
 /* Initialize storage directory */
 bool db_transfer_init(const char *storage_dir) {
     if (!storage_dir || strlen(storage_dir) == 0) {
@@ -93,6 +96,9 @@ DatabaseInfo** db_transfer_list_databases(int *count) {
 
     *count = 0;
 
+    /* Discard any stale cache before rebuilding */
+    HASH_CLEAR(hh, db_name_cache);
+
     DIR *dir = opendir(storage_directory);
     if (!dir) {
         fprintf(stderr, "[db-transfer] Failed to open storage directory: %s\n",
@@ -161,6 +167,9 @@ DatabaseInfo** db_transfer_list_databases(int *count) {
             }
 
             list[index++] = info;
+
+            /* Register in name-cache for O(1) lookups */
+            HASH_ADD_STR(db_name_cache, name, info);
         }
     }
 
@@ -172,6 +181,9 @@ DatabaseInfo** db_transfer_list_databases(int *count) {
 void db_transfer_free_database_list(DatabaseInfo **list, int count) {
     if (!list) return;
 
+    /* Detach hash table before freeing items to avoid dangling handles */
+    HASH_CLEAR(hh, db_name_cache);
+
     for (int i = 0; i < count; i++) {
         if (list[i]) {
             free(list[i]->name);
@@ -181,6 +193,26 @@ void db_transfer_free_database_list(DatabaseInfo **list, int count) {
         }
     }
     free(list);
+}
+
+/* O(1) database name lookup via uthash cache.
+ * Returns a pointer into the last list returned by db_transfer_list_databases(),
+ * or NULL if not found / cache is empty.
+ * Do NOT free the returned pointer; it is owned by the cached list array.
+ */
+DatabaseInfo* db_transfer_find_by_name(const char *name) {
+    if (!name) return NULL;
+    DatabaseInfo *found = NULL;
+    HASH_FIND_STR(db_name_cache, name, found);
+    return found;
+}
+
+/* Explicitly invalidate the name cache without freeing the list items.
+ * Call this if you manually free a list obtained from db_transfer_list_databases()
+ * outside of db_transfer_free_database_list().
+ */
+void db_transfer_cache_clear(void) {
+    HASH_CLEAR(hh, db_name_cache);
 }
 
 /* Import database to storage */

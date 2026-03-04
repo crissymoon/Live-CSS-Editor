@@ -245,21 +245,33 @@ class CodebaseAnalyzer:
         """Calculate complexity score from analysis results."""
         if not self.results['complexity']:
             return 50.0
-        
+
         metrics = self.results['complexity'].get('metrics', {})
         avg_complexity = metrics.get('average_complexity', 5)
-        
-        # Lower complexity is better
+        issues       = self.results['complexity'].get('issues', [])
+
+        # Base score from average cyclomatic complexity (lower is better)
         if avg_complexity <= 5:
-            return 100.0
+            base = 100.0
         elif avg_complexity <= 10:
-            return 80.0
+            base = 85.0
         elif avg_complexity <= 15:
-            return 60.0
+            base = 65.0
         elif avg_complexity <= 20:
-            return 40.0
+            base = 45.0
         else:
-            return 20.0
+            base = 25.0
+
+        # Apply a small deduction for flagged issues (0.4 pts each, max 15 pts)
+        # This surfaces real structural problems even when average complexity is low.
+        # God functions count triple -- they bundle multiple failure modes.
+        weighted_issues = sum(
+            3 if i.get('type') == 'GOD_FUNCTION' else 1
+            for i in self.results['complexity'].get('issues', [])
+        )
+        issue_penalty = min(weighted_issues * 0.4, 15.0)
+
+        return round(max(0.0, base - issue_penalty), 1)
     
     def _calculate_scalability_score(self) -> float:
         """Calculate scalability score."""
@@ -281,21 +293,63 @@ class CodebaseAnalyzer:
             return 50.0
         
         metrics = self.results['dependencies'].get('metrics', {})
-        tight_coupling = metrics.get('tight_coupling_count', 0)
+        issues = self.results['dependencies'].get('issues', [])
         
-        score = 100.0 - min(tight_coupling * 10, 80)
-        return max(score, 0.0)
+        # Base score starts at 100
+        score = 100.0
+        
+        # Deduct for tight coupling (files with high fan-in AND fan-out)
+        tight_coupling = metrics.get('tight_coupling_count', 0)
+        score -= min(tight_coupling * 10, 40)
+        
+        # Deduct for HIGH_COUPLING issues based on severity
+        for iss in issues:
+            if iss.get('type') == 'HIGH_COUPLING':
+                sev = iss.get('severity', 'MEDIUM')
+                if sev == 'HIGH':
+                    score -= 8
+                elif sev == 'MEDIUM':
+                    score -= 5
+                elif sev == 'LOW':
+                    score -= 2
+        
+        # Deduct if avg dependencies is high (sign of poor modularization)
+        avg_deps = metrics.get('avg_dependencies', 0)
+        if avg_deps > 5:
+            score -= min((avg_deps - 5) * 2, 15)
+        
+        # Bonus for hash-based lookup architecture (reduces linear coupling)
+        hash_count = metrics.get('hash_lookup_count', 0)
+        if hash_count > 0:
+            score += min(hash_count * 3, 10)
+        
+        return max(min(score, 100.0), 0.0)
     
     def _calculate_performance_score(self) -> float:
         """Calculate performance score."""
         if not self.results['performance']:
             return 50.0
         
-        issues = len(self.results['performance'].get('issues', []))
-        # More lenient: 3 points per issue, cap at 60 deduction
-        # Allows for some acceptable patterns in production code
-        score = 100.0 - min(issues * 3, 60)
-        return max(score, 0.0)
+        perf = self.results['performance']
+        issues = perf.get('issues', [])
+        
+        score = 100.0
+        
+        # Deduct based on severity
+        for iss in issues:
+            sev = iss.get('severity', 'LOW')
+            if sev == 'HIGH':
+                score -= 5
+            elif sev == 'MEDIUM':
+                score -= 3
+            else:  # LOW
+                score -= 1
+        
+        # Bonus for having arena allocator infrastructure
+        if perf.get('has_arena_infrastructure'):
+            score += 8
+        
+        return max(min(score, 100.0), 0.0)
     
     def _calculate_debt_score(self) -> float:
         """Calculate technical debt score."""

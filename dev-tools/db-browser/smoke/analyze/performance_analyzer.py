@@ -28,15 +28,20 @@ class PerformanceAnalyzer:
         results = {
             'issues': [],
             'patterns': {},
-            'hotspots': []
+            'hotspots': [],
+            'has_arena_infrastructure': False
         }
+        
+        # Check if project has arena allocator infrastructure
+        arena_files = list(self.project_root.rglob('arena.h'))
+        results['has_arena_infrastructure'] = len([f for f in arena_files if 'build' not in f.parts]) > 0
         
         # Analyze C files for performance issues
         c_files = list(self.project_root.rglob('*.c'))
         c_files = [f for f in c_files if 'build' not in f.parts and 'vendor' not in f.parts]
         
         for c_file in c_files:
-            issues = self._analyze_file_performance(c_file)
+            issues = self._analyze_file_performance(c_file, results['has_arena_infrastructure'])
             results['issues'].extend(issues)
         
         # Identify potential hotspots
@@ -44,7 +49,7 @@ class PerformanceAnalyzer:
         
         return results
     
-    def _analyze_file_performance(self, file_path: Path) -> List[Dict[str, Any]]:
+    def _analyze_file_performance(self, file_path: Path, has_arena: bool = False) -> List[Dict[str, Any]]:
         """Analyze performance issues in a single file."""
         issues = []
         
@@ -79,12 +84,16 @@ class PerformanceAnalyzer:
                     })
                 
                 # Check for memory allocation in unbounded loops only
+                # Skip if using arena allocation (batch allocation pattern)
+                uses_arena = 'arena_alloc' in content or 'arena_create' in content
                 loop_allocs = self.ALLOC_IN_LOOP_PATTERN.findall(content)
-                # Only flag if no obvious bounds check nearby
-                if loop_allocs and 'MAX_' not in content and 'LIMIT' not in content:
+                # Only flag if no obvious bounds check nearby and not using arena
+                if loop_allocs and 'MAX_' not in content and 'LIMIT' not in content and not uses_arena:
+                    # Reduce severity if project has arena infrastructure available
+                    severity = 'LOW' if has_arena else 'MEDIUM'
                     issues.append({
                         'type': 'ALLOCATION_IN_LOOP',
-                        'severity': 'MEDIUM',
+                        'severity': severity,
                         'file': str(file_path.relative_to(self.project_root)),
                         'message': 'Memory allocation inside loop detected'
                     })

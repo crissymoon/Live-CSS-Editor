@@ -22,7 +22,8 @@ CORE_SOURCES = core/db_manager.c \
                core/db_transfer.c \
                core/db_optimization.c \
                core/search_helpers.c \
-               core/table_versioning.c
+               core/table_versioning.c \
+               core/arena.c
 UI_SOURCES = ui/tooltips.c
 MODULE_SOURCES = modules/app_state.c \
                  modules/ui_drawing.c \

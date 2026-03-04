@@ -61,6 +61,62 @@ static bool verify_password(GtkWindow *parent) {
     return verified;
 }
 
+/* Build a parameterised INSERT statement from the entry widgets in the dialog. *
+ * Returns a heap-allocated string; caller must free().                         *
+ * Returns NULL on allocation failure.                                          */
+static char *add_row_build_insert_sql(const char *table,
+                                      QueryResult *col_info,
+                                      GtkWidget **entries) {
+    char *columns     = calloc(1, 2048);
+    char *values      = calloc(1, 4096);
+    char *insert_query = malloc(8192);
+
+    if (!columns || !values || !insert_query) {
+        free(columns);
+        free(values);
+        free(insert_query);
+        return NULL;
+    }
+
+    int col_pos = 0;
+    int val_pos = 0;
+
+    for (int i = 0; i < col_info->row_count; i++) {
+        const char *col_name = col_info->data[i][1];
+        const char *value    = gtk_entry_get_text(GTK_ENTRY(entries[i]));
+
+        if (i > 0) {
+            columns[col_pos++] = ',';
+            columns[col_pos++] = ' ';
+            values[val_pos++]  = ',';
+            values[val_pos++]  = ' ';
+        }
+
+        col_pos += snprintf(columns + col_pos, 2048 - col_pos, "\"%s\"", col_name);
+
+        if (value && strlen(value) > 0) {
+            char escaped[1024];
+            int  esc_pos = 0;
+            for (const char *p = value; *p && esc_pos < 1020; p++) {
+                if (*p == '\'') escaped[esc_pos++] = '\'';
+                escaped[esc_pos++] = *p;
+            }
+            escaped[esc_pos] = '\0';
+            val_pos += snprintf(values + val_pos, 4096 - val_pos, "'%s'", escaped);
+        } else {
+            val_pos += snprintf(values + val_pos, 4096 - val_pos, "NULL");
+        }
+    }
+
+    snprintf(insert_query, 8192,
+             "INSERT INTO \"%s\" (%s) VALUES (%s);",
+             table, columns, values);
+
+    free(columns);
+    free(values);
+    return insert_query;
+}
+
 void on_add_row_clicked(GtkWidget *widget, gpointer data) {
     AppState *state = (AppState *)data;
     
@@ -143,69 +199,25 @@ void on_add_row_clicked(GtkWidget *widget, gpointer data) {
     int response = gtk_dialog_run(GTK_DIALOG(dialog));
     
     if (response == GTK_RESPONSE_OK) {
-        char *insert_query = malloc(8192);
-        char *columns = malloc(2048);
-        char *values = malloc(4096);
-        
-        if (!insert_query || !columns || !values) {
-            free(insert_query);
-            free(columns);
-            free(values);
+        char *insert_query = add_row_build_insert_sql(
+                                 state->current_table, col_info, entries);
+        if (!insert_query) {
             free(entries);
             gtk_widget_destroy(dialog);
             show_error_dialog("Error", "Memory allocation failed");
             db_manager_free_query_result(col_info);
             return;
         }
-        
-        memset(columns, 0, 2048);
-        memset(values, 0, 4096);
-        int col_pos = 0;
-        int val_pos = 0;
-        
-        for (int i = 0; i < col_info->row_count; i++) {
-            const char *col_name = col_info->data[i][1];
-            const char *value = gtk_entry_get_text(GTK_ENTRY(entries[i]));
-            
-            if (i > 0) {
-                columns[col_pos++] = ',';
-                columns[col_pos++] = ' ';
-                values[val_pos++] = ',';
-                values[val_pos++] = ' ';
-            }
-            
-            col_pos += snprintf(columns + col_pos, sizeof(columns) - col_pos, "\"%s\"", col_name);
-            
-            if (value && strlen(value) > 0) {
-                char escaped[1024];
-                int esc_pos = 0;
-                for (const char *p = value; *p && esc_pos < 1020; p++) {
-                    if (*p == '\'') escaped[esc_pos++] = '\'';
-                    escaped[esc_pos++] = *p;
-                }
-                escaped[esc_pos] = '\0';
-                val_pos += snprintf(values + val_pos, sizeof(values) - val_pos, "'%s'", escaped);
-            } else {
-                val_pos += snprintf(values + val_pos, sizeof(values) - val_pos, "NULL");
-            }
-        }
-        
-        snprintf(insert_query, sizeof(insert_query),
-                 "INSERT INTO \"%s\" (%s) VALUES (%s);",
-                 state->current_table, columns, values);
-        
+
         QueryResult *result = db_manager_execute_query(state->db_manager, insert_query);
-        
         if (result) {
             update_status("Row added successfully");
             show_table_data(state, state->current_table);
         } else {
             show_error_dialog("Error", "Failed to add row. Check your values and try again.");
         }
-        
+
         free(insert_query);
-        free(columns);
-        free(values);
     }
     
     free(entries);

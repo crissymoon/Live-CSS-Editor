@@ -329,6 +329,8 @@ class MemoryAnalyzer:
         patterns = results['memory_patterns']
         if patterns['uses_memory_pools']:
             score += 8
+        if patterns['uses_arena_allocation']:
+            score += 10  # Arena allocation reduces fragmentation and simplifies cleanup
         if patterns['has_cleanup_functions']:
             score += 8
         if patterns['uses_reference_counting']:

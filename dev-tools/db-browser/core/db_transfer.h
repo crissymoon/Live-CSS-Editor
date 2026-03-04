@@ -3,16 +3,18 @@
 
 #include <stdbool.h>
 #include <time.h>
+#include "../vendor/uthash.h"
 
 /* Database storage and transfer API */
 
-typedef struct {
+typedef struct DatabaseInfo {
     char *name;              // Database name (without extension)
     char *local_path;        // Full path to local database
     char *encrypted_path;    // Full path to encrypted version
     size_t size;             // File size in bytes
     time_t modified;         // Last modified timestamp
     bool is_encrypted;       // Whether database is encrypted
+    UT_hash_handle hh;       // uthash handle for O(1) name lookups
 } DatabaseInfo;
 
 /* Initialize database storage directory */
@@ -77,6 +79,10 @@ bool db_transfer_verify_integrity(const char *db_name);
 /* Get database info */
 DatabaseInfo* db_transfer_get_info(const char *db_name);
 void db_transfer_free_info(DatabaseInfo *info);
+
+/* O(1) name lookup via uthash cache (populated by db_transfer_list_databases) */
+DatabaseInfo* db_transfer_find_by_name(const char *name);
+void db_transfer_cache_clear(void);
 
 /* Utility: Generate secure random password */
 char* db_transfer_generate_password(int length);

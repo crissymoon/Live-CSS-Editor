@@ -55,7 +55,7 @@ if current_metrics is None:
     }
 
 target_metrics = {
-    'Complexity': 75.0,    # Slightly de-coupled C code
+    'Complexity': 90.0,    # Realistic target: low avg complexity with tolerable issue count
     'Scalability': 85.0,   # WAL mode & Multi-Silo DBs
     'Dependencies': 90.0,  # Minimal external libs
     'Performance': 80.0,   # Batch processing in C
@@ -76,10 +76,24 @@ for key in current_metrics:
     curr = current_metrics[key]
     targ = target_metrics[key]
     gap = targ - curr
-    sign = "+" if gap > 0 else ""
-    print(f"{key:<20} {curr:>10.1f} {targ:>10.1f} {sign}{gap:>9.1f}")
+    if gap > 0:
+        gap_str = f"+ {gap:>6.1f}"
+    elif gap < 0:
+        gap_str = f"{abs(gap):>6.1f} *"
+    else:
+        gap_str = f"{gap:>8.1f}"
+    print(f"{key:<20} {curr:>10.1f} {targ:>10.1f} {gap_str}")
 print("-" * 50)
-print(f"{'Overall Score':<20} {current_score:>10.1f} {target_score:>10.1f} {'+' if target_score > current_score else ''}{target_score - current_score:>9.1f}")
+overall_gap = target_score - current_score
+if overall_gap > 0:
+    overall_gap_str = f"+ {overall_gap:>6.1f}"
+elif overall_gap < 0:
+    overall_gap_str = f"{abs(overall_gap):>6.1f} *"
+else:
+    overall_gap_str = f"{overall_gap:>8.1f}"
+print(f"{'Overall Score':<20} {current_score:>10.1f} {target_score:>10.1f} {overall_gap_str}")
 print(f"{'Risk Level':<20} {get_risk_level(current_score):>31}")
 print(f"{'Target Risk':<20} {get_risk_level(target_score):>31}")
 print("=" * 50)
+print("")
+print("  * = exceeds target (no action needed)")
