@@ -11,3 +11,8 @@ Binary Size------1MB (Gzipped)------< 150KB
 Must haves to check and switch to for macOS:
 - [] Metal Translation
 
+Cross Platform Build:
+
+- [] macOS: Dear ImGui + SDL2 + Metal (Native Mac Pro speed).
+- [] Windows: Dear ImGui + SDL2 + DirectX 11/12.
+- [] Linux: Dear ImGui + SDL2 + OpenGL 3/Vulkan.

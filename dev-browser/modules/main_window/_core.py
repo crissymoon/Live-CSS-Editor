@@ -223,15 +223,17 @@ class MainWindow(
 
         self._net_update_ready.connect(self._apply_net_display)
 
+        # Stagger timers so they do not fire on the same event-loop tick.
+        # net at 0ms offset, fps at 500ms offset into their 2s cycles.
         self._net_timer = QTimer(self)
-        self._net_timer.setInterval(1000)
+        self._net_timer.setInterval(2000)
         self._net_timer.timeout.connect(self._kick_net_update)
         self._net_timer.start()
 
         self._fps_timer = QTimer(self)
-        self._fps_timer.setInterval(1000)
+        self._fps_timer.setInterval(2000)
         self._fps_timer.timeout.connect(self._poll_fps)
-        self._fps_timer.start()
+        QTimer.singleShot(500, self._fps_timer.start)
 
         # ── Loading cat overlay ───────────────────────────────────
         self._loading_label = QLabel(
@@ -277,10 +279,13 @@ class MainWindow(
 
         self.add_new_tab(None)
 
-        # Poll CMD_QUEUE every 50 ms on the Qt main thread.
+        # Poll CMD_QUEUE every 200 ms on the Qt main thread.
+        # Previously 50ms; the higher interval reduces Qt timer interrupts 4x,
+        # giving WKWebView's CADisplayLink more uncontested main-thread time
+        # per frame.  Command latency of 200ms is imperceptible for UI actions.
         self._cmd_timer = QTimer(self)
         self._cmd_timer.timeout.connect(self._process_commands)
-        self._cmd_timer.start(50)
+        self._cmd_timer.start(200)
 
     # ── Engine auto-detection ─────────────────────────────────────
 
@@ -815,39 +820,31 @@ class MainWindow(
     #   engFps  -- WASM compositor completions/s (null when compositor not active)
     #   devHz   -- device display refresh rate from the Hz sampler (always set)
     # Returning an array keeps all three values in a single JS round-trip.
-    # The FPS probe no longer installs its own rAF loop.  Instead it hooks
-    # into the shared __xcmTick bus (from _TICKER_JS) via __xcmFpsMon, which
-    # is registered exactly once.  This eliminates the duplicate rAF callback
-    # that was costing ~0.3-0.5 ms/frame of scheduler overhead.
+    #
+    # IMPORTANT: This probe is a pure READER.  It does NOT install any rAF loop
+    # or timer.  It reads data that already exists from:
+    #   1. __xcmStats.fps()  (stats-inject.js -- preferred, most accurate)
+    #   2. __xcmHz           (_TICKER_JS -- device Hz, always present on WK tabs)
+    #   3. __xcmWasmComp.engineFps() (wasm-compositor.js -- WASM render fps)
+    # If none of these are present (non-WK tab, before injection), it returns
+    # zeros and the status bar shows "--".  This eliminates the extra rAF loop
+    # that was stealing frame budget.
     _FPS_JS = (
         '(function(){'
         'var devFps=0,engFps=null,devHz=window.__xcmHz||0;'
+        # Primary: stats-inject.js (hooks into ticker, has frame ring buffer)
         'var s=window.__xcmStats||((window.__xcm)&&window.__xcm.stats);'
         'if(s&&typeof s.fps==="function"){devFps=Math.round(+s.fps()||0);}'
-        # Install the lightweight counter on the shared tick bus (once).
-        'var m=window.__xcmFpsMon;'
-        'if(!m){'
-        ' m=window.__xcmFpsMon={ts:[],_hf:[],_p:0};'
-        ' if(typeof window.__xcmTick==="function"){'
-        '  window.__xcmTick(function(now){'
-        '   m.ts.push(now);'
-        '   if(m._p){var d=now-m._p;m._hf.push(d);if(m._hf.length>16)m._hf.shift();}'
-        '   m._p=now;'
-        '  });'
+        # Fallback Hz from ticker globals when stats-inject not loaded yet
+        'if(!devHz){'
+        ' var hf=window.__xcmFrameMs;'
+        ' if(hf&&hf>0){var raw=Math.round(1000/hf);'
+        '  var snaps=[24,30,60,90,120,144,165,240],best=snaps[0];'
+        '  for(var j=1;j<snaps.length;j++)if(Math.abs(snaps[j]-raw)<Math.abs(best-raw))best=snaps[j];'
+        '  devHz=best;'
         ' }'
         '}'
-        'if(!devFps){'
-        ' var now=performance.now(),cut=now-1000;'
-        ' while(m.ts.length&&m.ts[0]<cut)m.ts.shift();'
-        ' devFps=m.ts.length;'
-        '}'
-        'if(!devHz&&m._hf.length>=4){'
-        ' var sum=0;for(var i=0;i<m._hf.length;i++)sum+=m._hf[i];'
-        ' var raw=Math.round(1000/(sum/m._hf.length));'
-        ' var snaps=[24,30,60,90,120,144,165,240],best=snaps[0];'
-        ' for(var j=1;j<snaps.length;j++)if(Math.abs(snaps[j]-raw)<Math.abs(best-raw))best=snaps[j];'
-        ' devHz=best;'
-        '}'
+        # ENG: WASM compositor render completions per second
         'var c=window.__xcmWasmComp;'
         'if(c&&typeof c.engineFps==="function"){var e=+c.engineFps();if(e>0)engFps=Math.round(e);}'
         'return [devFps,engFps,devHz];'

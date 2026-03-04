@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raw FPS Test</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#080810;color:#e2e8f0;font-family:'JetBrains Mono',monospace;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;gap:1.5rem;font-size:14px}
+.card{background:#13131f;border:1px solid #1e1e38;border-radius:9px;
+  padding:1.2rem 1.8rem;min-width:380px}
+h1{color:#6366f1;font-size:1.1rem;margin-bottom:1rem;text-align:center;font-weight:600}
+.row{display:flex;justify-content:space-between;padding:.3rem 0;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.row:last-child{border-bottom:none}
+.lbl{color:#64748b;font-size:.8rem}
+.val{font-size:.85rem;text-align:right}
+.ok{color:#34d399}.warn{color:#fbbf24}.bad{color:#f87171}
+.info{color:#38bdf8}.dim{color:#374151}
+#canvas{border:1px solid #1e1e38;border-radius:5px;display:block;margin:0 auto}
+.note{color:#64748b;font-size:.72rem;text-align:center;max-width:420px;line-height:1.6}
+button{padding:.4rem 1rem;border:1px solid #6366f1;background:#6366f1;color:#fff;
+  border-radius:5px;font-family:inherit;font-size:.8rem;cursor:pointer}
+button:hover{background:#4f46e5}
+#log{font-size:.7rem;color:#64748b;max-height:80px;overflow-y:auto;width:380px;margin-top:.5rem}
+</style>
+</head>
+<body>
+
+<h1>RAW FPS TEST</h1>
+
+<p class="note">
+  This page has ZERO injections, no PHP, no WASM, no MutationObservers.<br>
+  Pure requestAnimationFrame loop with a lightweight canvas animation.<br>
+  The number below is what your display can actually deliver.
+</p>
+
+<canvas id="canvas" width="200" height="200"></canvas>
+
+<div class="card">
+  <div class="row"><span class="lbl">fps (1s window)</span><span class="val ok" id="fps1">--</span></div>
+  <div class="row"><span class="lbl">fps (5s avg)</span><span class="val" id="fps5">--</span></div>
+  <div class="row"><span class="lbl">frame time (avg)</span><span class="val" id="ft">--</span></div>
+  <div class="row"><span class="lbl">frame time (worst)</span><span class="val" id="ftmax">--</span></div>
+  <div class="row"><span class="lbl">dropped (>1.5x budget)</span><span class="val" id="drop">0</span></div>
+  <div class="row"><span class="lbl">total frames</span><span class="val dim" id="total">0</span></div>
+  <div class="row"><span class="lbl">detected Hz</span><span class="val info" id="hz">--</span></div>
+  <div class="row"><span class="lbl">jank events (>50ms)</span><span class="val" id="jank">0</span></div>
+  <div class="row"><span class="lbl">GC pauses (>100ms)</span><span class="val" id="gc">0</span></div>
+  <div class="row"><span class="lbl">elapsed</span><span class="val dim" id="elapsed">0s</span></div>
+</div>
+
+<button id="btn-reset">Reset Counters</button>
+<div id="log"></div>
+
+<script>
+'use strict';
+
+var canvas = document.getElementById('canvas');
+var ctx = canvas.getContext('2d');
+var W = canvas.width, H = canvas.height;
+
+// Counters
+var _ts = [];      // timestamps for 5s window
+var _ft = [];      // frame times for 5s window
+var _prev = 0;
+var _total = 0;
+var _dropped = 0;
+var _jank = 0;
+var _gc = 0;
+var _start = 0;
+var _worstFt = 0;
+var _hz = 0;
+
+// Hz detection (first 30 frames)
+var _hzSamples = [];
+var _hzDone = false;
+
+function snap(raw) {
+    var s = [24,30,60,90,120,144,165,240], b = s[0];
+    for (var i = 1; i < s.length; i++)
+        if (Math.abs(s[i]-raw) < Math.abs(b-raw)) b = s[i];
+    return b;
+}
+
+function set(id, text, cls) {
+    var el = document.getElementById(id);
+    el.textContent = text;
+    if (cls) el.className = 'val ' + cls;
+}
+
+// Lightweight canvas animation (just enough work to prove rAF is running)
+var _angle = 0;
+function drawFrame() {
+    _angle += 0.02;
+    ctx.clearRect(0, 0, W, H);
+
+    // Rotating gradient square
+    ctx.save();
+    ctx.translate(W/2, H/2);
+    ctx.rotate(_angle);
+    var g = ctx.createLinearGradient(-40, -40, 40, 40);
+    g.addColorStop(0, '#6366f1');
+    g.addColorStop(1, '#818cf8');
+    ctx.fillStyle = g;
+    ctx.fillRect(-40, -40, 80, 80);
+    ctx.restore();
+
+    // Orbiting dot
+    var ox = W/2 + Math.cos(_angle * 3) * 70;
+    var oy = H/2 + Math.sin(_angle * 3) * 70;
+    ctx.beginPath();
+    ctx.arc(ox, oy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#34d399';
+    ctx.fill();
+
+    // Frame counter text
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px monospace';
+    ctx.fillText('frame ' + _total, 8, 16);
+}
+
+function tick(now) {
+    requestAnimationFrame(tick);
+
+    if (!_start) _start = now;
+
+    if (_prev) {
+        var d = now - _prev;
+        _ft.push(d);
+        _ts.push(now);
+        _total++;
+        if (d > _worstFt) _worstFt = d;
+
+        // Budget based on detected Hz (or 60 if unknown)
+        var budget = _hz ? (1000 / _hz) : 16.67;
+        if (d > budget * 1.5) _dropped++;
+        if (d > 50) _jank++;
+        if (d > 100) _gc++;
+
+        // Hz detection
+        if (!_hzDone) {
+            _hzSamples.push(d);
+            if (_hzSamples.length >= 30) {
+                _hzSamples.sort(function(a,b){return a-b});
+                var median = _hzSamples[Math.floor(_hzSamples.length/2)];
+                _hz = snap(Math.round(1000 / median));
+                set('hz', _hz + ' Hz', _hz >= 90 ? 'ok' : 'info');
+                _hzDone = true;
+            }
+        }
+    }
+    _prev = now;
+
+    // Evict entries older than 5s
+    var cut5 = now - 5000;
+    while (_ts.length && _ts[0] < cut5) { _ts.shift(); _ft.shift(); }
+
+    drawFrame();
+}
+
+requestAnimationFrame(tick);
+
+// Display update (every 500ms, via setTimeout to avoid interfering with rAF)
+setInterval(function() {
+    if (!_ts.length) return;
+    var now = performance.now();
+
+    // 1s fps
+    var cut1 = now - 1000;
+    var n1 = 0;
+    for (var i = _ts.length - 1; i >= 0; i--) {
+        if (_ts[i] >= cut1) n1++; else break;
+    }
+    var cls1 = n1 >= 55 ? 'ok' : n1 >= 30 ? 'warn' : 'bad';
+    set('fps1', n1, cls1);
+
+    // 5s avg
+    var elapsed5 = (_ts[_ts.length-1] - _ts[0]) / 1000;
+    var avg5 = elapsed5 > 0 ? Math.round(_ts.length / elapsed5) : 0;
+    set('fps5', avg5);
+
+    // Frame time avg
+    var sum = 0;
+    for (var j = 0; j < _ft.length; j++) sum += _ft[j];
+    var avgFt = _ft.length ? (sum / _ft.length) : 0;
+    var ftCls = avgFt < 17 ? 'ok' : avgFt < 33 ? 'warn' : 'bad';
+    set('ft', avgFt.toFixed(2) + ' ms', ftCls);
+    set('ftmax', _worstFt.toFixed(1) + ' ms', _worstFt > 50 ? 'bad' : _worstFt > 20 ? 'warn' : 'ok');
+
+    set('drop', _dropped, _dropped > 0 ? 'warn' : 'ok');
+    set('total', _total, 'dim');
+    set('jank', _jank, _jank > 0 ? 'bad' : 'ok');
+    set('gc', _gc, _gc > 0 ? 'bad' : 'ok');
+    set('elapsed', ((now - _start) / 1000).toFixed(0) + 's', 'dim');
+}, 500);
+
+document.getElementById('btn-reset').addEventListener('click', function() {
+    _ts.length = 0; _ft.length = 0;
+    _total = 0; _dropped = 0; _jank = 0; _gc = 0;
+    _worstFt = 0; _start = 0; _prev = 0;
+    _hzSamples.length = 0; _hzDone = false; _hz = 0;
+    set('hz', '--', 'info');
+});
+</script>
+</body>
+</html>

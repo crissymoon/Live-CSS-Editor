@@ -1,0 +1,375 @@
+// main.mm -- imgui-browser entry point (Objective-C++)
+// Window: GLFW + OpenGL3 for ImGui chrome
+// Content: WKWebView embedded as native NSView subview
+//
+// Eliminates all Python/PyObjC/PyQt6 overhead.  The only layers are:
+//   macOS WebKit (WKWebView)  <-->  ImGui chrome  <-->  OpenGL
+
+#import <Cocoa/Cocoa.h>
+#include <mach-o/dyld.h>    // _NSGetExecutablePath
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/gl3.h>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#define GLFW_INCLUDE_NONE
+#define GLFW_EXPOSE_NATIVE_COCOA
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
+#include "app_state.h"
+#include "chrome.h"
+#include "webview.h"
+#include "server_manager.h"
+#include "cmd_server.h"
+
+#include <string>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+
+// Forward declaration
+void fps_host_tick(AppState& st, double now_sec);
+
+// ── Arg parsing ───────────────────────────────────────────────────────
+
+struct Args {
+    std::string url       = "http://127.0.0.1:8080/pb_admin/login.php";
+    std::string apps_dir  = "";
+    int         php_port  = 9879;
+    int         cmd_port  = 9878;
+    int         win_w     = 1400;
+    int         win_h     = 900;
+};
+
+static Args parse_args(int argc, char** argv) {
+    Args a;
+    // Derive apps_dir relative to the executable when not specified
+    // (assumes binary lives in imgui-browser/build/)
+    char exe_path[1024] = {};
+    uint32_t sz = sizeof(exe_path);
+    _NSGetExecutablePath(exe_path, &sz);
+    std::string exe_str(exe_path);
+    auto pos = exe_str.rfind('/');
+    if (pos != std::string::npos) {
+        // build/ -> parent -> apps
+        std::string parent = exe_str.substr(0, pos);
+        auto p2 = parent.rfind('/');
+        if (p2 != std::string::npos) {
+            // Go up one more level to find dev-browser/apps relative to imgui-browser
+            std::string root = parent.substr(0, p2);
+            // root is imgui-browser/
+            a.apps_dir = root + "/../dev-browser/apps";
+        }
+    }
+
+    for (int i = 1; i < argc; i++) {
+        std::string s(argv[i]);
+        if ((s == "--url") && i+1 < argc)        { a.url       = argv[++i]; continue; }
+        if ((s == "--apps-dir") && i+1 < argc)   { a.apps_dir  = argv[++i]; continue; }
+        if ((s == "--php-port") && i+1 < argc)   { a.php_port  = atoi(argv[++i]); continue; }
+        if ((s == "--cmd-port") && i+1 < argc)   { a.cmd_port  = atoi(argv[++i]); continue; }
+        if ((s == "--width") && i+1 < argc)      { a.win_w     = atoi(argv[++i]); continue; }
+        if ((s == "--height") && i+1 < argc)     { a.win_h     = atoi(argv[++i]); continue; }
+    }
+    return a;
+}
+
+// ── Globals ───────────────────────────────────────────────────────────
+
+static AppState      g_state;
+static GLFWwindow*   g_win      = nullptr;
+static int           g_prev_top = 0;   // last chrome top height (px)
+static int           g_prev_bot = 0;   // last chrome bottom height (px)
+
+// ── Content area positioning ──────────────────────────────────────────
+
+static void reposition_webviews(int chrome_top, int chrome_bot, int w, int h) {
+    // NSView coordinates are bottom-left; webview_resize() handles the flip.
+    int content_y = chrome_top;
+    int content_h = h - chrome_top - chrome_bot;
+    if (content_h < 1) content_h = 1;
+
+    for (auto& tab : g_state.tabs) {
+        if (!tab.wv_handle) continue;
+        if (tab.wv_handle) {
+            webview_resize(tab.wv_handle, 0, content_y, w, content_h);
+            if (&tab == g_state.current_tab())
+                webview_show(tab.wv_handle);
+            else
+                webview_hide(tab.wv_handle);
+        }
+    }
+}
+
+// ── Navigation dispatch (processes cmd_queue) ─────────────────────────
+
+static void dispatch_nav(AppState::NavCmd& cmd) {
+    // Resolve tab
+    Tab* tab = nullptr;
+    if (cmd.tab_id == -1) {
+        tab = g_state.current_tab();
+    } else if (cmd.tab_id == -2) {
+        // New tab request from cmd_server /newtab
+        int idx = g_state.new_tab(cmd.url);
+        tab = &g_state.tabs[idx];
+        // Create WKWebView for the new tab
+        tab->wv_handle = webview_create(tab->id, cmd.url);
+        reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
+        return;
+    } else if (cmd.tab_id == -3) {
+        // Eval request: "__eval__:<js>"
+        tab = g_state.current_tab();
+        if (tab && tab->wv_handle && cmd.url.substr(0, 8) == "__eval__") {
+            webview_eval_js(tab->wv_handle, cmd.url.substr(8), nullptr);
+        }
+        return;
+    } else {
+        for (auto& t : g_state.tabs)
+            if (t.id == cmd.tab_id) { tab = &t; break; }
+    }
+
+    if (!tab) return;
+    void* h = tab->wv_handle;
+    if (!h) return;
+
+    if      (cmd.url == "__back__")    webview_go_back(h);
+    else if (cmd.url == "__forward__") webview_go_forward(h);
+    else if (cmd.url == "__reload__")  webview_reload(h);
+    else if (cmd.url == "__stop__")    webview_stop(h);
+    else                               webview_load_url(h, cmd.url);
+}
+
+// ── GLFW callbacks ────────────────────────────────────────────────────
+
+static void cb_window_resize(GLFWwindow*, int w, int h) {
+    g_state.win_w = w;
+    g_state.win_h = h;
+    reposition_webviews(g_prev_top, g_prev_bot, w, h);
+}
+
+static void cb_error(int, const char* desc) {
+    fprintf(stderr, "[glfw] Error: %s\n", desc);
+}
+
+// ── Main ──────────────────────────────────────────────────────────────
+
+int main(int argc, char** argv) {
+    // NSApplication needs to be running on the main thread
+    [NSApplication sharedApplication];
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    [NSApp activateIgnoringOtherApps:YES];
+
+    Args args = parse_args(argc, argv);
+
+    // Initial window state
+    g_state.win_w = args.win_w;
+    g_state.win_h = args.win_h;
+
+    // ── GLFW init ────────────────────────────────────────────────────
+    glfwSetErrorCallback(cb_error);
+    if (!glfwInit()) {
+        fprintf(stderr, "[main] glfwInit failed\n");
+        return 1;
+    }
+
+    // OpenGL 3.2 Core Profile
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    // Retina support
+    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
+    // Transparent chrome regions
+    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
+
+    g_win = glfwCreateWindow(args.win_w, args.win_h, "imgui-browser", nullptr, nullptr);
+    if (!g_win) {
+        fprintf(stderr, "[main] glfwCreateWindow failed\n");
+        glfwTerminate();
+        return 1;
+    }
+    glfwMakeContextCurrent(g_win);
+    glfwSwapInterval(1);  // vsync ON
+    glfwSetFramebufferSizeCallback(g_win, cb_window_resize);
+
+    // Get actual framebuffer size (retina may double the pixels)
+    int fb_w, fb_h;
+    glfwGetFramebufferSize(g_win, &fb_w, &fb_h);
+    g_state.dpi_scale = (float)fb_w / (float)args.win_w;
+
+    // ── Dear ImGui ───────────────────────────────────────────────────
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename          = nullptr;  // no imgui.ini persistence
+    io.ConfigFlags         |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.FontGlobalScale      = g_state.dpi_scale;
+
+    // Load font - will use default if JetBrains Mono not present
+    // (add font loading here if you bundle a TTF)
+
+    chrome_init(&g_state);
+
+    ImGui_ImplGlfw_InitForOpenGL(g_win, true);
+    ImGui_ImplOpenGL3_Init("#version 150");
+
+    // ── Get NSWindow and init WKWebView subsystem ────────────────────
+    NSWindow* ns_win = glfwGetCocoaWindow(g_win);
+
+    WebViewCallbacks wv_cbs;
+    wv_cbs.on_url_change = [](int tab_id, const std::string& url) {
+        for (auto& t : g_state.tabs)
+            if (t.id == tab_id) { t.url = url; break; }
+    };
+    wv_cbs.on_title_change = [](int tab_id, const std::string& title) {
+        for (auto& t : g_state.tabs)
+            if (t.id == tab_id) { t.title = title; break; }
+    };
+    wv_cbs.on_progress = [](int tab_id, float p) {
+        for (auto& t : g_state.tabs)
+            if (t.id == tab_id) { t.progress = p; break; }
+    };
+    wv_cbs.on_loading = [](int tab_id, bool loading) {
+        for (auto& t : g_state.tabs)
+            if (t.id == tab_id) { t.loading = loading; break; }
+    };
+    wv_cbs.on_nav_state = [](int tab_id, bool back, bool fwd) {
+        for (auto& t : g_state.tabs)
+            if (t.id == tab_id) { t.can_back = back; t.can_forward = fwd; break; }
+    };
+    wv_cbs.on_wkwv_fps = [](double fps) {
+        g_state.fps_wkwv = fps;
+    };
+
+    webview_init((__bridge void*)ns_win, &g_state, wv_cbs);
+
+    // ── Initial tab ──────────────────────────────────────────────────
+    {
+        int idx = g_state.new_tab(args.url);
+        g_state.tabs[idx].wv_handle = webview_create(g_state.tabs[idx].id, args.url);
+    }
+
+    // ── Server processes ─────────────────────────────────────────────
+    if (!args.apps_dir.empty()) {
+        server_start_php(args.apps_dir, args.php_port);
+    }
+    {
+        // Node image-cache server (path relative to apps_dir's parent)
+        std::string node_script;
+        auto sl = args.apps_dir.rfind('/');
+        if (sl != std::string::npos) {
+            node_script = args.apps_dir.substr(0, sl) + "/src/image-cache-server.js";
+        }
+        server_start_node(node_script);
+    }
+
+    // ── Command API ───────────────────────────────────────────────────
+    cmd_server_start(&g_state, args.cmd_port);
+
+    // ── Server status poll: every 3 seconds on a cheap timer ─────────
+    double last_server_poll = 0.0;
+
+    // ── Render loop ───────────────────────────────────────────────────
+    while (!glfwWindowShouldClose(g_win)) {
+        // Process macOS events (needed for WKWebView / NSRunLoop)
+        @autoreleasepool {
+            NSEvent* ev;
+            while ((ev = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                           untilDate:nil
+                                              inMode:NSDefaultRunLoopMode
+                                             dequeue:YES])) {
+                [NSApp sendEvent:ev];
+            }
+        }
+
+        glfwPollEvents();
+
+        double now = glfwGetTime();
+        fps_host_tick(g_state, now);
+
+        // Poll server status every 3 seconds
+        if (now - last_server_poll > 3.0) {
+            auto ss = server_poll_status(args.php_port, 7779);
+            g_state.php_server_ok  = ss.php_ok;
+            g_state.node_server_ok = ss.node_ok;
+            last_server_poll = now;
+        }
+
+        // Process command queue
+        AppState::NavCmd cmd;
+        while (g_state.pop_nav(cmd)) {
+            dispatch_nav(cmd);
+        }
+
+        // Framebuffer size
+        glfwGetFramebufferSize(g_win, &fb_w, &fb_h);
+
+        // ── Dear ImGui frame ─────────────────────────────────────────
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // Chrome: tab bar + toolbar
+        bool new_tab_req = false;
+        int  close_tab   = -1;
+        int  chrome_top  = chrome_draw_top(&g_state, fb_w, fb_h,
+                                           new_tab_req, close_tab);
+        int  chrome_bot  = chrome_draw_bottom(&g_state, fb_w, fb_h);
+
+        // Handle tab actions
+        if (new_tab_req) {
+            std::string nt_url = "http://127.0.0.1:" + std::to_string(args.php_port) + "/";
+            int idx = g_state.new_tab(nt_url);
+            g_state.tabs[idx].wv_handle = webview_create(g_state.tabs[idx].id, nt_url);
+        }
+        if (close_tab >= 0 && close_tab < (int)g_state.tabs.size()) {
+            webview_destroy(g_state.tabs[close_tab].wv_handle);
+            g_state.tabs[close_tab].wv_handle = nullptr;
+            g_state.close_tab(close_tab);
+        }
+
+        // Reposition content views if chrome height changed
+        if (chrome_top != g_prev_top || chrome_bot != g_prev_bot) {
+            g_prev_top = chrome_top;
+            g_prev_bot = chrome_bot;
+            reposition_webviews(chrome_top, chrome_bot, fb_w, fb_h);
+        }
+
+        // Always maintain correct visibility for active vs inactive tabs
+        for (int i = 0; i < (int)g_state.tabs.size(); i++) {
+            void* h = g_state.tabs[i].wv_handle;
+            if (!h) continue;
+            if (i == g_state.active_tab) webview_show(h);
+            else                         webview_hide(h);
+        }
+
+        ImGui::Render();
+
+        glViewport(0, 0, fb_w, fb_h);
+        // Transparent clear so WKWebView beneath shows through
+        glClearColor(0.047f, 0.047f, 0.063f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Draw ImGui only over the chrome regions (top + bottom bars)
+        // The center content area is left transparent so WKWebView is visible.
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        glfwSwapBuffers(g_win);
+    }
+
+    // ── Cleanup ───────────────────────────────────────────────────────
+    cmd_server_stop();
+    server_shutdown();
+
+    for (auto& tab : g_state.tabs)
+        if (tab.wv_handle) webview_destroy(tab.wv_handle);
+    webview_shutdown();
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(g_win);
+    glfwTerminate();
+    return 0;
+}

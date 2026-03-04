@@ -1,0 +1,20 @@
+[puppeteer] Node.js v22.12.0
+[puppeteer_bridge] WebSocket disconnected
+[perf] WK load 256ms  http://localhost:8080/pb_admin/login.php
+Traceback (most recent call last):
+  File "/Users/mac/Documents/live-css/dev-browser/modules/main_window/_core.py", line 380, in <lambda>
+    qt_act.triggered.connect(lambda: self._switch_to_engine('qt'))
+                                     ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/mac/Documents/live-css/dev-browser/modules/main_window/_core.py", line 442, in _switch_to_engine
+    self._switch_engine()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/mac/Documents/live-css/dev-browser/modules/main_window/_core.py", line 355, in _switch_engine
+    browser.cleanup()
+    ~~~~~~~~~~~~~~~^^
+  File "/Users/mac/Documents/live-css/dev-browser/modules/wkwebview_widget.py", line 1323, in cleanup
+    self._cat_handler._tab = None
+    ^^^^^^^^^^^^^^^^^
+AttributeError: 'WKBrowserTab' object has no attribute '_cat_handler'
+[perf] Qt load 334ms  http://localhost:8080/pb_admin/dashboard.php
+[puppeteer_bridge] stopped
+(.venv) mac@MACs-MacBook-Pro live-css % 

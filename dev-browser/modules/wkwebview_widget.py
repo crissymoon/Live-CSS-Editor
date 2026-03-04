@@ -94,16 +94,16 @@ _TICKER_JS = r"""
 
     function _loop(ts) {
         _rafId = requestAnimationFrame(_loop);
-        // Cache the budget once; avoids a property lookup per listener.
         var bgt = window.__xcmFrameBudget;
-        // Unrolled iteration without try/catch so JavaScriptCore's FTL JIT
-        // can inline the listener calls.  A misbehaving listener will crash
-        // the loop but that is preferable to losing ~0.3 ms/frame to the
-        // implicit exception handler scope that try/catch creates.
         var n = _listeners.length;
-        for (var i = 0; i < n; i++) {
-            _listeners[i](ts, bgt);
-        }
+        // Iterate without per-call try/catch so JSC can inline the hot path.
+        // A single top-level try/catch protects the rAF chain: if any listener
+        // throws, the rest still fire and the loop continues next frame.
+        try {
+            for (var i = 0; i < n; i++) {
+                _listeners[i](ts, bgt);
+            }
+        } catch (e) {}
     }
 
     // Register a per-frame callback.  Returns an unsubscribe function.
@@ -1151,14 +1151,39 @@ class WKBrowserTab(QWidget):
         document.querySelectorAll('[src],[href]').forEach(_scanEl);
     }
     _scanAll();
+    // Debounced MutationObserver: batch DOM mutations and process them
+    // during idle time instead of synchronously on every mutation.
+    // This prevents the observer from stealing frame budget on pages
+    // with frequent DOM updates (SPAs, infinite scroll, live feeds).
+    var _pending = [];
+    var _scheduled = false;
+    function _flush() {
+        _scheduled = false;
+        var nodes = _pending;
+        _pending = [];
+        for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            _scanEl(n);
+            if (n.querySelectorAll) n.querySelectorAll('[src],[href]').forEach(_scanEl);
+        }
+    }
+    function _scheduleFlush() {
+        if (_scheduled) return;
+        _scheduled = true;
+        if (typeof requestIdleCallback === 'function') {
+            requestIdleCallback(_flush, { timeout: 500 });
+        } else {
+            setTimeout(_flush, 200);
+        }
+    }
     var _mo2 = new MutationObserver(function(muts) {
-        muts.forEach(function(m) {
-            m.addedNodes.forEach(function(n) {
-                if (n.nodeType !== 1) return;
-                _scanEl(n);
-                n.querySelectorAll && n.querySelectorAll('[src],[href]').forEach(_scanEl);
-            });
-        });
+        for (var i = 0; i < muts.length; i++) {
+            var added = muts[i].addedNodes;
+            for (var j = 0; j < added.length; j++) {
+                if (added[j].nodeType === 1) _pending.push(added[j]);
+            }
+        }
+        if (_pending.length) _scheduleFlush();
     });
     var _body = document.body || document.documentElement;
     if (_body) { _mo2.observe(_body, {childList: true, subtree: true}); }

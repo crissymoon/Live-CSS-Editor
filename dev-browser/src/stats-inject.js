@@ -179,39 +179,80 @@
         return '<span style="color:' + color + '">SYNC ' + sign + diff + '</span>';
     }
 
+    // ── Bar: throttled DOM update (500 ms interval, NOT per-frame rAF) ─────
+    // Previous version set innerHTML on EVERY rAF frame, which was the single
+    // biggest performance drain (~15-20 fps cost due to HTML parse + style
+    // recalc + layout on every 16 ms frame).
+    // Now uses pre-built spans with textContent updates, on a 500 ms timer.
+
+    var _barSpans = null;   // {dev, avg, eng, sync, hz, drop}
+
+    function _buildBarSpans() {
+        var mkSpan = function (color, text) {
+            var s = document.createElement('span');
+            s.style.color = color;
+            s.textContent = text;
+            return s;
+        };
+        var sp = document.createDocumentFragment();
+        var dev  = mkSpan('#90caf9', 'DEV -- fps');
+        var avg  = mkSpan('#aaa',    'avg --');
+        var sep1 = mkSpan('#aaa',    '|');
+        var eng  = mkSpan('#ce93d8', '');
+        var sync = mkSpan('#4caf50', '');
+        var sep2 = mkSpan('#aaa',    '');
+        var hz   = mkSpan('#aaa',    'DISPLAY -- Hz');
+        var drop = mkSpan('#555',    'DROP 0');
+        sp.appendChild(dev);  sp.appendChild(avg);  sp.appendChild(sep1);
+        sp.appendChild(eng);  sp.appendChild(sync); sp.appendChild(sep2);
+        sp.appendChild(hz);   sp.appendChild(drop);
+        _barEl.appendChild(sp);
+        _barSpans = {dev: dev, avg: avg, eng: eng, sync: sync, sep2: sep2, hz: hz, drop: drop};
+    }
+
     function _updateBar() {
-        if (!_barEl) return;
+        if (!_barEl || !_barSpans) return;
         var devFps = Math.round(_fpsRing.last()  || 0);
         var devAvg = Math.round(_fpsRing.avg()   || 0);
         var comp   = window.__xcmWasmComp;
         var engFps = (comp && typeof comp.engineFps === 'function') ? Math.round(comp.engineFps()) : null;
         var devHz  = window.__xcmHz || 0;
 
-        var parts = [
-            '<span style="color:#90caf9">DEV ' + devFps + ' fps</span>',
-            '<span style="color:#aaa">avg ' + devAvg + '</span>',
-            '<span style="color:#aaa">|</span>',
-        ];
-        if (engFps !== null) {
-            parts.push('<span style="color:#ce93d8">ENG ' + engFps + ' fps</span>');
-            parts.push(_syncSpan(devFps, engFps));
-            parts.push('<span style="color:#aaa">|</span>');
-        }
-        parts.push('<span style="color:#aaa">DISPLAY ' + devHz + ' Hz</span>');
-        parts.push('<span style="color:' + (_dropped > 0 ? '#f44336' : '#555') + '">DROP ' + _dropped + '</span>');
+        _barSpans.dev.textContent  = 'DEV ' + devFps + ' fps';
+        _barSpans.avg.textContent  = 'avg ' + devAvg;
 
-        _barEl.innerHTML = parts.join(' ');
-        _barTimer = requestAnimationFrame(_updateBar);
+        if (engFps !== null) {
+            _barSpans.eng.textContent  = 'ENG ' + engFps + ' fps';
+            _barSpans.eng.style.display = '';
+            var diff  = Math.round(devFps - engFps);
+            var sign  = diff >= 0 ? '+' : '';
+            var scol  = '#4caf50';
+            if (Math.abs(diff) >= 8)       scol = '#f44336';
+            else if (Math.abs(diff) >= 3)  scol = '#ff9800';
+            _barSpans.sync.textContent   = 'SYNC ' + sign + diff;
+            _barSpans.sync.style.color   = scol;
+            _barSpans.sync.style.display = '';
+            _barSpans.sep2.textContent   = '|';
+        } else {
+            _barSpans.eng.style.display  = 'none';
+            _barSpans.sync.style.display = 'none';
+            _barSpans.sep2.textContent   = '';
+        }
+
+        _barSpans.hz.textContent   = 'DISPLAY ' + devHz + ' Hz';
+        _barSpans.drop.textContent = 'DROP ' + _dropped;
+        _barSpans.drop.style.color = _dropped > 0 ? '#f44336' : '#555';
     }
 
     function _showBar() {
         if (!_barEl) _barEl = _createBar();
+        if (!_barSpans) _buildBarSpans();
         _barEl.style.display = 'flex';
-        if (!_barTimer) _updateBar();
+        if (!_barTimer) _barTimer = setInterval(_updateBar, 500);
     }
 
     function _hideBar() {
-        if (_barTimer) { cancelAnimationFrame(_barTimer); _barTimer = null; }
+        if (_barTimer) { clearInterval(_barTimer); _barTimer = null; }
         if (_barEl) _barEl.style.display = 'none';
     }
 
@@ -256,7 +297,6 @@
             'DROP ' + _dropped,
             'BDG  ' + _budget.toFixed(2) + 'ms',
         ].join('\n');
-        _hudTimer = requestAnimationFrame(_updateHud);
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -291,12 +331,12 @@
             _hudVis = true;
             if (!_hudEl) _hudEl = _createHud();
             _hudEl.style.display = 'block';
-            _updateHud();
+            if (!_hudTimer) _hudTimer = setInterval(_updateHud, 500);
         },
 
         hideHud: function () {
             _hudVis = false;
-            if (_hudTimer) { cancelAnimationFrame(_hudTimer); _hudTimer = null; }
+            if (_hudTimer) { clearInterval(_hudTimer); _hudTimer = null; }
             if (_hudEl) _hudEl.style.display = 'none';
         },
 
