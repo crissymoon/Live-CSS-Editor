@@ -14,6 +14,22 @@
 
 namespace xcm {
 
+// -------------------------------------------------------------------------
+// Parsing helpers -- never throw (required for -fno-exceptions / WASM)
+// -------------------------------------------------------------------------
+static float safe_stof(const std::string& s, float def = 0.f) noexcept {
+    if (s.empty()) return def;
+    char* end = nullptr;
+    float v = std::strtof(s.c_str(), &end);
+    return (end != s.c_str()) ? v : def;
+}
+static int safe_stoi(const std::string& s, int def = 0) noexcept {
+    if (s.empty()) return def;
+    char* end = nullptr;
+    long v = std::strtol(s.c_str(), &end, 10);
+    return (end != s.c_str()) ? static_cast<int>(v) : def;
+}
+
 // =========================================================================
 // parse_color
 // =========================================================================
@@ -86,7 +102,7 @@ Color parse_color(const std::string& raw) {
             while (!tok.empty() && std::isspace(static_cast<unsigned char>(tok.front()))) tok.erase(tok.begin());
             while (!tok.empty() && std::isspace(static_cast<unsigned char>(tok.back()))) tok.pop_back();
             if (!tok.empty()) {
-                try { nums.push_back(std::stof(tok)); } catch (...) { nums.push_back(0); }
+                nums.push_back(safe_stof(tok, 0));
             }
         }
         Color c;
@@ -113,22 +129,24 @@ Length parse_length(const std::string& raw) {
     if (lv == "none")   return {0, LengthUnit::NONE};
     if (lv == "0")      return {0, LengthUnit::PX};
 
-    try {
-        std::size_t end = 0;
-        float n = std::stof(lv, &end);
-        std::string unit = lv.substr(end);
-        if (unit == "px" || unit.empty()) return {n, LengthUnit::PX};
-        if (unit == "%")                  return {n, LengthUnit::PERCENT};
-        if (unit == "em")                 return {n, LengthUnit::EM};
-        if (unit == "rem")                return {n, LengthUnit::REM};
-        if (unit == "vw")                 return {n, LengthUnit::VW};
-        if (unit == "vh")                 return {n, LengthUnit::VH};
-        if (unit == "pt")                 return {n * 96.f / 72.f, LengthUnit::PX};
-        if (unit == "cm")                 return {n * 37.795f, LengthUnit::PX};
-        if (unit == "mm")                 return {n * 3.7795f, LengthUnit::PX};
-        if (unit == "in")                 return {n * 96.f, LengthUnit::PX};
-        return {n, LengthUnit::PX};
-    } catch (...) {}
+    {
+        char* endp = nullptr;
+        float n = std::strtof(lv.c_str(), &endp);
+        if (endp != lv.c_str()) {
+            std::string unit = lv.substr(static_cast<std::size_t>(endp - lv.c_str()));
+            if (unit == "px" || unit.empty()) return {n, LengthUnit::PX};
+            if (unit == "%")                  return {n, LengthUnit::PERCENT};
+            if (unit == "em")                 return {n, LengthUnit::EM};
+            if (unit == "rem")                return {n, LengthUnit::REM};
+            if (unit == "vw")                 return {n, LengthUnit::VW};
+            if (unit == "vh")                 return {n, LengthUnit::VH};
+            if (unit == "pt")                 return {n * 96.f / 72.f, LengthUnit::PX};
+            if (unit == "cm")                 return {n * 37.795f, LengthUnit::PX};
+            if (unit == "mm")                 return {n * 3.7795f, LengthUnit::PX};
+            if (unit == "in")                 return {n * 96.f, LengthUnit::PX};
+            return {n, LengthUnit::PX};
+        }
+    }
     return {0, LengthUnit::AUTO};
 }
 
@@ -295,11 +313,11 @@ static bool match_simple(const Node* node, std::string_view sel) {
                     if (idx != cnt) return false;
                 } else if (pseudo == "nth-child") {
                     // Only handle simple numbers for now.
-                    try {
+                    {
                         std::string as(arg);
-                        int n = std::stoi(as);
+                        int n = safe_stoi(as);
                         if (child_index(node) != n) return false;
-                    } catch (...) {}
+                    }
                 } else if (pseudo == "not") {
                     if (match_simple(node, arg)) return false;
                 } else if (pseudo == "hover" || pseudo == "focus" || pseudo == "active" ||
@@ -573,7 +591,10 @@ static void apply_decl(ComputedStyle& cs, const CssDecl& d, Arena& arena,
         else cs.text_align = TextAlign::LEFT;
     }
     else if (p == "line-height") {
-        try { cs.line_height = std::stof(v); } catch (...) {
+        char* lhendp = nullptr;
+        float lhval = std::strtof(v.c_str(), &lhendp);
+        if (lhendp != v.c_str() && *lhendp == '\0') { cs.line_height = lhval; }
+        else {
             Length l = parse_length(v);
             if (l.unit == LengthUnit::PX) cs.line_height = l.value / cs.font_size;
         }
@@ -605,13 +626,13 @@ static void apply_decl(ComputedStyle& cs, const CssDecl& d, Arena& arena,
         else cs.overflow_y = Overflow::VISIBLE;
     }
     else if (p == "opacity") {
-        try { cs.opacity = std::clamp(std::stof(v), 0.f, 1.f); } catch (...) {}
+        cs.opacity = std::clamp(safe_stof(v), 0.f, 1.f);
     }
     else if (p == "visibility") {
         cs.visible = (v != "hidden" && v != "collapse");
     }
     else if (p == "z-index") {
-        try { cs.z_index = std::stoi(v); } catch (...) {}
+        cs.z_index = safe_stoi(v);
     }
     else if (p == "box-sizing") {
         cs.box_sizing = (v == "border-box") ? BoxSizing::BORDER_BOX : BoxSizing::CONTENT_BOX;
@@ -643,8 +664,8 @@ static void apply_decl(ComputedStyle& cs, const CssDecl& d, Arena& arena,
         else if (v == "baseline")          cs.align_items = AlignItems::BASELINE;
         else cs.align_items = AlignItems::STRETCH;
     }
-    else if (p == "flex-grow")   { try { cs.flex_grow   = std::stof(v); } catch (...) {} }
-    else if (p == "flex-shrink") { try { cs.flex_shrink = std::stof(v); } catch (...) {} }
+    else if (p == "flex-grow")   { cs.flex_grow   = safe_stof(v); }
+    else if (p == "flex-shrink") { cs.flex_shrink = safe_stof(v); }
     else if (p == "flex-basis")  { cs.flex_basis = parse_length(v); }
     else if (p == "flex") {
         // Shorthand: flex: grow shrink basis | flex: auto | flex: none | flex: 1
@@ -654,8 +675,8 @@ static void apply_decl(ComputedStyle& cs, const CssDecl& d, Arena& arena,
             std::istringstream ss(v); std::string tok;
             int n = 0;
             while (ss >> tok) {
-                if (n == 0) { try { cs.flex_grow   = std::stof(tok); } catch (...) {} }
-                if (n == 1) { try { cs.flex_shrink  = std::stof(tok); } catch (...) {} }
+                if (n == 0) { cs.flex_grow   = safe_stof(tok); }
+                if (n == 1) { cs.flex_shrink = safe_stof(tok); }
                 if (n == 2) { cs.flex_basis = parse_length(tok); }
                 ++n;
             }

@@ -111,7 +111,7 @@ private:
             cap = min_size + alignof(std::max_align_t) + 64;
         }
         void* mem = std::malloc(sizeof(ArenaSlab) + cap);
-        if (!mem) throw std::bad_alloc();
+        if (!mem) std::abort();  // OOM -- no heap recovery in WASM
         ArenaSlab* slab = new (mem) ArenaSlab();
         slab->cap  = cap;
         slab->used = 0;

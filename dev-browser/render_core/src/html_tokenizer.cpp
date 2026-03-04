@@ -542,9 +542,11 @@ struct Parser {
         // Now decode.
         if (numeric) {
             unsigned long cp = 0;
-            try {
-                cp = hex ? std::stoul(ref, nullptr, 16) : std::stoul(ref, nullptr, 10);
-            } catch (...) { return "&"; }
+            {
+                char* endp = nullptr;
+                cp = std::strtoul(ref.c_str(), &endp, hex ? 16 : 10);
+                if (endp == ref.c_str()) return "&";
+            }
             // Encode as UTF-8.
             std::string out;
             if (cp < 0x80) {
