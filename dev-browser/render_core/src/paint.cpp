@@ -3,6 +3,7 @@
  */
 
 #include "paint.h"
+#include "font_metrics.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -317,37 +318,80 @@ void PaintEngine::stroke_segment(float x0, float y0, float x1, float y1,
 void PaintEngine::draw_text(float fx, float fy, const char* text, std::size_t len,
                             const ComputedStyle* cs, float opacity) {
     if (!text || len == 0) return;
-    Color col = cs ? cs->color : Color::black();
-    float em = cs ? cs->font_size : 16.f;
-    float scale = em / 7.f;  // font is 7px tall
-    float char_w = 5.f * scale + 1.f; // 5 cols + 1px gap
+    Color col  = cs ? cs->color : Color::black();
+    float em   = cs ? cs->font_size : 16.f;
+    float scale = em / 7.f;   // font is 7px tall; scale = px per bitmap row
     float pen_x = fx, pen_y = fy;
+    const uint8_t col_ch[3] = { col.r, col.g, col.b };
 
-    for (std::size_t i = 0; i < len; ++i) {
-        unsigned char c = static_cast<unsigned char>(text[i]);
-        if (c == '\n') {
-            pen_x = fx;
-            pen_y += em * 1.2f;
-            continue;
+    for (std::size_t gi = 0; gi < len; ++gi) {
+        unsigned char c = static_cast<unsigned char>(text[gi]);
+        if (c == '\n') { pen_x = fx; pen_y += em * 1.2f; continue; }
+        if (c < 32 || c > 127) { pen_x += xcm::char_advance_px(c, scale); continue; }
+        const uint8_t* bm = FONT5x7[c - 32];
+
+        // Per-char advance with kerning against next character.
+        float adv = xcm::char_advance_px(c, scale);
+        if (gi + 1 < len) {
+            unsigned char nx = static_cast<unsigned char>(text[gi + 1]);
+            if (nx >= 32 && nx < 128) {
+                adv += xcm::kern_adjust(c, nx) * scale;
+            }
         }
-        if (c < 32 || c > 127) { pen_x += char_w; continue; }
-        const uint8_t* bitmap = FONT5x7[c - 32];
-        for (int ci = 0; ci < 5; ++ci) {
-            uint8_t col_data = bitmap[ci];
-            for (int row = 0; row < 7; ++row) {
-                if ((col_data >> row) & 1) {
-                    // Scale pixel.
-                    int px0 = static_cast<int>(pen_x + ci * scale);
-                    int py0 = static_cast<int>(pen_y + row * scale);
-                    int px1 = static_cast<int>(pen_x + (ci+1) * scale);
-                    int py1 = static_cast<int>(pen_y + (row+1) * scale);
-                    for (int py = py0; py <= py1; ++py)
-                        for (int px = px0; px <= px1; ++px)
-                            blend_pixel(px, py, col, opacity);
+
+        for (int row = 0; row < 7; ++row) {
+            float vy0 = pen_y + row * scale;
+            float vy1 = pen_y + (row + 1) * scale;
+            int   py0 = static_cast<int>(vy0);
+            int   py1 = static_cast<int>(std::ceil(vy1));
+
+            // SDF-style horizontal coverage sample: interpolates between adjacent
+            // bitmap columns so edges anti-alias smoothly across scale boundaries.
+            // offset is in output-pixel units (can be sub-pixel, e.g. +/-0.333).
+            auto sp_sample = [&](float sx_off) -> float {
+                float cf = sx_off / scale;
+                // floor for negative values (truncation is ceiling for negatives)
+                int ci = static_cast<int>(cf) - (cf < 0.f && cf != static_cast<float>(static_cast<int>(cf)) ? 1 : 0);
+                float fr = cf - static_cast<float>(ci);
+                float v0 = (ci     >= 0 && ci     < 5) ? ((bm[ci]     >> row) & 1 ? 1.f : 0.f) : 0.f;
+                float v1 = (ci + 1 >= 0 && ci + 1 < 5) ? ((bm[ci + 1] >> row) & 1 ? 1.f : 0.f) : 0.f;
+                return v0 * (1.f - fr) + v1 * fr;
+            };
+
+            ClipRect clip = current_clip();
+            // Pixel x range: glyph cols 0..5 plus 1 extra for sub-pixel bleed.
+            int px0 = std::max(static_cast<int>(pen_x) - 1,     clip.x0);
+            int px1 = std::min(static_cast<int>(pen_x + 5.f * scale) + 2, clip.x1);
+
+            for (int py = py0; py < py1; ++py) {
+                if (py < clip.y0 || py >= clip.y1) continue;
+                // Vertical coverage: fractional row-edge anti-aliasing.
+                float vcov = std::min(static_cast<float>(py + 1), vy1)
+                           - std::max(static_cast<float>(py),      vy0);
+                vcov = std::max(0.f, std::min(1.f, vcov));
+
+                uint8_t* row_ptr = pixels_.data() + py * w_ * 4;
+                for (int px = px0; px < px1; ++px) {
+                    float sx = static_cast<float>(px) - pen_x;
+                    // Sub-pixel R/G/B offsets (RGB-stripe LCD: R=left, G=center, B=right).
+                    float rc = sp_sample(sx - 0.333f) * vcov;
+                    float gc = sp_sample(sx          ) * vcov;
+                    float bc = sp_sample(sx + 0.333f) * vcov;
+                    if (rc < 0.004f && gc < 0.004f && bc < 0.004f) continue;
+
+                    uint8_t* p = row_ptr + px * 4;
+                    float cov3[3] = { rc, gc, bc };
+                    for (int ch = 0; ch < 3; ++ch) {
+                        float a = cov3[ch] * opacity;
+                        p[ch] = static_cast<uint8_t>(col_ch[ch] * a + p[ch] * (1.f - a));
+                    }
+                    // Alpha: max channel coverage drives opacity.
+                    float mc = rc > gc ? (rc > bc ? rc : bc) : (gc > bc ? gc : bc);
+                    p[3] = static_cast<uint8_t>(std::min(255.f, p[3] + mc * opacity * 255.f));
                 }
             }
         }
-        pen_x += char_w;
+        pen_x += adv;
     }
 }
 

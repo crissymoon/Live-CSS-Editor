@@ -3,26 +3,13 @@
  */
 
 #include "layout.h"
+#include "font_metrics.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <numeric>
 
 namespace xcm {
-
-// =========================================================================
-// Utility: average character width approximation
-// =========================================================================
-// Without a real font engine, we approximate based on font size.
-// Bold text is ~10% wider; monospace is ~0.6em per char.
-// Average proportional-font char width is ~0.50em for mixed text.
-static float avg_char_width(const ComputedStyle* cs) {
-    float em = cs ? cs->font_size : 16.f;
-    if (cs && cs->font_family && std::strstr(cs->font_family, "mono")) {
-        return em * 0.60f;
-    }
-    return em * 0.50f;
-}
 
 // =========================================================================
 // LayoutEngine
@@ -52,16 +39,38 @@ float LayoutEngine::margin_collapse(float m1, float m2) const {
 
 float LayoutEngine::measure_text_width(const char* text, std::size_t len,
                                         const ComputedStyle* cs) const {
-    float cw = avg_char_width(cs);
-    // Rough: count display characters (skip control chars, account for UTF-8 multibyte as 1 char).
-    float w = 0;
+    float em    = cs ? cs->font_size : 16.f;
+    float scale = em / 7.f;
+    float w     = 0;
     for (std::size_t i = 0; i < len; ) {
         unsigned char c = static_cast<unsigned char>(text[i]);
-        if (c < 0x80)       { w += cw; ++i; }                  // ASCII
-        else if (c < 0xC0)  { ++i; }                            // continuation byte
-        else if (c < 0xE0)  { w += cw * 1.0f; i += 2; }        // 2-byte UTF-8
-        else if (c < 0xF0)  { w += cw * 1.5f; i += 3; }        // 3-byte CJK wide
-        else                { w += cw * 2.0f; i += 4; }         // 4-byte emoji
+        if (c < 0x80) {
+            // Per-character advance matching draw_text exactly.
+            float adv = xcm::char_advance_px(c, scale);
+            // Kern with next ASCII character.
+            if (i + 1 < len) {
+                unsigned char nx = static_cast<unsigned char>(text[i + 1]);
+                if (nx >= 32 && nx < 128) {
+                    adv += xcm::kern_adjust(c, nx) * scale;
+                }
+            }
+            w += adv;
+            ++i;
+        } else if (c < 0xC0) {
+            ++i;  // UTF-8 continuation byte
+        } else if (c < 0xE0) {
+            // 2-byte sequence -- treat as single proportional char
+            w += xcm::char_advance_px('n', scale); // ~en-width for 2-byte
+            i += 2;
+        } else if (c < 0xF0) {
+            // 3-byte (CJK): treat as double-wide
+            w += xcm::char_advance_px('m', scale) * 1.5f;
+            i += 3;
+        } else {
+            // 4-byte (emoji): double-wide
+            w += xcm::char_advance_px('m', scale) * 2.f;
+            i += 4;
+        }
     }
     return w;
 }

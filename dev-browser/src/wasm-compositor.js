@@ -49,11 +49,32 @@ void main() {
 
   const FRAG_SRC = `#version 300 es
 precision highp float;
+
+// Per-frame parameters in a UBO -- single bufferSubData write maps
+// directly to the GPU uniform block, no per-uniform state changes.
+layout(std140) uniform FrameParams {
+  vec2  u_res;        // render resolution in pixels
+  float u_subpxl_str; // sub-pixel blend strength [0..1]
+  float u_pad;        // std140 alignment
+};
+
 uniform sampler2D u_frame;
-in vec2 v_uv;
+in  vec2 v_uv;
 out vec4 fragColor;
+
 void main() {
-  fragColor = texture(u_frame, v_uv);
+  vec4 c = texture(u_frame, v_uv);
+
+  // Sub-pixel RGB horizontal reconstruction (ClearType-style).
+  // R samples 1/3 px left, B samples 1/3 px right -- amplifies
+  // per-channel coverage already written by the C++ rasterizer.
+  vec2 px = vec2(1.0) / u_res;
+  float r = texture(u_frame, v_uv + vec2(-px.x * 0.333, 0.0)).r;
+  float b = texture(u_frame, v_uv + vec2( px.x * 0.333, 0.0)).b;
+  c.r = mix(c.r, r, u_subpxl_str);
+  c.b = mix(c.b, b, u_subpxl_str);
+
+  fragColor = c;
 }`;
 
   // -----------------------------------------------------------------------
@@ -66,6 +87,11 @@ void main() {
   let tex_w   = 0;
   let tex_h   = 0;
   let u_frame = null;
+  // UBO: pre-allocated Float32Array mapped to a GPU uniform block.
+  // Layout (std140): vec2 u_res (8 B) | float u_subpxl_str (4 B) | float u_pad (4 B)
+  let uboBuffer = null;
+  const uboData = new Float32Array(4); // [res_x, res_y, subpxl_str, pad]
+  uboData[2] = 0.55; // default sub-pixel blend strength
 
   function initGl(cvs) {
     canvas = cvs;
@@ -99,11 +125,24 @@ void main() {
     }
     u_frame = gl.getUniformLocation(prog, 'u_frame');
 
+    // UBO: bind FrameParams block to binding point 0 and allocate a
+    // persistent GPU buffer -- updated each frame via bufferSubData
+    // (a single DMA write to the mapped block, no per-uniform dispatch).
+    const uboBlockIndex = gl.getUniformBlockIndex(prog, 'FrameParams');
+    if (uboBlockIndex !== gl.INVALID_INDEX) {
+      gl.uniformBlockBinding(prog, uboBlockIndex, 0);
+      uboBuffer = gl.createBuffer();
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, uboBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, uboData, gl.DYNAMIC_DRAW);
+    }
+
     // Create texture.
     tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    // LINEAR required so the sub-pixel ±0.333px offsets in the fragment shader
+    // actually interpolate between adjacent texels rather than snapping to the same one.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
@@ -112,14 +151,25 @@ void main() {
 
   function uploadAndDraw(pixels, w, h) {
     if (!gl) return;
+
+    // Update UBO data in-place (direct Float32Array view, no allocation).
+    uboData[0] = w;
+    uboData[1] = h;
+    if (uboBuffer) {
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, uboBuffer);
+      gl.bufferSubData(gl.UNIFORM_BUFFER, 0, uboData);
+    }
+
     gl.bindTexture(gl.TEXTURE_2D, tex);
+    // pixels is a transferred ArrayBuffer -- Uint8Array view is zero-copy.
+    const view = pixels instanceof ArrayBuffer ? new Uint8Array(pixels) : pixels;
     if (w !== tex_w || h !== tex_h) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0,
-                    gl.RGBA, gl.UNSIGNED_BYTE, new Uint8ClampedArray(pixels));
+                    gl.RGBA, gl.UNSIGNED_BYTE, view);
       tex_w = w; tex_h = h;
     } else {
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h,
-                       gl.RGBA, gl.UNSIGNED_BYTE, new Uint8ClampedArray(pixels));
+                       gl.RGBA, gl.UNSIGNED_BYTE, view);
     }
     gl.useProgram(prog);
     gl.uniform1i(u_frame, 0);
@@ -190,6 +240,39 @@ void main() {
   }
 
   // -----------------------------------------------------------------------
+  // rAF-synced upload buffer.
+  // The Worker's render Promise resolves at an arbitrary micro-task boundary
+  // which can be mid-frame.  Buffering the result here and flushing it on
+  // the next __xcmTick guarantees texSubImage2D fires inside a display-
+  // linked rAF callback, eliminating partial-frame texture tears.
+  // -----------------------------------------------------------------------
+  let _pendingFrame = null; // { pixels, w, h } from the last Worker render
+
+  function _scheduledUpload() {
+    if (!_pendingFrame || !canvas) return;
+    const { pixels, w, h } = _pendingFrame;
+    _pendingFrame = null;
+    canvas.width  = w;
+    canvas.height = h;
+    if (gl) {
+      uploadAndDraw(pixels, w, h);
+    } else {
+      uploadCanvas2d(pixels, w, h);
+    }
+  }
+
+  function _registerRafUpload() {
+    if (typeof window.__xcmTick === 'function') {
+      window.__xcmTick(_scheduledUpload);
+    } else {
+      // Ticker not ready yet (Hz sampling still in progress) -- retry.
+      requestAnimationFrame(_registerRafUpload);
+    }
+  }
+  // Defer until after ticker has had at least one rAF to initialise.
+  requestAnimationFrame(_registerRafUpload);
+
+  // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
   const comp = {
@@ -220,16 +303,11 @@ void main() {
       if (!worker) throw new Error('Call init() first');
       await waitReady();
       const res = await workerCall({ cmd: 'render', html, css, width, height });
-      // Composite result onto canvas.
-      if (canvas) {
-        canvas.width  = res.width;
-        canvas.height = res.height;
-        if (gl) {
-          uploadAndDraw(res.pixels, res.width, res.height);
-        } else {
-          uploadCanvas2d(res.pixels, res.width, res.height);
-        }
-      }
+      // Buffer the result -- _scheduledUpload flushes it on the next
+      // __xcmTick so the GPU upload always lands inside a rAF callback.
+      // Overwrites any previously buffered but not-yet-uploaded frame
+      // (only the newest frame is worth drawing).
+      _pendingFrame = { pixels: res.pixels, w: res.width, h: res.height };
       return res.metrics;
     },
 

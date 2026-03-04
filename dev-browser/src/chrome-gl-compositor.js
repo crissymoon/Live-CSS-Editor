@@ -61,10 +61,15 @@
     global.__xcmGlCompLoaded = true;
 
     // ── Constants ─────────────────────────────────────────────────────────────
-    var SPRING_FORCE  = 0.14;   // how much each frame's wheel delta contributes
-    var DAMPING       = 0.82;   // velocity decay per tick (lower = more damping)
-    var SETTLE_THRESH = 0.35;   // pixels -- stop applying transform below this
-    var MAX_OFFSET    = 120;    // cap transform in px (prevents over-correction)
+    // Spring model: vel += input*INPUT_GAIN - pos*SPRING_K; vel *= FRICTION; pos += vel
+    // The restoring force (-pos*SPRING_K) returns the offset to 0 when scrolling
+    // stops, replacing the previous independent _pos *= 0.78 decay that could
+    // fight the velocity and cause micro-stutters when delta was small.
+    var INPUT_GAIN   = 0.15;   // wheel delta contribution to velocity
+    var SPRING_K     = 0.12;   // restoring force coefficient (pulls pos toward 0)
+    var FRICTION     = 0.82;   // multiplicative velocity damping per tick
+    var SETTLE_THRESH = 0.35;  // pixels -- zero the transform below this
+    var MAX_OFFSET   = 120;    // cap transform in px
     var RING_SIZE     = 128;    // samples in velocity ring buffer for GPU
     var HUD_W         = 160;
     var HUD_H         = 52;
@@ -139,12 +144,17 @@
             dY = global.__xcmInput.delta[1];
         }
 
-        // Integrate spring.
-        _vel  = (_vel + dY * SPRING_FORCE) * DAMPING;
+        // Restoring-force spring integrator.
+        // Input pushes velocity, spring pulls position back to 0, friction damps.
+        // Single decay path -- no competing position multiplier.
+        _vel += dY * INPUT_GAIN;
+        _vel -= _pos * SPRING_K;   // restoring force toward 0
+        _vel *= FRICTION;
         _pos += _vel;
 
-        // Decay position back to zero (the real scroll catches up).
-        _pos *= 0.78;
+        // Hard clamp to avoid runaway on giant deltas.
+        if (_pos >  MAX_OFFSET) { _pos =  MAX_OFFSET; _vel = 0; }
+        if (_pos < -MAX_OFFSET) { _pos = -MAX_OFFSET; _vel = 0; }
 
         // Record for HUD.
         _pushVel(_vel);
@@ -185,6 +195,9 @@
     var _prog       = null;
     var _tex        = null;
     var _hudVisible = false;
+    // Cached uniform locations -- populated once in _initGL to avoid
+    // getUniformLocation() calls on every frame inside _drawHud.
+    var _uloc = null;
 
     // Vertex shader: renders a fullscreen quad (no attributes needed --
     // generates positions from gl_VertexID).
@@ -344,6 +357,15 @@
         _gl.blendFunc(_gl.SRC_ALPHA, _gl.ONE_MINUS_SRC_ALPHA);
 
         console.log('[gl-compositor] WebGL2 HUD ready');
+
+        // Cache uniform locations once so _drawHud never calls getUniformLocation.
+        _uloc = {
+            vel:   _gl.getUniformLocation(_prog, 'u_vel'),
+            head:  _gl.getUniformLocation(_prog, 'u_head'),
+            rings: _gl.getUniformLocation(_prog, 'u_rings'),
+            maxV:  _gl.getUniformLocation(_prog, 'u_maxV'),
+        };
+
         return true;
     }
 
@@ -360,17 +382,16 @@
     }
 
     function _drawHud() {
-        if (!_gl || !_prog) return;
+        if (!_gl || !_prog || !_uloc) return;
         _gl.viewport(0, 0, HUD_W, HUD_H);
         _gl.clear(_gl.COLOR_BUFFER_BIT);
         _gl.useProgram(_prog);
 
-        // Uniforms.
-        _gl.uniform1i(_gl.getUniformLocation(_prog, 'u_vel'),   0);
-        _gl.uniform1i(_gl.getUniformLocation(_prog, 'u_head'),  _velHead);
-        _gl.uniform1i(_gl.getUniformLocation(_prog, 'u_rings'), RING_SIZE);
-        // Scale: at 60 Hz a 20px/frame delta is very fast scrolling.
-        _gl.uniform1f(_gl.getUniformLocation(_prog, 'u_maxV'),  20.0);
+        // Use cached locations -- zero getUniformLocation overhead per frame.
+        _gl.uniform1i(_uloc.vel,   0);
+        _gl.uniform1i(_uloc.head,  _velHead);
+        _gl.uniform1i(_uloc.rings, RING_SIZE);
+        _gl.uniform1f(_uloc.maxV,  20.0);
 
         _gl.activeTexture(_gl.TEXTURE0);
         _gl.bindTexture(_gl.TEXTURE_2D, _tex);
