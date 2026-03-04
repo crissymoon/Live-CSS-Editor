@@ -20,6 +20,6 @@
 
 namespace xcm {
 
-Document* parse_html(const char* html, std::size_t len);
+Document* parse_html(const char* html, std::size_t len, Arena& arena);
 
 } // namespace xcm

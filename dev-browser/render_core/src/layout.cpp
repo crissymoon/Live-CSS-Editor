@@ -27,11 +27,8 @@ static float avg_char_width(const ComputedStyle* cs) {
 // =========================================================================
 // LayoutEngine
 // =========================================================================
-LayoutEngine::LayoutEngine(float vw, float vh) : vw_(vw), vh_(vh) {}
-
-LayoutEngine::~LayoutEngine() {
-    for (auto* b : all_boxes) delete b;
-}
+LayoutEngine::LayoutEngine(float vw, float vh, Arena& ar)
+    : vw_(vw), vh_(vh), layout_ar_(ar) {}
 
 float LayoutEngine::resolve(Length l, float parent_px, float font_size) const {
     switch (l.unit) {
@@ -70,17 +67,17 @@ float LayoutEngine::measure_text_width(const char* text, std::size_t len,
 }
 
 LayoutBox* LayoutEngine::make_box(Node* node) {
-    LayoutBox* b = new LayoutBox();
+    LayoutBox* b = layout_ar_.make<LayoutBox>();
     b->node = node;
     if (node) node->layout_box = b;
-    all_boxes.push_back(b);
+    all_boxes.push(layout_ar_, b);
     return b;
 }
 
 LayoutBox* LayoutEngine::make_anon_block() {
-    LayoutBox* b = new LayoutBox();
+    LayoutBox* b = layout_ar_.make<LayoutBox>();
     b->is_anonymous_block = true;
-    all_boxes.push_back(b);
+    all_boxes.push(layout_ar_, b);
     return b;
 }
 
@@ -242,8 +239,8 @@ void LayoutEngine::layout_inline_children(LayoutBox* box, float avail_width) {
             LayoutBox* cb = make_box(ch);
             cb->out_of_flow = true;
             cb->parent = box;
-            box->children.push_back(cb);
-            out_of_flow_.push_back(cb);
+            box->children.push(layout_ar_, cb);
+            out_of_flow_.push(layout_ar_, cb);
             continue;
         }
 
@@ -268,7 +265,7 @@ void LayoutEngine::layout_inline_children(LayoutBox* box, float avail_width) {
 
             cursor_y += cb->height + mb;
             prev_margin_bottom = mb;
-            box->children.push_back(cb);
+            box->children.push(layout_ar_, cb);
         } else {
             // Inline / text: accumulate into line boxes.
             // We build a simple line-box here.
@@ -333,7 +330,7 @@ void LayoutEngine::layout_inline_children(LayoutBox* box, float avail_width) {
                     tb->width  = tw;
                     tb->height = lh;
                     pen_x += tw;
-                    box->children.push_back(tb);
+                    box->children.push(layout_ar_, tb);
                 } else if (in_node->kind == NodeKind::ELEMENT && in_cs2) {
                     // Inline element -- recurse.
                     LayoutBox* ib = make_box(in_node);
@@ -358,7 +355,7 @@ void LayoutEngine::layout_inline_children(LayoutBox* box, float avail_width) {
                     ib->height = ih;
                     pen_x += ml + ib->width + mr;
                     max_line_h = std::max(max_line_h, ih);
-                    box->children.push_back(ib);
+                    box->children.push(layout_ar_, ib);
                 }
             }
             cursor_y = line_y + max_line_h;
@@ -459,7 +456,7 @@ void LayoutEngine::layout_flex(LayoutBox* box, float avail_width) {
         }
         fi.base_size = fi.frozen = basis;
         items.push_back(fi);
-        box->children.push_back(chb);
+        box->children.push(layout_ar_, chb);
     }
 
     // Calculate total base size + free space.

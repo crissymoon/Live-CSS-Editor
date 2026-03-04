@@ -51,7 +51,7 @@ struct LayoutBox {
     Node* node = nullptr;
 
     // Children (in paint order, z-order not yet applied).
-    std::vector<LayoutBox*> children;
+    ArenaVec<LayoutBox*> children;
     LayoutBox* parent = nullptr;
 
     // For inline line boxes.
@@ -69,17 +69,18 @@ struct LayoutBox {
 // -------------------------------------------------------------------------
 class LayoutEngine {
 public:
-    LayoutEngine(float viewport_width, float viewport_height);
-    ~LayoutEngine();
+    LayoutEngine(float viewport_width, float viewport_height, Arena& ar);
+    ~LayoutEngine() = default;
 
     // Build layout tree from document root, returns root LayoutBox.
     LayoutBox* layout(Document* doc);
 
-    // All boxes owned here.
-    std::vector<LayoutBox*> all_boxes;
+    // All boxes tracked here (arena-backed, no heap ownership).
+    ArenaVec<LayoutBox*> all_boxes;
 
 private:
     float vw_, vh_;
+    Arena& layout_ar_;     // reference to xcm_ctx::layout_arena -- persists between renders
 
     // Root font size for rem resolution.
     float root_font_px_ = 16.f;
@@ -101,7 +102,7 @@ private:
                   float font_size = 16.f) const;
 
     // Collect absolute/fixed boxes for second pass.
-    std::vector<LayoutBox*> out_of_flow_;
+    ArenaVec<LayoutBox*> out_of_flow_;
     void layout_out_of_flow(LayoutBox* root);
 
     // Margin collapsing.

@@ -588,8 +588,8 @@ struct Parser {
 // -------------------------------------------------------------------------
 // Public entry point
 // -------------------------------------------------------------------------
-Document* parse_html(const char* html, std::size_t len) {
-    Document* doc = new Document();
+Document* parse_html(const char* html, std::size_t len, Arena& arena) {
+    Document* doc = arena.make<Document>(arena);
 
     Parser p;
     p.src     = html;

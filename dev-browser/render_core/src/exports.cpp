@@ -56,22 +56,32 @@ struct xcm_ctx {
     int viewport_w = 0;
     int viewport_h = 0;
 
+    // Persistent arenas -- soft-reset each render, zero malloc/free on hot path.
+    xcm::Arena         dom_arena;
+    xcm::Arena         layout_arena;
+
     xcm::Document*     doc         = nullptr;
     xcm::LayoutBox*    layout_root = nullptr;
     xcm::LayoutEngine* layout_eng  = nullptr;
     xcm::PaintEngine*  paint_eng   = nullptr;
 
+    // CSS cache -- skip re-parse when CSS hasn't changed.
+    std::string        last_css;
+    xcm::StyleSheet    cached_css;
+
     // Cached metrics JSON.
     char metrics_json[8192] = {};
 
     void reset() {
-        delete doc;        doc         = nullptr;
-        delete layout_eng; layout_eng  = nullptr;
-        // paint_eng pixel buffer is reused -- just reset it.
-        layout_root = nullptr;
+        // Soft-reset: rewind bump pointers without freeing slabs.
+        // Zero malloc/free cost -- eliminates the per-frame allocator variance.
+        dom_arena.reset();
+        layout_arena.reset();
+        doc = nullptr; layout_root = nullptr; layout_eng = nullptr;
+        // paint_eng pixel buffer is reused -- just cleared by PaintEngine::paint()
     }
 
-    ~xcm_ctx() { reset(); delete paint_eng; }
+    ~xcm_ctx() { delete paint_eng; }
 };
 
 // -------------------------------------------------------------------------
@@ -97,14 +107,22 @@ XCM_EXPORT int xcm_render(xcm_ctx* ctx,
     ctx->reset();
 
     // 1. Parse HTML.
-    ctx->doc = xcm::parse_html(html, static_cast<std::size_t>(html_len));
+    ctx->doc = xcm::parse_html(html, static_cast<std::size_t>(html_len), ctx->dom_arena);
     if (!ctx->doc) return -2;
 
-    // 2. Parse CSS.
-    std::vector<xcm::StyleSheet> sheets;
-    if (css && css_len > 0) {
-        sheets.push_back(xcm::parse_css(css, static_cast<std::size_t>(css_len), 2));
+    // 2. Parse CSS (cached -- skip re-parse if CSS unchanged).
+    {
+        std::size_t new_len = (css && css_len > 0) ? static_cast<std::size_t>(css_len) : 0;
+        std::string new_key(css && css_len > 0 ? css : "", new_len);
+        if (new_key != ctx->last_css) {
+            ctx->last_css   = new_key;
+            ctx->cached_css = new_len > 0
+                ? xcm::parse_css(css, new_len, 2)
+                : xcm::StyleSheet{};
+        }
     }
+    std::vector<xcm::StyleSheet> sheets;
+    if (!ctx->last_css.empty()) sheets.push_back(ctx->cached_css);
 
     // 3. Resolve styles.
     xcm::resolve_styles(ctx->doc, sheets,
@@ -112,9 +130,10 @@ XCM_EXPORT int xcm_render(xcm_ctx* ctx,
                         static_cast<float>(ctx->viewport_h));
 
     // 4. Layout.
-    ctx->layout_eng  = new xcm::LayoutEngine(
+    ctx->layout_eng = ctx->layout_arena.make<xcm::LayoutEngine>(
         static_cast<float>(ctx->viewport_w),
-        static_cast<float>(ctx->viewport_h));
+        static_cast<float>(ctx->viewport_h),
+        ctx->layout_arena);
     ctx->layout_root = ctx->layout_eng->layout(ctx->doc);
 
     // 5. Paint.

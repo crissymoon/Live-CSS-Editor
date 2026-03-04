@@ -128,13 +128,13 @@ struct Node {
 // Document (root of the parse tree)
 // -------------------------------------------------------------------------
 struct Document {
-    Arena arena;
+    Arena& arena;           // non-owning reference -- lifetime managed by xcm_ctx::dom_arena
     Node* root = nullptr;   // DOCUMENT node
     Node* html = nullptr;   // <html> element
     Node* head = nullptr;   // <head> element
     Node* body = nullptr;   // <body> element
 
-    Document() {
+    explicit Document(Arena& ar) : arena(ar) {
         root = arena.make<Node>();
         root->kind = NodeKind::DOCUMENT;
     }
