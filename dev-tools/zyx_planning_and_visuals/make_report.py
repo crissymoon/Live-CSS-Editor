@@ -68,6 +68,12 @@ License:---MIT
 OVERVIEW = """---Overview---
 This is a scan tool for this project..."""
 
+NOTES = """
+--note there is a mirage in the dependency gap the xcm_auth will be hosted on diff server for this as a auth system once smoke testing is done in this dir a migration will occur --tue-mar3-26
+
+
+"""
+
 # ************************ PROJECT DATA STOP^^^^^
 
 

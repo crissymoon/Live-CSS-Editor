@@ -67,8 +67,12 @@ func CheckRateLimit(
 // the rate-limit row if it does not exist.  Should be called after every
 // failed auth attempt.
 func RecordAttempt(ctx context.Context, store db.Store, key, action string, cfg *config.RateConfig) error {
-	windowMinutes, _ := windowAndMax(action, cfg)
-	windowStart := time.Now().UTC().Add(-time.Duration(windowMinutes) * time.Minute)
+	// window_start is the absolute time this window began (now), NOT now-minus-window.
+	// CheckRateLimit uses rec.WindowStart to decide whether the window has expired:
+	//   if rec.WindowStart.Before(now - windowDuration) the window has rolled over.
+	// Storing now-minus-window would make every subsequent check see the record as
+	// expired (since rec.WindowStart would always be before now-minus-window).
+	windowStart := time.Now().UTC()
 
 	_, err := store.UpsertRateLimit(ctx, key, action, windowStart)
 	if err != nil {
