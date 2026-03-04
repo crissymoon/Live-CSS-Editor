@@ -20,9 +20,6 @@ The project previously used a Tauri v2 desktop shell. That has been replaced wit
 --/Users/mac/Documents/live-css/xcm_auth/smoke/MIGRATION_PLAN.md
   ^ Covers what must change in the live-css PHP app and the xcm_auth Go service when they run on different machines or containers. (Will go on GCLOUD VM)
 
-  Scoring is good +10 --Dependencies: 100.0, T 90.0   10.0 *
-  Will try to hit 15+ tho...
-
       GAP ANALYSIS (Current vs Target)
     ==================================================
     Category                Current     Target     Gap
