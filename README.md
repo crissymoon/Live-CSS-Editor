@@ -17,8 +17,7 @@ The tool ships with a page builder, a section library, a drag-and-drop composer,
 
 The project previously used a Tauri v2 desktop shell. That has been replaced with a native Python/PyQt6 custom browser (`dev-browser/`) that embeds macOS WKWebView or QtWebEngine depending on the URL. All Tauri source files are archived under `dev-tools/legacy/`.
 
---live-css/xcm_auth/smoke/MIGRATION_PLAN.md
-  ^ Covers what must change in the live-css PHP app and the xcm_auth Go service when they run on different machines or containers. (Will go on GCLOUD VM --seperate from builder server)
+--live-css/xcm_auth/smoke/MIGRATION_PLAN.md < Covers what must change in the live-css PHP app and the xcm_auth Go service when they run on different machines or containers. (Will go on GCLOUD VM --seperate from builder server)
 
     --live-css/dev-tools/db-browser     
     GAP ANALYSIS ( ^ FOR DB SYS) (Current vs Target)
