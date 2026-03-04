@@ -1,0 +1,81 @@
+Elite Specs Checklist
+
+Metric	
+----------------"Good"--------------"Elite" (Target)
+Layout Latency---2.0ms--------------< 0.5ms
+Input Lag--------16ms (1 frame)-----< 4ms (Sub-frame)
+Wasm Heap Size---64MB---------------< 16MB
+JS/Wasm Bridge---postMessage--------SharedArrayBuffer
+Binary Size------1MB (Gzipped)------< 150KB
+
+Must haves to check and switch to for macOS:
+- [] Metal Translation
+- []
+
+Current GUI issues:
+- [] EN
+- [] WkWebView shows a frame rate status above the status instead of on it
+- [] QT is DEV: 55, ENG: 48hz <- this is the problem but must match QT and WebView should mimic one another
+
+Binary
+render_core.wasm
+134.3 KB
+render_core.js glue
+12 KB
+build timestamp
+2026-03-04 21:00
+wasm + glue total
+146.3 KB
+instantiation time
+57.60 ms
+WASM heap (initial)
+32.00 MB
+memory pages
+512 x 64 KB
+Display
+device pixel ratio
+2.00x
+physical resolution
+2880 x 1800
+logical viewport
+640 x 480 (logical)
+screen color depth
+24-bit
+color gamut
+sRGB
+detected refresh
+30 Hz
+HDR
+no
+GPU / WebGL2
+renderer
+ANGLE (Apple, Apple M1, OpenGL 4.1)
+vendor
+Google Inc. (Apple)
+GLSL version
+WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)
+max texture size
+16384 px
+max viewport
+16384 x 16384
+max draw buffers
+8
+anisotropy
+16x
+float textures
+yes
+Memory
+JS heap used
+9.54 MB
+JS heap total
+9.54 MB
+JS heap limit
+3585.82 MB
+WASM heap (post-benchmark)
+32.00 MB
+WASM pages used
+512 pages
+device RAM
+8 GB
+CPU concurrency
+8 cores

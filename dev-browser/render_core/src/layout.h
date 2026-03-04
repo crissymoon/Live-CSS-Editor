@@ -22,6 +22,8 @@
 
 #include "dom.h"
 #include "style_resolver.h"
+#include "font_metrics.h"
+#include <string_view>
 #include <vector>
 
 namespace xcm {
@@ -57,6 +59,11 @@ struct LayoutBox {
     // For inline line boxes.
     bool is_line_box = false;
     float baseline = 0;
+
+    // Byte range within node->text for word-level inline boxes.
+    // text_len == 0 means "paint the whole node->text" (backward-compat default).
+    uint32_t text_start = 0;
+    uint32_t text_len   = 0;
 
     // Flags.
     bool is_anonymous_block = false;
@@ -94,12 +101,20 @@ private:
     void layout_inline_children(LayoutBox* box, float containing_width);
 
     // Measure a text run width for a given style.
+    float measure_text_width(std::string_view sv, const ComputedStyle* cs) const;
+    // Legacy overload for callers that pass raw pointer + length.
     float measure_text_width(const char* text, std::size_t len,
-                             const ComputedStyle* cs) const;
+                             const ComputedStyle* cs) const {
+        return measure_text_width(std::string_view(text, len), cs);
+    }
 
     // Resolve a Length to px given containing block and style context.
     float resolve(Length l, float parent_px,
                   float font_size = 16.f) const;
+
+    // Per-em glyph advance cache -- eliminates per-character float division
+    // in the layout hot path (analogous to HarfBuzz bbox memoisation).
+    mutable GlyphMetricsCache glyph_cache_;
 
     // Collect absolute/fixed boxes for second pass.
     ArenaVec<LayoutBox*> out_of_flow_;

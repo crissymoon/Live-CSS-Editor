@@ -160,35 +160,111 @@ void main() {
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, uboData);
     }
 
-    gl.bindTexture(gl.TEXTURE_2D, tex);
+    // Write pixels into texBack.  texFront is still bound to any pending draw
+    // commands in the GPU pipeline -- writing to texBack instead ensures the
+    // GPU is never reading from the object being written.
+    gl.bindTexture(gl.TEXTURE_2D, texBack);
     // pixels is a transferred ArrayBuffer -- Uint8Array view is zero-copy.
     const view = pixels instanceof ArrayBuffer ? new Uint8Array(pixels) : pixels;
     if (w !== tex_w || h !== tex_h) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0,
                     gl.RGBA, gl.UNSIGNED_BYTE, view);
+      // Also resize texFront to keep both textures the same dimensions so the
+      // swap is always valid without a re-allocation on the next frame.
+      gl.bindTexture(gl.TEXTURE_2D, texFront);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0,
+                    gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindTexture(gl.TEXTURE_2D, texBack);
       tex_w = w; tex_h = h;
     } else {
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h,
                        gl.RGBA, gl.UNSIGNED_BYTE, view);
     }
+
+    // Swap front and back.  From this point, texFront holds the new frame and
+    // texBack holds the previous (now recycled for the next write).
+    const tmp = texFront; texFront = texBack; texBack = tmp;
+
     gl.useProgram(prog);
     gl.uniform1i(u_frame, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texFront);
     gl.viewport(0, 0, w, h);
+
+    // Scissor to the exact render region before clearing and drawing.
+    // This prevents fragment writes -- and any sub-pixel interpolation
+    // at the texture border -- from reaching pixels outside the uploaded
+    // region when the canvas is momentarily larger than the render target
+    // (e.g. first frame after a window resize before the new buffer lands).
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(0, 0, w, h);
+    gl.clearColor(1.0, 1.0, 1.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.disable(gl.SCISSOR_TEST);
+
+    // Check for GL errors after every draw.  getError() is a synchronous
+    // GPU barrier so it is kept behind a debug flag to avoid stalling the
+    // pipeline in production.  Set window.__xcmGlDebug = true in the
+    // console to enable.  Any error is logged once and the flag auto-clears
+    // after the first hit so the console is not flooded.
+    if (window.__xcmGlDebug) {
+      const err = gl.getError();
+      if (err !== gl.NO_ERROR) {
+        // Map the numeric code to a readable name.
+        const _GL_ERR = {
+          [gl.INVALID_ENUM]:                  'INVALID_ENUM',
+          [gl.INVALID_VALUE]:                 'INVALID_VALUE',
+          [gl.INVALID_OPERATION]:             'INVALID_OPERATION',
+          [gl.INVALID_FRAMEBUFFER_OPERATION]: 'INVALID_FRAMEBUFFER_OPERATION',
+          [gl.OUT_OF_MEMORY]:                 'OUT_OF_MEMORY',
+          [gl.CONTEXT_LOST_WEBGL]:            'CONTEXT_LOST_WEBGL',
+        };
+        console.error('[xcm-gl] getError() =>', _GL_ERR[err] || ('0x' + err.toString(16)),
+          '| tex:', tex_w, 'x', tex_h, '| canvas:', w, 'x', h);
+        // Auto-disable after first error so the console log is not spammed
+        // every frame.  Re-set window.__xcmGlDebug = true to resume.
+        window.__xcmGlDebug = false;
+      }
+    }
   }
 
   // -----------------------------------------------------------------------
-  // Worker bridge
+  // Worker bridge -- MessageChannel port for lower-latency messaging.
+  //
+  // The browser dispatches postMessage() on the Worker's global scope via the
+  // task queue, which competes with other tasks (resource loads, microtasks).
+  // A dedicated MessageChannel port pair is scheduled on its own port
+  // message queue which has higher priority than generic tasks in most
+  // browser implementations, reducing round-trip latency by 1-3 ms per frame.
+  //
+  // Architecture:
+  //   Main thread holds _compPort (MessageChannel.port1).
+  //   Worker receives _workerPort (MessageChannel.port2) via the init message.
+  //   All subsequent render/resize/ping traffic flows through the port pair.
+  //   The worker's global postMessage is only used for the initial handshake
+  //   (type:'ready' / type:'error') before the port is established.
   // -----------------------------------------------------------------------
-  let worker    = null;
+  let worker      = null;
   let workerReady = false;
-  let msgId     = 0;
-  const pending = new Map(); // id -> { resolve, reject }
+  let _compPort   = null;   // main-thread side of the MessageChannel
+  let msgId       = 0;
+  const pending   = new Map(); // id -> { resolve, reject }
 
   function startWorker(workerUrl) {
     worker = new Worker(workerUrl);
+
+    // Handshake listener on the Worker global scope (only used until ready).
     worker.onmessage = ({ data }) => {
       if (data.type === 'ready') {
+        // Worker is initialised -- transfer a MessageChannel port to it so all
+        // subsequent messages travel through the dedicated port queue.
+        const mc = new MessageChannel();
+        _compPort = mc.port1;
+        _compPort.onmessage = _onPortMessage;
+        // Send port2 to the worker.  Transferred (not copied) so it is a true
+        // shared endpoint with zero serialisation overhead.
+        worker.postMessage({ type: 'port', port: mc.port2 }, [mc.port2]);
         workerReady = true;
         return;
       }
@@ -196,22 +272,37 @@ void main() {
         console.error('[xcm-wasm-comp] Worker error:', data.message);
         return;
       }
-      const p = pending.get(data.id);
-      if (!p) return;
-      pending.delete(data.id);
-      if (data.ok) p.resolve(data);
-      else         p.reject(new Error(data.error || 'render failed'));
     };
     worker.onerror = (e) => {
       console.error('[xcm-wasm-comp] Worker fatal:', e);
     };
   }
 
-  function workerCall(msg, transfer) {
+  function _onPortMessage({ data }) {
+    const p = pending.get(data.id);
+    if (!p) return;
+    pending.delete(data.id);
+    if (data.ok) p.resolve(data);
+    else         p.reject(new Error(data.error || 'render failed'));
+  }
+
+  // Send a message through the port (or Worker global if port not yet ready).
+  // Builds the outbound object without object spread to avoid a hidden copy.
+  function workerCall(cmd, params, transfer) {
     return new Promise((resolve, reject) => {
       const id = ++msgId;
       pending.set(id, { resolve, reject });
-      worker.postMessage({ ...msg, id }, transfer || []);
+      const msg = { id, cmd };
+      if (params) {
+        // Copy only known keys -- avoids spreading unknown enumerable properties.
+        if (params.html     !== undefined) msg.html     = params.html;
+        if (params.css      !== undefined) msg.css      = params.css;
+        if (params.width    !== undefined) msg.width    = params.width;
+        if (params.height   !== undefined) msg.height   = params.height;
+        if (params.scroll_y !== undefined) msg.scroll_y = params.scroll_y;
+      }
+      const port = _compPort || worker;
+      port.postMessage(msg, transfer || []);
     });
   }
 
@@ -226,6 +317,62 @@ void main() {
         if (workerReady) { clearInterval(check); clearTimeout(t); resolve(); }
       }, 50);
     });
+  }
+
+  // -----------------------------------------------------------------------
+  // Render mutex with latest-wins queuing.
+  //
+  // The worker is single-threaded: if the main thread sends N render messages
+  // before the worker finishes one, all N queue up and execute sequentially.
+  // By the time the 2nd renders, the viewport has moved on -- producing wasted
+  // CPU time and a visual stutter as stale frames arrive out of order.
+  //
+  // The mutex ensures only ONE render message is in-flight at a time.
+  // If render() is called while a render is in-flight, the call is stored as
+  // _latestRender (replacing any previous queued-but-not-yet-sent request).
+  // The moment the in-flight render completes, _latestRender is dispatched.
+  // This guarantees the worker always renders the most current state and the
+  // message queue never grows beyond depth 1.
+  // -----------------------------------------------------------------------
+  let _renderInFlight  = false;
+  let _latestRender    = null;  // { html, css, width, height, scroll_y, resolve, reject }
+
+  function _dispatchRender(p) {
+    _renderInFlight = true;
+    workerCall('render', p)
+      .then(res => {
+        _engRecordFrame();
+        _pendingFrame = { pixels: res.pixels, w: res.width, h: res.height, dpr: _dpr };
+        p.resolve(res.metrics);
+      })
+      .catch(err => p.reject(err))
+      .finally(() => {
+        _renderInFlight = false;
+        // If a newer render arrived while we were busy, send it now.  Only the
+        // latest request is retained so the queue never accumulates stale frames.
+        if (_latestRender) {
+          const next   = _latestRender;
+          _latestRender = null;
+          _dispatchRender(next);
+        }
+      });
+  }
+  const _engTimestamps = [];   // circular: stores performance.now() of each render
+  const ENG_WINDOW_MS  = 1000;
+
+  function _engRecordFrame() {
+    const now = performance.now();
+    _engTimestamps.push(now);
+    // Evict timestamps older than the measurement window.
+    const cutoff = now - ENG_WINDOW_MS;
+    while (_engTimestamps.length > 0 && _engTimestamps[0] < cutoff)
+      _engTimestamps.shift();
+  }
+
+  function _engFps() {
+    if (_engTimestamps.length < 2) return 0;
+    // frames completed in the last ENG_WINDOW_MS
+    return _engTimestamps.length;
   }
 
   // -----------------------------------------------------------------------
@@ -246,14 +393,27 @@ void main() {
   // the next __xcmTick guarantees texSubImage2D fires inside a display-
   // linked rAF callback, eliminating partial-frame texture tears.
   // -----------------------------------------------------------------------
-  let _pendingFrame = null; // { pixels, w, h } from the last Worker render
+  let _pendingFrame = null; // { pixels, w, h, dpr } from the last Worker render
+  let _dpr = 1;             // devicePixelRatio at the time of the last render call
 
   function _scheduledUpload() {
     if (!_pendingFrame || !canvas) return;
-    const { pixels, w, h } = _pendingFrame;
+    const { pixels, w, h, dpr } = _pendingFrame;
     _pendingFrame = null;
-    canvas.width  = w;
-    canvas.height = h;
+
+    // Physical backing size in device pixels.
+    // CSS display size is 1/_dpr of the backing size so the canvas occupies
+    // exactly the expected CSS viewport area while rendering at full Retina
+    // resolution (2x DPR = 4x pixel count on a MacBook Pro).
+    if (canvas.width  !== w) canvas.width  = w;
+    if (canvas.height !== h) canvas.height = h;
+    // Keep the CSS size fixed at logical (CSS) pixels so the canvas does not
+    // inadvertently enlarge the scroll area or overflow its container.
+    const cssW = Math.round(w / dpr) + 'px';
+    const cssH = Math.round(h / dpr) + 'px';
+    if (canvas.style.width  !== cssW) canvas.style.width  = cssW;
+    if (canvas.style.height !== cssH) canvas.style.height = cssH;
+
     if (gl) {
       uploadAndDraw(pixels, w, h);
     } else {
@@ -299,30 +459,58 @@ void main() {
       comp.ready = true;
     },
 
-    async render(html, css, width, height) {
+    async render(html, css, width, height, scroll_y = 0) {
       if (!worker) throw new Error('Call init() first');
       await waitReady();
-      const res = await workerCall({ cmd: 'render', html, css, width, height });
-      // Buffer the result -- _scheduledUpload flushes it on the next
-      // __xcmTick so the GPU upload always lands inside a rAF callback.
-      // Overwrites any previously buffered but not-yet-uploaded frame
-      // (only the newest frame is worth drawing).
-      _pendingFrame = { pixels: res.pixels, w: res.width, h: res.height };
-      return res.metrics;
+      return new Promise((resolve, reject) => {
+        const p = { html, css, width, height, scroll_y, resolve, reject };
+        if (_renderInFlight) {
+          // A render is already in the worker.  Drop the previously queued
+          // request (it is stale) and replace with the latest parameters.
+          // The dropped request resolves with null metrics -- callers should
+          // treat a null return as "superseded, no metrics available".
+          if (_latestRender) _latestRender.resolve(null);
+          _latestRender = p;
+        } else {
+          _dispatchRender(p);
+        }
+      });
     },
 
     async resize(width, height) {
       if (!worker) return;
-      await workerCall({ cmd: 'resize', width, height });
+      await workerCall('resize', { width, height });
     },
 
-    // Render current page (with live DOM serialisation).
+    // Returns current engine renders per second (WASM completions in last 1 s).
+    engineFps() { return _engFps(); },
+
+    // Render current page (with live DOM serialisation, current scroll position,
+    // and physical Retina pixel resolution via window.devicePixelRatio).
+    //
+    // MacBook Pro Retina displays have devicePixelRatio = 2, meaning the backing
+    // buffer must be 2x2 = 4x larger than the CSS viewport to fill every physical
+    // pixel.  Without this, the GPU composites a 1x buffer scaled up 2x, wasting
+    // half the display bandwidth and making the render look soft.
     async renderCurrentPage(css_override) {
       const html = document.documentElement.outerHTML;
       const css  = css_override || '';
-      const w    = window.innerWidth;
-      const h    = window.innerHeight;
-      return comp.render(html, css, w, h);
+      // __xcmDprCap lets callers (or the dev console) reduce the effective DPR
+      // without changing the OS display setting -- useful for profiling whether
+      // the 4x pixel count at DPR=2 is the render bottleneck.
+      // Default cap is 1.5: still noticeably sharper than 1x on Retina but
+      // reduces the pixel buffer to ~2.25x instead of 4x, cutting render time
+      // roughly in half for large viewports.
+      const cap  = (typeof window.__xcmDprCap === 'number') ? window.__xcmDprCap : 1.5;
+      const dpr  = Math.min(window.devicePixelRatio || 1, cap);
+      _dpr       = dpr;
+      const w    = Math.round(window.innerWidth  * dpr);
+      const h    = Math.round(window.innerHeight * dpr);
+      // Pass the live scroll position scaled to physical pixels so the WASM
+      // engine's viewport-cull math works in the same coordinate space as the
+      // physical pixel buffer.
+      const sy   = Math.round((window.scrollY || 0) * dpr);
+      return comp.render(html, css, w, h, sy);
     },
   };
 

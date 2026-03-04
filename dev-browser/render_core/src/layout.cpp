@@ -37,16 +37,22 @@ float LayoutEngine::margin_collapse(float m1, float m2) const {
     return m1 + m2;
 }
 
-float LayoutEngine::measure_text_width(const char* text, std::size_t len,
+float LayoutEngine::measure_text_width(std::string_view sv,
                                         const ComputedStyle* cs) const {
+    if (sv.empty()) return 0.f;
     float em    = cs ? cs->font_size : 16.f;
-    float scale = em / 7.f;
+    // Use cached advance table for this em size -- no per-char division.
+    const float* adv_table = glyph_cache_.table_for(em);
+    float scale = em / 7.f;   // still needed for kern_adjust and multi-byte glyphs
     float w     = 0;
+    const char* text = sv.data();
+    const std::size_t len = sv.size();
     for (std::size_t i = 0; i < len; ) {
         unsigned char c = static_cast<unsigned char>(text[i]);
         if (c < 0x80) {
-            // Per-character advance matching draw_text exactly.
-            float adv = xcm::char_advance_px(c, scale);
+            // Per-character advance from pre-built cache -- no multiply here.
+            float adv = (c >= 32 && c <= 127) ? adv_table[c - 32]
+                                               : adv_table[0]; // fallback to space
             // Kern with next ASCII character.
             if (i + 1 < len) {
                 unsigned char nx = static_cast<unsigned char>(text[i + 1]);
@@ -59,16 +65,16 @@ float LayoutEngine::measure_text_width(const char* text, std::size_t len,
         } else if (c < 0xC0) {
             ++i;  // UTF-8 continuation byte
         } else if (c < 0xE0) {
-            // 2-byte sequence -- treat as single proportional char
-            w += xcm::char_advance_px('n', scale); // ~en-width for 2-byte
+            // 2-byte sequence -- treat as en-width
+            w += adv_table['n' - 32];
             i += 2;
         } else if (c < 0xF0) {
-            // 3-byte (CJK): treat as double-wide
-            w += xcm::char_advance_px('m', scale) * 1.5f;
+            // 3-byte (CJK): double-wide approximation
+            w += adv_table['m' - 32] * 1.5f;
             i += 3;
         } else {
             // 4-byte (emoji): double-wide
-            w += xcm::char_advance_px('m', scale) * 2.f;
+            w += adv_table['m' - 32] * 2.f;
             i += 4;
         }
     }
@@ -277,7 +283,6 @@ void LayoutEngine::layout_inline_children(LayoutBox* box, float avail_width) {
             box->children.push(layout_ar_, cb);
         } else {
             // Inline / text: accumulate into line boxes.
-            // We build a simple line-box here.
             std::vector<std::pair<Node*, const ComputedStyle*>> inline_nodes;
             // Collect consecutive inline children.
             Node* in_ch = ch;
@@ -297,49 +302,101 @@ void LayoutEngine::layout_inline_children(LayoutBox* box, float avail_width) {
                 }
                 in_ch = in_ch->next_sibling;
             }
-            // Skip 'ch' past the inline run.
-            // (We can't move ch since the outer loop does ch = ch->next_sibling,
-            //  so instead we use 'in_ch' to point at the first non-inline node
-            //  and will need a different loop structure here. We re-implement
-            //  the pass as a while loop.)
 
-            // Lay out a line box for each line break.
-            float line_x   = box->content_x();
-            float line_y   = cursor_y;
-            float line_h   = (parent_cs ? parent_cs->font_size * parent_cs->line_height : 19.2f);
-            float pen_x    = line_x;
+            // Lay out line boxes with proper word-wrap and text-align.
+            float line_x     = box->content_x();
+            float line_y     = cursor_y;
+            float line_h     = (parent_cs ? parent_cs->font_size * parent_cs->line_height : 19.2f);
+            float pen_x      = line_x;
             float max_line_h = line_h;
+
+            // text-align from parent (or inline element's) computed style.
+            TextAlign ta = parent_cs ? parent_cs->text_align : TextAlign::LEFT;
+
+            // Index into box->children marking the start of the current line.
+            // Used to retroactively shift boxes on a completed line for center/right alignment.
+            std::size_t line_box_start_idx = box->children.size();
+
+            // Helper: apply text-align x-offset to all boxes on the current line.
+            // line_w = pen_x - line_x (width used so far on this line).
+            auto flush_line_align = [&]() {
+                if (ta == TextAlign::LEFT) return;
+                float line_w = pen_x - line_x;
+                float offset = 0.f;
+                if (ta == TextAlign::CENTER)
+                    offset = std::max(0.f, (avail_width - line_w) / 2.f);
+                else if (ta == TextAlign::RIGHT)
+                    offset = std::max(0.f, avail_width - line_w);
+                if (offset < 0.5f) return;
+                for (std::size_t ci = line_box_start_idx; ci < box->children.size(); ++ci)
+                    box->children[ci]->x += offset;
+            };
 
             for (auto& [in_node, in_cs2] : inline_nodes) {
                 float em = in_cs2 ? in_cs2->font_size : 16.f;
                 float lh = in_cs2 ? em * in_cs2->line_height : em * 1.2f;
                 max_line_h = std::max(max_line_h, lh);
+                // Update text-align if this inline node overrides it.
+                if (in_cs2 && in_cs2->text_align != TextAlign::LEFT)
+                    ta = in_cs2->text_align;
 
                 if (in_node->kind == NodeKind::TEXT && in_node->text) {
-                    // Word-wrap text.
-                    const char* txt = in_node->text;
+                    // -------------------------------------------------------
+                    // Word-wrap: iterate word-by-word (unbreakable within a word).
+                    // For each word: measure including leading whitespace when not
+                    // at the start of a line; break to a new line when the word
+                    // does not fit; apply text-align after each completed line.
+                    // -------------------------------------------------------
+                    const char* txt  = in_node->text;
                     std::size_t tlen = std::strlen(txt);
-                    LayoutBox* tb = make_box(in_node);
-                    tb->parent = box;
-                    tb->x = pen_x;
-                    tb->y = line_y;
-                    // Compute width of whole text.
-                    float tw = measure_text_width(txt, tlen, in_cs2);
-                    float avail_line = box->content_x() + avail_width - pen_x;
-                    if (tw > avail_line && pen_x > line_x) {
-                        // Line break.
-                        line_y += max_line_h;
-                        pen_x   = line_x;
-                        tb->x   = pen_x;
-                        tb->y   = line_y;
-                        tw      = std::min(tw, avail_width);
-                    } else {
-                        tw = std::min(tw, avail_line);
+                    std::size_t pos  = 0;
+
+                    while (pos < tlen) {
+                        // Record start of any leading whitespace.
+                        std::size_t spc_start  = pos;
+                        while (pos < tlen && (txt[pos] == ' ' || txt[pos] == '\t')) ++pos;
+                        std::size_t word_start = pos;
+                        // Collect the unbreakable word.
+                        while (pos < tlen &&
+                               txt[pos] != ' ' && txt[pos] != '\t' && txt[pos] != '\n')
+                            ++pos;
+                        std::size_t word_end = pos;
+
+                        if (word_end == word_start) break; // only trailing whitespace
+
+                        // Segment: include leading space only when mid-line.
+                        std::size_t seg_s = (pen_x > line_x) ? spc_start : word_start;
+                        std::size_t seg_l = word_end - seg_s;
+                        float seg_w = measure_text_width(
+                            std::string_view(txt + seg_s, seg_l), in_cs2);
+
+                        float avail_line = box->content_x() + avail_width - pen_x;
+                        if (seg_w > avail_line && pen_x > line_x) {
+                            // Current line is full -- flush alignment, start new line.
+                            flush_line_align();
+                            line_y          += max_line_h;
+                            max_line_h       = lh;
+                            pen_x            = line_x;
+                            line_box_start_idx = box->children.size();
+                            // Re-measure word without leading whitespace.
+                            seg_s  = word_start;
+                            seg_l  = word_end - word_start;
+                            seg_w  = measure_text_width(
+                                std::string_view(txt + seg_s, seg_l), in_cs2);
+                        }
+
+                        // Create a word-level layout box.
+                        LayoutBox* wb  = make_box(in_node);
+                        wb->parent     = box;
+                        wb->x          = pen_x;
+                        wb->y          = line_y;
+                        wb->width      = seg_w;
+                        wb->height     = lh;
+                        wb->text_start = static_cast<uint32_t>(seg_s);
+                        wb->text_len   = static_cast<uint32_t>(seg_l);
+                        pen_x         += seg_w;
+                        box->children.push(layout_ar_, wb);
                     }
-                    tb->width  = tw;
-                    tb->height = lh;
-                    pen_x += tw;
-                    box->children.push(layout_ar_, tb);
                 } else if (in_node->kind == NodeKind::ELEMENT && in_cs2) {
                     // Inline element -- recurse.
                     LayoutBox* ib = make_box(in_node);
@@ -357,8 +414,12 @@ void LayoutEngine::layout_inline_children(LayoutBox* box, float avail_width) {
                     // img element: use width/height attrs or defaults.
                     const char* wa = in_node->attr("width");
                     const char* ha = in_node->attr("height");
-                    float iw = wa ? std::atof(wa) : (in_cs2->width.is_auto()  ? 100.f : resolve(in_cs2->width,  avail_width, em));
-                    float ih = ha ? std::atof(ha) : (in_cs2->height.is_auto() ? 100.f : resolve(in_cs2->height, vh_, em));
+                    float iw = wa ? std::atof(wa)
+                               : (in_cs2->width.is_auto()  ? 100.f
+                                  : resolve(in_cs2->width,  avail_width, em));
+                    float ih = ha ? std::atof(ha)
+                               : (in_cs2->height.is_auto() ? 100.f
+                                  : resolve(in_cs2->height, vh_, em));
 
                     ib->width  = iw;
                     ib->height = ih;
@@ -367,18 +428,14 @@ void LayoutEngine::layout_inline_children(LayoutBox* box, float avail_width) {
                     box->children.push(layout_ar_, ib);
                 }
             }
+
+            // Flush the final (possibly incomplete) line.
+            flush_line_align();
             cursor_y = line_y + max_line_h;
 
-            // Advance outer, compensating for the loop's ++ch.
-            // We consumed multiple ch nodes -- the outer for loop handles ch = ch->next_sibling
-            // but we've already consumed them.  We rely on the fact that we peeked at
-            // `in_ch` which points past the run.  We set ch = in_ch->prev_sibling so the
-            // outer loop's next_sibling brings us to in_ch.
+            // Advance outer ch past all consumed inline nodes.
             if (in_ch && in_ch != ch) {
-                // ch needs to end the iteration at the last node we consumed.
-                // Find the last inline node we consumed.
                 Node* last_inline = (!inline_nodes.empty()) ? inline_nodes.back().first : ch;
-                // Advance outer ch to last_inline (outer loop will do ->next_sibling).
                 ch = last_inline;
             }
         }

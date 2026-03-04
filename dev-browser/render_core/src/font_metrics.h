@@ -118,10 +118,58 @@ static const KernEntry KERN_TABLE[] = {
 };
 
 inline float kern_adjust(unsigned char a, unsigned char b) {
+
     for (const KernEntry* k = KERN_TABLE; k->a != 0; ++k) {
         if (k->a == a && k->b == b) return static_cast<float>(k->adj);
     }
     return 0.f;
 }
+
+// -------------------------------------------------------------------------
+// GlyphMetricsCache
+//
+// Analogous to HarfBuzz hb_font_get_glyph_h_advance with a per-font cache:
+// for each distinct em size the scaled advance table is computed ONCE and
+// stored in a fixed-size slot array (LRU round-robin eviction).
+//
+// Layout hot path:
+//   measure_text_width calls cache.table_for(em) to get a float[96] pointer,
+//   then indexes it per character -- no floating-point division per character,
+//   no per-frame recomputation.  The division em/7.f is amortised over all 96
+//   entries on the first access and never repeated for that em size.
+//
+// Up to CACHE_SLOTS distinct em sizes are kept.  CACHE_SLOTS=16 covers all
+// practical font-size variants on a real page with zero heap allocation.
+// -------------------------------------------------------------------------
+struct GlyphMetricsCache {
+    static constexpr int CACHE_SLOTS = 16;
+
+    struct Slot {
+        float em      = -1.f;          // -1 = empty
+        float adv[96] = {};            // precomputed advance_px per glyph index
+    };
+
+    Slot slots_[CACHE_SLOTS] = {};
+    int  next_  = 0;                   // round-robin eviction cursor
+
+    // Returns a pointer to the 96-entry advance table for this em size.
+    // Valid until the next call that evicts this slot (>= CACHE_SLOTS misses).
+    const float* table_for(float em) noexcept {
+        // Fast path: linear scan is fine for CACHE_SLOTS <= 16.
+        for (int i = 0; i < CACHE_SLOTS; ++i)
+            if (slots_[i].em == em) return slots_[i].adv;
+
+        // Cache miss: fill next slot (amortise the em/7.f division here).
+        Slot& s  = slots_[next_];
+        next_    = (next_ + 1) % CACHE_SLOTS;
+        s.em     = em;
+        float sc = em / 7.f;           // single division per distinct em size
+        for (int i = 0; i < 96; ++i) {
+            uint8_t a  = ADVANCE5x7[i];
+            s.adv[i]   = (a == 6) ? 5.f * sc + 1.f : static_cast<float>(a) * sc;
+        }
+        return s.adv;
+    }
+};
 
 } // namespace xcm

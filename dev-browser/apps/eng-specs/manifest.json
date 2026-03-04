@@ -1,0 +1,6 @@
+{
+  "name": "ENG Specs",
+  "slug": "eng-specs",
+  "description": "Live engine diagnostics: WASM binary info, render latency benchmark, GPU caps, display DPR, memory, input lag, and worker channel round-trip.",
+  "version": "1.0"
+}

@@ -1,11 +1,17 @@
 /**
  * wasm-renderer.js  --  Web Worker: load render_core.wasm, expose render API
  *
- * Runs inside a dedicated Worker.  The main thread communicates via postMessage.
+ * Runs inside a dedicated Worker.  The main thread communicates via a
+ * dedicated MessageChannel port (see wasm-compositor.js for the handshake).
  *
- * Inbound messages  (from main thread):
- *   { id, cmd: 'render', html, css, width, height }
- *      -> renders HTML+CSS at given viewport size
+ * Startup handshake:
+ *   1. Worker loads WASM and posts  { type:'ready' }  on its global scope.
+ *   2. Main thread sends  { type:'port', port: MessagePort }  on the global scope.
+ *   3. Worker stores the port and routes ALL subsequent replies through it.
+ *
+ * Inbound messages  (received on the transferred MessagePort):
+ *   { id, cmd: 'render', html, css, width, height, scroll_y }
+ *      -> renders HTML+CSS with scroll offset
  *      -> replies { id, ok:true, width, height, pixels:ArrayBuffer, metrics:{} }
  *
  *   { id, cmd: 'resize', width, height }
@@ -13,30 +19,18 @@
  *      -> replies { id, ok:true }
  *
  *   { id, cmd: 'status' }
- *      -> replies { id, ok:true, ready:bool, wasmSize }
+ *      -> replies { id, ok:true, ready:bool }
  *
  *   { id, cmd: 'ping' }
  *      -> replies { id, pong:true }
  *
  * Outbound messages:
- *   { type: 'ready' }           -- emitted once after WASM is loaded
- *   { type: 'error', message }  -- emitted on fatal init failure
+ *   { type: 'ready' }           -- emitted on global scope once after WASM loads
+ *   { type: 'error', message }  -- emitted on global scope on fatal init failure
  *
- * The pixel buffer is transferred (zero-copy) to the main thread via
- * ArrayBuffer transfer.  The main thread should upload it to a WebGL texture
- * or draw it onto a Canvas2D context.
- *
- * Usage (main thread):
- *   const worker = new Worker('./wasm-renderer.js');
- *   worker.onmessage = ({data}) => {
- *     if (data.type === 'ready') {
- *       worker.postMessage({ id:1, cmd:'render', html:'...', css:'...', width:800, height:600 });
- *     } else if (data.id === 1 && data.ok) {
- *       // data.pixels: ArrayBuffer (RGBA8, data.width * data.height * 4 bytes)
- *       const imageData = new ImageData(new Uint8ClampedArray(data.pixels), data.width, data.height);
- *       ctx.putImageData(imageData, 0, 0);
- *     }
- *   };
+ * After the handshake all traffic travels on the MessagePort, which has lower
+ * task-queue latency than the Worker's global scope channel.  Pixel buffers are
+ * transferred zero-copy via ArrayBuffer transfer.
  */
 
 'use strict';
@@ -44,12 +38,25 @@
 // -------------------------------------------------------------------------
 // State
 // -------------------------------------------------------------------------
-let Module   = null;   // Emscripten module instance
-let api      = null;   // Wrapped C API
-let ready    = false;
-let ctx_ptr  = 0;      // current xcm_ctx*
-let ctx_w    = 0;
-let ctx_h    = 0;
+let Module      = null;   // Emscripten module instance
+let api         = null;   // Wrapped C API
+let ready       = false;
+let ctx_ptr     = 0;      // current xcm_ctx*
+let ctx_w       = 0;
+let ctx_h       = 0;
+// _replyPort: once the main thread transfers a MessageChannel port we route
+// all replies through it instead of the Worker global scope.  Falls back to
+// self.postMessage for any messages that arrive before the port handshake.
+let _replyPort  = null;
+
+function _reply(msg, transfer) {
+  const target = _replyPort || self;
+  if (transfer && transfer.length > 0) {
+    target.postMessage(msg, transfer);
+  } else {
+    target.postMessage(msg);
+  }
+}
 
 // -------------------------------------------------------------------------
 // Load the Emscripten-generated module.
@@ -77,7 +84,7 @@ function wrapApi(mod) {
   return {
     create:       mod.cwrap('xcm_create',       'number', ['number','number']),
     destroy:      mod.cwrap('xcm_destroy',       null,     ['number']),
-    render:       mod.cwrap('xcm_render',        'number', ['number','string','number','string','number']),
+    render:       mod.cwrap('xcm_render',        'number', ['number','number','number','number','number','number']),
     pixels:       mod.cwrap('xcm_pixels',        'number', ['number']),
     width:        mod.cwrap('xcm_width',         'number', ['number']),
     height:       mod.cwrap('xcm_height',        'number', ['number']),
@@ -117,16 +124,19 @@ function allocStr(str) {
 
 // -------------------------------------------------------------------------
 // Perform a full render and return an ArrayBuffer of RGBA pixels.
+// scroll_y: document vertical scroll offset in CSS pixels.
 // -------------------------------------------------------------------------
-function render(html, css, width, height) {
+function render(html, css, width, height, scroll_y = 0) {
   ensureCtx(width, height);
 
   const htmlBuf = allocStr(html);
   const cssBuf  = allocStr(css);
 
+  // xcm_render(ctx, html_ptr, html_len, css_ptr, css_len, scroll_y)
   const rc = Module._xcm_render(ctx_ptr,
     htmlBuf.ptr, htmlBuf.len,
-    cssBuf.ptr,  cssBuf.len);
+    cssBuf.ptr,  cssBuf.len,
+    scroll_y);
 
   api.free(htmlBuf.ptr);
   api.free(cssBuf.ptr);
@@ -149,41 +159,57 @@ function render(html, css, width, height) {
 }
 
 // -------------------------------------------------------------------------
-// Message handler
+// Message handler -- shared by both the Worker global scope and the port.
 // -------------------------------------------------------------------------
-self.onmessage = function ({ data }) {
+function _handleMessage({ data }) {
+  // ---- Port handshake (arrives on global scope only) ----
+  if (data.type === 'port') {
+    _replyPort = data.port;
+    // Attach the same handler to the port so messages sent via the port
+    // are processed via this same function.
+    _replyPort.onmessage = _handleMessage;
+    return;
+  }
+
   const { id, cmd } = data;
   try {
     if (cmd === 'ping') {
-      self.postMessage({ id, pong: true });
+      _reply({ id, pong: true });
       return;
     }
     if (cmd === 'status') {
-      self.postMessage({ id, ok: true, ready, wasmLoaded: !!Module });
+      _reply({ id, ok: true, ready, wasmLoaded: !!Module });
       return;
     }
     if (!ready) {
-      self.postMessage({ id, ok: false, error: 'WASM not ready yet' });
+      _reply({ id, ok: false, error: 'WASM not ready yet' });
       return;
     }
     if (cmd === 'render') {
-      const { html = '', css = '', width = 800, height = 600 } = data;
-      const result = render(html, css, width, height);
-      // Transfer pixel ArrayBuffer (zero-copy).
-      self.postMessage({ id, ok: true, ...result }, [result.pixels]);
+      const { html = '', css = '', width = 800, height = 600, scroll_y = 0 } = data;
+      const result = render(html, css, width, height, scroll_y);
+      // Build reply explicitly -- no object spread to avoid a hidden allocation.
+      _reply(
+        { id, ok: true,
+          pixels: result.pixels, width: result.width,
+          height: result.height, metrics: result.metrics },
+        [result.pixels]   // transfer zero-copy
+      );
       return;
     }
     if (cmd === 'resize') {
       const { width = 800, height = 600 } = data;
       ensureCtx(width, height);
-      self.postMessage({ id, ok: true });
+      _reply({ id, ok: true });
       return;
     }
-    self.postMessage({ id, ok: false, error: `Unknown command: ${cmd}` });
+    _reply({ id, ok: false, error: `Unknown command: ${cmd}` });
   } catch (err) {
-    self.postMessage({ id, ok: false, error: err.message || String(err) });
+    _reply({ id, ok: false, error: err.message || String(err) });
   }
-};
+}
+
+self.onmessage = _handleMessage;
 
 // -------------------------------------------------------------------------
 // Init: load WASM on worker startup.

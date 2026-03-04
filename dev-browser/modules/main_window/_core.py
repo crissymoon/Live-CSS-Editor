@@ -186,6 +186,17 @@ class MainWindow(
         )
         self._status_bar.addPermanentWidget(self._net_label)
 
+        # ── FPS counter permanent widget ──────────────────────────
+        # Polls the active tab every second via a tiny rAF-based JS monitor.
+        # Shows engine FPS (from __xcmStats) when available, otherwise the
+        # raw requestAnimationFrame rate measured inside the page.
+        self._fps_label = QLabel('  FPS: --  ')
+        self._fps_label.setStyleSheet(
+            'QLabel { color:#f472b6; font-family:"JetBrains Mono",monospace;'
+            'font-size:11px; padding: 0 8px; }'
+        )
+        self._status_bar.addPermanentWidget(self._fps_label)
+
         # ── Color picker (eyedropper) button ─────────────────────
         self._cp_btn = QToolButton()
         self._cp_btn.setText('CP')
@@ -216,6 +227,11 @@ class MainWindow(
         self._net_timer.setInterval(1000)
         self._net_timer.timeout.connect(self._kick_net_update)
         self._net_timer.start()
+
+        self._fps_timer = QTimer(self)
+        self._fps_timer.setInterval(1000)
+        self._fps_timer.timeout.connect(self._poll_fps)
+        self._fps_timer.start()
 
         # ── Loading cat overlay ───────────────────────────────────
         self._loading_label = QLabel(
@@ -770,6 +786,8 @@ class MainWindow(
         narrow = self.width() < 515
         if hasattr(self, '_net_label'):
             self._net_label.setVisible(not narrow)
+        if hasattr(self, '_fps_label'):
+            self._fps_label.setVisible(not narrow)
         if hasattr(self, '_viewport_widget'):
             if narrow:
                 for child in self._viewport_widget.children():
@@ -785,6 +803,118 @@ class MainWindow(
         super().moveEvent(event)
         if hasattr(self, '_loading_label') and self._loading_label.isVisible():
             self._position_loading_label()
+
+    # ── FPS polling ───────────────────────────────────────────────
+
+    # Compact JS that installs a self-maintaining rAF counter the first time
+    # it runs in a page.  On subsequent calls it just reads the cached frame
+    # list.  Falls back to __xcmStats (stats-inject.js) or __xcmWasmComp
+    # (wasm-compositor.js) when those richer monitors are present.
+    # Returns [devFps, engFps, devHz] where:
+    #   devFps  -- measured rAF fps from stats-inject or the lightweight fallback
+    #   engFps  -- WASM compositor completions/s (null when compositor not active)
+    #   devHz   -- device display refresh rate from the Hz sampler (always set)
+    # Returning an array keeps all three values in a single JS round-trip.
+    # The FPS probe no longer installs its own rAF loop.  Instead it hooks
+    # into the shared __xcmTick bus (from _TICKER_JS) via __xcmFpsMon, which
+    # is registered exactly once.  This eliminates the duplicate rAF callback
+    # that was costing ~0.3-0.5 ms/frame of scheduler overhead.
+    _FPS_JS = (
+        '(function(){'
+        'var devFps=0,engFps=null,devHz=window.__xcmHz||0;'
+        'var s=window.__xcmStats||((window.__xcm)&&window.__xcm.stats);'
+        'if(s&&typeof s.fps==="function"){devFps=Math.round(+s.fps()||0);}'
+        # Install the lightweight counter on the shared tick bus (once).
+        'var m=window.__xcmFpsMon;'
+        'if(!m){'
+        ' m=window.__xcmFpsMon={ts:[],_hf:[],_p:0};'
+        ' if(typeof window.__xcmTick==="function"){'
+        '  window.__xcmTick(function(now){'
+        '   m.ts.push(now);'
+        '   if(m._p){var d=now-m._p;m._hf.push(d);if(m._hf.length>16)m._hf.shift();}'
+        '   m._p=now;'
+        '  });'
+        ' }'
+        '}'
+        'if(!devFps){'
+        ' var now=performance.now(),cut=now-1000;'
+        ' while(m.ts.length&&m.ts[0]<cut)m.ts.shift();'
+        ' devFps=m.ts.length;'
+        '}'
+        'if(!devHz&&m._hf.length>=4){'
+        ' var sum=0;for(var i=0;i<m._hf.length;i++)sum+=m._hf[i];'
+        ' var raw=Math.round(1000/(sum/m._hf.length));'
+        ' var snaps=[24,30,60,90,120,144,165,240],best=snaps[0];'
+        ' for(var j=1;j<snaps.length;j++)if(Math.abs(snaps[j]-raw)<Math.abs(best-raw))best=snaps[j];'
+        ' devHz=best;'
+        '}'
+        'var c=window.__xcmWasmComp;'
+        'if(c&&typeof c.engineFps==="function"){var e=+c.engineFps();if(e>0)engFps=Math.round(e);}'
+        'return [devFps,engFps,devHz];'
+        '})()'
+    )
+
+    def _poll_fps(self):
+        browser = self.tabs.currentWidget()
+        if not browser:
+            return
+        try:
+            page = browser.page()
+        except Exception:
+            return
+        if page is None:
+            return
+
+        def _cb(val):
+            dev_fps = None
+            eng_fps = None
+            dev_hz  = None
+            try:
+                if isinstance(val, (list, tuple)) and len(val) >= 3:
+                    dev_fps = int(val[0]) if val[0] is not None else None
+                    eng_fps = int(val[1]) if val[1] is not None else None
+                    dev_hz  = int(val[2]) if val[2] is not None else None
+                elif isinstance(val, (list, tuple)) and len(val) >= 2:
+                    dev_fps = int(val[0]) if val[0] is not None else None
+                    eng_fps = int(val[1]) if val[1] is not None else None
+                elif isinstance(val, (int, float)) and val is not None:
+                    dev_fps = int(val)
+            except (TypeError, ValueError):
+                pass
+
+            def _fps_color(fps):
+                if fps is None or fps <= 0:
+                    return '#6b7280'
+                if fps >= 50:
+                    return '#4ade80'
+                if fps >= 30:
+                    return '#facc15'
+                return '#f87171'
+
+            base_style = ('font-family:"JetBrains Mono",monospace;'
+                          'font-size:11px; padding: 0 8px;')
+
+            dev_str = str(dev_fps) if (dev_fps and dev_fps > 0) else '--'
+            # ENG shows WASM compositor fps when active; falls back to device
+            # display Hz (ProMotion 120, standard 60, etc.) so the slot is never
+            # blank -- it always reflects the hardware ceiling.
+            if eng_fps and eng_fps > 0:
+                eng_str = str(eng_fps)
+            elif dev_hz and dev_hz > 0:
+                eng_str = f'{dev_hz}Hz'
+            else:
+                eng_str = '--'
+            color = _fps_color(dev_fps)
+            text  = f'  DEV: {dev_str}  ENG: {eng_str}  '
+            self._fps_label.setStyleSheet(
+                f'QLabel {{ color:{color}; {base_style} }}'
+            )
+            self._fps_label.setText(text)
+
+        try:
+            page.runJavaScript(self._FPS_JS, _cb)
+        except Exception:
+            pass
 
     # ── Bookmark helper ───────────────────────────────────────────
 

@@ -60,10 +60,24 @@ public:
     // Clear to a given colour.
     void clear(Color c = Color::white());
 
+    // Set the vertical scroll position and optional overscan (extra pixels above/below
+    // the visible band to render to prevent flash on fast scrolls).
+    // Default overscan = 2 x typical line height (~48 px).
+    // Call before paint() on every frame that changes scroll position.
+    void set_scroll(float scroll_y, float overscan_px = 48.f) {
+        scroll_y_  = scroll_y;
+        overscan_  = overscan_px;
+    }
+
 private:
     int w_, h_;
     std::vector<uint8_t> pixels_;   // RGBA8, w*h*4 bytes
     std::vector<ClipRect> clip_stack_;
+
+    // Scroll state -- updated each frame via set_scroll().
+    float scroll_y_ = 0.f;  // document y offset in px
+    float overscan_ = 48.f; // extra px above/below viewport to batch-render
+                             // (1-2 line heights prevents edge flash)
 
     ClipRect current_clip() const {
         return clip_stack_.empty() ? ClipRect{0, 0, w_, h_} : clip_stack_.back();

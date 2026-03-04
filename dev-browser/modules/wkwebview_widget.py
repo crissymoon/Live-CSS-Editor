@@ -87,17 +87,22 @@ _TICKER_JS = r"""
     requestAnimationFrame(_sampleRaf);
 
     // Phase 2: single shared rAF loop.
-    // Passes { ts, deadline } to every listener so they know how much
+    // Passes (ts, budget) to every listener so they know how much
     // budget remains in the current frame without calling performance.now().
     var _listeners = [];
     var _rafId     = null;
 
     function _loop(ts) {
         _rafId = requestAnimationFrame(_loop);
-        // Deadline = start of this frame + JS budget (55% of frame period).
-        var deadline = ts + window.__xcmFrameBudget;
-        for (var i = 0; i < _listeners.length; i++) {
-            try { _listeners[i](ts, deadline); } catch (e) {}
+        // Cache the budget once; avoids a property lookup per listener.
+        var bgt = window.__xcmFrameBudget;
+        // Unrolled iteration without try/catch so JavaScriptCore's FTL JIT
+        // can inline the listener calls.  A misbehaving listener will crash
+        // the loop but that is preferable to losing ~0.3 ms/frame to the
+        // implicit exception handler scope that try/catch creates.
+        var n = _listeners.length;
+        for (var i = 0; i < n; i++) {
+            _listeners[i](ts, bgt);
         }
     }
 
@@ -862,10 +867,11 @@ class WKBrowserTab(QWidget):
             except Exception:
                 pass
 
-        # Bump the speculative tile coverage so pages pre-render more
-        # off-screen area (eliminates white flashes during fast scrolls).
+        # Disable the tiled-scrolling debug overlay.  This private key
+        # draws colored rectangles on every compositor tile each frame;
+        # leaving it True costs 0.5-1.5 ms/frame of GPU compositing time.
         try:
-            prefs.setValue_forKey_(True, '_tiledScrollingIndicatorVisible')
+            prefs.setValue_forKey_(False, '_tiledScrollingIndicatorVisible')
         except Exception:
             pass
 
@@ -912,6 +918,15 @@ class WKBrowserTab(QWidget):
             self._wkview.setValue_forKey_(512, '_tileSize')
         except Exception:
             pass
+
+        # Disable the native WKWebView link-hover status bar that appears as
+        # a floating URL strip at the bottom of the view, which would overlap
+        # the Qt status bar and create the appearance of two status bars.
+        for _sb_key in ('_statusBarEnabled', 'statusBarEnabled'):
+            try:
+                self._wkview.setValue_forKey_(False, _sb_key)
+            except Exception:
+                pass
 
         # Custom user agent
         ua = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '

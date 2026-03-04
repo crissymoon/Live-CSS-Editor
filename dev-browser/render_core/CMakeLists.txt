@@ -41,15 +41,32 @@ if(EMSCRIPTEN)
         SUFFIX ".js"
     )
 
+    # -----------------------------------------------------------------------
+    # WASM SIMD128 (-msimd128)
+    #   Unlocks 128-bit vector operations in the WASM binary.  The Emscripten
+    #   back-end emits SIMD load/store for std::fill and tight pixel loops
+    #   automatically when this flag is present.  Supported by Chrome 91+,
+    #   Firefox 89+, Safari 16.4+, Node 16.4+.
+    #
+    # Memory64 (-sMEMORY64=1) -- NOT enabled.
+    #   Memory64 extends the heap address space to 64 bits (>4 GB).  It does
+    #   not improve throughput or reduce per-pixel cost; it only matters when
+    #   a single allocation exceeds ~3.5 GB.  Render buffers here are at most
+    #   a few MB.  Additionally Memory64 is behind a flag in Safari as of 2026
+    #   and changes the type of every heap pointer in the generated JS glue,
+    #   which breaks the cwrap/ccall bridge used by wasm-renderer.js.  Leave
+    #   it off until all target browsers ship with unconditional support.
+    # -----------------------------------------------------------------------
     target_compile_options(render_core PRIVATE
         -O3
         -fno-exceptions
+        -msimd128
     )
 
     target_link_options(render_core PRIVATE
         -sWASM=1
         -sALLOW_MEMORY_GROWTH=1
-        -sINITIAL_MEMORY=33554432   # 32 MB
+        -sINITIAL_MEMORY=16777216   # 16 MB
         -sSTACK_SIZE=2097152        # 2 MB
         -sEXPORTED_FUNCTIONS=${EXP_FUNCS_STR}
         "-sEXPORTED_RUNTIME_METHODS=ccall,cwrap,UTF8ToString,stringToUTF8,HEAPU8"
@@ -58,6 +75,7 @@ if(EMSCRIPTEN)
         -sEXPORT_NAME=XcmRenderCore
         -sSINGLE_FILE=0
         -O3
+        -msimd128
     )
 
 else()

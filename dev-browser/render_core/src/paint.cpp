@@ -123,12 +123,16 @@ PaintEngine::PaintEngine(int width, int height)
 }
 
 void PaintEngine::clear(Color c) {
-    for (int y = 0; y < h_; ++y) {
-        for (int x = 0; x < w_; ++x) {
-            uint8_t* p = pixels_.data() + (y * w_ + x) * 4;
-            p[0] = c.r; p[1] = c.g; p[2] = c.b; p[3] = c.a;
-        }
-    }
+    // Pack RGBA into a single uint32_t (little-endian: byte 0 = R).
+    // std::fill on a uint32_t view lets the compiler emit SIMD stores
+    // (16-byte SSE2 / 128-bit WASM SIMD) instead of byte-by-byte writes.
+    // For white (0xFF,0xFF,0xFF,0xFF) this is ~4x faster than the loop.
+    const uint32_t packed = static_cast<uint32_t>(c.r)
+                          | (static_cast<uint32_t>(c.g) << 8)
+                          | (static_cast<uint32_t>(c.b) << 16)
+                          | (static_cast<uint32_t>(c.a) << 24);
+    uint32_t* dst = reinterpret_cast<uint32_t*>(pixels_.data());
+    std::fill(dst, dst + w_ * h_, packed);
 }
 
 // -------------------------------------------------------------------------
@@ -170,9 +174,28 @@ void PaintEngine::fill_rect(float fx, float fy, float fw, float fh, Color c, flo
     ClipRect clip = current_clip();
     x0 = std::max(x0, clip.x0); y0 = std::max(y0, clip.y0);
     x1 = std::min(x1, clip.x1); y1 = std::min(y1, clip.y1);
-    float a = (c.a / 255.f) * opacity;
-    float oma = 1.f - a;
     if (x0 >= x1 || y0 >= y1) return;
+    float a = (c.a / 255.f) * opacity;
+
+    // Fast path: fully opaque fill -- write packed uint32_t per pixel.
+    // Skips all per-channel float multiply/add; std::fill lets the compiler
+    // autovectorize to 4-pixel-wide WASM SIMD stores.  Background fill is the
+    // hottest paint operation so this has the largest impact on frame rate.
+    if (a >= 0.9999f) {
+        const uint32_t packed = static_cast<uint32_t>(c.r)
+                              | (static_cast<uint32_t>(c.g) << 8)
+                              | (static_cast<uint32_t>(c.b) << 16)
+                              | (static_cast<uint32_t>(c.a) << 24);
+        uint32_t* base = reinterpret_cast<uint32_t*>(pixels_.data());
+        for (int y = y0; y < y1; ++y) {
+            uint32_t* row = base + y * w_;
+            std::fill(row + x0, row + x1, packed);
+        }
+        return;
+    }
+
+    // Alpha-blend path for semi-transparent fills.
+    float oma = 1.f - a;
     for (int y = y0; y < y1; ++y) {
         uint8_t* row = pixels_.data() + y * w_ * 4;
         for (int x = x0; x < x1; ++x) {
@@ -433,6 +456,29 @@ void PaintEngine::paint_box(LayoutBox* box, float ox, float oy, float parent_opa
     float bx = box->x + ox, by = box->y + oy;
     float bw = box->width, bh = box->height;
 
+    // -----------------------------------------------------------------------
+    // Viewport culling with overscan band.
+    //
+    // Visible screen band: [-overscan_, h_ + overscan_).
+    // Extra overscan_ pixels above and below (1-2 line heights) are rendered
+    // proactively so fast scrolls never reveal an unrendered region.
+    //
+    // Skip the cull for out-of-flow (absolute/fixed) boxes because their
+    // screen coordinates are independent of their parent offset.
+    // Also skip if the box has out-of-flow children (OOF children may overlap
+    // a visible area even when their static parent is off-screen).
+    // -----------------------------------------------------------------------
+    if (!box->out_of_flow) {
+        bool has_oof_child = false;
+        for (auto* ch : box->children)
+            if (ch->out_of_flow) { has_oof_child = true; break; }
+        if (!has_oof_child) {
+            float vis_top    = -overscan_;
+            float vis_bottom = static_cast<float>(h_) + overscan_;
+            if (by + bh <= vis_top || by >= vis_bottom) return;
+        }
+    }
+
     // Background.
     if (cs && (cs->background_color.a > 0)) {
         bool has_radius = false;
@@ -460,16 +506,32 @@ void PaintEngine::paint_box(LayoutBox* box, float ox, float oy, float parent_opa
     if (clipped) push_clip(bx, by, bw, bh);
 
     // Text content for text nodes.
+    // Respects text_start / text_len for word-level inline boxes produced by
+    // the word-wrap pass in layout.cpp.  text_len == 0 means paint the whole
+    // node text (backward-compat for any box created without splitting).
     if (box->node && box->node->kind == NodeKind::TEXT && box->node->text) {
-        const char* txt = box->node->text;
-        std::size_t tlen = std::strlen(txt);
-        if (tlen > 0) {
-            draw_text(bx, by, txt, tlen, cs, opacity);
+        const char* full_txt  = box->node->text;
+        std::size_t full_len  = std::strlen(full_txt);
+        const char* draw_start;
+        std::size_t draw_len;
+        if (box->text_len > 0) {
+            // Word-level box: paint only the assigned slice.
+            std::size_t off = static_cast<std::size_t>(box->text_start);
+            std::size_t cnt = static_cast<std::size_t>(box->text_len);
+            if (off >= full_len) cnt = 0;
+            else cnt = std::min(cnt, full_len - off);
+            draw_start = full_txt + off;
+            draw_len   = cnt;
+        } else {
+            draw_start = full_txt;
+            draw_len   = full_len;
         }
+        if (draw_len > 0)
+            draw_text(bx, by, draw_start, draw_len, cs, opacity);
     }
 
     // Paint children recursively.
-    float scroll_dx = 0, scroll_dy = 0; // scrolling NYI at this level
+    float scroll_dx = 0, scroll_dy = 0; // per-box scroll NYI
     for (auto* ch : box->children) {
         paint_box(ch, ox + scroll_dx, oy + scroll_dy, opacity);
     }
@@ -483,7 +545,10 @@ void PaintEngine::paint_box(LayoutBox* box, float ox, float oy, float parent_opa
 void PaintEngine::paint(LayoutBox* root) {
     if (!root) return;
     clear(Color::white());
-    paint_box(root, 0.f, 0.f, 1.f);
+    // Apply scroll offset as a vertical translation so every box is drawn at
+    // its screen position (document_y - scroll_y_).  paint_box adds oy to
+    // every box->y, so passing -scroll_y_ here propagates through the tree.
+    paint_box(root, 0.f, -scroll_y_, 1.f);
 }
 
 } // namespace xcm

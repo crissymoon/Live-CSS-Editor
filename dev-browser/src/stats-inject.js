@@ -134,6 +134,87 @@
     var _hudTimer = null;
     var _hudVis   = false;
 
+    // ── Bottom FPS sync bar ──────────────────────────────────────────────────
+    // Always-visible bar at the bottom of the viewport.
+    // Shows device FPS (rAF rate from the Hz sampler) vs engine FPS
+    // (WASM render completions/s from window.__xcmWasmComp.engineFps())
+    // so rendering sync is immediately visible.
+    var _barEl    = null;
+    var _barTimer = null;
+
+    function _createBar() {
+        var el = document.createElement('div');
+        el.id = '__xcmFpsBar__';
+        Object.assign(el.style, {
+            position:       'fixed',
+            bottom:         '0',
+            left:           '0',
+            right:          '0',
+            zIndex:         '2147483647',
+            background:     'rgba(0,0,0,0.72)',
+            color:          '#e0e0e0',
+            fontFamily:     'monospace',
+            fontSize:       '11px',
+            lineHeight:     '1',
+            padding:        '4px 12px',
+            display:        'flex',
+            alignItems:     'center',
+            gap:            '20px',
+            pointerEvents:  'none',
+            userSelect:     'none',
+            letterSpacing:  '0.04em',
+            borderTop:      '1px solid rgba(255,255,255,0.08)',
+        });
+        document.body.appendChild(el);
+        return el;
+    }
+
+    // Returns a <span> coloured by the sync delta magnitude.
+    function _syncSpan(devFps, engFps) {
+        var diff   = Math.round(devFps - engFps);
+        var sign   = diff >= 0 ? '+' : '';
+        var color  = '#4caf50'; // green -- within 3 fps
+        if (Math.abs(diff) >= 8)       color = '#f44336'; // red -- large gap
+        else if (Math.abs(diff) >= 3)  color = '#ff9800'; // amber -- moderate gap
+        return '<span style="color:' + color + '">SYNC ' + sign + diff + '</span>';
+    }
+
+    function _updateBar() {
+        if (!_barEl) return;
+        var devFps = Math.round(_fpsRing.last()  || 0);
+        var devAvg = Math.round(_fpsRing.avg()   || 0);
+        var comp   = window.__xcmWasmComp;
+        var engFps = (comp && typeof comp.engineFps === 'function') ? Math.round(comp.engineFps()) : null;
+        var devHz  = window.__xcmHz || 0;
+
+        var parts = [
+            '<span style="color:#90caf9">DEV ' + devFps + ' fps</span>',
+            '<span style="color:#aaa">avg ' + devAvg + '</span>',
+            '<span style="color:#aaa">|</span>',
+        ];
+        if (engFps !== null) {
+            parts.push('<span style="color:#ce93d8">ENG ' + engFps + ' fps</span>');
+            parts.push(_syncSpan(devFps, engFps));
+            parts.push('<span style="color:#aaa">|</span>');
+        }
+        parts.push('<span style="color:#aaa">DISPLAY ' + devHz + ' Hz</span>');
+        parts.push('<span style="color:' + (_dropped > 0 ? '#f44336' : '#555') + '">DROP ' + _dropped + '</span>');
+
+        _barEl.innerHTML = parts.join(' ');
+        _barTimer = requestAnimationFrame(_updateBar);
+    }
+
+    function _showBar() {
+        if (!_barEl) _barEl = _createBar();
+        _barEl.style.display = 'flex';
+        if (!_barTimer) _updateBar();
+    }
+
+    function _hideBar() {
+        if (_barTimer) { cancelAnimationFrame(_barTimer); _barTimer = null; }
+        if (_barEl) _barEl.style.display = 'none';
+    }
+
     function _createHud() {
         var el = document.createElement('div');
         el.id = '__xcmStatsHud__';
@@ -223,6 +304,10 @@
         start: function () { _startLoop(); },
         stop:  function () { _stopLoop(); },
 
+        // Bottom FPS sync bar (device vs engine, always-visible).
+        showBar: function () { _showBar(); },
+        hideBar: function () { _hideBar(); },
+
         // Spector-style: capture one frame's PerformanceEntry list.
         captureFrame: function (cb) {
             var _before = performance.now();
@@ -261,5 +346,13 @@
 
     // Auto-start.
     stats.start();
+
+    // Auto-show the bottom FPS sync bar.
+    // Deferred to DOMContentLoaded so document.body is available for appendChild.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { _showBar(); });
+    } else {
+        _showBar();
+    }
 
 })(window);

@@ -7,7 +7,8 @@
  *   void      xcm_destroy(xcm_ctx* ctx)
  *   int       xcm_render(xcm_ctx* ctx,
  *                        const char* html, int html_len,
- *                        const char* css,  int css_len)
+ *                        const char* css,  int css_len,
+ *                        float scroll_y)
  *   uint8_t*  xcm_pixels(xcm_ctx* ctx)
  *   int       xcm_width(xcm_ctx* ctx)
  *   int       xcm_height(xcm_ctx* ctx)
@@ -101,7 +102,8 @@ XCM_EXPORT void xcm_destroy(xcm_ctx* ctx) {
 // -------------------------------------------------------------------------
 XCM_EXPORT int xcm_render(xcm_ctx* ctx,
                           const char* html, int html_len,
-                          const char* css,  int css_len)
+                          const char* css,  int css_len,
+                          float scroll_y)
 {
     if (!ctx) return -1;
     ctx->reset();
@@ -137,6 +139,7 @@ XCM_EXPORT int xcm_render(xcm_ctx* ctx,
     ctx->layout_root = ctx->layout_eng->layout(ctx->doc);
 
     // 5. Paint.
+    ctx->paint_eng->set_scroll(scroll_y);
     ctx->paint_eng->paint(ctx->layout_root);
 
     // 6. Build metrics JSON.
@@ -233,7 +236,7 @@ int main(int argc, char** argv) {
 
     int rc = xcm_render(ctx,
                         TEST_HTML, static_cast<int>(std::strlen(TEST_HTML)),
-                        "", 0);
+                        "", 0, 0.f);
     if (rc != 0) { std::fprintf(stderr, "xcm_render returned %d\n", rc); return 1; }
 
     std::fprintf(stderr, "metrics: %s\n", xcm_metrics_json(ctx));
