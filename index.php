@@ -542,6 +542,9 @@ sort($allPropertyNames);
     <script src="js/cdn-loader.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/storage.js"></script>
+    <script src="js/editor/goto-css.js"></script>
+    <script src="js/editor/lint.js"></script>
+    <script src="js/editor/preview.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/property-lookup.js"></script>
     <script src="js/fuzzy.js"></script>

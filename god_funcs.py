@@ -437,6 +437,26 @@ class GodFunctionScanner:
                 full_text = content[match.start():brace_start] + body
                 functions.append((func_name, full_text))
 
+        # Arrow functions with parens: const/let/var name = (...) => {
+        pattern_arrow = r'(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{'
+        for match in re.finditer(pattern_arrow, content):
+            func_name = match.group(1)
+            brace_start = match.end() - 1
+            body = self._extract_brace_block(content, brace_start)
+            if body:
+                full_text = content[match.start():brace_start] + body
+                functions.append((func_name, full_text))
+
+        # Arrow functions with single bare param: const/let/var name = param => {
+        pattern_arrow_single = r'(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\w+\s*=>\s*\{'
+        for match in re.finditer(pattern_arrow_single, content):
+            func_name = match.group(1)
+            brace_start = match.end() - 1
+            body = self._extract_brace_block(content, brace_start)
+            if body:
+                full_text = content[match.start():brace_start] + body
+                functions.append((func_name, full_text))
+
         # Method definitions: name(...) { or name: function(...) {
         pattern2 = r'(\w+)\s*(?::\s*function)?\s*\([^)]*\)\s*\{'
         for match in re.finditer(pattern2, content):
@@ -455,8 +475,7 @@ class GodFunctionScanner:
         """Calculate cyclomatic complexity for JavaScript code."""
         complexity = 1
         patterns = [
-            r'\bif\s*\(',
-            r'\belse\s+if\s*\(',
+            r'\bif\s*\(',        # covers both if and else if -- do not add else-if separately
             r'\bfor\s*\(',
             r'\bwhile\s*\(',
             r'\bcase\s+[^:]+:',
@@ -472,12 +491,24 @@ class GodFunctionScanner:
     
     def _count_params_js(self, func_body: str) -> int:
         """Count parameters in JavaScript function."""
-        match = re.search(r'(?:function\s+\w+|[\w]+)\s*\(([^)]*)\)', func_body)
+        # Named function declaration: function name(params)
+        match = re.search(r'function\s+\w+\s*\(([^)]*)\)', func_body)
         if match:
             params = match.group(1).strip()
-            if not params:
-                return 0
-            return len([p for p in params.split(',') if p.strip()])
+            return 0 if not params else len([p for p in params.split(',') if p.strip()])
+        # Arrow function with parens: const/let/var name = (...) =>
+        match = re.search(r'(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>', func_body)
+        if match:
+            params = match.group(1).strip()
+            return 0 if not params else len([p for p in params.split(',') if p.strip()])
+        # Arrow function with single bare param: const/let/var name = param =>
+        if re.search(r'(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\w+\s*=>', func_body):
+            return 1
+        # Method shorthand: name(params) { -- search only the signature portion
+        match = re.search(r'^\w+\s*\(([^)]*)\)', func_body)
+        if match:
+            params = match.group(1).strip()
+            return 0 if not params else len([p for p in params.split(',') if p.strip()])
         return 0
     
     # --- Shared Helpers ---
