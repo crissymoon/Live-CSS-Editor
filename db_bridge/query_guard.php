@@ -62,6 +62,14 @@ const DB_ADMIN_ACTIONS = [
     'accounting.journal_post',
 ];
 
+// Subset of admin actions that must open the database in read-write mode.
+// All other admin actions are opened readonly.
+const DB_ADMIN_WRITE_ACTIONS = [
+    'accounting.account_create',
+    'accounting.journal_create',
+    'accounting.journal_post',
+];
+
 /**
  * Dispatch an allowlisted action.
  *

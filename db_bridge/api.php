@@ -147,8 +147,10 @@ if ($db_key === '') {
 $pdo = null;
 if ($db_key !== '' && $action !== 'admin.db_list') {
     try {
-        $db_path = db_resolve_path($db_key);
-        $pdo     = db_connect($db_path, $is_admin_action);
+        $db_path  = db_resolve_path($db_key);
+        // Admin actions are readonly unless the action explicitly needs writes.
+        $readonly = $is_admin_action && !in_array($action, DB_ADMIN_WRITE_ACTIONS, true);
+        $pdo      = db_connect($db_path, $readonly);
     } catch (Throwable $e) {
         api_error('Database unavailable: ' . $e->getMessage(), 503);
     }
