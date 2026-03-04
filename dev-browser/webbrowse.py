@@ -166,6 +166,27 @@ def _start_image_cache_server():
     print(f'[webbrowse] image cache server started (PID {proc.pid}) on :7779', flush=True)
 
 
+def _start_wasm_renderer():
+    """Warm-up the WasmRenderer singleton in a background thread.
+
+    This pre-loads render_core.wasm (via wasmtime-py) or the native shared
+    library so that the first real render call has no cold-start latency.
+    Does nothing if neither backend is available -- the engine is optional.
+    """
+    def _warmup():
+        try:
+            from modules.wasm_renderer import get_renderer
+            rend = get_renderer()
+            # Tiny smoke-render to force WASM compilation + linking.
+            rend.render('<html><body><p>ok</p></body></html>', '', 64, 32)
+            print('[webbrowse] WASM render engine ready', flush=True)
+        except Exception as exc:
+            print(f'[webbrowse] WASM render engine unavailable: {exc}', flush=True)
+            print('[webbrowse]   Build with: cd dev-browser/render_core && ./build.sh', flush=True)
+    t = __import__('threading').Thread(target=_warmup, daemon=True, name='wasm-warmup')
+    t.start()
+
+
 def _launch_auth_servers():
     """Start start-auth.sh if the servers are not already running.
     Polls port 8080 with 0.2s intervals for up to 10 seconds."""
@@ -205,6 +226,7 @@ def main():
     args = parser.parse_args()
 
     _start_image_cache_server()
+    _start_wasm_renderer()
     _launch_auth_servers()
 
     start_command_server(args.port)

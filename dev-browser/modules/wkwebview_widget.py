@@ -19,7 +19,7 @@ from Foundation import (
     NSString, NSLog, NSDictionary,
 )
 
-from .cdm import CDM_PERF_JS
+from .cdm_sdk import CDM_SDK_JS
 
 # ── Performance-injection helpers ─────────────────────────────────────────────
 _SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src')
@@ -36,12 +36,21 @@ def _load_src_js(name: str) -> str:
 _TICKER_JS = r"""
 (function () {
     'use strict';
+
+    // Exported globals (read by CDM SDK and other injections)
     window.__xcmHz            = 60;
-    window.__xcmFrameMs       = 16;
+    window.__xcmFrameMs       = 1000 / 60;
+    window.__xcmFrameBudget   = (1000 / 60) * 0.55;  // 55% of frame for JS
     window.__xcmIsHighHz      = false;
-    window.__xcmIdleThreshold = 4;
+    // Scroll-idle debounce: wait 4 full frame periods before treating scroll
+    // as ended.  Previously this was 0.3x one frame (~5 ms at 60 Hz) which
+    // fired the scroll-end handler dozens of times during active momentum
+    // scrolling, triggering layout work mid-scroll.
+    window.__xcmIdleThreshold = Math.ceil(1000 / 60) * 4;
+
     var SAMPLE_COUNT = 30;
     var _samples = [], _last = 0;
+
     function _snap(hz) {
         if (hz >= 130) return 144;
         if (hz >= 105) return 120;
@@ -49,37 +58,64 @@ _TICKER_JS = r"""
         if (hz >=  50) return 60;
         return 30;
     }
-    function _onDetected() {
-        _samples.sort(function (a, b) { return a - b; });
-        var median  = _samples[Math.floor(_samples.length / 2)];
-        var hz      = _snap(Math.round(1000 / median));
+
+    function _calibrate(hz) {
+        var frameMs                = 1000 / hz;
         window.__xcmHz            = hz;
-        window.__xcmFrameMs       = 1000 / hz;
+        window.__xcmFrameMs       = frameMs;
+        window.__xcmFrameBudget   = frameMs * 0.55;
         window.__xcmIsHighHz      = hz > 75;
-        window.__xcmIdleThreshold = Math.max(1, (1000 / hz) * 0.3);
+        // 4 frame periods: long enough that momentum scrolling never
+        // accidentally triggers the scroll-end path between frames.
+        window.__xcmIdleThreshold = Math.ceil(frameMs) * 4;
     }
+
+    // Phase 1: sample 30 rAF intervals to detect the actual display Hz.
     function _sampleRaf(ts) {
         if (_last) _samples.push(ts - _last);
         _last = ts;
-        if (_samples.length < SAMPLE_COUNT) { requestAnimationFrame(_sampleRaf); }
-        else { _onDetected(); }
-    }
-    requestAnimationFrame(_sampleRaf);
-    var _listeners = [], _rafId = null;
-    function _loop(ts) {
-        _rafId = requestAnimationFrame(_loop);
-        for (var i = 0; i < _listeners.length; i++) {
-            try { _listeners[i](ts); } catch(e) {}
+        if (_samples.length < SAMPLE_COUNT) {
+            requestAnimationFrame(_sampleRaf);
+        } else {
+            _samples.sort(function (a, b) { return a - b; });
+            var median = _samples[Math.floor(_samples.length / 2)];
+            _calibrate(_snap(Math.round(1000 / median)));
+            // Hand off to the continuous tick loop.
+            _rafId = requestAnimationFrame(_loop);
         }
     }
+    requestAnimationFrame(_sampleRaf);
+
+    // Phase 2: single shared rAF loop.
+    // Passes { ts, deadline } to every listener so they know how much
+    // budget remains in the current frame without calling performance.now().
+    var _listeners = [];
+    var _rafId     = null;
+
+    function _loop(ts) {
+        _rafId = requestAnimationFrame(_loop);
+        // Deadline = start of this frame + JS budget (55% of frame period).
+        var deadline = ts + window.__xcmFrameBudget;
+        for (var i = 0; i < _listeners.length; i++) {
+            try { _listeners[i](ts, deadline); } catch (e) {}
+        }
+    }
+
+    // Register a per-frame callback.  Returns an unsubscribe function.
+    // Listeners receive (timestamp, frameDeadline) on each tick.
     window.__xcmTick = function (fn) {
         _listeners.push(fn);
-        if (_rafId === null) { _rafId = requestAnimationFrame(_loop); }
+        // Only start the loop if the sampling phase has finished; otherwise
+        // the loop starts automatically after _calibrate runs.
+        if (_rafId === null && _samples.length >= SAMPLE_COUNT) {
+            _rafId = requestAnimationFrame(_loop);
+        }
         return function () {
             var idx = _listeners.indexOf(fn);
             if (idx !== -1) _listeners.splice(idx, 1);
             if (!_listeners.length && _rafId !== null) {
-                cancelAnimationFrame(_rafId); _rafId = null;
+                cancelAnimationFrame(_rafId);
+                _rafId = null;
             }
         };
     };
@@ -1148,15 +1184,27 @@ class WKBrowserTab(QWidget):
                 False)  # apply to all frames including LinkedIn sub-frames
         self._content_controller.addUserScript_(prevent_focus_zoom)
 
-        # CDM: scroll-performance helpers (passive listeners, CSS layer hints,
-        # rAF throttle during scroll).  Injected after cat-assist so the
-        # __xcmScrolling__ flag is available to both scripts.
-        cdm_perf = WebKit.WKUserScript.alloc() \
+        # Input watcher: single-writer Int32Array atom for all pointer,
+        # wheel, touch, keyboard, and scroll events.  Must be injected
+        # BEFORE the CDM SDK so the atom exists when CDM SDK initialises.
+        # All other modules read scroll/input state from this atom; nothing
+        # else writes to it, eliminating the multi-boolean race condition.
+        input_script = WebKit.WKUserScript.alloc() \
             .initWithSource_injectionTime_forMainFrameOnly_(
-                CDM_PERF_JS,
-                WebKit.WKUserScriptInjectionTimeAtDocumentEnd,
-                True)
-        self._content_controller.addUserScript_(cdm_perf)
+                _load_src_js('input-watcher.js'),
+                WebKit.WKUserScriptInjectionTimeAtDocumentStart,
+                False)
+        self._content_controller.addUserScript_(input_script)
+
+        # CDM SDK: cooperative scheduler, read/write batcher, CSS containment,
+        # passive-listener enforcement, MutationObserver feed-item tagging.
+        # Replaces the old lightweight CDM_PERF_JS.
+        cdm_sdk = WebKit.WKUserScript.alloc() \
+            .initWithSource_injectionTime_forMainFrameOnly_(
+                CDM_SDK_JS,
+                WebKit.WKUserScriptInjectionTimeAtDocumentStart,
+                False)
+        self._content_controller.addUserScript_(cdm_sdk)
 
         # ── Performance injections from dev-browser/src/ ─────────────────────
         # Ticker: rAF Hz detector + tick bus (sets __xcmHz, __xcmFrameMs,
@@ -1198,6 +1246,29 @@ class WKBrowserTab(QWidget):
                 WebKit.WKUserScriptInjectionTimeAtDocumentEnd,
                 True)
         self._content_controller.addUserScript_(compress_script)
+
+        # Stats monitor: rAF frame-time ring buffer, PerformanceObserver
+        # long-task tracking, and Spector-style per-frame resource capture.
+        # DocumentEnd, main frame only.  Exposes window.__xcm.stats.
+        stats_script = WebKit.WKUserScript.alloc() \
+            .initWithSource_injectionTime_forMainFrameOnly_(
+                _load_src_js('stats-inject.js'),
+                WebKit.WKUserScriptInjectionTimeAtDocumentEnd,
+                True)
+        self._content_controller.addUserScript_(stats_script)
+
+        # WebGL GPU pre-warmer: creates a shared WebGL2 OffscreenCanvas,
+        # decodes images via createImageBitmap (off main thread), and uploads
+        # them as WebGL textures before they scroll into view.  Prevents
+        # WKWebView compositor stalls from unready textures during scroll.
+        # Also includes Spector-style captureFrame() for WebGL call inspection.
+        # DocumentEnd, main frame only.  Exposes window.__xcm.gpu.
+        gpu_script = WebKit.WKUserScript.alloc() \
+            .initWithSource_injectionTime_forMainFrameOnly_(
+                _load_src_js('webgl-engine.js'),
+                WebKit.WKUserScriptInjectionTimeAtDocumentEnd,
+                True)
+        self._content_controller.addUserScript_(gpu_script)
 
     # ── Cleanup ────────────────────────────────────────────────
 

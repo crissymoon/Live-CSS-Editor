@@ -150,6 +150,47 @@ class BrowserCommandHandler(BaseHTTPRequestHandler):
             from .apps_manager import get_manager
             job_id = get_manager().run_automation(app_slug, params)
             self._json({'job_id': job_id})
+
+        elif path == '/render':
+            # ── WASM render endpoint ─────────────────────────────────
+            # POST { html, css?, width?, height?, format? }
+            # Returns PNG (image/png) by default, or JSON with png_b64
+            # when format=json is specified.
+            html_src  = payload.get('html', '')
+            css_src   = payload.get('css',  '')
+            width     = int(payload.get('width',  1280))
+            height    = int(payload.get('height',  900))
+            fmt       = payload.get('format', 'png')   # 'png' | 'json'
+            if not html_src:
+                self._json({'error': 'html is required'}, status=400)
+                return
+            try:
+                from .wasm_renderer import get_renderer
+                rend = get_renderer()
+                if fmt == 'json':
+                    meta = rend.render_with_meta(html_src, css_src, width, height)
+                    import base64 as _b64
+                    from .wasm_renderer import _encode_png
+                    png = _encode_png(meta['pixels'], meta['width'], meta['height'])
+                    self._json({
+                        'ok':      True,
+                        'png_b64': _b64.b64encode(png).decode(),
+                        'width':   meta['width'],
+                        'height':  meta['height'],
+                        'metrics': meta['metrics'],
+                    })
+                else:
+                    png = rend.render_to_png(html_src, css_src, width, height)
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'image/png')
+                    self.send_header('Content-Length', str(len(png)))
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.send_header('Cache-Control', 'no-store')
+                    self.end_headers()
+                    self.wfile.write(png)
+            except Exception as exc:
+                self._json({'error': str(exc)}, status=500)
+
         else:
             self.send_response(404)
             self.send_header('Access-Control-Allow-Origin', '*')

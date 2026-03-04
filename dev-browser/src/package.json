@@ -1,14 +1,17 @@
 {
   "name": "xcm-dev-browser-src",
   "version": "1.0.0",
-  "description": "Image cache server and performance injection scripts for xcm dev-browser",
+  "description": "Image cache server, puppeteer CDP bridge, and performance injection scripts",
   "main": "image-cache-server.js",
   "scripts": {
-    "start": "node image-cache-server.js"
+    "start": "node image-cache-server.js",
+    "puppeteer": "node puppeteer-server.js"
   },
   "dependencies": {
     "piscina": "^4.0.0",
     "sharp": "^0.33.0",
-    "ioredis": "^5.0.0"
+    "ioredis": "^5.0.0",
+    "puppeteer-core": "^22.0.0",
+    "ws": "^8.16.0"
   }
 }

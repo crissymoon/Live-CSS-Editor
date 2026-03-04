@@ -19,9 +19,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QAction, QPixmap
 
-# Both browser engines.
-from ..wkwebview_widget import WKBrowserTab, WKPersistentProfile
-from ..browser_profile import BrowserTab as QTBrowserTab, PersistentProfile as QTPersistentProfile
+# Browser render backends.
+from ..wkwebview_widget  import WKBrowserTab, WKPersistentProfile
+from ..browser_profile   import BrowserTab as QTBrowserTab, PersistentProfile as QTPersistentProfile
+from ..puppeteer_bridge  import PuppeteerBridgeTab, PuppeteerBridge
 from ..tools_manager import ToolsManager
 from ..console_panel import ConsolePanel
 from ..command_server import CMD_QUEUE
@@ -78,7 +79,12 @@ class MainWindow(
         self.tools_manager = ToolsManager()
         # Global engine override for testing.  None = auto-detect per URL.
         # 'wk' = always use WKWebView.  'qt' = always use QtWebEngine.
+        # 'puppeteer' = native Chrome via CDP (cross-platform, no Qt compositor).
         self._force_engine: str | None = None
+
+        # Puppeteer bridge -- created lazily the first time a 'puppeteer' tab
+        # is opened.  One bridge serves all puppeteer tabs.
+        self._puppeteer_bridge: PuppeteerBridge | None = None
 
         # Start the apps PHP server in the background.
         from ..apps_manager import get_manager as _get_apps_manager
@@ -286,10 +292,12 @@ class MainWindow(
         return 'qt'
 
     def _tab_engine(self, tab=None):
-        """Return 'wk' or 'qt' for the given tab (defaults to current)."""
+        """Return 'wk', 'qt', or 'puppeteer' for the given tab."""
         if tab is None:
             tab = self.tabs.currentWidget()
-        return 'wk' if isinstance(tab, WKBrowserTab) else 'qt'
+        if isinstance(tab, WKBrowserTab):         return 'wk'
+        if isinstance(tab, PuppeteerBridgeTab):   return 'puppeteer'
+        return 'qt'
 
     def _switch_engine(self):
         """Reopen the current tab in the opposite engine."""
@@ -301,7 +309,9 @@ class MainWindow(
         if not url_str or url_str.startswith('about:'):
             url_str = None
         current_engine = self._tab_engine(browser)
-        new_engine = 'qt' if current_engine == 'wk' else 'wk'
+        # Cycle: wk -> qt -> puppeteer -> wk
+        _cycle = {'wk': 'qt', 'qt': 'puppeteer', 'puppeteer': 'wk'}
+        new_engine = _cycle.get(current_engine, 'qt')
         idx   = self.tabs.currentIndex()
         label = self.tabs.tabText(idx) or 'New Tab'
 
@@ -335,8 +345,10 @@ class MainWindow(
     def _update_engine_btn(self, tab=None):
         """Refresh the engine button label and window title."""
         engine = self._tab_engine(tab)
-        self._engine_btn.setText('WK' if engine == 'wk' else 'QT')
-        suffix = '(WKWebView)' if engine == 'wk' else '(QtWebEngine)'
+        _labels   = {'wk': 'WK',   'qt': 'QT',         'puppeteer': 'CDP'}
+        _suffixes = {'wk': '(WKWebView)', 'qt': '(QtWebEngine)', 'puppeteer': '(Chrome CDP)'}
+        self._engine_btn.setText(_labels.get(engine, 'QT'))
+        suffix = _suffixes.get(engine, '(QtWebEngine)')
         self.setWindowTitle(f"Crissy's Style Tool {suffix}")
 
     def _rebuild_engine_menu(self):
@@ -567,6 +579,15 @@ class MainWindow(
 
     # ── Tabs ──────────────────────────────────────────────────────
 
+    def _ensure_puppeteer_bridge(self) -> PuppeteerBridge:
+        """Create and start the bridge on first use."""
+        if self._puppeteer_bridge is None:
+            self._puppeteer_bridge = PuppeteerBridge(self)
+            ok = self._puppeteer_bridge.start()
+            if not ok:
+                print('[MainWindow] puppeteer bridge failed to start', flush=True)
+        return self._puppeteer_bridge
+
     def add_new_tab(self, qurl=None, label='New Tab', engine=None, make_current=True):
         if engine is None:
             engine = self._force_engine if self._force_engine is not None else self._engine_for_url(qurl)
@@ -575,6 +596,12 @@ class MainWindow(
             browser = WKBrowserTab(self.wk_profile)
             browser._console_panel = self.console_panel
             browser._main_window   = self
+        elif engine == 'puppeteer':
+            # Native Chrome backend -- no Qt compositor involvement.
+            # The PuppeteerBridgeTab holds the tab slot; Chrome's native window
+            # shows the actual page content with WebGL spring compositor.
+            bridge  = self._ensure_puppeteer_bridge()
+            browser = PuppeteerBridgeTab(bridge, parent=self)
         else:
             browser = QTBrowserTab(self.qt_profile)
             browser._main_window   = self
@@ -590,7 +617,7 @@ class MainWindow(
             self.tabs.setCurrentIndex(i)
 
         browser.urlChanged.connect(lambda u, b=browser: self.update_urlbar(u, b))
-        if engine != 'wk':
+        if engine not in ('wk', 'puppeteer'):
             browser.urlChanged.connect(
                 lambda u, b=browser: self._auto_switch_if_needed(u, b)
             )

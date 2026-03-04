@@ -53,6 +53,9 @@ const PORT          = parseInt(process.env.IMG_CACHE_PORT || (_portArg && _portA
 const REDIS_URL     = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 const MEM_MAX       = parseInt(process.env.NODE_MEM_CACHE_MAX || '200', 10);
 const WEBP_QUALITY  = parseInt(process.env.IMG_WEBP_QUALITY  || '82',  10);
+// AVIF quality is perceptually equivalent to WebP at a lower numeric value.
+// 55 gives ~40-50% smaller files than WebP 82 with visually identical output.
+const AVIF_QUALITY  = parseInt(process.env.IMG_AVIF_QUALITY  || '55',  10);
 const MAX_SRC_BYTES = parseInt(process.env.IMG_MAX_SRC_BYTES || String(10 * 1024 * 1024), 10);
 // SWR: after SWR_FACTOR of the TTL has elapsed the entry is "stale" -- served
 // immediately with X-Cache: STALE while a background revalidation runs.
@@ -130,10 +133,11 @@ function _ttl(urlStr) {
 }
 
 // ── Cache key ────────────────────────────────────────────────────────────────
-function _key(url, w, h) {
+// fmt is included so webp and avif variants are stored as separate entries.
+function _key(url, w, h, fmt) {
     return 'xcm:img:' + crypto
         .createHash('sha256')
-        .update(url + '|' + (w || '0') + '|' + (h || '0'))
+        .update(url + '|' + (w || '0') + '|' + (h || '0') + '|' + (fmt || 'webp'))
         .digest('hex')
         .slice(0, 32);
 }
@@ -308,16 +312,18 @@ function _fetch(urlStr) {
 // ── Dispatch to pool ─────────────────────────────────────────────────────────
 // Transfers the raw buffer to the worker thread (zero-copy ArrayBuffer
 // transfer).  The worker returns an ArrayBuffer which we wrap into a Buffer.
-async function _process(rawBuf, w, h) {
+async function _process(rawBuf, w, h, fmt) {
     // Transfer rawBuf.buffer to the worker thread.  After transfer the
     // original Buffer's backing store is detached -- we must not read it again.
     const inputAB = rawBuf.buffer.slice(
         rawBuf.byteOffset,
         rawBuf.byteOffset + rawBuf.byteLength
     );
+    const isAvif   = fmt === 'avif';
+    const quality  = isAvif ? AVIF_QUALITY : WEBP_QUALITY;
 
     const resultAB = await pool.run(
-        { buffer: inputAB, w: w || null, h: h || null, quality: WEBP_QUALITY },
+        { buffer: inputAB, w: w || null, h: h || null, quality, format: fmt || 'webp' },
         { transferList: [inputAB] }
     );
 
@@ -329,12 +335,12 @@ async function _process(rawBuf, w, h) {
 // multiple requests arrive during the stale window simultaneously.
 const _swrInFlight = new Set();
 
-async function _swrRevalidate(srcUrl, k, w, h, ttl) {
+async function _swrRevalidate(srcUrl, k, w, h, ttl, fmt) {
     if (_swrInFlight.has(k)) return;
     _swrInFlight.add(k);
     try {
         const raw       = await _fetch(srcUrl);
-        const processed = await _process(raw, w, h);
+        const processed = await _process(raw, w, h, fmt);
         await cacheSet(k, processed, ttl);
         console.log('[img-cache] SWR refreshed:', k);
     } catch (err) {
@@ -432,7 +438,14 @@ async function _handle(req, res) {
     const w = parseInt(parsedUrl.searchParams.get('w') || '0', 10) || null;
     const h = parseInt(parsedUrl.searchParams.get('h') || '0', 10) || null;
 
-    const k   = _key(srcUrl, w, h);
+    // Prefer AVIF when the browser declares support (WKWebView/Safari on macOS 13+
+    // sends image/avif in Accept; AVIF is ~40-50% smaller than WebP at equal
+    // perceptual quality, meaning faster download and faster GPU decode on scroll).
+    const accept = req.headers['accept'] || '';
+    const fmt    = accept.includes('image/avif') ? 'avif' : 'webp';
+    const mime   = fmt === 'avif' ? 'image/avif' : 'image/webp';
+
+    const k   = _key(srcUrl, w, h, fmt);
     const ttl = _ttl(srcUrl);
 
     try {
@@ -449,7 +462,7 @@ async function _handle(req, res) {
             // Serve immediately -- never block on a stale entry.
             // The browser gets the image without any blur or placeholder delay.
             res.writeHead(200, {
-                'Content-Type':  'image/webp',
+                'Content-Type':  mime,
                 'Cache-Control': 'public, max-age=' + ttl + ', immutable',
                 'Age':           String(Math.max(0, age)),
                 'X-Cache':       isStale ? 'STALE' : 'HIT',
@@ -459,19 +472,19 @@ async function _handle(req, res) {
 
             // Fire-and-forget revalidation after the response is sent.
             if (isStale) {
-                _swrRevalidate(srcUrl, k, w, h, ttl);
+                _swrRevalidate(srcUrl, k, w, h, ttl, fmt);
             }
             return;
         }
 
         // ── Cache miss: fetch + process + store ───────────────────────────
         const raw       = await _fetch(srcUrl);
-        const processed = await _process(raw, w, h);
+        const processed = await _process(raw, w, h, fmt);
 
         await cacheSet(k, processed, ttl);
 
         res.writeHead(200, {
-            'Content-Type':  'image/webp',
+            'Content-Type':  mime,
             'Cache-Control': 'public, max-age=' + ttl + ', immutable',
             'Age':           '0',
             'X-Cache':       'MISS',

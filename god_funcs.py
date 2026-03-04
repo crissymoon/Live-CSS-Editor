@@ -26,7 +26,7 @@ from typing import Dict, List, Any, Tuple
 # Directories to skip
 # Note: db-broswer is checked seperately - there is a smoke fiolder in it - ck w/this: /Users/mac/Documents/live-css/dev-tools/db-browser/smoke/analyze/run_analysis.sh
 SKIP_DIRS = {
-    'node_modules', 'vendor', 'build', '.git', '__pycache__',
+    'dev-browser', 'node_modules', 'vendor', 'build', '.git', '__pycache__',
     '.venv', 'venv', 'env', 'WidevineCdm', 'widevine', 'legacy', 'smoke', 'email_smoke', 'db-browser', 'test', 'tests', 'docs', 'examples', 'scripts', 'multi_test', 'zyx_planning_and_visuals'
 }
 

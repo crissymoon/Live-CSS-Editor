@@ -14,7 +14,8 @@
  *     buffer:  ArrayBuffer   -- raw image bytes (transferred, zero-copy)
  *     w:       number|null   -- target width  in physical pixels
  *     h:       number|null   -- target height in physical pixels
- *     quality: number        -- WebP quality 1-100 (default 82)
+ *     quality: number        -- encode quality 1-100 (webp default 82, avif default 55)
+ *     format:  string        -- 'webp' | 'avif' (default 'webp')
  *   }
  *
  * Return value:
@@ -29,7 +30,7 @@
 const sharp = require('sharp');
 
 module.exports = async function imageWorkerTask(task) {
-    const { buffer, w, h, quality } = task;
+    const { buffer, w, h } = task;
 
     // Reconstruct a Node Buffer from the transferred ArrayBuffer.
     // The main thread transferred ownership, so the ArrayBuffer here
@@ -48,9 +49,14 @@ module.exports = async function imageWorkerTask(task) {
         pipe = pipe.resize(null, h, { fit: 'inside', withoutEnlargement: true });
     }
 
-    const outBuf = await pipe
-        .webp({ quality: quality || 82, effort: 4 })
-        .toBuffer();
+    const fmt = task.format || 'webp';
+    if (fmt === 'avif') {
+        pipe = pipe.avif({ quality: task.quality || 55, effort: 4 });
+    } else {
+        pipe = pipe.webp({ quality: task.quality || 82, effort: 4 });
+    }
+
+    const outBuf = await pipe.toBuffer();
 
     // Transfer the ArrayBuffer back to the main thread (zero-copy).
     // Piscina detects the transferList and moves the backing memory

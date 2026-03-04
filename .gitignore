@@ -15,6 +15,11 @@ dev-browser/bin/*.dylib
 dev-browser/build/
 dev-browser/dist/
 
+# C++ render core build artifacts
+dev-browser/render_core/build/
+*.o
+*.o.d
+
 # db-browser build artifacts and binaries
 dev-tools/db-browser/build/
 dev-tools/db-browser/*.o
@@ -22,6 +27,10 @@ dev-tools/db-browser/databases/*.db
 dev-tools/db-browser/databases/*.db.enc
 dev-tools/db-browser/databases/*.tmp
 dev-tools/db-browser/logs/*.log
+
+# SQLite journal files (never commit WAL/SHM -- they are OS-level lock artifacts)
+*.db-shm
+*.db-wal
 
 # Python compiled files
 __pycache__/
