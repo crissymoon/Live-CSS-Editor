@@ -27,15 +27,16 @@ from typing import Dict, List, Any, Tuple
 # Note: db-broswer is checked seperately - there is a smoke fiolder in it - ck w/this: /Users/mac/Documents/live-css/dev-tools/db-browser/smoke/analyze/run_analysis.sh
 SKIP_DIRS = {
     'node_modules', 'vendor', 'build', '.git', '__pycache__',
-    '.venv', 'venv', 'env', 'WidevineCdm', 'widevine', 'legacy', 'smoke', 'email_smoke', 'db-browser', 'test', 'tests', 'docs', 'examples', 'scripts', 'multi_test',
+    '.venv', 'venv', 'env', 'WidevineCdm', 'widevine', 'legacy', 'smoke', 'email_smoke', 'db-browser', 'test', 'tests', 'docs', 'examples', 'scripts', 'multi_test', 'zyx_planning_and_visuals'
 }
 
 # Individual files to skip (basenames)
 SKIP_FILES = {
-    'god_funcs.py',
+    'god_funcs.py', 'test_risk_detector.py', 'lines_count.py', 'lines_count_test.py', 'complexity_count.py', 'complexity_count_test.py', 'nesting_count.py', 'nesting_count_test.py', 'params_count.py', 'params_count_test.py', 'run_god_scan.sh', 'test_risk_detector.py', 'test_god_funcs.py', 'god_funcs_test.py', 'test_accuracy.py', 'accuracy_test.py'
 }
 
 # File extensions to scan
+# Skip the GO XCM-AUTH (.go) - handle seperate
 SCAN_EXTENSIONS = {'.c', '.php', '.py', '.js'}
 
 
@@ -157,9 +158,10 @@ class GodFunctionScanner:
             
             functions = self._extract_c_functions(content)
             for func_name, func_body in functions:
-                lines = len(func_body.splitlines())
-                complexity = self._calc_complexity_c(func_body)
-                nesting = self._calc_nesting(func_body)
+                stripped = self._strip_comments_c(func_body)
+                lines = len([l for l in stripped.splitlines() if l.strip()])
+                complexity = self._calc_complexity_c(stripped)
+                nesting = self._calc_nesting(stripped)
                 params = self._count_params_c(func_body)
                 
                 self._check_god_function(file_path, func_name, lines,
@@ -228,9 +230,10 @@ class GodFunctionScanner:
             
             functions = self._extract_php_functions(content)
             for func_name, func_body in functions:
-                lines = len(func_body.splitlines())
-                complexity = self._calc_complexity_php(func_body)
-                nesting = self._calc_nesting(func_body)
+                stripped = self._strip_comments_php(func_body)
+                lines = len([l for l in stripped.splitlines() if l.strip()])
+                complexity = self._calc_complexity_php(stripped)
+                nesting = self._calc_nesting(stripped)
                 params = self._count_params_php(func_body)
                 
                 self._check_god_function(file_path, func_name, lines,
@@ -297,9 +300,10 @@ class GodFunctionScanner:
             
             functions = self._extract_python_functions(content)
             for func_name, func_body in functions:
-                lines = len(func_body.splitlines())
-                complexity = self._calc_complexity_python(func_body)
-                nesting = self._calc_nesting_python(func_body)
+                stripped = self._strip_comments_python(func_body)
+                lines = len([l for l in stripped.splitlines() if l.strip()])
+                complexity = self._calc_complexity_python(stripped)
+                nesting = self._calc_nesting_python(stripped)
                 params = self._count_params_python(func_body)
                 
                 self._check_god_function(file_path, func_name, lines,
@@ -408,9 +412,10 @@ class GodFunctionScanner:
             
             functions = self._extract_js_functions(content)
             for func_name, func_body in functions:
-                lines = len(func_body.splitlines())
-                complexity = self._calc_complexity_js(func_body)
-                nesting = self._calc_nesting(func_body)
+                stripped = self._strip_comments_js(func_body)
+                lines = len([l for l in stripped.splitlines() if l.strip()])
+                complexity = self._calc_complexity_js(stripped)
+                nesting = self._calc_nesting(stripped)
                 params = self._count_params_js(func_body)
                 
                 self._check_god_function(file_path, func_name, lines,
@@ -509,6 +514,37 @@ class GodFunctionScanner:
                 depth -= 1
         
         return max_depth
+
+    # --- Comment stripping helpers ---
+
+    @staticmethod
+    def _strip_comments_c(code: str) -> str:
+        """Strip C-style block and line comments, preserving newlines."""
+        code = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), code, flags=re.DOTALL)
+        code = re.sub(r'//[^\n]*', '', code)
+        return code
+
+    @staticmethod
+    def _strip_comments_php(code: str) -> str:
+        """Strip PHP block comments, // and # line comments."""
+        code = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), code, flags=re.DOTALL)
+        code = re.sub(r'//[^\n]*', '', code)
+        code = re.sub(r'#[^\n]*', '', code)
+        return code
+
+    @staticmethod
+    def _strip_comments_python(code: str) -> str:
+        """Strip Python # comments and triple-quoted docstrings."""
+        code = re.sub(r'(\"\"\".*?\"\"\"|\'{3}.*?\'{3})', lambda m: '\n' * m.group(0).count('\n'), code, flags=re.DOTALL)
+        code = re.sub(r'#[^\n]*', '', code)
+        return code
+
+    @staticmethod
+    def _strip_comments_js(code: str) -> str:
+        """Strip JS block and line comments, preserving newlines."""
+        code = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), code, flags=re.DOTALL)
+        code = re.sub(r'//[^\n]*', '', code)
+        return code
 
 
 def print_report(results: Dict[str, Any], verbose: bool = False):
