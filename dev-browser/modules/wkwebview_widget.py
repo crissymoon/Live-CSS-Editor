@@ -21,6 +21,71 @@ from Foundation import (
 
 from .cdm import CDM_PERF_JS
 
+# ── Performance-injection helpers ─────────────────────────────────────────────
+_SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src')
+
+
+def _load_src_js(name: str) -> str:
+    """Load a JS file from dev-browser/src/ at injection time."""
+    with open(os.path.join(_SRC_DIR, name), 'r', encoding='utf-8') as fh:
+        return fh.read()
+
+
+# Lightweight rAF-based Hz detector and tick bus (replaces the ESM GSAP ticker
+# from ticker-inject.js so it can be injected into WKWebView directly).
+_TICKER_JS = r"""
+(function () {
+    'use strict';
+    window.__xcmHz            = 60;
+    window.__xcmFrameMs       = 16;
+    window.__xcmIsHighHz      = false;
+    window.__xcmIdleThreshold = 4;
+    var SAMPLE_COUNT = 30;
+    var _samples = [], _last = 0;
+    function _snap(hz) {
+        if (hz >= 130) return 144;
+        if (hz >= 105) return 120;
+        if (hz >=  82) return 90;
+        if (hz >=  50) return 60;
+        return 30;
+    }
+    function _onDetected() {
+        _samples.sort(function (a, b) { return a - b; });
+        var median  = _samples[Math.floor(_samples.length / 2)];
+        var hz      = _snap(Math.round(1000 / median));
+        window.__xcmHz            = hz;
+        window.__xcmFrameMs       = 1000 / hz;
+        window.__xcmIsHighHz      = hz > 75;
+        window.__xcmIdleThreshold = Math.max(1, (1000 / hz) * 0.3);
+    }
+    function _sampleRaf(ts) {
+        if (_last) _samples.push(ts - _last);
+        _last = ts;
+        if (_samples.length < SAMPLE_COUNT) { requestAnimationFrame(_sampleRaf); }
+        else { _onDetected(); }
+    }
+    requestAnimationFrame(_sampleRaf);
+    var _listeners = [], _rafId = null;
+    function _loop(ts) {
+        _rafId = requestAnimationFrame(_loop);
+        for (var i = 0; i < _listeners.length; i++) {
+            try { _listeners[i](ts); } catch(e) {}
+        }
+    }
+    window.__xcmTick = function (fn) {
+        _listeners.push(fn);
+        if (_rafId === null) { _rafId = requestAnimationFrame(_loop); }
+        return function () {
+            var idx = _listeners.indexOf(fn);
+            if (idx !== -1) _listeners.splice(idx, 1);
+            if (!_listeners.length && _rafId !== null) {
+                cancelAnimationFrame(_rafId); _rafId = null;
+            }
+        };
+    };
+})();
+"""
+
 from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSignal
 from PyQt6.QtGui import QWindow
 from PyQt6.QtWidgets import (
@@ -1092,6 +1157,47 @@ class WKBrowserTab(QWidget):
                 WebKit.WKUserScriptInjectionTimeAtDocumentEnd,
                 True)
         self._content_controller.addUserScript_(cdm_perf)
+
+        # ── Performance injections from dev-browser/src/ ─────────────────────
+        # Ticker: rAF Hz detector + tick bus (sets __xcmHz, __xcmFrameMs,
+        # __xcmIdleThreshold, __xcmTick).  DocumentStart so other scripts
+        # can read __xcmIdleThreshold during their first IO callback.
+        ticker_script = WebKit.WKUserScript.alloc() \
+            .initWithSource_injectionTime_forMainFrameOnly_(
+                _TICKER_JS,
+                WebKit.WKUserScriptInjectionTimeAtDocumentStart,
+                False)
+        self._content_controller.addUserScript_(ticker_script)
+
+        # Lazy: patches createElement for lazy/async media loading, IO-based
+        # video, MutationObserver off main thread, CLS prevention via
+        # aspect-ratio preservation.  DocumentStart, all frames.
+        lazy_script = WebKit.WKUserScript.alloc() \
+            .initWithSource_injectionTime_forMainFrameOnly_(
+                _load_src_js('lazy-inject.js'),
+                WebKit.WKUserScriptInjectionTimeAtDocumentStart,
+                False)
+        self._content_controller.addUserScript_(lazy_script)
+
+        # Virtualizer: applies content-visibility:auto + contain-intrinsic-size
+        # to feed rows (article, ytd-*, Reddit/Twitter/LinkedIn selectors).
+        # DocumentStart, main frame only.
+        virt_script = WebKit.WKUserScript.alloc() \
+            .initWithSource_injectionTime_forMainFrameOnly_(
+                _load_src_js('virtualizer-inject.js'),
+                WebKit.WKUserScriptInjectionTimeAtDocumentStart,
+                True)
+        self._content_controller.addUserScript_(virt_script)
+
+        # Compress: proxies images through 127.0.0.1:7779/img for WebP
+        # compression; falls back to OffscreenCanvas if server not running.
+        # DocumentEnd, main frame only.
+        compress_script = WebKit.WKUserScript.alloc() \
+            .initWithSource_injectionTime_forMainFrameOnly_(
+                _load_src_js('compress-inject.js'),
+                WebKit.WKUserScriptInjectionTimeAtDocumentEnd,
+                True)
+        self._content_controller.addUserScript_(compress_script)
 
     # ── Cleanup ────────────────────────────────────────────────
 

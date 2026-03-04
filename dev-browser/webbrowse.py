@@ -134,6 +134,38 @@ def _port_open(port):
         return False
 
 
+def _start_image_cache_server():
+    """Start src/image-cache-server.js (Node.js) on 127.0.0.1:7779.
+
+    Silently skips if node is not installed, the port is already in use,
+    the server JS file is missing, or npm install has not been run yet.
+    """
+    import shutil
+    node = shutil.which('node')
+    if not node:
+        print('[webbrowse] node not found -- image cache server will not start', flush=True)
+        return
+    if _port_open(7779):
+        print('[webbrowse] image cache server already running on :7779', flush=True)
+        return
+    server_js = os.path.join(_HERE, 'src', 'image-cache-server.js')
+    if not os.path.isfile(server_js):
+        print(f'[webbrowse] image-cache-server.js not found at {server_js}', flush=True)
+        return
+    node_modules = os.path.join(_HERE, 'src', 'node_modules')
+    if not os.path.isdir(node_modules):
+        print('[webbrowse] src/node_modules missing -- run: cd dev-browser/src && npm install', flush=True)
+        return
+    proc = subprocess.Popen(
+        [node, server_js],
+        cwd=os.path.join(_HERE, 'src'),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    atexit.register(lambda p=proc: p.terminate() if p.poll() is None else None)
+    print(f'[webbrowse] image cache server started (PID {proc.pid}) on :7779', flush=True)
+
+
 def _launch_auth_servers():
     """Start start-auth.sh if the servers are not already running.
     Polls port 8080 with 0.2s intervals for up to 10 seconds."""
@@ -172,6 +204,7 @@ def main():
     parser.add_argument("--h",  type=int, default=900)
     args = parser.parse_args()
 
+    _start_image_cache_server()
     _launch_auth_servers()
 
     start_command_server(args.port)

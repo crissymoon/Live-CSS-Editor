@@ -1,0 +1,14 @@
+{
+  "name": "xcm-dev-browser-src",
+  "version": "1.0.0",
+  "description": "Image cache server and performance injection scripts for xcm dev-browser",
+  "main": "image-cache-server.js",
+  "scripts": {
+    "start": "node image-cache-server.js"
+  },
+  "dependencies": {
+    "piscina": "^4.0.0",
+    "sharp": "^0.33.0",
+    "ioredis": "^5.0.0"
+  }
+}
