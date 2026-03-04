@@ -117,6 +117,34 @@ def _score_to_risk(score: float) -> str:
 # ------------------------------------------------------------------
 # Optional AI detector integration
 
+def _load_ai_model(model_dir: Path):
+    """Load DistilBERT model and tokenizer. Returns (model, tokenizer, device)."""
+    import torch
+    from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
+    device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tokenizer = DistilBertTokenizerFast.from_pretrained(str(model_dir))
+    model     = DistilBertForSequenceClassification.from_pretrained(str(model_dir))
+    model.to(device).eval()
+    return model, tokenizer, device
+
+
+def _run_ai_inference(model, tokenizer, text: str, device) -> dict:
+    """Run a single forward pass and return a scored-label result dict."""
+    import torch
+    enc = tokenizer(text, return_tensors="pt", truncation=True, max_length=128).to(device)
+    with torch.no_grad():
+        probs = torch.softmax(model(**enc).logits, dim=-1)[0].tolist()
+    labels    = model.config.id2label
+    scored    = {labels[i]: round(probs[i], 4) for i in range(len(probs))}
+    top_label = max(scored, key=lambda k: scored[k])
+    return {
+        "label":      top_label,
+        "confidence": scored[top_label],
+        "scores":     scored,
+        "flagged":    top_label == "AI",
+    }
+
+
 def _try_ai_detect(text: str, model_dir: Path) -> Optional[dict]:
     """
     Attempt to call the DistilBERT AI detector.
@@ -124,32 +152,10 @@ def _try_ai_detect(text: str, model_dir: Path) -> Optional[dict]:
     Failure is non-fatal and logged to stderr.
     """
     try:
-        import torch
-        from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
-
         if not model_dir.exists():
             return None
-
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        tokenizer = DistilBertTokenizerFast.from_pretrained(str(model_dir))
-        model     = DistilBertForSequenceClassification.from_pretrained(str(model_dir))
-        model.to(device).eval()
-
-        labels = model.config.id2label
-        enc    = tokenizer(text, return_tensors="pt", truncation=True, max_length=128).to(device)
-
-        with torch.no_grad():
-            logits = model(**enc).logits
-            probs  = torch.softmax(logits, dim=-1)[0].tolist()
-
-        scored = {labels[i]: round(probs[i], 4) for i in range(len(probs))}
-        top_label = max(scored, key=lambda k: scored[k])
-        return {
-            "label":      top_label,
-            "confidence": scored[top_label],
-            "scores":     scored,
-            "flagged":    top_label == "AI",
-        }
+        model, tokenizer, device = _load_ai_model(model_dir)
+        return _run_ai_inference(model, tokenizer, text, device)
     except ImportError:
         return None
     except Exception:
@@ -301,28 +307,14 @@ class RiskDetector:
         return [self.detect(t, session_guard) for t in texts]
 
     # ------------------------------------------------------------------
-    # Core logic
+    # Core logic -- layer helpers
 
-    def _detect_inner(self, text: str, session_guard: Optional[SessionGuard]) -> dict:
-        self._load_patterns()
-
-        if not isinstance(text, str):
-            text = str(text)
-
-        # --- Layer 1: session gate (check before spending CPU on rest) ---
-        session_result  = None
-        session_blocked = False
-
-        if session_guard is not None:
-            session_result  = session_guard.check_and_record(text)
-            session_blocked = not session_result["allowed"]
-
-        # --- Layer 2: pattern matching ---
+    def _run_pattern_layer(self, text: str) -> dict:
+        """Layer 2: regex pattern matching across all compiled groups."""
         pattern_matches: list[dict] = []
-        labels: set[str]             = set()
-        max_severity = 0
-        total_weight = 0.0
-
+        labels: set[str]            = set()
+        max_severity                = 0
+        total_weight                = 0.0
         for group in self._compiled:
             for regex in group["regexes"]:
                 m = regex.search(text)
@@ -340,49 +332,73 @@ class RiskDetector:
                     max_severity = group["severity"]
                 total_weight += group["weight"]
                 break   # one hit per group is sufficient
+        return {
+            "pattern_matches": pattern_matches,
+            "labels":          labels,
+            "max_severity":    max_severity,
+            "total_weight":    total_weight,
+        }
 
-        # --- Layer 3: entropy analysis ---
-        ent     = round(_shannon_entropy(text), 4)
-        sym_r   = round(_symbol_ratio(text), 4)
-        rep_r   = round(_repeat_ratio(text), 4)
+    def _run_entropy_layer(self, text: str) -> dict:
+        """Layer 3: Shannon entropy and symbol/repeat density analysis."""
+        ent   = round(_shannon_entropy(text), 4)
+        sym_r = round(_symbol_ratio(text), 4)
+        rep_r = round(_repeat_ratio(text), 4)
 
-        ent_min      = self._ent_thresholds.get("shannon_entropy_min", 3.5)
-        sym_min      = self._ent_thresholds.get("symbol_ratio_min", 0.30)
-        sym_high     = self._ent_thresholds.get("symbol_ratio_high", 0.70)
-        rep_max      = self._ent_thresholds.get("max_safe_repeat_ratio", 0.40)
-        short_limit  = self._ent_thresholds.get("short_text_char_limit", 40)
+        ent_min     = self._ent_thresholds.get("shannon_entropy_min", 3.5)
+        sym_min     = self._ent_thresholds.get("symbol_ratio_min", 0.30)
+        sym_high    = self._ent_thresholds.get("symbol_ratio_high", 0.70)
+        rep_max     = self._ent_thresholds.get("max_safe_repeat_ratio", 0.40)
+        short_limit = self._ent_thresholds.get("short_text_char_limit", 40)
 
         high_entropy = (
             len(text) > short_limit
             and (
                 (ent >= ent_min and sym_r >= sym_min)
-                or sym_r >= sym_high   # very high symbol density is flagged regardless of entropy
+                or sym_r >= sym_high   # very high symbol density flagged regardless of entropy
             )
         )
         high_repeat = rep_r > rep_max and len(text) > short_limit
+        return {
+            "entropy_score": ent,
+            "symbol_ratio":  sym_r,
+            "repeat_ratio":  rep_r,
+            "high_entropy":  high_entropy,
+            "high_repeat":   high_repeat,
+            "ent_min":       ent_min,
+        }
 
-        # --- Layer 4: optional AI content detector ---
-        ai_result = None
-        if self._use_ai and self._ai_model_dir:
-            ai_result = _try_ai_detect(text, self._ai_model_dir)
-
-        # --- Scoring ---
+    def _compute_final_score(
+        self,
+        pattern_data: dict,
+        entropy_data: dict,
+        ai_result: Optional[dict],
+        session_blocked: bool,
+        session_result: Optional[dict],
+    ) -> float:
+        """Combine layer scores into a single 0-1 risk score."""
+        # Pattern contribution
         pattern_score = 0.0
-        if pattern_matches:
-            sev_norm    = max_severity / 10.0
-            weight_norm = min(total_weight, 3.0) / 3.0
+        if pattern_data["pattern_matches"]:
+            sev_norm      = pattern_data["max_severity"] / 10.0
+            weight_norm   = min(pattern_data["total_weight"], 3.0) / 3.0
             pattern_score = 0.6 * sev_norm + 0.4 * weight_norm
 
+        # Entropy contribution
+        ent           = entropy_data["entropy_score"]
+        ent_min       = entropy_data["ent_min"]
         entropy_score = 0.0
-        if high_entropy:
+        if entropy_data["high_entropy"]:
             entropy_score = min((ent - ent_min) / (8.0 - ent_min), 1.0) * 0.5
-        if high_repeat:
+        if entropy_data["high_repeat"]:
             entropy_score = max(entropy_score, 0.50)
 
+        # AI contribution (weight: 30%)
         ai_score = 0.0
         if ai_result and ai_result.get("flagged"):
-            ai_score = ai_result.get("confidence", 0.5) * 0.30  # weight: 30%
+            ai_score = ai_result.get("confidence", 0.5) * 0.30
 
+        # Session contribution
         session_score = 0.0
         if session_blocked:
             s_state = (session_result or {}).get("state", "normal")
@@ -391,11 +407,41 @@ class RiskDetector:
             elif s_state == "alert":
                 session_score = 0.70
 
-        # Combine: take the maximum of pattern/entropy/session, then boost by AI
         base_score = max(pattern_score, entropy_score, session_score)
-        final_score = round(min(base_score + ai_score, 1.0), 4)
+        return round(min(base_score + ai_score, 1.0), 4)
 
-        flagged    = (
+    def _detect_inner(self, text: str, session_guard: Optional[SessionGuard]) -> dict:
+        self._load_patterns()
+        if not isinstance(text, str):
+            text = str(text)
+
+        # Layer 1: session gate (check before spending CPU on rest)
+        session_result  = None
+        session_blocked = False
+        if session_guard is not None:
+            session_result  = session_guard.check_and_record(text)
+            session_blocked = not session_result["allowed"]
+
+        # Layer 2: pattern matching
+        pattern_data = self._run_pattern_layer(text)
+
+        # Layer 3: entropy analysis
+        entropy_data = self._run_entropy_layer(text)
+
+        # Layer 4: optional AI content detector
+        ai_result = None
+        if self._use_ai and self._ai_model_dir:
+            ai_result = _try_ai_detect(text, self._ai_model_dir)
+
+        # Scoring
+        final_score = self._compute_final_score(
+            pattern_data, entropy_data, ai_result, session_blocked, session_result
+        )
+
+        high_entropy    = entropy_data["high_entropy"]
+        high_repeat     = entropy_data["high_repeat"]
+        pattern_matches = pattern_data["pattern_matches"]
+        flagged = (
             bool(pattern_matches)
             or high_entropy
             or high_repeat
@@ -409,11 +455,11 @@ class RiskDetector:
             "risk_level":       risk_level,
             "score":            final_score,
             "session_state":    (session_result or {}).get("state", "normal"),
-            "attack_labels":    sorted(labels),
+            "attack_labels":    sorted(pattern_data["labels"]),
             "pattern_matches":  pattern_matches,
-            "entropy_score":    ent,
-            "symbol_ratio":     sym_r,
-            "repeat_ratio":     rep_r,
+            "entropy_score":    entropy_data["entropy_score"],
+            "symbol_ratio":     entropy_data["symbol_ratio"],
+            "repeat_ratio":     entropy_data["repeat_ratio"],
             "high_entropy":     high_entropy,
             "high_repeat":      high_repeat,
             "session_blocked":  session_blocked,

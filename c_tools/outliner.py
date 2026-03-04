@@ -280,6 +280,67 @@ def outline_python(source: str, include_comments: bool = True) -> List[Node]:
 
 
 # ---------------------------------------------------------------------------
+# Shared block-comment accumulator (used by all regex-based outliners)
+# ---------------------------------------------------------------------------
+
+class _BlockCommentState:
+    """
+    Tracks whether we are currently inside a /* ... */ block comment and
+    accumulates the text.
+
+    Each line-loop body calls feed() once.  The return value tells the caller
+    what to do:
+        (True,  node_or_None) -- line was consumed by block-comment logic;
+                                 append node if not None, then continue.
+        (False, None)         -- normal line; proceed to pattern matching.
+    """
+
+    __slots__ = ("_active", "_buf", "_start")
+
+    def __init__(self) -> None:
+        self._active = False
+        self._buf: List[str] = []
+        self._start = 0
+
+    @property
+    def active(self) -> bool:
+        return self._active
+
+    def feed(
+        self, line: str, lineno: int, depth: int, include_comments: bool
+    ):
+        if not self._active and "/*" in line:
+            self._active = True
+            self._buf = []
+            self._start = lineno
+            content = re.sub(r"^.*?/\*+\s*", "", line).rstrip()
+            if content and not content.startswith("*"):
+                self._buf.append(content)
+            if "*/" in line:
+                return self._close(depth, include_comments)
+            return True, None
+
+        if self._active:
+            stripped = re.sub(r"^\s*\*+\s*", "", line).rstrip("*/").strip()
+            if stripped:
+                self._buf.append(stripped)
+            if "*/" in line:
+                return self._close(depth, include_comments)
+            return True, None
+
+        return False, None
+
+    def _close(self, depth: int, include_comments: bool):
+        self._active = False
+        node = None
+        if include_comments and self._buf:
+            node = Node(self._start, "block_comment",
+                        " ".join(self._buf)[:200], depth)
+        self._buf = []
+        return True, node
+
+
+# ---------------------------------------------------------------------------
 # JavaScript / TypeScript outliner
 # ---------------------------------------------------------------------------
 
@@ -307,14 +368,11 @@ _JS_PATTERNS = [
 ]
 
 _JS_INDENT_RE = re.compile(r"^(\s*)")
-_IN_BLOCK_COMMENT = False
 
 
 def outline_js(source: str, include_comments: bool = True) -> List[Node]:
     nodes: List[Node] = []
-    in_block = False
-    block_buf: List[str] = []
-    block_start = 0
+    _bc = _BlockCommentState()
 
     try:
         lines = source.splitlines()
@@ -323,40 +381,16 @@ def outline_js(source: str, include_comments: bool = True) -> List[Node]:
             indent = len(_JS_INDENT_RE.match(line).group(1))
             depth = indent // 2
 
-            # Block comment accumulation
-            if not in_block and "/*" in line:
-                in_block = True
-                block_buf = []
-                block_start = i
-                content = re.sub(r"^.*?/\*+\s*", "", line).rstrip()
-                if content and not content.startswith("*"):
-                    block_buf.append(content)
-                if "*/" in line:
-                    in_block = False
-                    if include_comments and block_buf:
-                        nodes.append(Node(block_start, "block_comment",
-                                         " ".join(block_buf)[:200], depth))
-                    block_buf = []
-                continue
-
-            if in_block:
-                stripped = re.sub(r"^\s*\*+\s*", "", line).rstrip("*/").strip()
-                if stripped:
-                    block_buf.append(stripped)
-                if "*/" in line:
-                    in_block = False
-                    if include_comments and block_buf:
-                        nodes.append(Node(block_start, "block_comment",
-                                         " ".join(block_buf)[:200], depth))
-                    block_buf = []
+            hit, bc_node = _bc.feed(line, i, depth, include_comments)
+            if hit:
+                if bc_node:
+                    nodes.append(bc_node)
                 continue
 
             for kind, pat in _JS_PATTERNS:
                 m = pat.match(line)
                 if m:
-                    if kind == "comment" and not include_comments:
-                        break
-                    if kind == "block_comment" and not include_comments:
+                    if kind in ("comment", "block_comment") and not include_comments:
                         break
                     name = m.group(1).strip() if m.lastindex else ""
                     nodes.append(Node(i, kind, name, depth))
@@ -388,53 +422,23 @@ _PHP_PATTERNS = [
     ("constant",      re.compile(r"^\s*(?:const|define\s*\()\s*['\"]?(\w+)")),
 ]
 
-_PHP_INDENT_RE = re.compile(r"^(\s*)")
-
 
 def outline_php(source: str, include_comments: bool = True) -> List[Node]:
     nodes: List[Node] = []
-    in_block = False
-    block_buf: List[str] = []
-    block_start = 0
-    depth_stack: List[int] = []
+    _bc = _BlockCommentState()
     brace_depth = 0
 
     try:
         lines = source.splitlines()
         for i, raw in enumerate(lines, start=1):
             line = raw.rstrip()
-            indent = len(_PHP_INDENT_RE.match(line).group(1))
             depth = max(0, brace_depth)
-
-            # Track brace depth for indentation inference
             brace_depth += line.count("{") - line.count("}")
 
-            # Block comment
-            if not in_block and "/*" in line:
-                in_block = True
-                block_buf = []
-                block_start = i
-                content = re.sub(r"^.*?/\*+\s*", "", line).rstrip()
-                if content and not content.startswith("*"):
-                    block_buf.append(content)
-                if "*/" in line:
-                    in_block = False
-                    if include_comments and block_buf:
-                        nodes.append(Node(block_start, "block_comment",
-                                         " ".join(block_buf)[:200], depth))
-                    block_buf = []
-                continue
-
-            if in_block:
-                stripped = re.sub(r"^\s*\*+\s*", "", line).rstrip("*/").strip()
-                if stripped:
-                    block_buf.append(stripped)
-                if "*/" in line:
-                    in_block = False
-                    if include_comments and block_buf:
-                        nodes.append(Node(block_start, "block_comment",
-                                         " ".join(block_buf)[:200], depth))
-                    block_buf = []
+            hit, bc_node = _bc.feed(line, i, depth, include_comments)
+            if hit:
+                if bc_node:
+                    nodes.append(bc_node)
                 continue
 
             for kind, pat in _PHP_PATTERNS:
@@ -472,9 +476,7 @@ _C_BLOCK_RE = re.compile(r"^\s*/\*+\s*(.*?)\s*(?:\*/)?$")
 
 def outline_c(source: str, include_comments: bool = True) -> List[Node]:
     nodes: List[Node] = []
-    in_block = False
-    block_buf: List[str] = []
-    block_start = 0
+    _bc = _BlockCommentState()
     brace_depth = 0
 
     try:
@@ -482,69 +484,39 @@ def outline_c(source: str, include_comments: bool = True) -> List[Node]:
         for i, raw in enumerate(lines, start=1):
             line = raw.rstrip()
             depth = min(brace_depth, 4)
+            brace_depth = max(0, brace_depth + line.count("{") - line.count("}"))
 
-            brace_depth += line.count("{") - line.count("}")
-            brace_depth = max(0, brace_depth)
-
-            # Block comment
-            if not in_block and "/*" in line:
-                in_block = True
-                block_buf = []
-                block_start = i
-                content = re.sub(r"^.*?/\*+\s*", "", line).rstrip()
-                if content and not content.startswith("*"):
-                    block_buf.append(content)
-                if "*/" in line:
-                    in_block = False
-                    if include_comments and block_buf:
-                        nodes.append(Node(block_start, "block_comment",
-                                         " ".join(block_buf)[:200], depth))
-                    block_buf = []
+            hit, bc_node = _bc.feed(line, i, depth, include_comments)
+            if hit:
+                if bc_node:
+                    nodes.append(bc_node)
                 continue
 
-            if in_block:
-                stripped = re.sub(r"^\s*\*+\s*", "", line).rstrip("*/").strip()
-                if stripped:
-                    block_buf.append(stripped)
-                if "*/" in line:
-                    in_block = False
-                    if include_comments and block_buf:
-                        nodes.append(Node(block_start, "block_comment",
-                                         " ".join(block_buf)[:200], depth))
-                    block_buf = []
-                continue
-
-            # Single-line comment
             m = _C_COMMENT_RE.match(line)
-            if m and include_comments:
-                nodes.append(Node(i, "comment", m.group(1), depth))
+            if m:
+                if include_comments:
+                    nodes.append(Node(i, "comment", m.group(1), depth))
                 continue
 
-            # Macro
             m = _C_MACRO_RE.match(line)
             if m:
                 nodes.append(Node(i, "macro", m.group(1), depth))
                 continue
 
-            # Struct
             m = _C_STRUCT_RE.match(line)
             if m:
-                name = m.group(1) or "(anonymous)"
-                nodes.append(Node(i, "struct", name, depth))
+                nodes.append(Node(i, "struct", m.group(1) or "(anonymous)", depth))
                 continue
 
-            # Typedef (non-function)
             m = _C_TYPEDEF_RE.match(line)
             if m:
                 nodes.append(Node(i, "typedef", m.group(1), depth))
                 continue
 
-            # Function definition (only at file/class scope -- depth 0 or 1)
             if brace_depth <= 1:
                 m = _C_FUNC_RE.match(line)
                 if m:
                     nodes.append(Node(i, "function", m.group(1), 0))
-                    continue
 
     except Exception as exc:
         sys.stderr.write(f"[outliner] C outline error: {exc}\n")
@@ -565,9 +537,7 @@ _CSS_COMM_RE = re.compile(r"^\s*/\*+\s*(.*?)\s*(?:\*/)?$")
 
 def outline_css(source: str, include_comments: bool = True) -> List[Node]:
     nodes: List[Node] = []
-    in_block = False
-    block_buf: List[str] = []
-    block_start = 0
+    _bc = _BlockCommentState()
     brace_depth = 0
 
     try:
@@ -575,58 +545,30 @@ def outline_css(source: str, include_comments: bool = True) -> List[Node]:
         for i, raw in enumerate(lines, start=1):
             line = raw.rstrip()
             depth = min(brace_depth, 3)
+            brace_depth = max(0, brace_depth + line.count("{") - line.count("}"))
 
-            brace_depth += line.count("{") - line.count("}")
-            brace_depth = max(0, brace_depth)
-
-            # Block / doc comment
-            if not in_block and "/*" in line:
-                in_block = True
-                block_buf = []
-                block_start = i
-                content = re.sub(r"^.*?/\*+\s*", "", line).rstrip()
-                if content and not content.startswith("*"):
-                    block_buf.append(content)
-                if "*/" in line:
-                    in_block = False
-                    if include_comments and block_buf:
-                        nodes.append(Node(block_start, "block_comment",
-                                         " ".join(block_buf)[:200], depth))
-                    block_buf = []
+            hit, bc_node = _bc.feed(line, i, depth, include_comments)
+            if hit:
+                if bc_node:
+                    nodes.append(bc_node)
                 continue
 
-            if in_block:
-                stripped = re.sub(r"^\s*\*+\s*", "", line).rstrip("*/").strip()
-                if stripped:
-                    block_buf.append(stripped)
-                if "*/" in line:
-                    in_block = False
-                    if include_comments and block_buf:
-                        nodes.append(Node(block_start, "block_comment",
-                                         " ".join(block_buf)[:200], depth))
-                    block_buf = []
-                continue
-
-            # CSS custom property (variable)
             m = _CSS_VAR_RE.match(line)
             if m and brace_depth > 0:
                 nodes.append(Node(i, "variable", m.group(1), depth))
                 continue
 
-            # @-rule
             m = _CSS_AT_RE.match(line)
             if m:
                 rule_text = line.strip().rstrip("{").strip()[:100]
                 nodes.append(Node(i, "at_rule", rule_text, depth))
                 continue
 
-            # Selector
             m = _CSS_SEL_RE.match(line)
             if m and brace_depth <= 1:
                 sel = m.group(1).strip()[:120]
                 if sel and not sel.startswith(("//", "/*")):
                     nodes.append(Node(i, "selector", sel, depth))
-                continue
 
     except Exception as exc:
         sys.stderr.write(f"[outliner] CSS outline error: {exc}\n")

@@ -24,9 +24,15 @@ from pathlib import Path
 from typing import Dict, List, Any, Tuple
 
 # Directories to skip
+# Note: db-broswer is checked seperately - there is a smoke fiolder in it - ck w/this: /Users/mac/Documents/live-css/dev-tools/db-browser/smoke/analyze/run_analysis.sh
 SKIP_DIRS = {
     'node_modules', 'vendor', 'build', '.git', '__pycache__',
-    '.venv', 'venv', 'env', 'WidevineCdm', 'widevine'
+    '.venv', 'venv', 'env', 'WidevineCdm', 'widevine', 'legacy', 'smoke', 'email_smoke', 'db-browser', 'test', 'tests', 'docs', 'examples', 'scripts', 'multi_test',
+}
+
+# Individual files to skip (basenames)
+SKIP_FILES = {
+    'god_funcs.py',
 }
 
 # File extensions to scan
@@ -88,8 +94,10 @@ class GodFunctionScanner:
         for root, dirs, files in os.walk(self.root):
             # Filter out skip directories
             dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
-            
+
             for fname in files:
+                if fname in SKIP_FILES:
+                    continue
                 fpath = Path(root) / fname
                 if fpath.suffix.lower() in SCAN_EXTENSIONS:
                     yield fpath
@@ -170,14 +178,16 @@ class GodFunctionScanner:
             # Skip common non-functions
             if func_name in ('if', 'while', 'for', 'switch', 'else'):
                 continue
-            
-            start = match.end() - 1
-            body = self._extract_brace_block(content, start)
+
+            brace_start = match.end() - 1
+            body = self._extract_brace_block(content, brace_start)
             if body:
-                functions.append((func_name, body))
-        
+                # Prepend signature so param-counting methods can find it
+                full_text = content[match.start():brace_start] + body
+                functions.append((func_name, full_text))
+
         return functions
-    
+
     def _calc_complexity_c(self, code: str) -> int:
         """Calculate cyclomatic complexity for C code."""
         complexity = 1
@@ -236,13 +246,15 @@ class GodFunctionScanner:
         
         for match in re.finditer(pattern, content):
             func_name = match.group(1)
-            start = match.end() - 1
-            body = self._extract_brace_block(content, start)
+            brace_start = match.end() - 1
+            body = self._extract_brace_block(content, brace_start)
             if body:
-                functions.append((func_name, body))
-        
+                # Prepend signature so param-counting methods can find it
+                full_text = content[match.start():brace_start] + body
+                functions.append((func_name, full_text))
+
         return functions
-    
+
     def _calc_complexity_php(self, code: str) -> int:
         """Calculate cyclomatic complexity for PHP code."""
         complexity = 1
@@ -310,7 +322,7 @@ class GodFunctionScanner:
                 func_lines = [line]
                 i += 1
                 
-                # Collect function body (same or deeper indent)
+                # Collect function body (strictly deeper indent only)
                 while i < len(lines):
                     next_line = lines[i]
                     if next_line.strip() == '':
@@ -318,7 +330,7 @@ class GodFunctionScanner:
                         i += 1
                         continue
                     next_indent = len(next_line) - len(next_line.lstrip())
-                    if next_indent > indent or (next_indent == indent and not re.match(r'^\s*def\s', next_line)):
+                    if next_indent > indent:
                         func_lines.append(next_line)
                         i += 1
                     else:
@@ -341,26 +353,36 @@ class GodFunctionScanner:
             r'\bexcept\s*[:\(]',
             r'\band\b',
             r'\bor\b',
-            r'\bif\b.*\belse\b',  # inline if-else
+            # Note: inline ternary "x if c else y" is already counted by \bif\s+ above;
+            # a separate ternary pattern would double-count every regular if.
         ]
         for p in patterns:
             complexity += len(re.findall(p, code))
         return complexity
     
     def _calc_nesting_python(self, code: str) -> int:
-        """Calculate max nesting for Python (by indentation)."""
+        """Calculate max nesting for Python using a stack (indent-unit agnostic)."""
         max_nesting = 0
-        base_indent = None
-        
+        # Stack of indent column values; seeded on the first non-blank line (def line).
+        indent_stack: list = []
+
         for line in code.splitlines():
             if not line.strip():
                 continue
             indent = len(line) - len(line.lstrip())
-            if base_indent is None:
-                base_indent = indent
-            nesting = (indent - base_indent) // 4
+            if not indent_stack:
+                indent_stack.append(indent)   # base level is the def line
+                continue
+            if indent > indent_stack[-1]:
+                indent_stack.append(indent)
+            else:
+                # Pop back to the matching or enclosing level
+                while len(indent_stack) > 1 and indent < indent_stack[-1]:
+                    indent_stack.pop()
+            # Depth relative to the function's own line
+            nesting = len(indent_stack) - 1
             max_nesting = max(max_nesting, nesting)
-        
+
         return max_nesting
     
     def _count_params_python(self, func_body: str) -> int:
@@ -404,21 +426,23 @@ class GodFunctionScanner:
         pattern1 = r'function\s+(\w+)\s*\([^)]*\)\s*\{'
         for match in re.finditer(pattern1, content):
             func_name = match.group(1)
-            start = match.end() - 1
-            body = self._extract_brace_block(content, start)
+            brace_start = match.end() - 1
+            body = self._extract_brace_block(content, brace_start)
             if body:
-                functions.append((func_name, body))
-        
+                full_text = content[match.start():brace_start] + body
+                functions.append((func_name, full_text))
+
         # Method definitions: name(...) { or name: function(...) {
         pattern2 = r'(\w+)\s*(?::\s*function)?\s*\([^)]*\)\s*\{'
         for match in re.finditer(pattern2, content):
             func_name = match.group(1)
             if func_name in ('if', 'while', 'for', 'switch', 'catch', 'function'):
                 continue
-            start = match.end() - 1
-            body = self._extract_brace_block(content, start)
+            brace_start = match.end() - 1
+            body = self._extract_brace_block(content, brace_start)
             if body and len(body.splitlines()) > 20:  # Only significant methods
-                functions.append((func_name, body))
+                full_text = content[match.start():brace_start] + body
+                functions.append((func_name, full_text))
         
         return functions
     

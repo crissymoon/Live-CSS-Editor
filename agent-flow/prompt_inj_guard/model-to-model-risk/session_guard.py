@@ -238,84 +238,95 @@ class SessionGuard:
     # ------------------------------------------------------------------
     # Internal logic
 
-    def _check_inner(self, text: str) -> dict:
-        now = time.time()
+    def _handle_secure_mode_state(self, now: float) -> Optional[dict]:
+        """If in SECURE_MODE, check for expiry. Returns a block result dict, or None if
+        the guard has expired back to NORMAL or was never in secure mode."""
+        if self._state != GuardState.SECURE_MODE:
+            return None
+        elapsed = now - self._secure_mode_entered_at
+        if elapsed >= self._secure_cooldown:
+            self._state = GuardState.NORMAL
+            self._similar_event_count = 0
+            print(
+                f"[session_guard:{self._session_id}] Secure mode expired after "
+                f"{elapsed:.0f}s -- returning to NORMAL",
+                file=sys.stderr,
+            )
+            return None
+        remaining = self._secure_cooldown - elapsed
+        return self._safe_result(
+            allowed=False,
+            reason=f"session in secure_mode -- cooldown {remaining:.0f}s remaining",
+            sim=0.0,
+            state=GuardState.SECURE_MODE,
+            cooldown=remaining,
+        )
 
-        with self._lock:
-            # Check if secure mode has expired
-            if self._state == GuardState.SECURE_MODE:
-                elapsed = now - self._secure_mode_entered_at
-                if elapsed >= self._secure_cooldown:
-                    self._state = GuardState.NORMAL
-                    self._similar_event_count = 0
-                    print(
-                        f"[session_guard:{self._session_id}] Secure mode expired after "
-                        f"{elapsed:.0f}s -- returning to NORMAL",
-                        file=sys.stderr,
-                    )
-                else:
-                    remaining = self._secure_cooldown - elapsed
-                    return self._safe_result(
-                        allowed=False,
-                        reason=f"session in secure_mode -- cooldown {remaining:.0f}s remaining",
-                        sim=0.0,
-                        state=GuardState.SECURE_MODE,
-                        cooldown=remaining,
-                    )
+    def _record_prompt(self, text: str, fp: str, sim: float, is_sim: bool, now: float) -> None:
+        """Append a prompt record and update event counters."""
+        self._total_prompts += 1
+        if is_sim:
+            self._similar_event_count += 1
+            print(
+                f"[session_guard:{self._session_id}] Similar event #{self._similar_event_count} "
+                f"sim={sim:.2f} text='{text[:60]}'",
+                file=sys.stderr,
+            )
+        self._records.append(PromptRecord(
+            fingerprint      = fp,
+            text_preview     = text[:80],
+            timestamp        = now,
+            similarity_score = sim,
+        ))
 
-            # Prune stale records
-            self._prune_stale(now)
-
-            # Compute similarity to recent records
-            fp      = _fingerprint(text)
-            sim     = self._max_similarity_in_window(text, fp)
-            is_sim  = sim >= self._sim_threshold
-
-            self._total_prompts += 1
-            if is_sim:
-                self._similar_event_count += 1
+    def _evaluate_state_transition(self, sim: float, now: float) -> Optional[dict]:
+        """Apply threshold rules and update state. Returns a block result or None if allowed."""
+        if self._similar_event_count >= self._secure_trigger:
+            if self._state != GuardState.SECURE_MODE:
+                self._state                  = GuardState.SECURE_MODE
+                self._secure_mode_entered_at = now
+                self._secure_mode_entry_count += 1
                 print(
-                    f"[session_guard:{self._session_id}] Similar event #{self._similar_event_count} "
-                    f"sim={sim:.2f} text='{text[:60]}'",
+                    f"[session_guard:{self._session_id}] SECURE MODE ACTIVATED "
+                    f"after {self._similar_event_count} similar events",
                     file=sys.stderr,
                 )
+            remaining = float(self._secure_cooldown)
+            return self._safe_result(
+                allowed=False,
+                reason=f"secure_mode triggered by {self._similar_event_count} similar events",
+                sim=sim,
+                state=GuardState.SECURE_MODE,
+                cooldown=remaining,
+            )
+        if self._similar_event_count >= self._hard_block_n:
+            self._state = GuardState.ALERT
+            return self._safe_result(
+                allowed=False,
+                reason=f"alert: {self._similar_event_count} similar probing attempts detected",
+                sim=sim,
+                state=GuardState.ALERT,
+            )
+        return None
 
-            # Record
-            self._records.append(PromptRecord(
-                fingerprint      = fp,
-                text_preview     = text[:80],
-                timestamp        = now,
-                similarity_score = sim,
-            ))
+    def _check_inner(self, text: str) -> dict:
+        now = time.time()
+        with self._lock:
+            block = self._handle_secure_mode_state(now)
+            if block is not None:
+                return block
 
-            # State transitions
-            if self._similar_event_count >= self._secure_trigger:
-                if self._state != GuardState.SECURE_MODE:
-                    self._state                  = GuardState.SECURE_MODE
-                    self._secure_mode_entered_at = now
-                    self._secure_mode_entry_count += 1
-                    print(
-                        f"[session_guard:{self._session_id}] SECURE MODE ACTIVATED "
-                        f"after {self._similar_event_count} similar events",
-                        file=sys.stderr,
-                    )
-                remaining = float(self._secure_cooldown)
-                return self._safe_result(
-                    allowed=False,
-                    reason=f"secure_mode triggered by {self._similar_event_count} similar events",
-                    sim=sim,
-                    state=GuardState.SECURE_MODE,
-                    cooldown=remaining,
-                )
+            self._prune_stale(now)
 
-            if self._similar_event_count >= self._hard_block_n:
-                self._state = GuardState.ALERT
-                return self._safe_result(
-                    allowed=False,
-                    reason=f"alert: {self._similar_event_count} similar probing attempts detected",
-                    sim=sim,
-                    state=GuardState.ALERT,
-                )
+            fp     = _fingerprint(text)
+            sim    = self._max_similarity_in_window(text, fp)
+            is_sim = sim >= self._sim_threshold
+
+            self._record_prompt(text, fp, sim, is_sim, now)
+
+            block = self._evaluate_state_transition(sim, now)
+            if block is not None:
+                return block
 
             return self._safe_result(allowed=True, reason=None, sim=sim, state=self._state)
 
