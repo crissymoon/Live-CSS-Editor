@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.crissystyle.imgui-browser</string>
+    <key>CFBundleName</key>
+    <string>Crissy's Style Tool</string>
+    <key>CFBundleDisplayName</key>
+    <string>Crissy's Style Tool</string>
+    <key>CFBundleExecutable</key>
+    <string>imgui_browser</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+    <!-- Disable ATS so all HTTP/HTTPS endpoints load without policy blocks -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+
+    <!-- Privacy usage strings needed for camera/mic access (LinkedIn calls, etc.) -->
+    <key>NSCameraUsageDescription</key>
+    <string>Camera access is required for video calls on pages such as LinkedIn and Google Meet.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Microphone access is required for audio and video calls.</string>
+</dict>
+</plist>

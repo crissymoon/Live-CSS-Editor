@@ -3,11 +3,24 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-BIN="$ROOT/build/imgui_browser"
+# When built as a proper macOS .app bundle the binary lives inside the bundle.
+# Fall back to the flat binary path for non-bundle builds.
+BIN_BUNDLE="$ROOT/build/imgui_browser.app/Contents/MacOS/imgui_browser"
+BIN_FLAT="$ROOT/build/imgui_browser"
 
-if [[ ! -f "$BIN" ]]; then
+if [[ -f "$BIN_BUNDLE" ]]; then
+    BIN="$BIN_BUNDLE"
+elif [[ -f "$BIN_FLAT" ]]; then
+    BIN="$BIN_FLAT"
+else
     echo "[run] binary not found -- building first..."
     bash "$ROOT/build.sh"
+    # Re-detect after build
+    if [[ -f "$BIN_BUNDLE" ]]; then
+        BIN="$BIN_BUNDLE"
+    else
+        BIN="$BIN_FLAT"
+    fi
 fi
 
 APPS_DIR="$(cd "$ROOT/../dev-browser/apps" && pwd)"

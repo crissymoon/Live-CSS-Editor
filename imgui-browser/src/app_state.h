@@ -14,7 +14,7 @@
 // ── Constants ─────────────────────────────────────────────────────────
 constexpr int    CHROME_HEIGHT_PX  = 44;   // toolbar row (URL bar + nav buttons)
 constexpr int    STATUS_HEIGHT_PX  = 22;   // bottom status bar
-constexpr int    TAB_BAR_HEIGHT_PX = 36;   // title strip + tab row
+constexpr int    TAB_BAR_HEIGHT_PX = 70;   // title strip + tab row (includes 30px top padding for traffic lights)
 constexpr int    TOTAL_CHROME_TOP  = TAB_BAR_HEIGHT_PX + CHROME_HEIGHT_PX;
 constexpr int    TRAFFIC_LIGHT_W   = 82;   // px to skip on left for macOS traffic lights
 constexpr int    MAX_TABS          = 24;
@@ -34,6 +34,10 @@ struct Tab {
     // webview handle stored as void* to keep this header pure C++
     void*       wv_handle   = nullptr;
     char        url_buf[URL_BUF_SIZE] = {};
+
+    // Security / JS
+    bool        js_enabled  = true;   // per-tab JavaScript toggle
+    bool        is_secure   = false;  // true when current URL is https://
 
     Tab() { url_buf[0] = '\0'; }
     explicit Tab(int i, const std::string& u = "")

@@ -72,6 +72,9 @@ find_library(OPENGL_FW   OpenGL)
 find_library(IOKIT_FW    IOKit)
 find_library(COREVID_FW  CoreVideo)
 find_library(QUARTZCORE  QuartzCore)
+find_library(NETWORK_FW  Network)
+find_library(SYSCFG_FW   SystemConfiguration)
+find_library(CFNETWORK_FW CFNetwork)
 
 target_link_libraries(imgui_browser PRIVATE
     imgui
@@ -82,10 +85,16 @@ target_link_libraries(imgui_browser PRIVATE
     ${IOKIT_FW}
     ${COREVID_FW}
     ${QUARTZCORE}
+    ${NETWORK_FW}
+    ${SYSCFG_FW}
+    ${CFNETWORK_FW}
 )
 
-# Set macOS deployment target
+# Set macOS deployment target and bundle properties.
+# Building as a proper .app gives WKWebView a stable CFBundleIdentifier so
+# cookies, localStorage and session data persist correctly across pages.
 set_target_properties(imgui_browser PROPERTIES
-    MACOSX_BUNDLE FALSE
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/src/Info.plist"
     XCODE_ATTRIBUTE_MACOSX_DEPLOYMENT_TARGET "12.0"
 )

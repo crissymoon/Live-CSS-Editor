@@ -154,7 +154,9 @@ static int draw_title_tab_row(AppState* st, int win_w,
     close_idx   = -1;
     new_tab_req = false;
 
-    const float H = (float)TAB_BAR_HEIGHT_PX;
+    const float H       = (float)TAB_BAR_HEIGHT_PX;
+    const float TOP_PAD = 30.0f;  // clear macOS traffic light / top-edge breathing room
+    const float AVAIL_H = H - TOP_PAD;
 
     // Full-width panel, sits at y=0
     begin_panel("##titlerow", 0, 0, (float)win_w, H, COL_SURFACE);
@@ -185,7 +187,7 @@ static int draw_title_tab_row(AppState* st, int win_w,
         float       pill_w = ns.x + 20.0f;
         float       pill_h = 18.0f;
         float       pill_x = (float)win_w * 0.5f - pill_w * 0.5f;
-        float       pill_y = (H - pill_h) * 0.5f;
+        float       pill_y = TOP_PAD + (AVAIL_H - pill_h) * 0.5f;
 
         // Only draw the pill if it does not overlap any tab
         bool fits = (pill_x > tabs_x + n * tab_w + 8.0f) ||
@@ -227,7 +229,7 @@ static int draw_title_tab_row(AppState* st, int win_w,
         float label_w = tab_w - close_w - (active ? 4.0f : 0.0f);
 
         // Tab background (rounded top corners only via manual rect)
-        ImVec2 tMin = {cx, 0};
+        ImVec2 tMin = {cx, TOP_PAD};
         ImVec2 tMax = {cx + tab_w, H};
         if (active) {
             dl->AddRectFilled(tMin, tMax, to_u32(COL_TAB_ACT), 6.0f,
@@ -239,7 +241,7 @@ static int draw_title_tab_row(AppState* st, int win_w,
         }
 
         // Tab click area
-        ImGui::SetCursorPos({cx + 4.0f, (H - ImGui::GetTextLineHeight()) * 0.5f - 1});
+        ImGui::SetCursorPos({cx + 4.0f, TOP_PAD + (AVAIL_H - ImGui::GetTextLineHeight()) * 0.5f - 1});
         ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, active ? ImVec4{0,0,0,0} : COL_TAB_HOV);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  {0,0,0,0});
@@ -252,10 +254,10 @@ static int draw_title_tab_row(AppState* st, int win_w,
         snprintf(disp, sizeof(disp), "%.28s", tab.title.c_str());
 
         // Invisible button for click detection
-        ImGui::SetCursorPos({cx, 0});
+        ImGui::SetCursorPos({cx, TOP_PAD});
         char btn_id[16];
         snprintf(btn_id, sizeof(btn_id), "##tb%d", tab.id);
-        if (ImGui::InvisibleButton(btn_id, {tab_w - close_w, H}))
+        if (ImGui::InvisibleButton(btn_id, {tab_w - close_w, AVAIL_H}))
             st->active_tab = i;
         bool hov = ImGui::IsItemHovered();
         if (hov && !active)
@@ -265,11 +267,10 @@ static int draw_title_tab_row(AppState* st, int win_w,
         // Draw truncated tab title
         {
             ImVec2 ts = ImGui::CalcTextSize(disp);
-            float ty = (float)(H - ImGui::GetTextLineHeight()) * 0.5f;
+            float ty = TOP_PAD + (AVAIL_H - ImGui::GetTextLineHeight()) * 0.5f;
             float tx = cx + 10.0f;
             float max_x = cx + label_w;
             if (ts.x > label_w - 8.0f) {
-                // Clip via AddText scissor
                 ImGui::PushClipRect({tx, ty}, {max_x, ty + ImGui::GetTextLineHeight() + 2}, true);
                 dl->AddText({tx, ty}, to_u32(active ? COL_TEXT : COL_TEXT_DIM), disp);
                 ImGui::PopClipRect();
@@ -278,20 +279,20 @@ static int draw_title_tab_row(AppState* st, int win_w,
             }
         }
 
-        // LoadingIndicator dot pulse (simple)
+        // LoadingIndicator dot
         if (tab.loading) {
             float dot_x = cx + tab_w - close_w - 12.0f;
-            float dot_y = H * 0.5f;
+            float dot_y = TOP_PAD + AVAIL_H * 0.5f;
             dl->AddCircleFilled({dot_x, dot_y}, 3.5f, to_u32(COL_ACCENT), 8);
         }
 
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(3);
 
-        // Close button (only on active tab, on hover of any tab it appears)
+        // Close button (only on active tab)
         if (active && n > 1) {
             ImGui::SetCursorPos({cx + tab_w - close_w - 1.0f,
-                                 (H - close_w) * 0.5f});
+                                 TOP_PAD + (AVAIL_H - close_w) * 0.5f});
             ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.9f,0.3f,0.3f,0.30f});
             ImGui::PushStyleColor(ImGuiCol_ButtonActive,  {0.9f,0.3f,0.3f,0.55f});
@@ -325,7 +326,7 @@ static int draw_title_tab_row(AppState* st, int win_w,
     }
 
     // "+" new tab button
-    ImGui::SetCursorPos({cx + 2.0f, (H - 22.0f) * 0.5f});
+    ImGui::SetCursorPos({cx + 2.0f, TOP_PAD + (AVAIL_H - 22.0f) * 0.5f});
     ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_LO);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT_MID);
@@ -392,8 +393,38 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
 
     // URL bar
     float url_x     = ImGui::GetCursorPosX();
+    float lock_w    = 22.0f;        // security indicator
     float devtool_w = btn + 4.0f;
-    float url_w     = (float)win_w - url_x - devtool_w - pad * 2.0f;
+    float js_btn_w  = btn + 4.0f;   // JS toggle
+    float url_w     = (float)win_w - url_x - (lock_w + 4.0f) - devtool_w - js_btn_w - pad * 2.0f;
+
+    // ── Security indicator (HTTPS / HTTP / other) ─────────────────
+    {
+        const std::string& turl = tab ? tab->url : std::string();
+        bool https = turl.size() >= 8 && turl.substr(0, 8) == "https://";
+        bool http  = turl.size() >= 7 && turl.substr(0, 7) == "http://";
+        ImVec4 sec_col = https ? COL_OK : (http ? COL_WARN : COL_TEXT_DIM);
+        ImVec2 sp2 = ImGui::GetCursorScreenPos();
+        float  fh2 = ImGui::GetFrameHeight();
+        float  dcx = sp2.x + lock_w * 0.5f;
+        float  dcy = sp2.y + fh2 * 0.5f;
+        if (https) {
+            // Filled circle = secure
+            dl->AddCircleFilled({dcx, dcy}, 4.5f, to_u32(sec_col), 12);
+        } else {
+            // Hollow circle = not secure / unknown
+            dl->AddCircle({dcx, dcy}, 4.5f, to_u32(sec_col), 12, 1.5f);
+            if (http)
+                dl->AddCircleFilled({dcx, dcy}, 1.5f, to_u32(sec_col), 8);
+        }
+        ImGui::InvisibleButton("##sec_ind", {lock_w, fh2});
+        const char* sec_tip = https ? "Secure connection (HTTPS)"
+                             : http  ? "Not secure -- data sent unencrypted (HTTP)"
+                                     : nullptr;
+        if (sec_tip && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+            ImGui::SetTooltip("%s", sec_tip);
+        ImGui::SameLine(0, 4);
+    }
 
     // Progress underline before drawing the input
     if (tab && tab->loading && tab->progress > 0.0f) {
@@ -471,6 +502,53 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
     ImGui::PopStyleColor(3);
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
         ImGui::SetTooltip("Dev Tools (Cmd+Shift+I)");
+
+    ImGui::SameLine(0, 2);
+
+    // ── JS toggle ──────────────────────────────────────────────────
+    // Allows per-tab JavaScript enable/disable with immediate visual
+    // feedback. The actual WKWebpagePreferences change is applied on the
+    // next navigation via the nav delegate (triggered by a reload).
+    bool js_on = !tab || tab->js_enabled;
+    if (js_on) {
+        ImGui::PushStyleColor(ImGuiCol_Button,        COL_ACCENT_LO);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_MID);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT);
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_LO);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT_MID);
+    }
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+    if (ImGui::Button("##jstog", {btn, btn}) && tab) {
+        // Flip the UI flag immediately so the button redraws without lag.
+        // Push the desired state as a nav command so main.mm calls
+        // webview_set_js_enabled (which reloads to apply the setting).
+        tab->js_enabled = !tab->js_enabled;
+        st->push_nav(tab->id, tab->js_enabled ? "__js_on__" : "__js_off__");
+    }
+    {
+        const char* lbl = "JS";
+        ImVec2 bmin = ImGui::GetItemRectMin();
+        ImVec2 bmax = ImGui::GetItemRectMax();
+        ImVec2 ts   = ImGui::CalcTextSize(lbl);
+        ImU32  gc   = to_u32(js_on ? COL_TEXT : COL_TEXT_DIM);
+        dl->AddText({(bmin.x + bmax.x - ts.x) * 0.5f,
+                     (bmin.y + bmax.y - ts.y) * 0.5f},
+                    gc, lbl);
+        // Strike-through when JS is disabled
+        if (!js_on) {
+            float mid_y = (bmin.y + bmax.y) * 0.5f;
+            dl->AddLine({bmin.x + 4, mid_y}, {bmax.x - 4, mid_y},
+                        to_u32(COL_BAD), 1.5f);
+        }
+    }
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(3);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+        ImGui::SetTooltip("%s", js_on
+            ? "JavaScript enabled -- click to disable for this tab"
+            : "JavaScript disabled -- click to re-enable for this tab");
 
     end_panel();
     return (int)H;

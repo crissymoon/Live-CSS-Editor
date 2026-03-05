@@ -33,12 +33,13 @@ void fps_host_tick(AppState& st, double now_sec);
 // ── Arg parsing ───────────────────────────────────────────────────────
 
 struct Args {
-    std::string url       = "http://127.0.0.1:8080/pb_admin/login.php";
-    std::string apps_dir  = "";
-    int         php_port  = 9879;
-    int         cmd_port  = 9878;
-    int         win_w     = 1400;
-    int         win_h     = 900;
+    std::string url        = "http://127.0.0.1:8080/pb_admin/login.php";
+    std::string apps_dir   = "";
+    int         php_port   = 9879;
+    int         cmd_port   = 9878;
+    int         win_w      = 1400;
+    int         win_h      = 900;
+    bool        clear_data = false;  // --clear-data: flush cookies/cache on startup
 };
 
 static Args parse_args(int argc, char** argv) {
@@ -70,6 +71,7 @@ static Args parse_args(int argc, char** argv) {
         if ((s == "--cmd-port") && i+1 < argc)   { a.cmd_port  = atoi(argv[++i]); continue; }
         if ((s == "--width") && i+1 < argc)      { a.win_w     = atoi(argv[++i]); continue; }
         if ((s == "--height") && i+1 < argc)     { a.win_h     = atoi(argv[++i]); continue; }
+        if (s == "--clear-data")                  { a.clear_data = true; continue; }
     }
     return a;
 }
@@ -83,6 +85,10 @@ static int           g_prev_bot = 0;   // last chrome bottom height (logical pts
 // Physical framebuffer pixels -- only used for glViewport
 static int           g_fb_w     = 0;
 static int           g_fb_h     = 0;
+// Set true each frame when any ImGui item is hovered in the chrome zone.
+// Used by the drag-bar NSEvent monitor to decide whether to let the OS
+// drag the window vs. letting ImGui handle the click (tab, button, URL bar).
+static bool          g_chrome_has_hover = false;
 
 // ── Content area positioning ──────────────────────────────────────────
 
@@ -139,6 +145,8 @@ static void dispatch_nav(AppState::NavCmd& cmd) {
     else if (cmd.url == "__forward__") webview_go_forward(h);
     else if (cmd.url == "__reload__")  webview_reload(h);
     else if (cmd.url == "__stop__")    webview_stop(h);
+    else if (cmd.url == "__js_on__")  { tab->js_enabled = true;  webview_set_js_enabled(h, true); }
+    else if (cmd.url == "__js_off__") { tab->js_enabled = false; webview_set_js_enabled(h, false); }
     else                               webview_load_url(h, cmd.url);
 }
 
@@ -152,9 +160,16 @@ static void cb_window_size(GLFWwindow*, int w, int h) {
 }
 
 // Called by GLFW with PHYSICAL PIXEL dimensions -- used only for glViewport.
+// Also fires when the window moves to a display with a different DPI, so we
+// recalculate dpi_scale and reposition WKWebViews (they use logical points but
+// WKWebView inherits the NSWindow backingScaleFactor automatically -- the
+// reposition call is still needed to flush any frame rounding delta).
 static void cb_framebuffer_size(GLFWwindow*, int w, int h) {
     g_fb_w = w;
     g_fb_h = h;
+    if (g_state.win_w > 0)
+        g_state.dpi_scale = (float)w / (float)g_state.win_w;
+    reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
 }
 
 static void cb_error(int, const char* desc) {
@@ -237,8 +252,15 @@ int main(int argc, char** argv) {
     glfwSwapInterval(1);  // vsync ON
     // Logical point size -- drives WKWebView frame and ImGui display size.
     glfwSetWindowSizeCallback(g_win, cb_window_size);
-    // Physical pixel size -- drives glViewport only.
+    // Physical pixel size -- drives glViewport only (also fires on DPI change).
     glfwSetFramebufferSizeCallback(g_win, cb_framebuffer_size);
+    // Content scale change -- fires when the window moves to a different display.
+    // The framebuffer callback covers the DPI recalc, but this one guarantees
+    // we also flush WKWebView positioning on scale-only events (e.g. mirror mode).
+    glfwSetWindowContentScaleCallback(g_win, [](GLFWwindow*, float xscale, float) {
+        g_state.dpi_scale = xscale;
+        reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
+    });
 
     // Seed both dimension pairs before the first frame.
     int _lw, _lh;
@@ -262,8 +284,32 @@ int main(int argc, char** argv) {
     // We manage the cursor manually below in the render loop.
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
-    // Load font - will use default if JetBrains Mono not present
-    // (add font loading here if you bundle a TTF)
+    // ── Load font scaled for Retina ──────────────────────────────────
+    // Strategy: load at (base * dpi_scale) so the rasterised glyphs are
+    // physically sharp on HiDPI displays, then set FontGlobalScale to
+    // 1/dpi_scale so ImGui renders at the correct LOGICAL size (15pt).
+    // ImGui_ImplGlfw already sets io.DisplayFramebufferScale to the pixel
+    // ratio, so the OpenGL3 backend handles the physical-to-logical mapping;
+    // we must NOT call ScaleAllSizes here or all dimensions are doubled.
+    float font_size = 15.0f * g_state.dpi_scale;
+    NSString* fontPath = [[NSBundle bundleWithPath:@"/System/Library/Fonts"]
+                          pathForResource:@"Menlo" ofType:@"ttc"];
+    if (!fontPath) fontPath = @"/System/Library/Fonts/Menlo.ttc";
+    if ([[NSFileManager defaultManager] fileExistsAtPath:fontPath]) {
+        io.Fonts->AddFontFromFileTTF(fontPath.UTF8String, font_size);
+        fprintf(stderr, "[ui] loaded font: %s @ %.0fpx\n", fontPath.UTF8String, font_size);
+    } else {
+        // Fallback: try SF Mono
+        fontPath = @"/System/Library/Fonts/SFMono-Regular.otf";
+        if ([[NSFileManager defaultManager] fileExistsAtPath:fontPath]) {
+            io.Fonts->AddFontFromFileTTF(fontPath.UTF8String, font_size);
+            fprintf(stderr, "[ui] loaded font: %s @ %.0fpx\n", fontPath.UTF8String, font_size);
+        } else {
+            fprintf(stderr, "[ui] WARNING: no system font found, using ImGui default\n");
+        }
+    }
+    // Scale the font back down to logical points so it renders at 15pt.
+    io.FontGlobalScale = (g_state.dpi_scale > 0.0f) ? 1.0f / g_state.dpi_scale : 1.0f;
 
     chrome_init(&g_state);
 
@@ -276,7 +322,11 @@ int main(int argc, char** argv) {
     WebViewCallbacks wv_cbs;
     wv_cbs.on_url_change = [](int tab_id, const std::string& url) {
         for (auto& t : g_state.tabs)
-            if (t.id == tab_id) { t.url = url; break; }
+            if (t.id == tab_id) {
+                t.url       = url;
+                t.is_secure = url.size() >= 8 && url.substr(0, 8) == "https://";
+                break;
+            }
     };
     wv_cbs.on_title_change = [](int tab_id, const std::string& title) {
         for (auto& t : g_state.tabs)
@@ -307,7 +357,67 @@ int main(int argc, char** argv) {
     ns_win.styleMask |= NSWindowStyleMaskFullSizeContentView;
     [ns_win setTitle:@"Crissy's Style Tool"];
 
+    // ── Window drag monitor ───────────────────────────────────────────
+    // NSWindowStyleMaskFullSizeContentView makes the OS title bar area part of
+    // the GL content view, so the normal OS title-bar drag is gone. We restore
+    // dragging by watching for left-mouse-down in the title bar zone and calling
+    // performWindowDragWithEvent: -- but only when ImGui has nothing hovered
+    // (g_chrome_has_hover == false), which means the click is on dead space
+    // rather than a tab, close button, or URL bar. If a button IS hovered we
+    // return the event unmodified so ImGui handles the click normally.
+    [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown
+                                         handler:^NSEvent*(NSEvent* ev) {
+        if (ev.window != ns_win) return ev;
+        // Convert click location to content-view coords (origin = bottom-left).
+        NSPoint p = [ns_win.contentView convertPoint:ev.locationInWindow
+                                             fromView:nil];
+        float view_h = (float)ns_win.contentView.bounds.size.height;
+        float zone_h = (float)TAB_BAR_HEIGHT_PX;
+        bool  in_titlebar = (p.y >= view_h - zone_h);
+        // Never intercept clicks in the traffic light zone (x < TRAFFIC_LIGHT_W).
+        // Those NSButton subviews need to receive the event directly.
+        bool  in_tl_zone  = (p.x < (float)TRAFFIC_LIGHT_W);
+        if (in_titlebar && !in_tl_zone && !g_chrome_has_hover) {
+            [ns_win performWindowDragWithEvent:ev];
+            return nil;   // event is consumed by the drag; do not forward to ImGui
+        }
+        return ev;
+    }];
+
+    // Load xcm performance scripts from dev-browser/src/ and register them
+    // for injection into every WebView tab and popup at document-start.
+    // apps_dir = .../dev-browser/apps  →  src_dir = .../dev-browser/src
+    if (!args.apps_dir.empty()) {
+        std::string src_dir = args.apps_dir + "/../src";
+        auto load_file = [](const std::string& p) -> std::string {
+            FILE* f = fopen(p.c_str(), "r");
+            if (!f) { fprintf(stderr, "[main] WARNING: cannot load script: %s\n", p.c_str()); return ""; }
+            fseek(f, 0, SEEK_END);
+            long sz = ftell(f);
+            rewind(f);
+            std::string s(sz, '\0');
+            fread(&s[0], 1, sz, f);
+            fclose(f);
+            return s;
+        };
+        for (const char* name : { "input-watcher.js", "chrome-gl-compositor.js" }) {
+            std::string src = load_file(src_dir + "/" + name);
+            if (!src.empty()) {
+                wv_cbs.extra_scripts.push_back(std::move(src));
+                fprintf(stderr, "[main] loaded extra script: %s\n", name);
+            }
+        }
+    }
+
     webview_init((__bridge void*)ns_win, &g_state, wv_cbs);
+
+    // If --clear-data was passed, flush all cookies/cache/SW before any tab
+    // loads. This clears stuck auth tokens that may cause login loops.
+    if (args.clear_data) {
+        webview_clear_data();
+        // Give the async clear a moment to flush before loading the first tab.
+        [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.3]];
+    }
 
     // ── Initial tab ──────────────────────────────────────────────────
     {
@@ -337,8 +447,9 @@ int main(int argc, char** argv) {
 
     // ── Render loop ───────────────────────────────────────────────────
     while (!glfwWindowShouldClose(g_win)) {
-        // Process macOS events (needed for WKWebView / NSRunLoop)
+        // Process macOS events (needed for WKWebView / NSRunLoop).
         @autoreleasepool {
+            // Drain AppKit keyboard/mouse/window events.
             NSEvent* ev;
             while ((ev = [NSApp nextEventMatchingMask:NSEventMaskAny
                                            untilDate:nil
@@ -346,6 +457,12 @@ int main(int argc, char** argv) {
                                              dequeue:YES])) {
                 [NSApp sendEvent:ev];
             }
+            // Tick the run loop once with distantPast (returns immediately if
+            // nothing is pending). This drains timer and source callbacks that
+            // WKWebView schedules outside the default mode, such as navigation
+            // progress updates and JS completion handlers.
+            [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode
+                                    beforeDate:[NSDate distantPast]];
         }
 
         glfwPollEvents();
@@ -413,6 +530,16 @@ int main(int argc, char** argv) {
                     if (ImGui::IsKeyPressed(kn, false))
                         g_state.active_tab = ki;
                 }
+                // Cmd+Option+I -- open Web Inspector for current tab
+                if (kio.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_I, false)) {
+                    Tab* t = g_state.current_tab();
+                    if (t && t->wv_handle) webview_open_inspector(t->wv_handle);
+                }
+                // Cmd+Shift+Delete (Backspace) -- clear all cookies/cache/SW
+                // Use this to flush a stuck auth state without restarting.
+                if (kio.KeyShift && ImGui::IsKeyPressed(ImGuiKey_Backspace, false)) {
+                    webview_clear_data();
+                }
             }
         }
 
@@ -440,6 +567,10 @@ int main(int argc, char** argv) {
         int  chrome_top  = chrome_draw_top(&g_state, ww, wh,
                                            new_tab_req, close_tab);
         int  chrome_bot  = chrome_draw_bottom(&g_state, ww, wh);
+
+        // Update hover flag used by the drag-bar NSEvent monitor.
+        // IsAnyItemHovered() is valid here (between NewFrame and Render).
+        g_chrome_has_hover = ImGui::IsAnyItemHovered();
 
         // Handle tab actions
         if (new_tab_req) {

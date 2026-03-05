@@ -5,6 +5,7 @@
 
 #include "app_state.h"
 #include <string>
+#include <vector>
 #include <functional>
 
 // Callbacks the app can register
@@ -16,6 +17,13 @@ struct WebViewCallbacks {
     std::function<void(int tab_id, bool back, bool fwd)>      on_nav_state;
     std::function<void(const std::string& url)>               on_hover_url;
     std::function<void(double fps)>                           on_wkwv_fps;
+
+    // Additional JS strings injected at document-start into every frame
+    // (main tab and all popups). Injected after JS_INIT and JS_MASK_WEBVIEW
+    // in the order they appear in this vector.
+    // Use this for xcm performance scripts (input-watcher, chrome-gl-compositor)
+    // and any app-specific bootstrap code.
+    std::vector<std::string> extra_scripts;
 };
 
 // Initialise the WebView subsystem.  Must be called from the main thread
@@ -48,6 +56,20 @@ void  webview_stop(void* handle);
 void  webview_eval_js(void* handle,
                       const std::string& script,
                       std::function<void(const std::string& result)> cb);
+
+// Enable or disable JavaScript for a tab. Takes effect on the next
+// navigation (a reload is triggered automatically so the change is immediate).
+// Security note: disabling JS prevents page scripts from running; WKUserScript
+// injections (e.g. Chrome masking) are unaffected as they run in the host world.
+void  webview_set_js_enabled(void* handle, bool enabled);
+
+// Open the WKWebView Web Inspector (requires developerExtrasEnabled = YES).
+// Equivalent to right-click -> Inspect Element, opened programmatically.
+void  webview_open_inspector(void* handle);
+
+// Clear all stored website data (cookies, localStorage, IndexedDB, cache,
+// service worker registrations). Use this to flush a stuck auth state.
+void  webview_clear_data();
 
 // Tear down everything (called on app exit).
 void  webview_shutdown();

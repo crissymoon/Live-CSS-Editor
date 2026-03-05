@@ -88,6 +88,7 @@ const CDP_PORT        = 9223;   // remote debugging port for Chrome
 const SCRIPTS_DIR     = __dirname;
 const COMPOSITOR_JS   = path.join(SCRIPTS_DIR, 'chrome-gl-compositor.js');
 const INPUT_WATCHER_JS = path.join(SCRIPTS_DIR, 'input-watcher.js');
+const AUTH_MASK_JS    = path.join(SCRIPTS_DIR, 'auth-mask.js');
 
 // ── Chrome flags: compositor-optimised for smooth trackpad scrolling ──────────
 const CHROME_LAUNCH_FLAGS = [
@@ -250,9 +251,19 @@ async function _attachPageListeners(page) {
 
 // ── Inject performance scripts on every new document ─────────────────────────
 async function _setupScriptInjection(page) {
+    const authMaskSrc     = loadScript(AUTH_MASK_JS);
     const inputWatcherSrc = loadScript(INPUT_WATCHER_JS);
     const glCompositorSrc = loadScript(COMPOSITOR_JS);
 
+    // Auth mask is injected FIRST so navigator.webdriver and $cdc_* globals
+    // are already false/removed before any page scripts execute.
+    // This is the primary fix for "Couldn't sign you in -- browser not secure"
+    // on Google and other OAuth providers that detect Chrome automation.
+    if (authMaskSrc) {
+        await page.evaluateOnNewDocument(authMaskSrc).catch(e =>
+            console.error('[puppeteer-server] auth-mask inject error:', e.message)
+        );
+    }
     // Inject in order: input-watcher first (atom must exist before cdm-sdk reads it).
     if (inputWatcherSrc) {
         await page.evaluateOnNewDocument(inputWatcherSrc).catch(e =>
@@ -451,6 +462,11 @@ async function launch() {
             '--no-first-run',
             '--disable-infobars',
             '--hide-crash-restore-bubble',
+            // Remove the Blink automation flag that sets navigator.webdriver=true.
+            // Without this Chrome injects webdriver=true at the engine level before
+            // any evaluateOnNewDocument script can override it, causing Google to
+            // block sign-in with "browser not secure".
+            '--disable-blink-features=AutomationControlled',
         ],
         defaultViewport: null,  // use the window's actual size
         ignoreDefaultArgs: ['--enable-automation'],  // remove the automation banner
