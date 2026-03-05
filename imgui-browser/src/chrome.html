@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XCM Chrome</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:         #0d1117;
+  --surface:    #101820;
+  --tab-act:    #2b2b44;
+  --tab-hov:    #1e1e30;
+  --accent:     #6366f0;
+  --accent-lo:  rgba(99,102,240,.18);
+  --accent-med: rgba(99,102,240,.28);
+  --txt:        #e6e9f5;
+  --txt-dim:    #666a80;
+  --sep:        rgba(99,102,240,.22);
+  --ok:         #34d39a;
+  --bad:        #f8876e;
+  --radius:     7px;
+  --tl-w:       82px;  /* traffic light clearance - TRAFFIC_LIGHT_W */
+  --tab-bar-h:  70px;  /* TAB_BAR_HEIGHT_PX */
+  --toolbar-h:  44px;  /* CHROME_HEIGHT_PX */
+}
+
+html,body{
+  width:100%;
+  margin:0;padding:0;
+  background:var(--surface);
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;
+  font-size:14px;color:var(--txt);
+  cursor:default;
+  user-select:none;-webkit-user-select:none;
+  overflow:hidden;
+}
+
+html{
+  border-left:  1px solid var(--sep);
+  border-right: 1px solid var(--sep);
+  border-bottom:1px solid var(--sep);
+  border-top-left-radius:  10px;
+  border-top-right-radius: 10px;
+  overflow:hidden;
+}
+
+/* ------------------------------------------------------------------
+   TRAFFIC LIGHTS -- custom purple window controls
+   Positioned absolutely in the top-left drag zone.
+   ------------------------------------------------------------------ */
+
+#tl-group{
+  position:absolute;
+  top:9px;
+  left:14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  z-index:20;
+}
+
+.tl-btn{
+  width:13px;height:13px;
+  border-radius:50%;
+  border:none;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  transition:filter .1s;
+  padding:0;
+}
+.tl-btn:hover{ filter:brightness(1.3); }
+.tl-btn:active{ filter:brightness(.75); }
+
+.tl-icon{
+  opacity:0;
+  font-size:7.5px;
+  line-height:1;
+  font-weight:900;
+  color:rgba(0,0,0,.55);
+  pointer-events:none;
+  transition:opacity .1s;
+  font-family:-apple-system,sans-serif;
+}
+#tl-group:hover .tl-icon{ opacity:1; }
+
+#tl-close   { background:#c060b0; }
+#tl-minimize{ background:#8855cc; }
+#tl-zoom    { background:#6366f0; }
+
+/* ------------------------------------------------------------------
+   TAB BAR -- top 70px
+   Layout (top to bottom):
+     0-32px : drag zone (background only, no interactive content)
+     32-66px: tab chips row
+     66-70px: bottom separator area
+   ------------------------------------------------------------------ */
+
+#tabbar{
+  width:100%;
+  height:var(--tab-bar-h);
+  background:var(--surface);
+  position:relative;
+  flex-shrink:0;
+}
+
+/* Bottom separator on the tab bar */
+#tabbar::after{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:1px;
+  background:var(--sep);
+}
+
+/* Top shimmer (matches native gradient) */
+#tabbar::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:1px;
+  background:rgba(99,102,240,.22);
+}
+
+/* Tab chips row: sits at y=32, height=34, padded left by traffic light width */
+#tab-row{
+  position:absolute;
+  top:32px;
+  left:var(--tl-w);
+  right:0;
+  height:34px;
+  display:flex;
+  align-items:center;
+  gap:2px;
+  overflow:hidden;
+}
+
+/* Individual tab chip */
+.tab{
+  flex:1;
+  min-width:64px;max-width:180px;
+  height:32px;
+  display:flex;align-items:center;
+  padding:0 8px;
+  border-radius:6px;
+  cursor:pointer;
+  position:relative;
+  border:1px solid rgba(99,102,240,.10);
+  transition:background .1s,border-color .1s;
+  overflow:hidden;
+}
+.tab:hover{
+  background:var(--tab-hov);
+  border-color:rgba(99,102,240,.20);
+}
+.tab.active{
+  background:var(--tab-act);
+  border-color:rgba(99,102,240,.40);
+}
+
+.tab-title{
+  flex:1;
+  min-width:0;
+  font-size:12px;
+  white-space:nowrap;
+  overflow:hidden;
+  /* text fade on overflow */
+  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+  mask-image:       linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+}
+.tab.active .tab-title{
+  font-weight:600;
+}
+.tab:hover .tab-title{
+  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 34px),transparent 100%);
+  mask-image:       linear-gradient(to right,#000 calc(100% - 34px),transparent 100%);
+}
+
+/* Loading dot */
+.tab-dot{
+  width:6px;height:6px;
+  border-radius:50%;
+  background:var(--accent);
+  flex-shrink:0;
+  margin-right:4px;
+  display:none;
+}
+.tab.loading .tab-dot{ display:block; }
+
+/* Close button (visible on hover and active) */
+.tab-close{
+  position:absolute;right:4px;
+  width:16px;height:16px;
+  border-radius:50%;
+  display:none;
+  align-items:center;justify-content:center;
+  flex-shrink:0;
+  cursor:pointer;
+  background:transparent;
+  border:none;
+  color:var(--txt-dim);
+  transition:background .1s,color .1s;
+}
+.tab:hover .tab-close,
+.tab.active .tab-close{ display:flex; }
+.tab-close:hover{
+  background:rgba(248,135,110,.45);
+  color:#fff;
+}
+.tab-close svg{width:8px;height:8px;stroke:currentColor;stroke-width:2.5;fill:none;stroke-linecap:round;}
+
+/* New tab button */
+#newtab{
+  flex-shrink:0;
+  width:24px;height:24px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:5px;
+  background:none;border:none;
+  cursor:pointer;
+  color:var(--txt-dim);
+  transition:background .1s,color .1s;
+}
+#newtab:hover{
+  background:var(--accent-lo);
+  color:var(--accent);
+}
+#newtab svg{width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;}
+
+/* ------------------------------------------------------------------
+   TOOLBAR -- 44px row below tab bar
+   ------------------------------------------------------------------ */
+
+#toolbar{
+  display:flex;align-items:center;
+  width:100%;height:var(--toolbar-h);
+  padding:0 8px;gap:2px;
+  background:var(--surface);
+  border-top:1px solid var(--sep);
+  flex-shrink:0;
+}
+
+/* Nav / action buttons */
+.btn{
+  display:flex;align-items:center;justify-content:center;
+  width:28px;height:28px;flex-shrink:0;
+  background:none;border:none;cursor:pointer;
+  border-radius:5px;color:var(--txt);font-size:13px;
+  transition:background .12s,color .12s;
+}
+.btn:hover{background:var(--accent-lo);}
+.btn:active{background:var(--accent-med);}
+.btn:disabled,.btn[disabled]{color:var(--txt-dim);pointer-events:none;}
+.btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+#gap{width:8px;flex-shrink:0;}
+
+/* URL bar */
+#url-wrap{
+  flex:1;min-width:0;
+  display:flex;align-items:center;
+  height:28px;
+  background:var(--bg);
+  border:1px solid rgba(99,102,240,.28);
+  border-radius:var(--radius);
+  padding:0 8px;gap:5px;
+  position:relative;overflow:hidden;
+}
+#url-wrap:focus-within{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px var(--accent-lo);
+}
+
+#sec{width:13px;height:13px;flex-shrink:0;}
+#sec svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.sec-https{color:var(--ok);}
+.sec-http {color:var(--bad);}
+.sec-other{color:var(--txt-dim);}
+
+#url{
+  flex:1;min-width:0;
+  background:none;border:none;outline:none;
+  color:var(--txt);font-size:14px;
+  cursor:text!important;
+  user-select:text!important;
+  -webkit-user-select:text!important;
+}
+#url::selection{background:rgba(99,102,240,.32);}
+
+#prog{
+  position:absolute;bottom:0;left:0;height:2px;
+  background:var(--accent);width:0%;
+  transition:width .08s linear;
+  display:none;
+}
+
+#more{
+  width:30px;height:28px;
+  letter-spacing:.12em;font-size:15px;font-weight:500;
+  flex-shrink:0;
+}
+#more.active{color:var(--accent);background:var(--accent-lo);}
+
+/* ------------------------------------------------------------------
+   DRAWER -- slides out below toolbar
+   ------------------------------------------------------------------ */
+
+#drawer{
+  width:100%;
+  background:var(--bg);
+  border-top:1px solid var(--sep);
+  display:none;
+  flex-direction:column;
+  overflow:hidden;
+}
+#drawer.open{display:flex;}
+
+#drawer-head{
+  display:flex;align-items:center;justify-content:flex-end;
+  height:26px;padding:0 4px;
+  border-bottom:1px solid var(--sep);
+  flex-shrink:0;
+}
+#drawer-close{
+  width:24px;height:22px;
+  background:none;border:none;cursor:pointer;
+  color:var(--txt-dim);border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s,color .12s;
+}
+#drawer-close:hover{background:var(--accent-lo);color:var(--txt);}
+#drawer-close svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+#drawer-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  padding:4px;
+}
+.ditem{
+  display:flex;align-items:center;
+  padding:7px 10px;gap:8px;
+  cursor:pointer;color:var(--txt);
+  border-radius:6px;font-size:13px;
+  transition:background .1s;
+}
+.ditem:hover{background:var(--accent-lo);}
+.ditem:active{background:var(--accent-med);}
+.ditem.disabled{color:var(--txt-dim);pointer-events:none;}
+.ditem.full{grid-column:1/-1;}
+.di-icon{width:16px;height:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.di-icon svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.di-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.drawer-sep{grid-column:1/-1;height:1px;background:var(--sep);margin:3px 6px;}
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     TAB BAR
+     Top 32px is the drag zone (nothing interactive).
+     Tab chips row starts at 32px from top.
+     ================================================================ -->
+<div id="tabbar">
+  <!-- Traffic light window controls -->
+  <div id="tl-group">
+    <button id="tl-close"    class="tl-btn" title="Close"    onclick="xcm('win_close')"><span class="tl-icon">&#xD7;</span></button>
+    <button id="tl-minimize" class="tl-btn" title="Minimize" onclick="xcm('win_minimize')"><span class="tl-icon">&#x2212;</span></button>
+    <button id="tl-zoom"     class="tl-btn" title="Zoom"     onclick="xcm('win_zoom')"><span class="tl-icon">&#x2B;</span></button>
+  </div>
+  <div id="tab-row">
+    <!-- .tab elements injected by updateTabBar() -->
+    <button id="newtab" title="New tab" onclick="tabNew()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ================================================================
+     TOOLBAR
+     ================================================================ -->
+<div id="toolbar">
+
+  <button class="btn" id="btn-back" title="Back" onclick="xcm('back')">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+
+  <button class="btn" id="btn-fwd" title="Forward" onclick="xcm('fwd')">
+    <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+  </button>
+
+  <button class="btn" id="btn-reload" title="Reload" onclick="xcm('reload')">
+    <svg id="ico-reload" viewBox="0 0 24 24">
+      <polyline points="23 4 23 10 17 10"/>
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+    <svg id="ico-stop" viewBox="0 0 24 24" style="display:none">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+
+  <div id="gap"></div>
+
+  <div id="url-wrap">
+    <span id="sec" class="sec-other">
+      <svg id="ico-globe" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+      <svg id="ico-lock" viewBox="0 0 24 24" style="display:none">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <svg id="ico-unlock" viewBox="0 0 24 24" style="display:none">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+      </svg>
+    </span>
+    <input id="url" type="text" spellcheck="false" autocomplete="off"
+           placeholder="Search or enter URL"
+           onkeydown="onUrlKey(event)"
+           onfocus="onUrlFocus()"
+           onblur="onUrlBlur()">
+    <div id="prog"></div>
+  </div>
+
+  <button class="btn" id="more" title="Tools and settings" onclick="toggleDrawer()">&#xB7;&#xB7;&#xB7;</button>
+</div>
+
+<!-- ================================================================
+     DRAWER
+     ================================================================ -->
+<div id="drawer">
+  <div id="drawer-head">
+    <button id="drawer-close" title="Collapse" onclick="closeDrawer()">
+      <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+  </div>
+  <div id="drawer-grid">
+    <div class="ditem" id="di-back" onclick="drawerAction('back')">
+      <span class="di-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+      <span class="di-label">Back</span>
+    </div>
+    <div class="ditem" id="di-fwd" onclick="drawerAction('fwd')">
+      <span class="di-icon"><svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg></span>
+      <span class="di-label">Forward</span>
+    </div>
+    <div class="ditem full" id="di-reload" onclick="drawerAction('reload')">
+      <span class="di-icon">
+        <svg id="di-ico-reload" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <svg id="di-ico-stop"   viewBox="0 0 24 24" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </span>
+      <span class="di-label" id="di-reload-lbl">Reload</span>
+    </div>
+    <div class="drawer-sep"></div>
+    <div class="ditem full" id="di-devt" onclick="drawerAction('devt')">
+      <span class="di-icon"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+      <span class="di-label" id="di-devt-lbl">Developer Tools</span>
+    </div>
+    <div class="ditem full" id="di-js" onclick="drawerAction('js')">
+      <span class="di-icon"><svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></span>
+      <span class="di-label" id="di-js-lbl">Disable JavaScript</span>
+    </div>
+    <div class="drawer-sep"></div>
+    <div class="ditem" id="di-bm" onclick="drawerAction('bm')">
+      <span class="di-icon"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>
+      <span class="di-label" id="di-bm-lbl">Bookmark</span>
+    </div>
+    <div class="ditem" onclick="drawerAction('showbm')">
+      <span class="di-icon"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>
+      <span class="di-label">Bookmarks</span>
+    </div>
+    <div class="ditem full" onclick="drawerAction('hist')">
+      <span class="di-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+      <span class="di-label">History</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- bridge ----
+function xcm(action, data) {
+  var msg = {action: action};
+  if (data !== undefined) msg.data = String(data);
+  try { window.webkit.messageHandlers.xcmBridge.postMessage(msg); }
+  catch(e) { console.warn('xcmBridge not available', e); }
+}
+
+// ================================================================
+// TAB BAR
+// ================================================================
+
+var _tabs      = [];
+var _activeTab = 0;
+
+// Tab drag state
+var _drag = null;  // {idx, startX, currentX, moved}
+
+function tabNew() { xcm('tab_new'); }
+
+function tabSwitch(idx) {
+  xcm('tab_switch', idx);
+}
+
+function tabClose(idx, evt) {
+  evt.stopPropagation();
+  xcm('tab_close', idx);
+}
+
+// Rebuild the tab DOM whenever the tabs array changes
+var _lastTabsSig = '';
+
+function updateTabBar(tabs, activeTab) {
+  var sig = JSON.stringify(tabs) + '|' + activeTab;
+  if (sig === _lastTabsSig) return;
+  _lastTabsSig = sig;
+  _tabs = tabs;
+  _activeTab = activeTab;
+
+  var row = document.getElementById('tab-row');
+  var newtab = document.getElementById('newtab');
+
+  // Remove existing tab chips (keep newtab)
+  var chips = row.querySelectorAll('.tab');
+  for (var i = 0; i < chips.length; i++) row.removeChild(chips[i]);
+
+  // Insert tabs before newtab button
+  for (var i = 0; i < tabs.length; i++) {
+    var t = tabs[i];
+    var chip = document.createElement('div');
+    chip.className = 'tab' +
+      (i === activeTab        ? ' active'  : '') +
+      (t.loading              ? ' loading' : '');
+    chip.setAttribute('data-idx', i);
+    chip.title = t.title || 'New Tab';
+
+    // loading dot
+    var dot = document.createElement('span');
+    dot.className = 'tab-dot';
+    chip.appendChild(dot);
+
+    // title
+    var title = document.createElement('span');
+    title.className = 'tab-title';
+    title.textContent = t.title || 'New Tab';
+    chip.appendChild(title);
+
+    // close button (only visible on hover/active via CSS)
+    if (tabs.length > 1) {
+      var cls = document.createElement('button');
+      cls.className = 'tab-close';
+      cls.title = 'Close tab';
+      cls.innerHTML = '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      (function(capturedIdx) {
+        cls.onclick = function(e) { tabClose(capturedIdx, e); };
+      })(i);
+      chip.appendChild(cls);
+    }
+
+    // click to switch
+    (function(capturedIdx) {
+      chip.onclick = function() { tabSwitch(capturedIdx); };
+    })(i);
+
+    // drag to reorder
+    chip.addEventListener('mousedown', onTabMouseDown);
+
+    row.insertBefore(chip, newtab);
+  }
+}
+
+// Tab drag-to-reorder
+function onTabMouseDown(e) {
+  if (e.button !== 0) return;
+  var idx = parseInt(this.getAttribute('data-idx'), 10);
+  _drag = {idx: idx, startX: e.clientX, currentX: e.clientX, moved: false};
+  e.preventDefault();
+}
+
+document.addEventListener('mousemove', function(e) {
+  if (!_drag) return;
+  _drag.currentX = e.clientX;
+  var dx = Math.abs(_drag.currentX - _drag.startX);
+  if (dx > 6) _drag.moved = true;
+});
+
+document.addEventListener('mouseup', function(e) {
+  if (!_drag) return;
+  if (_drag.moved) {
+    var row     = document.getElementById('tab-row');
+    var chips   = row.querySelectorAll('.tab');
+    var dropIdx = _drag.idx;
+    for (var i = 0; i < chips.length; i++) {
+      var r = chips[i].getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX < r.right) { dropIdx = i; break; }
+    }
+    if (dropIdx !== _drag.idx) {
+      xcm('tab_move', _drag.idx + ',' + dropIdx);
+    }
+  }
+  _drag = null;
+});
+
+// ================================================================
+// TOOLBAR STATE
+// ================================================================
+
+var _state = {
+  url: '', loading: false, progress: 0,
+  canBack: false, canFwd: false,
+  https: false, http: false,
+  devtOpen: false, jsOn: true, isBm: false,
+  tabs: [], activeTab: 0
+};
+var _pendingUrl = null;
+
+function xcmSetState(s) {
+  _state = s;
+
+  // Tab bar
+  if (s.tabs) updateTabBar(s.tabs, s.activeTab || 0);
+
+  // URL bar
+  var urlEl   = document.getElementById('url');
+  var focused = document.activeElement === urlEl;
+  if (!focused) {
+    if (_pendingUrl && s.loading) _pendingUrl = null;
+    urlEl.value = _pendingUrl || s.url || '';
+  }
+
+  // back / fwd
+  document.getElementById('btn-back').disabled = !s.canBack;
+  document.getElementById('btn-fwd').disabled  = !s.canFwd;
+
+  // reload / stop
+  document.getElementById('ico-reload').style.display = s.loading ? 'none' : '';
+  document.getElementById('ico-stop').style.display   = s.loading ? ''     : 'none';
+  document.getElementById('btn-reload').title = s.loading ? 'Stop' : 'Reload';
+
+  // progress bar
+  var prog = document.getElementById('prog');
+  if (s.loading && s.progress > 0 && s.progress < 1) {
+    prog.style.display = 'block';
+    prog.style.width   = (s.progress * 100).toFixed(1) + '%';
+  } else {
+    prog.style.display = 'none';
+    prog.style.width   = '0%';
+  }
+
+  // security icon
+  document.getElementById('ico-globe').style.display  = (!s.https && !s.http) ? '' : 'none';
+  document.getElementById('ico-lock').style.display   = s.https ? '' : 'none';
+  document.getElementById('ico-unlock').style.display = (s.http && !s.https) ? '' : 'none';
+  document.getElementById('sec').className = s.https ? 'sec-https' : (s.http ? 'sec-http' : 'sec-other');
+
+  // drawer labels
+  document.getElementById('di-reload-lbl').textContent = s.loading ? 'Stop' : 'Reload';
+  document.getElementById('di-devt-lbl').textContent   = s.devtOpen ? 'Close Developer Tools' : 'Developer Tools';
+  document.getElementById('di-js-lbl').textContent     = s.jsOn ? 'Disable JavaScript' : 'Enable JavaScript';
+  document.getElementById('di-bm-lbl').textContent     = s.isBm ? 'Remove Bookmark' : 'Bookmark This Page';
+
+  document.getElementById('di-back').className = 'ditem' + (s.canBack ? '' : ' disabled');
+  document.getElementById('di-fwd').className  = 'ditem' + (s.canFwd  ? '' : ' disabled');
+
+  document.getElementById('more').style.color =
+    (s.devtOpen || s.isBm || !s.jsOn) ? 'var(--accent)' : '';
+
+  if (document.getElementById('di-ico-reload')) {
+    document.getElementById('di-ico-reload').style.display = s.loading ? 'none' : '';
+    document.getElementById('di-ico-stop').style.display   = s.loading ? ''     : 'none';
+  }
+}
+
+// ================================================================
+// URL INPUT
+// ================================================================
+
+function onUrlKey(e) {
+  if (e.key === 'Enter') {
+    var v = e.target.value.trim();
+    if (v) {
+      if (v.indexOf('://') === -1 && v.indexOf(' ') === -1) v = 'https://' + v;
+      _pendingUrl = v;
+      xcm('navigate', v);
+      e.target.blur();
+    }
+  }
+  if (e.key === 'Escape') {
+    _pendingUrl = null;
+    e.target.value = _state.url || '';
+    e.target.blur();
+  }
+}
+function onUrlFocus() { xcm('urlfocus'); }
+function onUrlBlur()  { xcm('urlblur');  }
+
+// ================================================================
+// DRAWER
+// ================================================================
+
+var DRAWER_OPEN = false;
+var DRAWER_H    = 220;
+
+function openDrawer() {
+  if (DRAWER_OPEN) return;
+  DRAWER_OPEN = true;
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('more').classList.add('active');
+  xcm('dropdownOpen', DRAWER_H);
+}
+function closeDrawer() {
+  if (!DRAWER_OPEN) return;
+  DRAWER_OPEN = false;
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('more').classList.remove('active');
+  xcm('dropdownClose');
+}
+function closeDrawerSilent() {
+  DRAWER_OPEN = false;
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('more').classList.remove('active');
+}
+function toggleDrawer() {
+  if (DRAWER_OPEN) closeDrawer(); else openDrawer();
+}
+function drawerAction(action) {
+  closeDrawer();
+  setTimeout(function() { xcm(action); }, 40);
+}
+</script>
+</body>
+</html>

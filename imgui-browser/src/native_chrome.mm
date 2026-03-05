@@ -21,11 +21,9 @@ static NSWindow* s_window   = nil;
 static int       s_php_port = 0;
 
 // forward declarations
-@class XCMTabBarView;
 @class XCMStatusView;
 @class XCMBridgeHandler;
 
-static XCMTabBarView*    s_tabs          = nil;
 static NSPanel*          s_toolbar_panel = nil;
 static WKWebView*        s_toolbar_wv    = nil;
 static XCMBridgeHandler* s_bridge        = nil;
@@ -40,396 +38,16 @@ static int     s_panel_win_h = 0;
 
 // ── Color palette ─────────────────────────────────────────────────────
 
-static NSColor* cSurface() { return [NSColor colorWithRed:.063 green:.063 blue:.094 alpha:1]; }
-static NSColor* cAccent()  { return [NSColor colorWithRed:.388 green:.400 blue:.941 alpha:1]; }
-static NSColor* cAccentLo(){ return [NSColor colorWithRed:.388 green:.400 blue:.941 alpha:.18]; }
-static NSColor* cTabAct()  { return [NSColor colorWithRed:.185 green:.185 blue:.285 alpha:1]; }
-static NSColor* cTabHov()  { return [NSColor colorWithRed:.155 green:.155 blue:.235 alpha:1]; }
-static NSColor* xcmTxt()    { return [NSColor colorWithRed:.900 green:.914 blue:.961 alpha:1]; }
-static NSColor* xcmTxtDim() { return [NSColor colorWithRed:.400 green:.427 blue:.502 alpha:1]; }
+static NSColor* xcmTxtDim(){ return [NSColor colorWithRed:.400 green:.427 blue:.502 alpha:1]; }
 static NSColor* cSep()     { return [NSColor colorWithRed:.388 green:.400 blue:.941 alpha:.12]; }
 static NSColor* cStatusBg(){ return [NSColor colorWithRed:.165 green:.130 blue:.270 alpha:1]; }
 static NSColor* cOK()      { return [NSColor colorWithRed:.204 green:.827 blue:.600 alpha:1]; }
 static NSColor* cBad()     { return [NSColor colorWithRed:.973 green:.529 blue:.451 alpha:1]; }
 
-// ── XCMTabBarView ─────────────────────────────────────────────────────
 
-@interface XCMTabBarView : NSView
-@property (nonatomic) NSInteger hoverIdx;
-@property (nonatomic) NSInteger dragIdx;
-@property (nonatomic) CGFloat   dragStartX;
-@property (nonatomic) CGFloat   dragCurrentX;
-@property (nonatomic) NSInteger dropTarget;
-@property (nonatomic, strong) NSTrackingArea* trackArea;
-@end
-
-@implementation XCMTabBarView
-- (BOOL)acceptsFirstMouse:(NSEvent*)ev { return YES; }
-
-- (BOOL)isFlipped { return YES; }
-- (BOOL)isOpaque  { return YES; }
-
-- (instancetype)initWithFrame:(NSRect)r {
-    if (!(self = [super initWithFrame:r])) return nil;
-    self.wantsLayer = YES;
-    self.layer.geometryFlipped = YES;  // match CALayer coords to flipped NSView coords
-    _hoverIdx    = -1;
-    _dragIdx     = -1;
-    _dropTarget  = -1;
-    [self updateTracks];
-    return self;
-}
-
-- (void)updateTracks {
-    if (_trackArea) [self removeTrackingArea:_trackArea];
-    _trackArea = [[NSTrackingArea alloc]
-        initWithRect:self.bounds
-             options:NSTrackingMouseMoved | NSTrackingMouseEnteredAndExited |
-                     NSTrackingActiveAlways
-               owner:self userInfo:nil];
-    [self addTrackingArea:_trackArea];
-}
-
-- (void)updateTrackingAreas {
-    [super updateTrackingAreas];
-    [self updateTracks];
-}
-
-// ── Geometry ──────────────────────────────────────────────────────────
-
-- (CGFloat)tabW {
-    NSInteger n = s_state ? (NSInteger)s_state->tabs.size() : 1;
-    CGFloat avail = self.bounds.size.width - (CGFloat)TRAFFIC_LIGHT_W - 34.0;
-    return std::min(180.0, std::max(64.0, avail / std::max((NSInteger)1, n)));
-}
-
-- (NSRect)tabRectAt:(NSInteger)i {
-    CGFloat tw = [self tabW];
-    CGFloat cx = (CGFloat)TRAFFIC_LIGHT_W + tw * i;
-    return NSMakeRect(cx + 1.0, 32.0, tw - 2.0, 34.0);
-}
-
-- (NSRect)closeRectAt:(NSInteger)i {
-    NSRect tr = [self tabRectAt:i];
-    return NSMakeRect(NSMaxX(tr) - 19.0,
-                      NSMinY(tr) + (tr.size.height - 14.0) * 0.5,
-                      14.0, 14.0);
-}
-
-- (NSRect)newTabRect {
-    NSInteger n = s_state ? (NSInteger)s_state->tabs.size() : 0;
-    CGFloat tw = [self tabW];
-    CGFloat cx = (CGFloat)TRAFFIC_LIGHT_W + tw * n + 5.0;
-    return NSMakeRect(cx, 33.0, 22.0, 22.0);
-}
-
-- (NSInteger)tabAtPoint:(NSPoint)p {
-    if (!s_state) return -1;
-    NSInteger n = (NSInteger)s_state->tabs.size();
-    for (NSInteger i = 0; i < n; i++) {
-        if (NSPointInRect(p, [self tabRectAt:i])) return i;
-    }
-    return -1;
-}
-
-// ── Drawing ───────────────────────────────────────────────────────────
-
-- (void)drawRect:(NSRect)dirty {
-    NSInteger n    = s_state ? (NSInteger)s_state->tabs.size() : 0;
-    NSInteger act  = s_state ? (NSInteger)s_state->active_tab  : 0;
-    CGFloat   W    = self.bounds.size.width;
-    CGFloat   H    = self.bounds.size.height;   // 70
-
-    // Background
-    [cSurface() set];
-    NSRectFill(self.bounds);
-
-    // Top highlight edge (1px)
-    NSBezierPath* topLine = [NSBezierPath bezierPathWithRect:NSMakeRect(0, 0, W, 1.0)];
-    [[NSColor colorWithRed:.60 green:.58 blue:1.0 alpha:.22] set];
-    [topLine fill];
-
-    // Gradient shimmer: purple tint fading out downward
-    NSGradient* shimmer = [[NSGradient alloc]
-        initWithStartingColor:[NSColor colorWithRed:.40 green:.38 blue:.88 alpha:.06]
-                  endingColor:[NSColor colorWithRed:.40 green:.38 blue:.88 alpha:0]];
-    [shimmer drawInRect:self.bounds angle:270];
-
-    // Bottom separator
-    [[cSep() colorWithAlphaComponent:.25] set];
-    NSRectFill(NSMakeRect(0, H - 1.0, W, 1.0));
-
-    // Tabs
-    NSDictionary* dimAttrs = @{
-        NSFontAttributeName:            [NSFont systemFontOfSize:12.0],
-        NSForegroundColorAttributeName: xcmTxtDim(),
-    };
-    NSDictionary* actAttrs = @{
-        NSFontAttributeName:            [NSFont systemFontOfSize:12.0 weight:NSFontWeightSemibold],
-        NSForegroundColorAttributeName: xcmTxt(),
-    };
-
-    for (NSInteger i = 0; i < n; i++) {
-        bool isActive  = (i == act);
-        bool isHovered = (i == _hoverIdx);
-        bool isDragged = (i == _dragIdx && _dragIdx != -1 &&
-                          fabs(_dragCurrentX - _dragStartX) > 4.0);
-
-        NSRect tr = [self tabRectAt:i];
-
-        // During drag, draw ghost instead of original
-        if (isDragged) {
-            // Draw a ghost placeholder where the tab was
-            [[cTabAct() colorWithAlphaComponent:.20] set];
-            [[NSBezierPath bezierPathWithRoundedRect:tr xRadius:6 yRadius:6] fill];
-            continue;
-        }
-
-        // Fill
-        NSColor* bg = isActive ? cTabAct() : (isHovered ? cTabHov() : nil);
-        if (bg) {
-            [bg set];
-            [[NSBezierPath bezierPathWithRoundedRect:tr xRadius:6 yRadius:6] fill];
-        }
-
-        // Border -- lighter on active, subtle on hover, barely visible at rest
-        CGFloat borderAlpha = isActive ? .40 : (isHovered ? .20 : .10);
-        [[cAccent() colorWithAlphaComponent:borderAlpha] set];
-        NSBezierPath* border = [NSBezierPath bezierPathWithRoundedRect:tr xRadius:6 yRadius:6];
-        border.lineWidth = 1.0;
-        [border stroke];
-
-        // Loading dot
-        bool isLoading = s_state && i < (NSInteger)s_state->tabs.size() &&
-                         s_state->tabs[i].loading;
-        bool showClose = (n > 1) && (isActive || isHovered);
-        CGFloat textRight = NSMaxX(tr) - (showClose ? 22.0 : 8.0) - (isLoading ? 14.0 : 0.0);
-
-        if (isLoading) {
-            CGFloat dx = textRight + 7.0;
-            CGFloat dy = NSMinY(tr) + tr.size.height * 0.5;
-            NSBezierPath* dot = [NSBezierPath bezierPathWithOvalInRect:
-                NSMakeRect(dx - 3.0, dy - 3.0, 6.0, 6.0)];
-            [cAccent() set];
-            [dot fill];
-        }
-
-        // Title
-        NSString* title = @"New Tab";
-        if (s_state && i < (NSInteger)s_state->tabs.size()) {
-            const auto& t = s_state->tabs[i];
-            std::string disp = t.title.empty() ? t.url : t.title;
-            if (disp.size() > 40) disp = disp.substr(0, 40);
-            title = [NSString stringWithUTF8String:disp.c_str()];
-        }
-
-        NSDictionary* attrs = isActive ? actAttrs : dimAttrs;
-        NSSize ts = [title sizeWithAttributes:attrs];
-        CGFloat tx  = tr.origin.x + 10.0;
-        CGFloat trx = textRight;
-        CGFloat ty  = tr.origin.y + (tr.size.height - ts.height) * 0.5;
-
-        if (ts.width > trx - tx) {
-            // Clip to available rect with a fade
-            [NSGraphicsContext saveGraphicsState];
-            [[NSBezierPath bezierPathWithRect:NSMakeRect(tx, tr.origin.y, trx - tx, tr.size.height)] addClip];
-        }
-        [title drawAtPoint:NSMakePoint(tx, ty) withAttributes:attrs];
-        if (ts.width > trx - tx) [NSGraphicsContext restoreGraphicsState];
-
-        // Close X
-        if (showClose) {
-            NSRect cr = [self closeRectAt:i];
-            NSPoint mp = [self convertPoint:[self.window mouseLocationOutsideOfEventStream]
-                                   fromView:nil];
-            bool closeHov = NSPointInRect(mp, cr);
-            if (closeHov) {
-                [[[NSColor redColor] colorWithAlphaComponent:.5] set];
-                [[NSBezierPath bezierPathWithOvalInRect:
-                    NSMakeRect(cr.origin.x - 1, cr.origin.y - 1, 16, 16)] fill];
-            }
-            NSColor* xc = closeHov ? [NSColor whiteColor] : xcmTxtDim();
-            [xc set];
-            CGFloat m = cr.origin.x + 3.5;
-            CGFloat t2 = cr.origin.y + 3.5;
-            CGFloat e = 7.0;
-            NSBezierPath* x1 = [NSBezierPath bezierPath];
-            [x1 moveToPoint:NSMakePoint(m, t2)];
-            [x1 lineToPoint:NSMakePoint(m + e, t2 + e)];
-            x1.lineWidth = 1.4;
-            [x1 stroke];
-            NSBezierPath* x2 = [NSBezierPath bezierPath];
-            [x2 moveToPoint:NSMakePoint(m + e, t2)];
-            [x2 lineToPoint:NSMakePoint(m, t2 + e)];
-            x2.lineWidth = 1.4;
-            [x2 stroke];
-        }
-    }
-
-    // Ghost tab during drag
-    if (_dragIdx != -1 && fabs(_dragCurrentX - _dragStartX) > 4.0 && s_state) {
-        CGFloat tw = [self tabW];
-        CGFloat gx = std::max((CGFloat)TRAFFIC_LIGHT_W,
-                     std::min(_dragCurrentX - (_dragCurrentX - _dragStartX),
-                              (CGFloat)TRAFFIC_LIGHT_W + tw * n - tw));
-        // Center ghost on cursor X
-        gx = _dragCurrentX - (tw * 0.5);
-        gx = std::max((CGFloat)TRAFFIC_LIGHT_W, std::min(gx, (CGFloat)TRAFFIC_LIGHT_W + tw * (n-1)));
-        NSRect ghost = NSMakeRect(gx + 1, 32.0, tw - 2.0, 34.0);
-        [[cAccent() colorWithAlphaComponent:.20] set];
-        [[NSBezierPath bezierPathWithRoundedRect:ghost xRadius:6 yRadius:6] fill];
-        [[cAccent() colorWithAlphaComponent:.70] set];
-        NSBezierPath* gb = [NSBezierPath bezierPathWithRoundedRect:ghost xRadius:6 yRadius:6];
-        gb.lineWidth = 1.5;
-        [gb stroke];
-
-        // Drop indicator line
-        if (_dropTarget >= 0 && s_state) {
-            CGFloat lx = (CGFloat)TRAFFIC_LIGHT_W + tw * _dropTarget;
-            if (_dropTarget > _dragIdx) lx += tw;
-            [cAccent() set];
-            NSBezierPath* dl = [NSBezierPath bezierPath];
-            [dl moveToPoint:NSMakePoint(lx, 32)];
-            [dl lineToPoint:NSMakePoint(lx, 66)];
-            dl.lineWidth = 2.0;
-            [dl stroke];
-        }
-    }
-
-    // '+' new tab button
-    NSRect nr = [self newTabRect];
-    bool nhov = NSPointInRect([self convertPoint:[self.window mouseLocationOutsideOfEventStream]
-                                        fromView:nil], nr);
-    if (nhov) {
-        [[cAccentLo() colorWithAlphaComponent:.22] set];
-        [[NSBezierPath bezierPathWithRoundedRect:nr xRadius:5 yRadius:5] fill];
-    }
-    NSColor* pc = nhov ? cAccent() : xcmTxtDim();
-    [pc set];
-    CGFloat cx2 = NSMidX(nr), cy2 = NSMidY(nr);
-    CGFloat arm  = 5.0;
-    NSBezierPath* ph = [NSBezierPath bezierPath];
-    [ph moveToPoint:NSMakePoint(cx2 - arm, cy2)];
-    [ph lineToPoint:NSMakePoint(cx2 + arm, cy2)];
-    ph.lineWidth = 1.6;
-    [ph stroke];
-    NSBezierPath* pv = [NSBezierPath bezierPath];
-    [pv moveToPoint:NSMakePoint(cx2, cy2 - arm)];
-    [pv lineToPoint:NSMakePoint(cx2, cy2 + arm)];
-    pv.lineWidth = 1.6;
-    [pv stroke];
-}
-
-// ── Mouse events ──────────────────────────────────────────────────────
-
-- (void)mouseDown:(NSEvent*)ev {
-    // Ensure the main window is key before processing -- WKWebView content
-    // focus can leave the GLFW window non-key so the first click was lost.
-    if (![self.window isKeyWindow]) {
-        [self.window makeKeyAndOrderFront:nil];
-    }
-    if (!s_state) return;
-    NSPoint p = [self convertPoint:ev.locationInWindow fromView:nil];
-    NSInteger i = [self tabAtPoint:p];
-    if (i >= 0) {
-        // Close button hit?
-        bool showClose = ((NSInteger)s_state->tabs.size() > 1) &&
-                         (i == s_state->active_tab || i == _hoverIdx);
-        if (showClose && NSPointInRect(p, [self closeRectAt:i])) {
-            // Close handled in mouseUp
-            _dragIdx = -(i + 100);  // encode close intent
-            return;
-        }
-        s_state->active_tab = (int)i;
-        _dragIdx   = (int)i;
-        _dragStartX   = p.x;
-        _dragCurrentX = p.x;
-        _dropTarget   = -1;
-        [self setNeedsDisplay:YES];
-        return;
-    }
-    // "+" button
-    if (NSPointInRect(p, [self newTabRect])) {
-        _dragIdx = -1;
-        return;
-    }
-}
-
-- (void)mouseUp:(NSEvent*)ev {
-    if (!s_state) return;
-    NSPoint p = [self convertPoint:ev.locationInWindow fromView:nil];
-
-    // Close intent
-    if (_dragIdx <= -100) {
-        NSInteger ci = -(NSInteger)_dragIdx - 100;
-        if (ci >= 0 && ci < (NSInteger)s_state->tabs.size()) {
-            // tab_id -5 = close-tab request; url carries the tab's own .id as string
-            s_state->push_nav(-5, std::to_string(s_state->tabs[ci].id));
-        }
-        _dragIdx = -1;
-        [self setNeedsDisplay:YES];
-        return;
-    }
-
-    // New tab button -- tab_id -2 signals dispatch_nav to open a new tab
-    if (NSPointInRect(p, [self newTabRect]) && _dragIdx == -1) {
-        std::string url = "http://127.0.0.1:" + std::to_string(s_php_port) + "/";
-        s_state->push_nav(-2, url);
-        [self setNeedsDisplay:YES];
-        return;
-    }
-
-    // Drag complete
-    if (_dragIdx >= 0) {
-        bool dragged = fabs(_dragCurrentX - _dragStartX) > 4.0;
-        if (dragged && _dropTarget >= 0 && _dropTarget != _dragIdx) {
-            int from = (int)_dragIdx, to = (int)_dropTarget;
-            int was  = s_state->active_tab;
-            auto& tabs = s_state->tabs;
-            if (from < to) {
-                std::rotate(tabs.begin()+from, tabs.begin()+from+1, tabs.begin()+to+1);
-                if      (was == from)             s_state->active_tab = to;
-                else if (was > from && was <= to) s_state->active_tab--;
-            } else {
-                std::rotate(tabs.begin()+to, tabs.begin()+from, tabs.begin()+from+1);
-                if      (was == from)             s_state->active_tab = to;
-                else if (was >= to && was < from) s_state->active_tab++;
-            }
-        }
-        _dragIdx    = -1;
-        _dropTarget = -1;
-        [self setNeedsDisplay:YES];
-    }
-}
-
-- (void)mouseDragged:(NSEvent*)ev {
-    if (_dragIdx < 0 || !s_state) return;
-    NSPoint p = [self convertPoint:ev.locationInWindow fromView:nil];
-    _dragCurrentX = p.x;
-    CGFloat tw = [self tabW];
-    NSInteger n = (NSInteger)s_state->tabs.size();
-    _dropTarget = std::max((NSInteger)0, std::min(n - 1,
-                  (NSInteger)((p.x - TRAFFIC_LIGHT_W) / tw)));
-    [self setNeedsDisplay:YES];
-}
-
-- (void)mouseMoved:(NSEvent*)ev {
-    NSPoint p = [self convertPoint:ev.locationInWindow fromView:nil];
-    NSInteger prev = _hoverIdx;
-    _hoverIdx = [self tabAtPoint:p];
-    if (_hoverIdx != prev) [self setNeedsDisplay:YES];
-}
-
-- (void)mouseExited:(NSEvent*)ev {
-    _hoverIdx = -1;
-    [self setNeedsDisplay:YES];
-}
-
-@end
-
-// ── XCMBridgeHandler -- WKScriptMessageHandler for toolbar.html ───────
+// ── XCMBridgeHandler -- WKScriptMessageHandler for chrome.html ────────
 //
-// toolbar.html calls:
+// chrome.html calls:
 //   window.webkit.messageHandlers.xcmBridge.postMessage({action, data})
 //
 // Supported actions:
@@ -437,9 +55,13 @@ static NSColor* cBad()     { return [NSColor colorWithRed:.973 green:.529 blue:.
 //   back / fwd / reload
 //   devt / js / bm / showbm / hist
 //   urlfocus / urlblur  -- tell native side URL field has focus
+//   tab_switch -- data = tab index (string)
+//   tab_close  -- data = tab index (string)
+//   tab_new    -- open default page in new tab
+//   tab_move   -- data = "from,to" indices (string)
 //
 // Native side calls xcmSetState(stateJSON) in the toolbar WKWebView every
-// frame to push live tab state.
+// frame to push live tab + chrome state.
 
 static void xcm_status(const char* msg);  // forward declared before use below
 
@@ -457,6 +79,13 @@ static void xcm_status(const char* msg);  // forward declared before use below
 
     Tab* t = s_state->current_tab();
 
+    // After most actions key focus should return to the main browser window.
+    // Exceptions: urlfocus (URL bar needs key for typing), dropdownOpen (drawer
+    // interaction still needs first-click response).
+    // We use a local block so every early return path below also triggers it.
+    __block BOOL _returnKey = YES;
+    auto returnKeyIfNeeded = ^{ if (_returnKey && s_window) [s_window makeKeyAndOrderFront:nil]; };
+
     if ([action isEqualToString:@"navigate"]) {
         if (t && data.length) {
             std::string url = data.UTF8String;
@@ -468,7 +97,7 @@ static void xcm_status(const char* msg);  // forward declared before use below
     } else if ([action isEqualToString:@"fwd"]) {
         if (t) { s_state->push_nav(t->id, "__forward__"); xcm_status("Forward"); }
     } else if ([action isEqualToString:@"reload"]) {
-        if (!t) return;
+        if (!t) { returnKeyIfNeeded(); return; }
         if (t->loading) { s_state->push_nav(t->id, "__stop__");   xcm_status("Stopped"); }
         else            { s_state->push_nav(t->id, "__reload__"); xcm_status("Reloading..."); }
     } else if ([action isEqualToString:@"devt"]) {
@@ -476,7 +105,7 @@ static void xcm_status(const char* msg);  // forward declared before use below
         if (t) s_state->push_nav(t->id, "__devtools__");
         xcm_status(s_state->dev_tools_open ? "Dev tools opened" : "Dev tools closed");
     } else if ([action isEqualToString:@"js"]) {
-        if (!t) return;
+        if (!t) { returnKeyIfNeeded(); return; }
         t->js_enabled = !t->js_enabled;
         s_state->push_nav(t->id, t->js_enabled ? "__js_on__" : "__js_off__");
         xcm_status(t->js_enabled ? "JavaScript enabled" : "JavaScript disabled");
@@ -493,11 +122,13 @@ static void xcm_status(const char* msg);  // forward declared before use below
         s_state->show_bookmarks_panel = false;
         xcm_status(s_state->show_history_panel ? "History" : "");
     } else if ([action isEqualToString:@"urlfocus"]) {
-        // toolbar WKWebView stole key window for URL editing -- that is fine
+        // URL bar needs the toolbar panel as key window for typing -- do not return key.
+        _returnKey = NO;
     } else if ([action isEqualToString:@"urlblur"]) {
-        // return key focus to the main browser window after URL editing
-        [s_window makeKeyAndOrderFront:nil];
+        // urlblur is handled by returnKeyIfNeeded at the end.
     } else if ([action isEqualToString:@"dropdownOpen"]) {
+        // Drawer stays open -- keep panel as key so item clicks register first time.
+        _returnKey = NO;
         CGFloat h = data ? (CGFloat)data.floatValue : 220.0f;
         s_extra_h = h;
         if (s_toolbar_panel) {
@@ -506,7 +137,7 @@ static void xcm_status(const char* msg);  // forward declared before use below
             CGFloat sx = s_window.frame.origin.x;
             CGFloat sy = s_window.frame.origin.y + wh - (CGFloat)TOTAL_CHROME_TOP - s_extra_h;
             [s_toolbar_panel setFrame:NSMakeRect(sx, sy, (CGFloat)ww,
-                (CGFloat)CHROME_HEIGHT_PX + s_extra_h) display:YES];
+                (CGFloat)TOTAL_CHROME_TOP + s_extra_h) display:YES];
         }
     } else if ([action isEqualToString:@"dropdownClose"]) {
         s_extra_h = 0.0f;
@@ -516,9 +147,52 @@ static void xcm_status(const char* msg);  // forward declared before use below
             CGFloat sx = s_window.frame.origin.x;
             CGFloat sy = s_window.frame.origin.y + wh - (CGFloat)TOTAL_CHROME_TOP;
             [s_toolbar_panel setFrame:NSMakeRect(sx, sy, (CGFloat)ww,
-                (CGFloat)CHROME_HEIGHT_PX) display:YES];
+                (CGFloat)TOTAL_CHROME_TOP) display:YES];
         }
+    } else if ([action isEqualToString:@"tab_switch"]) {
+        int idx = data ? (int)data.integerValue : 0;
+        if (idx >= 0 && idx < (int)s_state->tabs.size())
+            s_state->active_tab = idx;
+    } else if ([action isEqualToString:@"tab_close"]) {
+        int idx = data ? (int)data.integerValue : -1;
+        if (idx >= 0 && idx < (int)s_state->tabs.size())
+            s_state->push_nav(-5, std::to_string(s_state->tabs[idx].id));
+    } else if ([action isEqualToString:@"tab_new"]) {
+        std::string url = "http://127.0.0.1:" + std::to_string(s_php_port) + "/";
+        s_state->push_nav(-2, url);
+    } else if ([action isEqualToString:@"tab_move"]) {
+        if (data) {
+            NSArray* parts = [data componentsSeparatedByString:@","];
+            if (parts.count >= 2) {
+                int from = (int)[parts[0] integerValue];
+                int to   = (int)[parts[1] integerValue];
+                int n    = (int)s_state->tabs.size();
+                if (from >= 0 && from < n && to >= 0 && to < n && from != to) {
+                    int was = s_state->active_tab;
+                    auto& tabs = s_state->tabs;
+                    if (from < to) {
+                        std::rotate(tabs.begin()+from, tabs.begin()+from+1, tabs.begin()+to+1);
+                        if      (was == from)             s_state->active_tab = to;
+                        else if (was > from && was <= to) s_state->active_tab--;
+                    } else {
+                        std::rotate(tabs.begin()+to, tabs.begin()+from, tabs.begin()+from+1);
+                        if      (was == from)             s_state->active_tab = to;
+                        else if (was >= to && was < from) s_state->active_tab++;
+                    }
+                }
+            }
+        }
+    } else if ([action isEqualToString:@"win_close"]) {
+        _returnKey = NO;
+        dispatch_async(dispatch_get_main_queue(), ^{ [s_window performClose:nil]; });
+    } else if ([action isEqualToString:@"win_minimize"]) {
+        _returnKey = NO;
+        dispatch_async(dispatch_get_main_queue(), ^{ [s_window performMiniaturize:nil]; });
+    } else if ([action isEqualToString:@"win_zoom"]) {
+        _returnKey = NO;
+        dispatch_async(dispatch_get_main_queue(), ^{ [s_window zoom:nil]; });
     }
+    returnKeyIfNeeded();
 }
 @end
 
@@ -575,7 +249,24 @@ static void toolbar_sync_state(AppState* st) {
        << "devtOpen:" << (st->dev_tools_open ? "true" : "false") << ","
        << "jsOn:"     << (tab && tab->js_enabled ? "true" : "false") << ","
        << "isBm:"     << (isBm ? "true" : "false")
-       << "});";
+       << ",tabs:[";
+    for (size_t i = 0; i < st->tabs.size(); i++) {
+        const auto& tb = st->tabs[i];
+        std::string raw = tb.title.empty() ? tb.url : tb.title;
+        if (raw.size() > 40) raw = raw.substr(0, 40);
+        std::string tesc;
+        tesc.reserve(raw.size() + 8);
+        for (char c : raw) {
+            if      (c == '\\') tesc += "\\\\";
+            else if (c == '"')  tesc += "\\\"";
+            else if (c == '\n') tesc += "\\n";
+            else                tesc += c;
+        }
+        js << (i > 0 ? "," : "")
+           << "{title:\"" << tesc << "\",loading:"
+           << (tb.loading ? "true" : "false") << "}";
+    }
+    js << "],activeTab:" << st->active_tab << "});";
 
     NSString* jsStr = [NSString stringWithUTF8String:js.str().c_str()];
     [s_toolbar_wv evaluateJavaScript:jsStr completionHandler:nil];
@@ -703,25 +394,25 @@ static void toolbar_sync_state(AppState* st) {
 
 static XCMToolbarNavDelegate* s_tb_nav = nil;
 
-// Locate toolbar.html relative to the running executable.
+// Locate chrome.html relative to the running executable.
 // Layout: imgui_browser.app/Contents/MacOS/imgui_browser  (4 levels above project root)
-//         imgui_browser.app/Contents/Resources/toolbar.html
+//         imgui_browser.app/Contents/Resources/chrome.html
 // For dev builds: MacOS/ -> Contents/ -> .app/ -> build/ -> project/ -> src/
 static NSURL* toolbarHtmlURL() {
     // 1. Dev build: 4 levels up from MacOS/ to reach imgui-browser/, then src/
     NSString* binDir = [NSBundle mainBundle].executablePath.stringByDeletingLastPathComponent;
-    NSString* dev1   = [binDir stringByAppendingPathComponent:@"../../../../src/toolbar.html"];
+    NSString* dev1   = [binDir stringByAppendingPathComponent:@"../../../../src/chrome.html"];
     NSString* dev1r  = dev1.stringByStandardizingPath;
     if ([[NSFileManager defaultManager] fileExistsAtPath:dev1r])
         return [NSURL fileURLWithPath:dev1r];
     // 2. App bundle Resources
-    NSURL* res = [[NSBundle mainBundle] URLForResource:@"toolbar" withExtension:@"html"];
+    NSURL* res = [[NSBundle mainBundle] URLForResource:@"chrome" withExtension:@"html"];
     if (res) return res;
     // 3. Same directory as binary
-    NSString* same = [binDir stringByAppendingPathComponent:@"toolbar.html"];
+    NSString* same = [binDir stringByAppendingPathComponent:@"chrome.html"];
     if ([[NSFileManager defaultManager] fileExistsAtPath:same])
         return [NSURL fileURLWithPath:same];
-    fprintf(stderr, "[toolbar] WARNING: toolbar.html not found\n");
+    fprintf(stderr, "[chrome] WARNING: chrome.html not found\n");
     return nil;
 }
 
@@ -736,30 +427,20 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
     CGFloat win_w = cv.bounds.size.width;
     CGFloat win_h = cv.bounds.size.height;
 
-    // Tab bar
-    NSRect tbFrame = NSMakeRect(0,
-                                win_h - (CGFloat)TAB_BAR_HEIGHT_PX,
-                                win_w,
-                                (CGFloat)TAB_BAR_HEIGHT_PX);
-    s_tabs = [[XCMTabBarView alloc] initWithFrame:tbFrame];
-    s_tabs.autoresizingMask = NSViewWidthSizable | NSViewMinYMargin;
-    [cv addSubview:s_tabs];
-
-    // Toolbar panel (WKWebView)
+    // Chrome panel (WKWebView) -- covers full TOTAL_CHROME_TOP height (tab bar + toolbar)
     {
-        CGFloat ph = (CGFloat)CHROME_HEIGHT_PX;
+        CGFloat ph = (CGFloat)TOTAL_CHROME_TOP;
         CGFloat sx = s_window.frame.origin.x;
         CGFloat sy = s_window.frame.origin.y + win_h - (CGFloat)TOTAL_CHROME_TOP;
         NSRect panelFrame = NSMakeRect(sx, sy, win_w, ph);
 
         s_toolbar_panel = [[XCMToolbarPanel alloc]
             initWithContentRect:panelFrame
-                      styleMask:NSWindowStyleMaskBorderless |
-                                NSWindowStyleMaskNonactivatingPanel
+                      styleMask:NSWindowStyleMaskBorderless
                         backing:NSBackingStoreBuffered
                           defer:NO];
-        s_toolbar_panel.opaque          = YES;
-        s_toolbar_panel.backgroundColor = cSurface();
+        s_toolbar_panel.opaque          = NO;
+        s_toolbar_panel.backgroundColor = NSColor.clearColor;
         s_toolbar_panel.hasShadow       = NO;
         [s_toolbar_panel setAppearance:
             [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]];
@@ -775,7 +456,10 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
         // Disable all context menus and selection in the toolbar
         NSString* lockdown =
             @"document.addEventListener('contextmenu',function(e){e.preventDefault();});"
-             "document.addEventListener('selectstart',function(e){e.preventDefault();});";
+             "document.addEventListener('selectstart',function(e){"
+               "var t=e.target;if(t.tagName==='INPUT'||t.tagName==='TEXTAREA')return;"
+               "e.preventDefault();"
+             "});";;
         WKUserScript* lk = [[WKUserScript alloc]
             initWithSource:lockdown
              injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
@@ -793,7 +477,7 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
         s_panel_win_w = (int)win_w;
         s_panel_win_h = (int)win_h;
 
-        // Transparent background so cSurface() from the panel shows until first paint
+        // Transparent background so corners show through until first paint
         [s_toolbar_wv setValue:@NO forKey:@"drawsBackground"];
 
         s_tb_nav = [[XCMToolbarNavDelegate alloc] init];
@@ -802,17 +486,16 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
         [s_toolbar_panel.contentView addSubview:s_toolbar_wv];
         [s_window addChildWindow:s_toolbar_panel ordered:NSWindowAbove];
 
-        // Load toolbar.html
+        // Load chrome.html
         NSURL* url = toolbarHtmlURL();
         if (url) {
             [s_toolbar_wv loadFileURL:url
               allowingReadAccessToURL:url.URLByDeletingLastPathComponent];
         } else {
-            // Fallback: inline minimal HTML so something renders
             NSString* fallback =
                 @"<html><body style='background:#101820;color:#e6e9f5;"
                  "font:14px -apple-system;display:flex;align-items:center;"
-                 "height:44px;padding:0 8px'>toolbar.html not found</body></html>";
+                 "height:114px;padding:0 8px'>chrome.html not found</body></html>";
             [s_toolbar_wv loadHTMLString:fallback baseURL:nil];
         }
     }
@@ -825,22 +508,46 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
 
     fprintf(stderr, "[chrome] native chrome created w=%.0f h=%.0f\n", win_w, win_h);
 
-    // ── Re-key guard ─────────────────────────────────────────────────────
-    // WKWebView focus mechanics can leave the GLFW window non-key.  Intercept
-    // every left-mouseDown inside the main window and restore key status before
-    // AppKit routes the event to subviews.  This gives single-click behaviour
-    // on the tab bar, toolbar panel, and drag bar.
+    // ── Mouse event monitor ──────────────────────────────────────────────────
+    // Two concerns only:
+    //  1. Chrome panel top 32px (excluding traffic-light column) = drag strip.
+    //  2. Traffic lights are now HTML buttons in chrome.html -- do NOT intercept
+    //     their zone; let WKWebView receive the click so the JS bridge fires.
+    // Everything else is returned untouched -- do NOT call makeKeyAndOrderFront
+    // here because that steals key window from the panel and kills WKWebView
+    // onclick dispatch before the event reaches JavaScript.
+    // Key restoration for the main window happens exclusively through bridge
+    // actions (urlblur, dropdownClose, navigation, etc.).
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown
                                           handler:^NSEvent*(NSEvent* ev) {
-        if (ev.window == s_window && ![s_window isKeyWindow]) {
-            [s_window makeKeyAndOrderFront:nil];
+        if (s_toolbar_panel && ev.window == s_toolbar_panel) {
+            NSPoint p      = ev.locationInWindow; // Cocoa: (0,0) = bottom-left
+            CGFloat panelH = s_toolbar_panel.frame.size.height;
+
+            // Drag strip: top 32px, but skip the traffic-light column so HTML
+            // buttons (#tl-close/#tl-minimize/#tl-zoom) receive their clicks.
+            if (p.y > panelH - 32.0f && p.x >= (CGFloat)TRAFFIC_LIGHT_W) {
+                if (ev.clickCount == 2) {
+                    // Double-click on drag bar: zoom (maximize) the window.
+                    [s_window zoom:nil];
+                } else {
+                    [s_window performWindowDragWithEvent:ev];
+                }
+                return nil;
+            }
+
+            // All other panel clicks: make panel key now so WKWebView
+            // receives this event without a second click.
+            if (![s_toolbar_panel isKeyWindow]) {
+                [s_toolbar_panel makeKeyAndOrderFront:nil];
+            }
         }
         return ev;
     }];
 }
 
 int native_chrome_update(AppState* st) {
-    if (!s_tabs || !s_toolbar_panel || !s_status) return TOTAL_CHROME_TOP;
+    if (!s_toolbar_panel || !s_status) return TOTAL_CHROME_TOP;
 
     // Cmd+L: focus toolbar URL field
     if (st->focus_url_next_frame) {
@@ -856,17 +563,6 @@ int native_chrome_update(AppState* st) {
     toolbar_sync_state(st);
 
     [s_status syncState:st];
-
-    // Redraw tab bar when tab list changes
-    static size_t s_last_n   = 0;
-    static int    s_last_act = -1;
-    bool changed = (st->tabs.size() != s_last_n || st->active_tab != s_last_act);
-    if (changed) {
-        s_last_n   = st->tabs.size();
-        s_last_act = st->active_tab;
-        [s_tabs setNeedsDisplay:YES];
-    }
-    [s_tabs setNeedsDisplay:YES];
 
     return TOTAL_CHROME_TOP;
 }
@@ -886,7 +582,7 @@ bool native_chrome_has_hover() {
 }
 
 void native_chrome_resize(int win_w, int win_h) {
-    if (!s_tabs || !s_toolbar_panel || !s_status) return;
+    if (!s_toolbar_panel || !s_status) return;
 
     s_panel_win_w = win_w;
     s_panel_win_h = win_h;
@@ -898,10 +594,9 @@ void native_chrome_resize(int win_w, int win_h) {
 
     CGFloat sx = s_window.frame.origin.x;
     CGFloat sy = s_window.frame.origin.y + (CGFloat)win_h - (CGFloat)TOTAL_CHROME_TOP;
-    NSRect pf  = NSMakeRect(sx, sy, (CGFloat)win_w, (CGFloat)CHROME_HEIGHT_PX);
+    NSRect pf  = NSMakeRect(sx, sy, (CGFloat)win_w, (CGFloat)TOTAL_CHROME_TOP);
     [s_toolbar_panel setFrame:pf display:NO];
 
-    [s_tabs   setNeedsDisplay:YES];
     [s_status setNeedsDisplay:YES];
 }
 
@@ -917,7 +612,6 @@ void native_chrome_focus_url() {
 }
 
 void native_chrome_destroy() {
-    [s_tabs removeFromSuperview]; s_tabs = nil;
     if (s_toolbar_panel) {
         [s_window removeChildWindow:s_toolbar_panel];
         [s_toolbar_panel close];
