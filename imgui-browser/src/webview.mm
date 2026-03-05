@@ -129,7 +129,7 @@ void webview_init(void* ns_window, AppState* state, WebViewCallbacks cbs) {
 }
 
 void* webview_create(int tab_id, const std::string& url) {
-    NSAssert(s_window != nil, @"webview_init() must be called first");
+    NSCAssert(s_window != nil, @"webview_init() must be called first");
 
     WKWebViewConfiguration* cfg = [[WKWebViewConfiguration alloc] init];
     cfg.websiteDataStore = WKWebsiteDataStore.defaultDataStore;

@@ -7,7 +7,6 @@
 
 #import <Cocoa/Cocoa.h>
 #include <mach-o/dyld.h>    // _NSGetExecutablePath
-#define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl3.h>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -79,8 +78,11 @@ static Args parse_args(int argc, char** argv) {
 
 static AppState      g_state;
 static GLFWwindow*   g_win      = nullptr;
-static int           g_prev_top = 0;   // last chrome top height (px)
-static int           g_prev_bot = 0;   // last chrome bottom height (px)
+static int           g_prev_top = 0;   // last chrome top height (logical pts)
+static int           g_prev_bot = 0;   // last chrome bottom height (logical pts)
+// Physical framebuffer pixels -- only used for glViewport
+static int           g_fb_w     = 0;
+static int           g_fb_h     = 0;
 
 // ── Content area positioning ──────────────────────────────────────────
 
@@ -142,10 +144,17 @@ static void dispatch_nav(AppState::NavCmd& cmd) {
 
 // ── GLFW callbacks ────────────────────────────────────────────────────
 
-static void cb_window_resize(GLFWwindow*, int w, int h) {
+// Called by GLFW with LOGICAL POINT dimensions -- used for WKWebView and ImGui.
+static void cb_window_size(GLFWwindow*, int w, int h) {
     g_state.win_w = w;
     g_state.win_h = h;
     reposition_webviews(g_prev_top, g_prev_bot, w, h);
+}
+
+// Called by GLFW with PHYSICAL PIXEL dimensions -- used only for glViewport.
+static void cb_framebuffer_size(GLFWwindow*, int w, int h) {
+    g_fb_w = w;
+    g_fb_h = h;
 }
 
 static void cb_error(int, const char* desc) {
@@ -159,6 +168,41 @@ int main(int argc, char** argv) {
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
     [NSApp activateIgnoringOtherApps:YES];
+
+    // ── App menu bar ─────────────────────────────────────────────────
+    // Without a proper Edit menu, Cmd+C/V/X/Z still work in ImGui via
+    // io.ConfigMacOSXBehaviors, but WKWebView also benefits from having
+    // first-responder Edit actions in the responder chain.
+    {
+        NSMenu* menubar = [[NSMenu alloc] init];
+
+        // Application menu
+        NSMenuItem* appItem = [[NSMenuItem alloc] init];
+        [menubar addItem:appItem];
+        NSMenu* appMenu = [[NSMenu alloc] init];
+        [appMenu addItemWithTitle:@"Quit imgui-browser"
+                          action:@selector(terminate:)
+                   keyEquivalent:@"q"];
+        [appItem setSubmenu:appMenu];
+
+        // Edit menu -- gives WKWebView a proper responder-chain target for
+        // copy/paste/cut/select-all so Cmd+C etc. work in web text inputs.
+        NSMenuItem* editItem = [[NSMenuItem alloc] initWithTitle:@"Edit"
+                                                          action:nil
+                                                   keyEquivalent:@""];
+        [menubar addItem:editItem];
+        NSMenu* editMenu  = [[NSMenu alloc] initWithTitle:@"Edit"];
+        [editMenu addItemWithTitle:@"Undo"  action:@selector(undo:)  keyEquivalent:@"z"];
+        [editMenu addItemWithTitle:@"Redo"  action:@selector(redo:)  keyEquivalent:@"Z"];
+        [editMenu addItem:[NSMenuItem separatorItem]];
+        [editMenu addItemWithTitle:@"Cut"   action:@selector(cut:)   keyEquivalent:@"x"];
+        [editMenu addItemWithTitle:@"Copy"  action:@selector(copy:)  keyEquivalent:@"c"];
+        [editMenu addItemWithTitle:@"Paste" action:@selector(paste:) keyEquivalent:@"v"];
+        [editMenu addItemWithTitle:@"Select All" action:@selector(selectAll:) keyEquivalent:@"a"];
+        [editItem setSubmenu:editMenu];
+
+        [NSApp setMainMenu:menubar];
+    }
 
     Args args = parse_args(argc, argv);
 
@@ -183,7 +227,7 @@ int main(int argc, char** argv) {
     // Transparent chrome regions
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
 
-    g_win = glfwCreateWindow(args.win_w, args.win_h, "imgui-browser", nullptr, nullptr);
+    g_win = glfwCreateWindow(args.win_w, args.win_h, "Crissy's Style Tool", nullptr, nullptr);
     if (!g_win) {
         fprintf(stderr, "[main] glfwCreateWindow failed\n");
         glfwTerminate();
@@ -191,20 +235,32 @@ int main(int argc, char** argv) {
     }
     glfwMakeContextCurrent(g_win);
     glfwSwapInterval(1);  // vsync ON
-    glfwSetFramebufferSizeCallback(g_win, cb_window_resize);
+    // Logical point size -- drives WKWebView frame and ImGui display size.
+    glfwSetWindowSizeCallback(g_win, cb_window_size);
+    // Physical pixel size -- drives glViewport only.
+    glfwSetFramebufferSizeCallback(g_win, cb_framebuffer_size);
 
-    // Get actual framebuffer size (retina may double the pixels)
-    int fb_w, fb_h;
-    glfwGetFramebufferSize(g_win, &fb_w, &fb_h);
-    g_state.dpi_scale = (float)fb_w / (float)args.win_w;
+    // Seed both dimension pairs before the first frame.
+    int _lw, _lh;
+    glfwGetWindowSize(g_win, &_lw, &_lh);
+    g_state.win_w = _lw;
+    g_state.win_h = _lh;
+    glfwGetFramebufferSize(g_win, &g_fb_w, &g_fb_h);
+    g_state.dpi_scale = (float)g_fb_w / (float)_lw;
 
     // ── Dear ImGui ───────────────────────────────────────────────────
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename          = nullptr;  // no imgui.ini persistence
-    io.ConfigFlags         |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.FontGlobalScale      = g_state.dpi_scale;
+    io.IniFilename  = nullptr;  // no imgui.ini persistence
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    // Map Cmd+C/V/X/Z/A to clipboard and undo on macOS (instead of Ctrl).
+    io.ConfigMacOSXBehaviors = true;
+    // Disable ImGui's per-frame glfwSetCursor call. Without this, ImGui resets
+    // the cursor to Arrow every frame, which overrides WKWebView's NSTrackingArea
+    // cursor changes (IBeam over text inputs, pointer over links, etc.).
+    // We manage the cursor manually below in the render loop.
+    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
     // Load font - will use default if JetBrains Mono not present
     // (add font loading here if you bundle a TTF)
@@ -241,6 +297,15 @@ int main(int argc, char** argv) {
     wv_cbs.on_wkwv_fps = [](double fps) {
         g_state.fps_wkwv = fps;
     };
+
+    // ── NSWindow title bar theming ────────────────────────────────────
+    // Makes the GLFW NSWindow full-content so our dark ImGui chrome fills
+    // the entire top area. macOS traffic lights stay visible but sit directly
+    // on our dark surface with no separate title bar strip.
+    ns_win.titlebarAppearsTransparent = YES;
+    ns_win.titleVisibility            = NSWindowTitleHidden;
+    ns_win.styleMask |= NSWindowStyleMaskFullSizeContentView;
+    [ns_win setTitle:@"Crissy's Style Tool"];
 
     webview_init((__bridge void*)ns_win, &g_state, wv_cbs);
 
@@ -296,26 +361,85 @@ int main(int argc, char** argv) {
             last_server_poll = now;
         }
 
+        // ── Keyboard shortcuts ────────────────────────────────────────
+        // io.KeySuper = macOS Cmd key (via io.ConfigMacOSXBehaviors).
+        // We fire these once per key-down (false = no repeat for tab switches).
+        {
+            ImGuiIO& kio = ImGui::GetIO();
+            bool cmd = kio.KeySuper;
+
+            if (cmd && !kio.WantTextInput) {
+                // Cmd+L or Cmd+D -- focus URL bar
+                if (ImGui::IsKeyPressed(ImGuiKey_L, false) ||
+                    ImGui::IsKeyPressed(ImGuiKey_D, false)) {
+                    g_state.focus_url_next_frame = true;
+                }
+                // Cmd+T -- new tab
+                if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
+                    std::string nt_url = "http://127.0.0.1:" +
+                                         std::to_string(args.php_port) + "/";
+                    int idx = g_state.new_tab(nt_url);
+                    g_state.tabs[idx].wv_handle =
+                        webview_create(g_state.tabs[idx].id, nt_url);
+                }
+                // Cmd+W -- close current tab (no close if only one left)
+                if (ImGui::IsKeyPressed(ImGuiKey_W, false)) {
+                    int ci = g_state.active_tab;
+                    if ((int)g_state.tabs.size() > 1 &&
+                        ci < (int)g_state.tabs.size()) {
+                        webview_destroy(g_state.tabs[ci].wv_handle);
+                        g_state.tabs[ci].wv_handle = nullptr;
+                        g_state.close_tab(ci);
+                    }
+                }
+                // Cmd+R -- reload active tab
+                if (ImGui::IsKeyPressed(ImGuiKey_R, false)) {
+                    Tab* t = g_state.current_tab();
+                    if (t) g_state.push_nav(t->id, "__reload__");
+                }
+                // Cmd+[ -- back
+                if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, false)) {
+                    Tab* t = g_state.current_tab();
+                    if (t) g_state.push_nav(t->id, "__back__");
+                }
+                // Cmd+] -- forward
+                if (ImGui::IsKeyPressed(ImGuiKey_RightBracket, false)) {
+                    Tab* t = g_state.current_tab();
+                    if (t) g_state.push_nav(t->id, "__forward__");
+                }
+                // Cmd+1..9 -- jump to tab by position
+                for (int ki = 0; ki < 9 && ki < (int)g_state.tabs.size(); ki++) {
+                    ImGuiKey kn = (ImGuiKey)((int)ImGuiKey_1 + ki);
+                    if (ImGui::IsKeyPressed(kn, false))
+                        g_state.active_tab = ki;
+                }
+            }
+        }
+
         // Process command queue
         AppState::NavCmd cmd;
         while (g_state.pop_nav(cmd)) {
             dispatch_nav(cmd);
         }
 
-        // Framebuffer size
-        glfwGetFramebufferSize(g_win, &fb_w, &fb_h);
-
         // ── Dear ImGui frame ─────────────────────────────────────────
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Chrome: tab bar + toolbar
+        // Chrome positions are in LOGICAL POINTS (same as glfwGetWindowSize).
+        // ImGui_ImplGlfw sets io.DisplaySize to logical points and
+        // io.DisplayFramebufferScale to the pixel ratio; the OpenGL3 renderer
+        // applies the scale when building the draw commands, so all ImGui
+        // SetNextWindowPos/Size calls use logical points.
+        int ww = g_state.win_w;
+        int wh = g_state.win_h;
+
         bool new_tab_req = false;
         int  close_tab   = -1;
-        int  chrome_top  = chrome_draw_top(&g_state, fb_w, fb_h,
+        int  chrome_top  = chrome_draw_top(&g_state, ww, wh,
                                            new_tab_req, close_tab);
-        int  chrome_bot  = chrome_draw_bottom(&g_state, fb_w, fb_h);
+        int  chrome_bot  = chrome_draw_bottom(&g_state, ww, wh);
 
         // Handle tab actions
         if (new_tab_req) {
@@ -329,11 +453,12 @@ int main(int argc, char** argv) {
             g_state.close_tab(close_tab);
         }
 
-        // Reposition content views if chrome height changed
+        // Reposition content views if chrome height changed.
+        // All values here are logical points -- WKWebView NSView uses points.
         if (chrome_top != g_prev_top || chrome_bot != g_prev_bot) {
             g_prev_top = chrome_top;
             g_prev_bot = chrome_bot;
-            reposition_webviews(chrome_top, chrome_bot, fb_w, fb_h);
+            reposition_webviews(chrome_top, chrome_bot, ww, wh);
         }
 
         // Always maintain correct visibility for active vs inactive tabs
@@ -346,7 +471,39 @@ int main(int argc, char** argv) {
 
         ImGui::Render();
 
-        glViewport(0, 0, fb_w, fb_h);
+        // ── Cursor management ─────────────────────────────────────────
+        // ImGuiConfigFlags_NoMouseCursorChange stops ImGui from calling
+        // glfwSetCursor every frame. We only touch the cursor when the mouse
+        // is over the ImGui chrome (top bar or bottom bar). When the mouse is
+        // in the content area we do nothing, so WKWebView's NSTrackingArea
+        // can set IBeam over text inputs, pointer over links, etc. freely.
+        {
+            double mx, my;
+            glfwGetCursorPos(g_win, &mx, &my);
+            bool over_chrome = (my < (double)g_prev_top) ||
+                               (my > (double)(g_state.win_h - g_prev_bot));
+            if (over_chrome) {
+                ImGuiMouseCursor want = ImGui::GetMouseCursor();
+                if (want == ImGuiMouseCursor_TextInput)
+                    [[NSCursor IBeamCursor] set];
+                else if (want == ImGuiMouseCursor_Hand)
+                    [[NSCursor pointingHandCursor] set];
+                else if (want == ImGuiMouseCursor_ResizeEW)
+                    [[NSCursor resizeLeftRightCursor] set];
+                else if (want == ImGuiMouseCursor_ResizeNS)
+                    [[NSCursor resizeUpDownCursor] set];
+                else if (want == ImGuiMouseCursor_ResizeAll)
+                    [[NSCursor crosshairCursor] set];
+                else if (want == ImGuiMouseCursor_NotAllowed)
+                    [[NSCursor operationNotAllowedCursor] set];
+                else
+                    [[NSCursor arrowCursor] set];
+            }
+            // No else: content area cursor is owned by WKWebView.
+        }
+
+        // glViewport uses PHYSICAL PIXELS.
+        glViewport(0, 0, g_fb_w, g_fb_h);
         // Transparent clear so WKWebView beneath shows through
         glClearColor(0.047f, 0.047f, 0.063f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);

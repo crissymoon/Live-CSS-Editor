@@ -7,6 +7,12 @@ A live CSS/HTML/JavaScript editor with real-time preview, an integrated AI agent
 **Website:** https://xcaliburmoon.net/
 **License:** MIT
 
+--fixes the jank
+-->>> Cross Platform Build Plan:
+- [] macOS: Dear ImGui + SDL2 + Metal (Native Mac Pro speed).
+- [] Windows: Dear ImGui + SDL2 + DirectX 11/12.
+- [] Linux: Dear ImGui + SDL2 + OpenGL 3/Vulkan.
+
 ---
 
 ## Overview

@@ -80,6 +80,10 @@ config.local.*
 /dist/
 /build/
 
+# imgui-browser -- compiled artifacts and vendored C++ deps fetched at build time
+imgui-browser/build/
+imgui-browser/vendor/
+
 # Node
 node_modules/
 

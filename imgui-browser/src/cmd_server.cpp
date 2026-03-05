@@ -3,7 +3,8 @@
 // Python dev-browser.  Runs on a background thread so it never blocks
 // the render loop.
 
-#define CPPHTTPLIB_OPENSSL_SUPPORT 0
+// Disable OpenSSL support -- httplib is used over loopback only.
+#undef  CPPHTTPLIB_OPENSSL_SUPPORT
 #include "httplib.h"   // vendor/httplib/httplib.h
 #include "cmd_server.h"
 #include "app_state.h"

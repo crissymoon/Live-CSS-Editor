@@ -12,10 +12,11 @@
 #include <chrono>
 
 // ── Constants ─────────────────────────────────────────────────────────
-constexpr int    CHROME_HEIGHT_PX  = 42;   // toolbar row (URL bar + nav buttons)
-constexpr int    STATUS_HEIGHT_PX  = 24;   // bottom status bar
-constexpr int    TAB_BAR_HEIGHT_PX = 30;   // tab strip above toolbar
+constexpr int    CHROME_HEIGHT_PX  = 44;   // toolbar row (URL bar + nav buttons)
+constexpr int    STATUS_HEIGHT_PX  = 22;   // bottom status bar
+constexpr int    TAB_BAR_HEIGHT_PX = 36;   // title strip + tab row
 constexpr int    TOTAL_CHROME_TOP  = TAB_BAR_HEIGHT_PX + CHROME_HEIGHT_PX;
+constexpr int    TRAFFIC_LIGHT_W   = 82;   // px to skip on left for macOS traffic lights
 constexpr int    MAX_TABS          = 24;
 constexpr int    URL_BUF_SIZE      = 2048;
 constexpr int    CMD_PORT          = 9878;
@@ -102,9 +103,10 @@ struct AppState {
     int    node_pid       = -1;
 
     // Settings
-    bool   dev_tools_open = false;
-    bool   show_fps_bar   = true;
-    float  ui_scale       = 1.0f;
+    bool   dev_tools_open         = false;
+    bool   show_fps_bar           = true;
+    float  ui_scale               = 1.0f;
+    bool   focus_url_next_frame   = false;  // set true to steal focus to URL bar
 
     // Thread-safe navigation queue (cmd_server pushes, main loop pops)
     struct NavCmd { int tab_id; std::string url; };

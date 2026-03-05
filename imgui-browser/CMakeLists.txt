@@ -31,7 +31,6 @@ target_include_directories(imgui PUBLIC
 )
 target_link_libraries(imgui PUBLIC glfw)
 target_compile_definitions(imgui PUBLIC
-    IMGUI_IMPL_OPENGL_LOADER_CUSTOM
     GL_SILENCE_DEPRECATION
 )
 
@@ -64,7 +63,6 @@ target_compile_options(imgui_browser PRIVATE
 
 target_compile_definitions(imgui_browser PRIVATE
     GL_SILENCE_DEPRECATION
-    IMGUI_IMPL_OPENGL_LOADER_CUSTOM
 )
 
 # macOS frameworks
