@@ -116,24 +116,18 @@
     }
 
     // ── Apply spring transform ────────────────────────────────────────────────
-    // The transform moves the content visually ahead of where the compositor
-    // has scrolled it, masking the 1-2 frame compositor latency.
-    function _applyTransform(px) {
-        if (!px || Math.abs(px) < SETTLE_THRESH) {
-            var t = _findTarget();
-            if (t && t.__xcmHasTransform) {
-                t.style.transform     = '';
-                t.style.willChange    = '';
-                t.__xcmHasTransform   = false;
-            }
-            return;
-        }
+    // Transform application is disabled. WKWebView's native compositor handles
+    // momentum scrolling at the OS level; a JS-side translateY offset runs one
+    // frame behind the compositor and creates a position mismatch that makes the
+    // scrollbar thumb appear to jump. This function now only clears any stale
+    // transform that may have been left by a previous page session.
+    function _applyTransform(_px) {
         var t = _findTarget();
-        if (!t) return;
-        var clamped = Math.max(-MAX_OFFSET, Math.min(MAX_OFFSET, px));
-        t.style.transform    = 'translateY(' + (-clamped).toFixed(2) + 'px)';
-        t.style.willChange   = 'transform';
-        t.__xcmHasTransform  = true;
+        if (t && t.__xcmHasTransform) {
+            t.style.transform    = '';
+            t.style.willChange   = '';
+            t.__xcmHasTransform  = false;
+        }
     }
 
     // ── Spring tick (called from __xcmTick on every frame) ───────────────────
@@ -156,17 +150,14 @@
         if (_pos >  MAX_OFFSET) { _pos =  MAX_OFFSET; _vel = 0; }
         if (_pos < -MAX_OFFSET) { _pos = -MAX_OFFSET; _vel = 0; }
 
-        // Record for HUD.
-        _pushVel(_vel);
-
-        // Apply transform if meaningful.
-        if (Math.abs(_pos) > SETTLE_THRESH) {
-            _applyTransform(_pos);
-        } else if (_pos !== 0) {
-            _applyTransform(0);
+        // Decay _pos fully when spring has settled so the state stays clean.
+        if (Math.abs(_pos) <= SETTLE_THRESH) {
             _vel = 0;
             _pos = 0;
         }
+
+        // Record velocity for HUD ring buffer (no transform applied to page).
+        _pushVel(_vel);
 
         // Update HUD texture and redraw.
         if (_hudVisible && _gl) {

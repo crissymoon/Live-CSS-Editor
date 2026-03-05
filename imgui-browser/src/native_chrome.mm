@@ -432,10 +432,9 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
         s_bridge = [[XCMBridgeHandler alloc] init];
         [cfg.userContentController addScriptMessageHandler:s_bridge name:@"xcmBridge"];
 
-        // Disable all context menus and selection in the toolbar
+        // Disable text selection in the toolbar (keep contextmenu for custom right-click menu)
         NSString* lockdown =
-            @"document.addEventListener('contextmenu',function(e){e.preventDefault();});"
-             "document.addEventListener('selectstart',function(e){"
+            @"document.addEventListener('selectstart',function(e){"
                "var t=e.target;if(t.tagName==='INPUT'||t.tagName==='TEXTAREA')return;"
                "e.preventDefault();"
              "});";;
@@ -530,6 +529,107 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
             }
         }
         return ev;
+    }];
+
+    // ── JS-driven hover state ─────────────────────────────────────────
+    // CSS :hover only fires when the panel is key. It almost never is.
+    // We drive hover through JS instead: xcmMouseMove(x,y) is called by
+    // this monitor and uses document.elementFromPoint to walk the DOM and
+    // add/remove "js-hover" on every element + ancestor under the cursor.
+    // All CSS :hover rules are duplicated as .js-hover equivalents below.
+    //
+    // Throttle: only evaluate JS when position changes by >= 1 screen-pt.
+    // Without this the JS queue fills up faster than WKWebView drains it
+    // and events are silently dropped -- which is why hover only worked
+    // after a click (click flushed the queue).
+    {
+        __block CGFloat lastX = -9999.f;
+        __block CGFloat lastY = -9999.f;
+
+        [NSEvent addLocalMonitorForEventsMatchingMask:
+            NSEventMaskMouseMoved | NSEventMaskLeftMouseDragged | NSEventMaskLeftMouseUp
+                                              handler:^NSEvent*(NSEvent* ev) {
+            if (!s_toolbar_panel || !s_toolbar_wv || !s_tb_ready) return ev;
+
+            if (ev.type == NSEventTypeLeftMouseUp) {
+                lastX = -9999.f; lastY = -9999.f;
+                [s_toolbar_wv evaluateJavaScript:
+                    @"typeof xcmMouseLeave==='function'&&xcmMouseLeave()"
+                               completionHandler:nil];
+                return ev;
+            }
+
+            NSPoint screenPt = [NSEvent mouseLocation];
+
+            if (!NSPointInRect(screenPt, s_toolbar_panel.frame)) {
+                if (lastX != -9999.f) {
+                    lastX = -9999.f; lastY = -9999.f;
+                    [s_toolbar_wv evaluateJavaScript:
+                        @"typeof xcmMouseLeave==='function'&&xcmMouseLeave()"
+                                   completionHandler:nil];
+                }
+                return ev;
+            }
+
+            NSPoint p  = [s_toolbar_panel convertPointFromScreen:screenPt];
+            CGFloat cx = p.x;
+            CGFloat cy = s_toolbar_panel.frame.size.height - p.y; // flip to CSS Y
+
+            CGFloat dx = cx - lastX;
+            CGFloat dy = cy - lastY;
+            if (dx*dx + dy*dy < 1.f) return ev;   // skip if barely moved
+            lastX = cx; lastY = cy;
+
+            NSString* js = [NSString stringWithFormat:
+                @"typeof xcmMouseMove==='function'&&xcmMouseMove(%.1f,%.1f)", cx, cy];
+            [s_toolbar_wv evaluateJavaScript:js completionHandler:nil];
+            return ev;
+        }];
+    }
+
+    // ── Minimize / Deminiaturize observers ────────────────────────────
+    // When the parent window miniaturizes macOS detaches child panels.
+    // Hide the panel before the animation starts so it doesn't float
+    // detached, then re-attach and reposition it on restore.
+    [[NSNotificationCenter defaultCenter]
+        addObserverForName:NSWindowWillMiniaturizeNotification
+                    object:s_window
+                     queue:NSOperationQueue.mainQueue
+                usingBlock:^(NSNotification*) {
+        if (s_toolbar_panel) [s_toolbar_panel orderOut:nil];
+    }];
+
+    [[NSNotificationCenter defaultCenter]
+        addObserverForName:NSWindowDidDeminiaturizeNotification
+                    object:s_window
+                     queue:NSOperationQueue.mainQueue
+                usingBlock:^(NSNotification*) {
+        if (!s_toolbar_panel || !s_window) return;
+
+        // Re-add as child if macOS removed it during miniaturize.
+        if (![s_window.childWindows containsObject:s_toolbar_panel]) {
+            [s_window addChildWindow:s_toolbar_panel ordered:NSWindowAbove];
+        }
+
+        // Snap back to the correct position (frame may have drifted).
+        int ww = s_panel_win_w > 0 ? s_panel_win_w : (int)s_window.frame.size.width;
+        int wh = s_panel_win_h > 0 ? s_panel_win_h : (int)s_window.frame.size.height;
+        CGFloat sx = s_window.frame.origin.x;
+        CGFloat sy = s_window.frame.origin.y + (CGFloat)wh - (CGFloat)TOTAL_CHROME_TOP;
+        [s_toolbar_panel setFrame:NSMakeRect(sx, sy, (CGFloat)ww,
+                                             (CGFloat)TOTAL_CHROME_TOP + s_extra_h)
+                          display:YES];
+        [s_toolbar_panel orderFront:nil];
+    }];
+
+    // When the parent regains key status after switching back from another app,
+    // ensure the panel is ordered above the main window.
+    [[NSNotificationCenter defaultCenter]
+        addObserverForName:NSWindowDidBecomeKeyNotification
+                    object:s_window
+                     queue:NSOperationQueue.mainQueue
+                usingBlock:^(NSNotification*) {
+        if (s_toolbar_panel) [s_toolbar_panel orderFront:nil];
     }];
 }
 

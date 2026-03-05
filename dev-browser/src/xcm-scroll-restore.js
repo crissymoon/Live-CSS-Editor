@@ -61,12 +61,24 @@
         }
         _apply();
         // Second attempt after a paint to correct for late-loading content.
-        setTimeout(_apply, 200);
+        // Cancelled immediately if the user scrolls naturally during that window
+        // so a fast trackpad gesture does not get snapped back to the saved pos.
+        _cancelRestore();
+        _restoreTimer = setTimeout(_apply, 200);
+    }
+
+    // ── Restore timer (module-scope so the scroll listener can cancel it) ────
+    var _restoreTimer = null;
+    function _cancelRestore() {
+        if (_restoreTimer) { clearTimeout(_restoreTimer); _restoreTimer = null; }
     }
 
     // ── Save on scroll (debounced 300ms) ─────────────────────────────────────
     var _scrollTimer = null;
     window.addEventListener('scroll', function () {
+        // A real user scroll cancels any pending deferred restore so that a
+        // fast trackpad swipe never gets snapped back mid-gesture.
+        _cancelRestore();
         if (_scrollTimer) clearTimeout(_scrollTimer);
         _scrollTimer = setTimeout(function () { _save(location.href); }, 300);
     }, { passive: true });

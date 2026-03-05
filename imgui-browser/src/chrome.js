@@ -138,6 +138,46 @@ document.addEventListener('mouseup', function(e) {
 });
 
 // ================================================================
+// JS-DRIVEN HOVER (called by native mouse-moved monitor via
+// evaluateJavaScript -- CSS :hover is unreliable when the panel is
+// not the key window).
+// ================================================================
+
+// xcmMouseMove(x, y) -- called by the native mouse-moved monitor every
+// time the cursor moves inside the toolbar panel. x/y are CSS pixels
+// (top-left origin, matching getBoundingClientRect).
+//
+// Strategy: use document.elementFromPoint to find the exact element
+// under the cursor, then walk up the DOM tree adding "js-hover" to
+// that element and all its ancestors. Clear js-hover from everything
+// else first so we never leave stale state on elements the cursor
+// has moved away from. This covers tabs, toolbar buttons, traffic
+// lights, the close X -- every interactive element automatically.
+function xcmMouseMove(x, y) {
+  // Clear all previous js-hover in one pass.
+  xcmMouseLeave();
+
+  // Find the element under the cursor (returns null if outside viewport).
+  var el = document.elementFromPoint(x, y);
+  if (!el) return;
+
+  // Walk from the element up to <body> adding js-hover to each node
+  // so parent-child CSS selectors like .tab.js-hover .tab-close work.
+  var node = el;
+  while (node && node !== document.documentElement) {
+    if (node.classList) node.classList.add('js-hover');
+    node = node.parentElement;
+  }
+}
+
+// xcmMouseLeave() -- called when cursor leaves the panel or mouse-up.
+// Removes js-hover from every element that has it.
+function xcmMouseLeave() {
+  var all = document.querySelectorAll('.js-hover');
+  for (var i = 0; i < all.length; i++) all[i].classList.remove('js-hover');
+}
+
+// ================================================================
 // TOOLBAR STATE
 // ================================================================
 
@@ -675,3 +715,70 @@ function bmNavigate(idx) {
   xcm('navigate', url);
   closeDrawer();
 }
+
+// ================================================================
+// RIGHT-CLICK CONTEXT MENU
+// ================================================================
+var _ctxMenu = null;
+var _ctxOpen = false;
+
+function _ctxEl() {
+  return _ctxMenu || (_ctxMenu = document.getElementById('ctx-menu'));
+}
+
+function ctxShow(x, y) {
+  var el = _ctxEl();
+  if (!el) return;
+  // Horizontal pill: only set left so it stays on the toolbar row (top is fixed in CSS).
+  // Flip left if the menu would overflow the right edge.
+  var vw = window.innerWidth;
+  var menuW = el.offsetWidth || 180;
+  var left = (x + 4 + menuW > vw) ? Math.max(0, x - menuW - 4) : (x + 4);
+  el.style.left = left + 'px';
+  el.classList.add('ctx-open');
+  _ctxOpen = true;
+}
+
+function ctxHide() {
+  var el = _ctxEl();
+  if (!el) return;
+  el.classList.remove('ctx-open');
+  _ctxOpen = false;
+  // Remove js-hover from all ctx items
+  el.querySelectorAll('.js-hover').forEach(function(e){ e.classList.remove('js-hover'); });
+}
+
+function ctxAction(cmd) {
+  ctxHide();
+  var isInput = document.activeElement &&
+    (document.activeElement.tagName === 'INPUT' ||
+     document.activeElement.tagName === 'TEXTAREA');
+  if (cmd === 'cut') {
+    if (isInput) { document.execCommand('cut'); }
+    else         { xcm('cut'); }
+  } else if (cmd === 'copy') {
+    if (isInput) { document.execCommand('copy'); }
+    else         { xcm('copy'); }
+  } else if (cmd === 'paste') {
+    if (_urlFocused) { xcm('paste_url'); }
+    else if (isInput){ document.execCommand('paste'); }
+    else             { xcm('paste'); }
+  }
+}
+
+document.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+  ctxShow(e.clientX, e.clientY);
+});
+
+// Dismiss on mousedown outside the menu
+document.addEventListener('mousedown', function(e) {
+  if (!_ctxOpen) return;
+  var el = _ctxEl();
+  if (el && !el.contains(e.target)) ctxHide();
+});
+
+// Dismiss on scroll or resize
+document.addEventListener('scroll', ctxHide, true);
+window.addEventListener('resize', ctxHide);
+

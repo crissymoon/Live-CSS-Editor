@@ -51,35 +51,6 @@
     </svg>
   </button>
 
-  <span class="tb-sep"></span>
-
-  <button class="btn" id="btn-cut"   title="Cut (Cmd+X)"   onclick="xcm('cut')">
-    <!-- scissors -->
-    <svg viewBox="0 0 24 24">
-      <circle cx="6" cy="20" r="2"/><circle cx="6" cy="4" r="2"/>
-      <line x1="8.12" y1="18.4" x2="19" y2="4.5"/>
-      <line x1="8.12" y1="5.6"  x2="19" y2="19.5"/>
-    </svg>
-  </button>
-
-  <button class="btn" id="btn-copy"  title="Copy (Cmd+C)"  onclick="xcm('copy')">
-    <!-- two overlapping rectangles -->
-    <svg viewBox="0 0 24 24">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-    </svg>
-  </button>
-
-  <button class="btn" id="btn-paste" title="Paste (Cmd+V)"
-          onmousedown="event.preventDefault()"
-          onclick="xcm('paste_url')">
-    <!-- clipboard -->
-    <svg viewBox="0 0 24 24">
-      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-    </svg>
-  </button>
-
   <div id="gap"></div>
 
   <div id="url-wrap">
@@ -250,6 +221,13 @@
   </div>
 
 </div>
+</div>
+
+<!-- Right-click context menu -->
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-cut"   onmousedown="ctxAction('cut')">Cut<span class="ctx-key">⌘X</span></div>
+  <div class="ctx-item" id="ctx-copy"  onmousedown="ctxAction('copy')">Copy<span class="ctx-key">⌘C</span></div>
+  <div class="ctx-item" id="ctx-paste" onmousedown="ctxAction('paste')">Paste<span class="ctx-key">⌘V</span></div>
 </div>
 
 <script src="chrome.js"></script>

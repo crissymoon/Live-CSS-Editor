@@ -1,0 +1,6 @@
+{
+  "name": "PDF Fill & Sign",
+  "slug": "pdf-sign",
+  "description": "Open a PDF, fill text fields, add checkmarks, draw or type a signature, and download the completed document.",
+  "version": "1.0"
+}
