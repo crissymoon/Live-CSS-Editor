@@ -61,25 +61,26 @@
     var _frozen   = new WeakSet();
     var _rendered = new WeakSet();
 
+    // Deep-freeze (content-visibility:hidden) is DISABLED.
+    // Setting 'hidden' causes scrollHeight to change when rows unfreeze
+    // (their placeholder intrinsic-size differs from their real height),
+    // which makes the scrollbar thumb jump during fast trackpad scrolling.
+    // content-visibility:auto alone is sufficient -- WebKit culls
+    // off-screen layout/paint inside its own compositor without the
+    // hidden↔auto toggle, so no scrollHeight discontinuity occurs.
     var _freezeIO = new IntersectionObserver(function (entries) {
         entries.forEach(function (e) {
             var el = e.target;
             if (e.isIntersecting) {
-                // Row entered the 4x margin -- mark as rendered, restore if frozen.
                 _rendered.add(el);
+                // Restore auto if it was somehow set to hidden externally.
                 if (_frozen.has(el)) {
                     el.style.contentVisibility = 'auto';
                     _frozen.delete(el);
                 }
-            } else {
-                // Row left the 4x margin -- only freeze if it has been rendered before.
-                if (_rendered.has(el)) {
-                    el.style.contentVisibility = 'hidden';
-                    _frozen.add(el);
-                }
-                // If not yet rendered, the element's contentVisibility is already
-                // 'auto' (set by _safeObserve) -- no need to set 'hidden'.
             }
+            // Never set 'hidden' -- would change scrollHeight on restore,
+            // causing scrollbar thumb to snap/jump.
         });
     }, { rootMargin: _MARGIN + 'px 0px', threshold: 0 });
 

@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
+# Must be set BEFORE project() for CMake to pass it to the compiler.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "macOS deployment target")
 project(imgui_browser LANGUAGES C CXX OBJC OBJCXX)
 
 set(CMAKE_CXX_STANDARD 17)

@@ -5,6 +5,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
+#import <QuartzCore/QuartzCore.h>
 #import <Network/Network.h>
 #import <CFNetwork/CFNetwork.h>
 #import <SystemConfiguration/SystemConfiguration.h>
@@ -1111,6 +1112,24 @@ void* webview_create(int tab_id, const std::string& url) {
 
     // Add as content-view subview
     [s_window.contentView addSubview:wv];
+
+    // ── Metal / compositor performance fix ───────────────────────────────────
+    // WKWebView uses a private CAMetalLayer tree for all compositing, including
+    // the scrollbar thumb.  Two settings improve scroll smoothness:
+    //
+    // 1. drawsAsynchronously = YES -- decouples the layer rasterisation from
+    //    the render-server commit cycle.  Without this, a new scroll frame can
+    //    be delayed waiting for the GLFW OpenGL swap that runs on the same thread.
+    //
+    // 2. _setAllowsAcceleratedInteractionScrolling: (private, WebKit 609+) --
+    //    tells WebKit to keep scroll handling on the GPU compositor thread,
+    //    bypassing the JS event queue.  This prevents the scrollbar thumb from
+    //    lagging when wheel events stack up faster than JS can drain them.
+    wv.layer.drawsAsynchronously = YES;
+
+    if ([wv respondsToSelector:@selector(_setAllowsAcceleratedInteractionScrolling:)])
+        [wv performSelector:@selector(_setAllowsAcceleratedInteractionScrolling:)
+                 withObject:@YES];
 
     // FPS probe: every 2 seconds read stats-inject metrics from page JS
     NSTimer* fps_tmr = [NSTimer scheduledTimerWithTimeInterval:2.0
