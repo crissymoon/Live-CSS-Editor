@@ -5,10 +5,24 @@
 #include "chrome.h"
 #include "imgui.h"
 #include <cstdio>
+#include <cstdint>
+#include <cmath>
 #include <string>
 #include <algorithm>
+#include <cctype>
 
 static AppState* s_state = nullptr;
+
+// ── Logo state ────────────────────────────────────────────────────────
+static uint32_t s_logo_tex   = 0;  // OpenGL texture ID (0 = none)
+static int      s_logo_src_w = 0;  // original pixel width
+static int      s_logo_src_h = 0;  // original pixel height
+
+void chrome_set_logo(uint32_t tex_id, int src_w, int src_h) {
+    s_logo_tex   = tex_id;
+    s_logo_src_w = src_w;
+    s_logo_src_h = src_h;
+}
 
 // ── Palette ───────────────────────────────────────────────────────────
 // Base surface
@@ -32,6 +46,8 @@ static const ImVec4 COL_WARN       = {0.984f, 0.753f, 0.259f, 1.0f};
 static const ImVec4 COL_BAD        = {0.973f, 0.529f, 0.451f, 1.0f};
 // Border / separator
 static const ImVec4 COL_SEP        = {0.388f, 0.400f, 0.941f, 0.12f};
+// Status bar background -- lighter purple, clearly distinct from content area
+static const ImVec4 COL_STATUS_BG  = {0.138f, 0.108f, 0.220f, 1.0f};
 
 void chrome_apply_theme() {
     ImGuiStyle& s = ImGui::GetStyle();
@@ -98,6 +114,15 @@ void chrome_init(AppState* state) {
     chrome_apply_theme();
 }
 
+// ── Tab drag state ────────────────────────────────────────────────────
+static int   s_drag_idx   = -1;     // index of tab being dragged (-1 = none)
+static float s_drag_off_x = 0.0f;   // cursor-X offset within the tab at drag start
+static int   s_drop_tgt   = -1;     // computed insert position during drag
+
+// Anchor positions for floating panels (screen X of button that opens each)
+static float s_bm_btn_screen_x   = 0.0f;
+static float s_hist_btn_screen_x = 0.0f;
+
 // ── Internal helpers ──────────────────────────────────────────────────
 
 static inline ImU32 to_u32(ImVec4 v) { return ImGui::ColorConvertFloat4ToU32(v); }
@@ -146,8 +171,7 @@ static bool ghost_btn(const char* id, const char* text, float w, float h,
 }
 
 // ── Title / tab row ───────────────────────────────────────────────────
-// Combines the draggable title bar (with app name pill on the left) and
-// the tab strip in the same single row to save vertical space.
+// Single-row tab bar with drag-to-reorder and close-on-hover.
 
 static int draw_title_tab_row(AppState* st, int win_w,
                                bool& new_tab_req, int& close_idx) {
@@ -155,177 +179,193 @@ static int draw_title_tab_row(AppState* st, int win_w,
     new_tab_req = false;
 
     const float H       = (float)TAB_BAR_HEIGHT_PX;
-    const float TOP_PAD = 30.0f;  // clear macOS traffic light / top-edge breathing room
+    const float TOP_PAD = 30.0f;   // clear macOS traffic lights
     const float AVAIL_H = H - TOP_PAD;
 
-    // Full-width panel, sits at y=0
     begin_panel("##titlerow", 0, 0, (float)win_w, H, COL_SURFACE);
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
-
-    // Bottom separator line
     dl->AddLine({0, H - 1}, {(float)win_w, H - 1}, to_u32(COL_SEP), 1.0f);
+    // Morphism: subtle vertical gradient shimmer across the full strip
+    dl->AddRectFilledMultiColor(
+        {0.0f, 0.0f}, {(float)win_w, H},
+        to_u32({0.40f, 0.38f, 0.88f, 0.055f}),
+        to_u32({0.40f, 0.38f, 0.88f, 0.055f}),
+        to_u32({0.00f, 0.00f, 0.00f, 0.00f}),
+        to_u32({0.00f, 0.00f, 0.00f, 0.00f}));
+    // Single-pixel top highlight edge
+    dl->AddLine({0.0f, 0.5f}, {(float)win_w, 0.5f},
+                to_u32({0.60f, 0.58f, 1.00f, 0.18f}), 1.0f);
 
-    // The NSWindow "traffic light" buttons occupy ~82px on the left.
-    // We start our content after that gap so tab text is never obscured.
-    const float TL_GAP  = (float)TRAFFIC_LIGHT_W;
-    const float NEW_BTN = 28.0f;
-    const float PLUS_W  = NEW_BTN;
-    float       tabs_x  = TL_GAP;
-    float       tabs_w  = (float)win_w - TL_GAP - PLUS_W - 4.0f;
+    const float TL_GAP = (float)TRAFFIC_LIGHT_W;
+    const float PLUS_W = 28.0f;
+    float tabs_x = TL_GAP;
+    float tabs_w = (float)win_w - TL_GAP - PLUS_W - 4.0f;
 
-    int   n        = (int)st->tabs.size();
-    float max_tw   = 180.0f;
-    float min_tw   = 64.0f;
-    float tab_w    = std::min(max_tw, std::max(min_tw, tabs_w / n));
+    int   n     = (int)st->tabs.size();
+    float tab_w = std::min(180.0f, std::max(64.0f, tabs_w / (float)std::max(n, 1)));
 
-    // Title pill -- only visible when tabs are narrow enough that it fits
-    // OR when there is only one tab (there is always room on the far right)
-    {
-        const char* name = "Crissy's Style Tool";
-        ImVec2      ns   = ImGui::CalcTextSize(name);
-        float       pill_w = ns.x + 20.0f;
-        float       pill_h = 18.0f;
-        float       pill_x = (float)win_w * 0.5f - pill_w * 0.5f;
-        float       pill_y = TOP_PAD + (AVAIL_H - pill_h) * 0.5f;
-
-        // Only draw the pill if it does not overlap any tab
-        bool fits = (pill_x > tabs_x + n * tab_w + 8.0f) ||
-                    (pill_x + pill_w < tabs_x - 8.0f);
-        // Always draw it in the far-right zone if there is enough room
-        float right_zone_x = tabs_x + n * tab_w + 16.0f;
-        if (!fits && (float)win_w - right_zone_x > pill_w + 16.0f) {
-            pill_x = right_zone_x;
-            fits   = true;
-        }
-        if (fits) {
-            // Pill background
-            dl->AddRectFilled({pill_x, pill_y},
-                              {pill_x + pill_w, pill_y + pill_h},
-                              to_u32(COL_ACCENT_LO), 9.0f);
-            // Pill border
-            dl->AddRect({pill_x, pill_y},
-                        {pill_x + pill_w, pill_y + pill_h},
-                        to_u32(COL_SEP), 9.0f, 0, 1.0f);
-            // Pill text
-            dl->AddText({pill_x + 10.0f,
-                         pill_y + (pill_h - ImGui::GetTextLineHeight()) * 0.5f},
-                        to_u32(COL_ACCENT),
-                        name);
-        }
-    }
-
-    // Tabs
     float cx = tabs_x;
-    ImGui::SetCursorPos({cx, 0});
-
     for (int i = 0; i < n; i++) {
         auto& tab    = st->tabs[i];
         bool  active = (i == st->active_tab);
+        bool  dragging_this = (s_drag_idx == i &&
+                               ImGui::IsMouseDragging(ImGuiMouseButton_Left, 4.0f));
 
         ImGui::PushID(tab.id);
 
-        float close_w = active ? 18.0f : 0.0f;  // close only visible on active tab
-        float label_w = tab_w - close_w - (active ? 4.0f : 0.0f);
-
-        // Tab background (rounded top corners only via manual rect)
         ImVec2 tMin = {cx, TOP_PAD};
         ImVec2 tMax = {cx + tab_w, H};
+
+        // Hover detection via rect (before the invisible button so we know close_w)
+        bool hov_rect = ImGui::IsMouseHoveringRect(tMin, tMax) && s_drag_idx == -1;
+
+        // Close button shown when hovered or active (needs n > 1)
+        float close_w = (n > 1 && (active || hov_rect)) ? 18.0f : 0.0f;
+
+        // Tab background
+        float fill_alpha = dragging_this ? 0.25f : 1.0f;
         if (active) {
-            dl->AddRectFilled(tMin, tMax, to_u32(COL_TAB_ACT), 6.0f,
-                              ImDrawFlags_RoundCornersTop);
-            // Accent top edge line
-            dl->AddLine({tMin.x + 4, tMin.y + 1},
-                        {tMax.x - 4, tMin.y + 1},
-                        to_u32(COL_ACCENT), 2.0f);
-        }
-
-        // Tab click area
-        ImGui::SetCursorPos({cx + 4.0f, TOP_PAD + (AVAIL_H - ImGui::GetTextLineHeight()) * 0.5f - 1});
-        ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, active ? ImVec4{0,0,0,0} : COL_TAB_HOV);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  {0,0,0,0});
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0, 0});
-
-        char label[52];
-        snprintf(label, sizeof(label), "%.28s##tab%d", tab.title.c_str(), tab.id);
-        // Strip the ##tab... from displayed text
-        char disp[36];
-        snprintf(disp, sizeof(disp), "%.28s", tab.title.c_str());
-
-        // Invisible button for click detection
-        ImGui::SetCursorPos({cx, TOP_PAD});
-        char btn_id[16];
-        snprintf(btn_id, sizeof(btn_id), "##tb%d", tab.id);
-        if (ImGui::InvisibleButton(btn_id, {tab_w - close_w, AVAIL_H}))
-            st->active_tab = i;
-        bool hov = ImGui::IsItemHovered();
-        if (hov && !active)
+            ImVec4 bg = COL_TAB_ACT; bg.w = fill_alpha;
+            dl->AddRectFilled(tMin, tMax, to_u32(bg), 6.0f, ImDrawFlags_RoundCornersTop);
+            if (!dragging_this)
+                dl->AddLine({tMin.x + 4, tMin.y + 1},
+                            {tMax.x - 4, tMin.y + 1},
+                            to_u32(COL_ACCENT), 2.0f);
+        } else if (hov_rect) {
             dl->AddRectFilled(tMin, tMax, to_u32(COL_TAB_HOV), 6.0f,
                               ImDrawFlags_RoundCornersTop);
-
-        // Draw truncated tab title
+        }
+        // Thin border on top, left, right edges of every tab
         {
-            ImVec2 ts = ImGui::CalcTextSize(disp);
-            float ty = TOP_PAD + (AVAIL_H - ImGui::GetTextLineHeight()) * 0.5f;
-            float tx = cx + 10.0f;
-            float max_x = cx + label_w;
-            if (ts.x > label_w - 8.0f) {
-                ImGui::PushClipRect({tx, ty}, {max_x, ty + ImGui::GetTextLineHeight() + 2}, true);
-                dl->AddText({tx, ty}, to_u32(active ? COL_TEXT : COL_TEXT_DIM), disp);
+            ImU32 tb = to_u32(active
+                ? ImVec4{0.388f, 0.400f, 0.941f, 0.50f}
+                : ImVec4{0.388f, 0.400f, 0.941f, 0.16f});
+            // Top: full width edge-to-edge
+            dl->AddLine({tMin.x, tMin.y + 0.5f}, {tMax.x, tMin.y + 0.5f}, tb, 1.0f);
+            dl->AddLine({tMin.x + 0.5f, tMin.y}, {tMin.x + 0.5f, tMax.y}, tb, 1.0f); // left
+            dl->AddLine({tMax.x - 0.5f, tMin.y}, {tMax.x - 0.5f, tMax.y}, tb, 1.0f); // right
+        }
+
+        // Label (clipped if too long)
+        {
+            char disp[36];
+            snprintf(disp, sizeof(disp), "%.28s", tab.title.c_str());
+            float ty  = TOP_PAD + (AVAIL_H - ImGui::GetTextLineHeight()) * 0.5f;
+            float tx  = cx + 10.0f;
+            float right_edge = cx + tab_w - close_w - 6.0f;
+            ImVec4 tc = active ? COL_TEXT : COL_TEXT_DIM;
+            tc.w = fill_alpha;
+            ImU32 tc32 = to_u32(tc);
+            if (ImGui::CalcTextSize(disp).x > right_edge - tx) {
+                ImGui::PushClipRect({tx, ty},
+                                    {right_edge, ty + ImGui::GetTextLineHeight() + 2}, true);
+                dl->AddText({tx, ty}, tc32, disp);
                 ImGui::PopClipRect();
             } else {
-                dl->AddText({tx, ty}, to_u32(active ? COL_TEXT : COL_TEXT_DIM), disp);
+                dl->AddText({tx, ty}, tc32, disp);
             }
         }
 
-        // LoadingIndicator dot
-        if (tab.loading) {
+        // Loading spinner dot
+        if (tab.loading && !dragging_this) {
             float dot_x = cx + tab_w - close_w - 12.0f;
             float dot_y = TOP_PAD + AVAIL_H * 0.5f;
             dl->AddCircleFilled({dot_x, dot_y}, 3.5f, to_u32(COL_ACCENT), 8);
         }
 
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(3);
+        // Invisible button for click and drag detection.
+        // Only spans the non-close area so the close button gets its own
+        // independent hit-test (InvisibleButton would steal the press otherwise).
+        ImGui::SetCursorPos({cx, TOP_PAD});
+        char btn_id[16];
+        snprintf(btn_id, sizeof(btn_id), "##tb%d", tab.id);
+        float ib_w = (close_w > 0.0f) ? (tab_w - close_w - 1.0f) : tab_w;
+        ImGui::InvisibleButton(btn_id, {ib_w, AVAIL_H});
 
-        // Close button (only on active tab)
-        if (active && n > 1) {
+        if (ImGui::IsItemActivated()) {
+            s_drag_idx   = i;
+            s_drag_off_x = ImGui::GetMousePos().x - cx;
+            st->active_tab = i;   // switch immediately on press for responsiveness
+        }
+        if (s_drag_idx == i && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 4.0f)) {
+            float mx = ImGui::GetMousePos().x;
+            s_drop_tgt = std::max(0, std::min(n - 1,
+                         (int)((mx - tabs_x) / tab_w)));
+        }
+        if (ImGui::IsItemDeactivated() && s_drag_idx == i) {
+            if (!ImGui::IsMouseDragging(ImGuiMouseButton_Left, 4.0f)) {
+                st->active_tab = i;     // clean click
+            } else if (s_drop_tgt != -1 && s_drop_tgt != i) {
+                int from = i, to = s_drop_tgt;
+                int was  = st->active_tab;
+                auto& tabs = st->tabs;
+                if (from < to) {
+                    std::rotate(tabs.begin()+from, tabs.begin()+from+1, tabs.begin()+to+1);
+                    if      (was == from)              st->active_tab = to;
+                    else if (was > from && was <= to)  st->active_tab--;
+                } else {
+                    std::rotate(tabs.begin()+to, tabs.begin()+from, tabs.begin()+from+1);
+                    if      (was == from)              st->active_tab = to;
+                    else if (was >= to && was < from)  st->active_tab++;
+                }
+            }
+            s_drag_idx = -1;
+            s_drop_tgt = -1;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && s_drag_idx == -1)
+            ImGui::SetTooltip("%s", tab.url.c_str());
+
+        // Close button
+        if (close_w > 0.0f) {
             ImGui::SetCursorPos({cx + tab_w - close_w - 1.0f,
                                  TOP_PAD + (AVAIL_H - close_w) * 0.5f});
             ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.9f,0.3f,0.3f,0.30f});
             ImGui::PushStyleColor(ImGuiCol_ButtonActive,  {0.9f,0.3f,0.3f,0.55f});
-            ImGui::PushStyleColor(ImGuiCol_Text,          COL_TEXT_DIM);
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, close_w * 0.5f);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  {0, 0});
             char cid[16];
             snprintf(cid, sizeof(cid), "##cx%d", tab.id);
             if (ImGui::Button(cid, {close_w, close_w}))
                 close_idx = i;
-            // Draw x glyph manually
             {
                 ImVec2 bmin = ImGui::GetItemRectMin();
                 ImVec2 bmax = ImGui::GetItemRectMax();
-                float m = 5.0f;
-                ImU32 xc = ImGui::IsItemHovered()
+                float  m    = 5.0f;
+                ImU32  xc   = ImGui::IsItemHovered()
                     ? to_u32({1.0f,1.0f,1.0f,0.9f})
                     : to_u32(COL_TEXT_DIM);
                 dl->AddLine({bmin.x+m, bmin.y+m}, {bmax.x-m, bmax.y-m}, xc, 1.5f);
                 dl->AddLine({bmax.x-m, bmin.y+m}, {bmin.x+m, bmax.y-m}, xc, 1.5f);
             }
             ImGui::PopStyleVar(2);
-            ImGui::PopStyleColor(4);
+            ImGui::PopStyleColor(3);
         }
-
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-            ImGui::SetTooltip("%s", tab.url.c_str());
 
         cx += tab_w;
         ImGui::PopID();
     }
 
-    // "+" new tab button
+    // Ghost tab + drop indicator drawn on top during drag
+    if (s_drag_idx != -1 && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 4.0f)) {
+        float mx      = ImGui::GetMousePos().x;
+        float ghost_x = std::max(tabs_x, std::min(mx - s_drag_off_x,
+                                                   tabs_x + (float)n * tab_w - tab_w));
+        ImVec2 gMin = {ghost_x, TOP_PAD};
+        ImVec2 gMax = {ghost_x + tab_w, H};
+        dl->AddRectFilled(gMin, gMax, to_u32({0.388f,0.400f,0.941f,0.20f}), 6.0f,
+                          ImDrawFlags_RoundCornersTop);
+        dl->AddRect(gMin, gMax, to_u32(COL_ACCENT), 6.0f,
+                    ImDrawFlags_RoundCornersTop, 1.5f);
+        if (s_drop_tgt != -1) {
+            float lx = tabs_x + (float)s_drop_tgt * tab_w;
+            if (s_drop_tgt > s_drag_idx) lx += tab_w;
+            dl->AddLine({lx, TOP_PAD + 2}, {lx, H - 2}, to_u32(COL_ACCENT), 2.0f);
+        }
+    }
+
+    // "+" new-tab button
     ImGui::SetCursorPos({cx + 2.0f, TOP_PAD + (AVAIL_H - 22.0f) * 0.5f});
     ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_LO);
@@ -334,15 +374,33 @@ static int draw_title_tab_row(AppState* st, int win_w,
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  {0, 0});
     if (ImGui::Button("##newtab", {22.0f, 22.0f})) new_tab_req = true;
     {
-        ImVec2 c2 = {(ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) * 0.5f,
-                     (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f};
-        float arm = 5.0f;
-        ImU32 pc  = to_u32(ImGui::IsItemHovered() ? COL_ACCENT : COL_TEXT_DIM);
+        ImVec2 c2  = {(ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) * 0.5f,
+                      (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f};
+        float  arm = 5.0f;
+        ImU32  pc  = to_u32(ImGui::IsItemHovered() ? COL_ACCENT : COL_TEXT_DIM);
         dl->AddLine({c2.x-arm, c2.y}, {c2.x+arm, c2.y}, pc, 1.5f);
         dl->AddLine({c2.x, c2.y-arm}, {c2.x, c2.y+arm}, pc, 1.5f);
     }
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(3);
+
+    // Logo: Xcalibur The Cat -- drawn in the far-right corner of the tab bar.
+    // Only drawn when there is enough space right of the "+" button.
+    if (s_logo_tex && s_logo_src_h > 0) {
+        const float logo_h  = AVAIL_H - 4.0f;
+        const float logo_w  = logo_h * (float)s_logo_src_w / (float)s_logo_src_h;
+        const float right   = (float)win_w - 8.0f;
+        const float lx      = right - logo_w;
+        const float ly      = TOP_PAD + (AVAIL_H - logo_h) * 0.5f;
+        // Only draw if it doesn't overlap the last tab / "+" button area
+        float used_x = cx + 24.0f + 8.0f;  // "+" button right + small gap
+        if (lx > used_x) {
+            ImGui::SetCursorPos({lx, ly});
+            ImGui::Image((ImTextureID)(uintptr_t)s_logo_tex, {logo_w, logo_h});
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+                ImGui::SetTooltip("Xcalibur The Cat");
+        }
+    }
 
     end_panel();
     return (int)H;
@@ -361,6 +419,13 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
 
     // Bottom hair line
     dl->AddLine({0, H - 1}, {(float)win_w, H - 1}, to_u32(COL_SEP), 1.0f);
+    // Morphism: top-to-bottom shimmer, lighter at top
+    dl->AddRectFilledMultiColor(
+        {0.0f, 0.0f}, {(float)win_w, H},
+        to_u32({0.38f, 0.36f, 0.88f, 0.045f}),
+        to_u32({0.38f, 0.36f, 0.88f, 0.045f}),
+        to_u32({0.00f, 0.00f, 0.00f, 0.00f}),
+        to_u32({0.00f, 0.00f, 0.00f, 0.00f}));
 
     Tab* tab = st->current_tab();
 
@@ -396,7 +461,10 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
     float lock_w    = 22.0f;        // security indicator
     float devtool_w = btn + 4.0f;
     float js_btn_w  = btn + 4.0f;   // JS toggle
-    float url_w     = (float)win_w - url_x - (lock_w + 4.0f) - devtool_w - js_btn_w - pad * 2.0f;
+    float bm_btn_w  = btn + 2.0f;   // bookmark star
+    float hist_btn_w = btn;         // history clock
+    float url_w     = (float)win_w - url_x - (lock_w + 4.0f)
+                      - devtool_w - js_btn_w - bm_btn_w - hist_btn_w - pad * 2.0f;
 
     // ── Security indicator (HTTPS / HTTP / other) ─────────────────
     {
@@ -447,6 +515,12 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
     ImGui::SetNextItemWidth(url_w);
 
+    // Auto-focus URL bar on very first frame so buttons respond immediately
+    static bool s_url_focused_once = false;
+    if (!s_url_focused_once) {
+        ImGui::SetKeyboardFocusHere();
+        s_url_focused_once = true;
+    }
     // Focus if requested (e.g. Cmd+L)
     if (st->focus_url_next_frame) {
         ImGui::SetKeyboardFocusHere();
@@ -550,6 +624,117 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
             ? "JavaScript enabled -- click to disable for this tab"
             : "JavaScript disabled -- click to re-enable for this tab");
 
+    ImGui::SameLine(0, 2);
+
+    // ── Bookmark star ──────────────────────────────────────────────
+    {
+        // Check whether the current URL is already bookmarked
+        bool is_bm = false;
+        if (tab && !tab->url.empty()) {
+            for (auto& b : st->bookmarks)
+                if (b.url == tab->url) { is_bm = true; break; }
+        }
+        bool bm_open = st->show_bookmarks_panel;
+        if (is_bm || bm_open) {
+            ImGui::PushStyleColor(ImGuiCol_Button,        COL_ACCENT_LO);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_MID);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_LO);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT_MID);
+        }
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+        if (ImGui::Button("##bm", {btn, btn})) {
+            st->show_bookmarks_panel = !st->show_bookmarks_panel;
+            st->show_history_panel   = false;
+        }
+        // Record screen position for panel anchoring
+        s_bm_btn_screen_x = ImGui::GetItemRectMax().x;
+        {
+            // Draw a 5-pointed star via geometry (fonts may lack U+2605/U+2606)
+            ImVec2 bmin = ImGui::GetItemRectMin();
+            ImVec2 bmax = ImGui::GetItemRectMax();
+            ImU32  gc   = to_u32(is_bm ? COL_ACCENT : COL_TEXT_DIM);
+            ImVec2 c2   = {(bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f};
+            float  ro   = (bmax.x - bmin.x) * 0.36f;   // outer radius
+            float  ri   = ro * 0.40f;                    // inner radius
+            const float kPi = 3.14159265f;
+            for (int k = 0; k < 5; ++k) {
+                float a0 = (float)k * (2.0f * kPi / 5.0f) - kPi * 0.5f;
+                float a1 = a0 + kPi / 5.0f;
+                float a2 = a0 + 2.0f * kPi / 5.0f;
+                ImVec2 p0 = {c2.x + cosf(a0)*ro, c2.y + sinf(a0)*ro};
+                ImVec2 p1 = {c2.x + cosf(a1)*ri, c2.y + sinf(a1)*ri};
+                ImVec2 p2 = {c2.x + cosf(a2)*ro, c2.y + sinf(a2)*ro};
+                if (is_bm) {
+                    dl->AddTriangleFilled(c2, p0, p1, gc);
+                    dl->AddTriangleFilled(c2, p1, p2, gc);
+                } else {
+                    dl->AddLine(p0, p1, gc, 1.2f);
+                    dl->AddLine(p1, p2, gc, 1.2f);
+                }
+            }
+            if (!is_bm) {   // close the outline star
+                float a0 = -kPi * 0.5f;
+                float a1_last = 4.0f * (2.0f * kPi / 5.0f) - kPi * 0.5f + kPi / 5.0f;
+                ImVec2 tip  = {c2.x + cosf(a0)*ro,     c2.y + sinf(a0)*ro};
+                ImVec2 last_inner = {c2.x + cosf(a1_last)*ri, c2.y + sinf(a1_last)*ri};
+                dl->AddLine(last_inner, tip, gc, 1.2f);
+            }
+        }
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+            ImGui::SetTooltip(is_bm ? "Bookmarked -- click to manage"
+                                    : "Bookmark this page (Cmd+D)");
+    }
+    ImGui::SameLine(0, 0);
+
+    // ── History button ─────────────────────────────────────────────
+    {
+        bool hist_open = st->show_history_panel;
+        if (hist_open) {
+            ImGui::PushStyleColor(ImGuiCol_Button,        COL_ACCENT_LO);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_MID);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_LO);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT_MID);
+        }
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+        if (ImGui::Button("##hist", {btn, btn})) {
+            st->show_history_panel   = !st->show_history_panel;
+            st->show_bookmarks_panel = false;
+        }
+        s_hist_btn_screen_x = ImGui::GetItemRectMax().x;
+        {
+        {
+            ImVec2 bmin = ImGui::GetItemRectMin();
+            ImVec2 bmax = ImGui::GetItemRectMax();
+            ImU32  clk_col = to_u32(hist_open ? COL_ACCENT : COL_TEXT_DIM);
+            ImVec2 c2   = {(bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f};
+            float  r    = (bmax.x - bmin.x) * 0.34f;
+            const float kPi = 3.14159265f;
+            // Clock face circle
+            dl->AddCircle(c2, r, clk_col, 14, 1.3f);
+            // Hour hand (~10 o'clock)
+            float ah = -kPi * 0.5f - kPi * 0.34f;
+            dl->AddLine(c2, {c2.x + cosf(ah)*r*0.52f, c2.y + sinf(ah)*r*0.52f},
+                        clk_col, 1.5f);
+            // Minute hand (~12 o'clock, pointing up)
+            float am = -kPi * 0.5f;
+            dl->AddLine(c2, {c2.x + cosf(am)*r*0.72f, c2.y + sinf(am)*r*0.72f},
+                        clk_col, 1.3f);
+        }
+        }
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+            ImGui::SetTooltip("History (Cmd+H)");
+    }
+
     end_panel();
     return (int)H;
 }
@@ -559,8 +744,8 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
 int chrome_draw_bottom(AppState* st, int win_w, int win_h) {
     const float H = (float)STATUS_HEIGHT_PX;
 
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, COL_BASE);
-    begin_panel("##status", 0, (float)(win_h - (int)H), (float)win_w, H, COL_BASE);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, COL_STATUS_BG);
+    begin_panel("##status", 0, (float)(win_h - (int)H), (float)win_w, H, COL_STATUS_BG);
     ImGui::PopStyleColor();
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -574,19 +759,16 @@ int chrome_draw_bottom(AppState* st, int win_w, int win_h) {
     ImGui::TextUnformatted(disp.c_str());
     ImGui::PopStyleColor();
 
-    // Right side: fps + server LEDs
-    char fps_str[80];
-    snprintf(fps_str, sizeof(fps_str), "DEV %.0f  ENG %.0f  HOST %.0f",
-             st->fps_wkwv, st->fps_engine, st->fps_host.fps_avg());
-    float tw = ImGui::CalcTextSize(fps_str).x;
+    // Right side: viewport size + server LEDs
+    char vp_str[48];
+    // Show the usable content area (window minus all chrome panels)
+    int content_h = win_h - TAB_BAR_HEIGHT_PX - CHROME_HEIGHT_PX - STATUS_HEIGHT_PX;
+    snprintf(vp_str, sizeof(vp_str), "%d × %d", win_w, content_h);
+    float tw = ImGui::CalcTextSize(vp_str).x;
 
-    ImVec4 fc = (st->fps_wkwv >= 50) ? COL_OK
-              : (st->fps_wkwv >= 30) ? COL_WARN
-              : (st->fps_wkwv >  0 ) ? COL_BAD
-                                     : COL_TEXT_DIM;
     ImGui::SameLine((float)win_w - tw - 76.0f);
-    ImGui::PushStyleColor(ImGuiCol_Text, fc);
-    ImGui::TextUnformatted(fps_str);
+    ImGui::PushStyleColor(ImGuiCol_Text, COL_TEXT_DIM);
+    ImGui::TextUnformatted(vp_str);
     ImGui::PopStyleColor();
 
     // Server LED dots
@@ -606,6 +788,142 @@ int chrome_draw_bottom(AppState* st, int win_w, int win_h) {
     return (int)H;
 }
 
+// ── Bookmarks panel ───────────────────────────────────────────────────
+
+static void draw_bookmarks_panel(AppState* st, float anchor_x, float panel_top) {
+    if (!st->show_bookmarks_panel) return;
+
+    const float W = 300.0f;
+    ImGui::SetNextWindowPos({anchor_x - W + 2.0f, panel_top}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({W, 0.0f});   // auto-height
+    ImGui::SetNextWindowBgAlpha(0.97f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {10.0f, 8.0f});
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {6.0f, 4.0f});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{0.070f, 0.070f, 0.110f, 0.97f});
+
+    if (ImGui::Begin("##bm_panel", nullptr,
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_NoMove)) {
+
+        Tab* tab = st->current_tab();
+
+        // Current page action
+        if (tab && tab->url.size() >= 4 && tab->url.substr(0,4) == "http") {
+            bool is_bm = false;
+            for (auto& b : st->bookmarks)
+                if (b.url == tab->url) { is_bm = true; break; }
+            ImGui::PushStyleColor(ImGuiCol_Text, is_bm ? COL_WARN : COL_ACCENT);
+            const char* act = is_bm ? "Remove from bookmarks" : "Bookmark this page";
+            if (ImGui::Selectable(act, false)) {
+                st->push_nav(tab->id, "__bookmark_toggle__");
+                st->show_bookmarks_panel = false;
+            }
+            ImGui::PopStyleColor();
+            ImGui::Separator();
+        }
+
+        if (st->bookmarks.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, COL_TEXT_DIM);
+            ImGui::TextUnformatted("No bookmarks yet.");
+            ImGui::PopStyleColor();
+        } else {
+            // Newest first
+            for (int i = (int)st->bookmarks.size() - 1; i >= 0; i--) {
+                auto& bm = st->bookmarks[i];
+                const std::string& nm = bm.title.empty() ? bm.url : bm.title;
+                char lbl[96];
+                snprintf(lbl, sizeof(lbl), "%.62s##bm%d", nm.c_str(), i);
+                if (ImGui::Selectable(lbl, false)) {
+                    Tab* t = st->current_tab();
+                    if (t) st->push_nav(t->id, bm.url);
+                    st->show_bookmarks_panel = false;
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+                    ImGui::SetTooltip("%s", bm.url.c_str());
+            }
+        }
+
+        // Close on click outside
+        if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows |
+                                    ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
+                && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            st->show_bookmarks_panel = false;
+    }
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(3);
+}
+
+// ── History panel ─────────────────────────────────────────────────────
+
+static void draw_history_panel(AppState* st, float anchor_x, float panel_top) {
+    if (!st->show_history_panel) return;
+
+    const float W  = 340.0f;
+    const float MH = 380.0f;
+    ImGui::SetNextWindowPos({anchor_x - W, panel_top}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({W, MH});
+    ImGui::SetNextWindowBgAlpha(0.97f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {10.0f, 8.0f});
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{0.070f, 0.070f, 0.110f, 0.97f});
+
+    if (ImGui::Begin("##hist_panel", nullptr,
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove)) {
+
+        // Search / filter
+        ImGui::SetNextItemWidth(W - 24.0f);
+        ImGui::InputTextWithHint("##hfilt", "Search history...",
+                                  st->history_filter, sizeof(st->history_filter));
+        ImGui::Separator();
+
+        if (st->history.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, COL_TEXT_DIM);
+            ImGui::TextUnformatted("No history yet.");
+            ImGui::PopStyleColor();
+        } else {
+            std::string filt(st->history_filter);
+            // Lower-case filter for case-insensitive match
+            for (auto& c : filt) c = (char)tolower((unsigned char)c);
+
+            // Iterate reverse (most recent first), show up to 200 matching
+            int shown = 0;
+            for (int i = (int)st->history.size() - 1; i >= 0 && shown < 200; i--) {
+                auto& he = st->history[i];
+                if (!filt.empty()) {
+                    std::string u = he.url, t2 = he.title;
+                    for (auto& c : u)  c = (char)tolower((unsigned char)c);
+                    for (auto& c : t2) c = (char)tolower((unsigned char)c);
+                    if (u.find(filt) == std::string::npos &&
+                        t2.find(filt) == std::string::npos) continue;
+                }
+                const std::string& nm = he.title.empty() ? he.url : he.title;
+                char lbl[100];
+                snprintf(lbl, sizeof(lbl), "%.64s##he%d", nm.c_str(), i);
+                if (ImGui::Selectable(lbl, false)) {
+                    Tab* t = st->current_tab();
+                    if (t) st->push_nav(t->id, he.url);
+                    st->show_history_panel = false;
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+                    ImGui::SetTooltip("%s", he.url.c_str());
+                shown++;
+            }
+        }
+
+        if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows |
+                                    ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
+                && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            st->show_history_panel = false;
+    }
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+}
+
 // ── Top (title+tabs + toolbar) ────────────────────────────────────────
 
 int chrome_draw_top(AppState* st,
@@ -615,5 +933,8 @@ int chrome_draw_top(AppState* st,
     int h = 0;
     h += draw_title_tab_row(st, win_w, new_tab_requested, close_tab_idx);
     h += draw_toolbar(st, win_w, h);
+    // Floating panels anchored below the toolbar
+    draw_bookmarks_panel(st, s_bm_btn_screen_x,   (float)h);
+    draw_history_panel  (st, s_hist_btn_screen_x, (float)h);
     return h;
 }

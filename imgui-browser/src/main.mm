@@ -23,9 +23,11 @@
 #include "cmd_server.h"
 
 #include <string>
+#include <vector>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <ctime>
 
 // Forward declaration
 void fps_host_tick(AppState& st, double now_sec);
@@ -147,6 +149,20 @@ static void dispatch_nav(AppState::NavCmd& cmd) {
     else if (cmd.url == "__stop__")    webview_stop(h);
     else if (cmd.url == "__js_on__")  { tab->js_enabled = true;  webview_set_js_enabled(h, true); }
     else if (cmd.url == "__js_off__") { tab->js_enabled = false; webview_set_js_enabled(h, false); }
+    else if (cmd.url == "__bookmark_toggle__") {
+        // Toggle bookmark for the current URL
+        bool found = false;
+        for (int bi = 0; bi < (int)g_state.bookmarks.size(); bi++) {
+            if (g_state.bookmarks[bi].url == tab->url) {
+                g_state.bookmarks.erase(g_state.bookmarks.begin() + bi);
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            g_state.bookmarks.push_back({tab->url, tab->title});
+        persist_save_bookmarks(g_state.bookmarks);
+    }
     else                               webview_load_url(h, cmd.url);
 }
 
@@ -313,6 +329,66 @@ int main(int argc, char** argv) {
 
     chrome_init(&g_state);
 
+    // Load persistent data from ~/.xcm-browser/ (outside the repo)
+    g_state.history   = persist_load_history();
+    g_state.bookmarks = persist_load_bookmarks();
+    fprintf(stderr, "[main] loaded %zu history entries, %zu bookmarks\n",
+            g_state.history.size(), g_state.bookmarks.size());
+
+    // ── Logo texture (Xcalibur The Cat) ──────────────────────────────
+    // Load the transparent RGBA PNG via CoreGraphics into an OpenGL texture
+    // after the GLFW/OpenGL context is current.
+    {
+        NSString* logo_path = @"/Users/mac/Documents/live-css/xcalibur-the-cat-logo.png";
+        NSImage*  ns_img    = [[NSImage alloc] initWithContentsOfFile:logo_path];
+        if (ns_img) {
+            // Set the macOS Dock icon to the cat logo
+            [NSApp setApplicationIconImage:ns_img];
+            NSSize sz = ns_img.size;
+            int w = (int)sz.width;
+            int h = (int)sz.height;
+            if (w > 0 && h > 0) {
+                std::vector<uint8_t> px((size_t)(w * h * 4), 0);
+                // Flip Y: CoreGraphics origin is bottom-left, ImGui/OpenGL UVs
+                // start top-left. We draw the CGImage flipped vertically so the
+                // texture reads top-down correctly in ImGui::Image().
+                CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+                CGContextRef ctx = CGBitmapContextCreate(
+                    px.data(), w, h, 8, w * 4, cs,
+                    kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+                CGColorSpaceRelease(cs);
+                if (ctx) {
+                    CGImageRef cg = [ns_img CGImageForProposedRect:nil
+                                                           context:nil
+                                                             hints:nil];
+                    // No Y-flip: CGBitmapContext stores row 0 at top; OpenGL
+                    // glTexImage2D maps row 0 to t=0 (bottom of texture);
+                    // ImGui::Image uv0={0,0} samples t=0 at screen top-left,
+                    // so the image renders right-side-up automatically.
+                    CGContextDrawImage(ctx, CGRectMake(0, 0, w, h), cg);
+                    CGContextRelease(ctx);
+
+                    GLuint tex = 0;
+                    glGenTextures(1, &tex);
+                    glBindTexture(GL_TEXTURE_2D, tex);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
+                                 GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+                    glBindTexture(GL_TEXTURE_2D, 0);
+
+                    chrome_set_logo(tex, w, h);
+                    fprintf(stderr, "[main] logo loaded: %dx%d tex=%u\n", w, h, tex);
+                }
+            }
+        } else {
+            fprintf(stderr, "[main] WARNING: could not load logo: %s\n",
+                    logo_path.UTF8String);
+        }
+    }
+
     ImGui_ImplGlfw_InitForOpenGL(g_win, true);
     ImGui_ImplOpenGL3_Init("#version 150");
 
@@ -327,10 +403,32 @@ int main(int argc, char** argv) {
                 t.is_secure = url.size() >= 8 && url.substr(0, 8) == "https://";
                 break;
             }
+        // Push to browsing history (skip consecutive duplicates)
+        auto& hist = g_state.history;
+        if (!url.empty() && (hist.empty() || hist.back().url != url)) {
+            HistoryEntry he;
+            he.url = url;
+            he.ts  = (int64_t)time(nullptr);
+            if (hist.size() >= 1000) hist.erase(hist.begin());
+            hist.push_back(he);
+            // Throttled disk save (every 5 navigations)
+            static int s_hist_n = 0;
+            if (++s_hist_n % 5 == 0) persist_save_history(g_state.history);
+        }
     };
     wv_cbs.on_title_change = [](int tab_id, const std::string& title) {
         for (auto& t : g_state.tabs)
-            if (t.id == tab_id) { t.title = title; break; }
+            if (t.id == tab_id) {
+                t.title = title;
+                // Back-fill title on the most recent matching history entry
+                for (int hi = (int)g_state.history.size() - 1; hi >= 0; hi--) {
+                    if (g_state.history[hi].url == t.url) {
+                        g_state.history[hi].title = title;
+                        break;
+                    }
+                }
+                break;
+            }
     };
     wv_cbs.on_progress = [](int tab_id, float p) {
         for (auto& t : g_state.tabs)
@@ -486,10 +584,19 @@ int main(int argc, char** argv) {
             bool cmd = kio.KeySuper;
 
             if (cmd && !kio.WantTextInput) {
-                // Cmd+L or Cmd+D -- focus URL bar
-                if (ImGui::IsKeyPressed(ImGuiKey_L, false) ||
-                    ImGui::IsKeyPressed(ImGuiKey_D, false)) {
+                // Cmd+L -- focus URL bar
+                if (ImGui::IsKeyPressed(ImGuiKey_L, false)) {
                     g_state.focus_url_next_frame = true;
+                }
+                // Cmd+D -- toggle bookmark for current page
+                if (ImGui::IsKeyPressed(ImGuiKey_D, false)) {
+                    Tab* t = g_state.current_tab();
+                    if (t) g_state.push_nav(t->id, "__bookmark_toggle__");
+                }
+                // Cmd+H -- toggle history panel
+                if (ImGui::IsKeyPressed(ImGuiKey_H, false)) {
+                    g_state.show_history_panel   = !g_state.show_history_panel;
+                    g_state.show_bookmarks_panel = false;
                 }
                 // Cmd+T -- new tab
                 if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
@@ -647,6 +754,10 @@ int main(int argc, char** argv) {
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────
+    // Persist bookmarks and history before tearing down
+    persist_save_history(g_state.history);
+    persist_save_bookmarks(g_state.bookmarks);
+
     cmd_server_stop();
     server_shutdown();
 

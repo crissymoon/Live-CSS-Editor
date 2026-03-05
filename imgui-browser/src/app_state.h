@@ -10,6 +10,7 @@
 #include <mutex>
 #include <deque>
 #include <chrono>
+#include "persistence.h"
 
 // ── Constants ─────────────────────────────────────────────────────────
 constexpr int    CHROME_HEIGHT_PX  = 44;   // toolbar row (URL bar + nav buttons)
@@ -111,6 +112,16 @@ struct AppState {
     bool   show_fps_bar           = true;
     float  ui_scale               = 1.0f;
     bool   focus_url_next_frame   = false;  // set true to steal focus to URL bar
+
+    // Bookmarks and history -- persisted to ~/.xcm-browser/
+    std::vector<HistoryEntry>  history;
+    std::vector<BookmarkEntry> bookmarks;
+
+    // Panel visibility flags
+    bool   show_bookmarks_panel   = false;
+    bool   show_history_panel     = false;
+    // Search filter for history panel
+    char   history_filter[128]    = {};
 
     // Thread-safe navigation queue (cmd_server pushes, main loop pops)
     struct NavCmd { int tab_id; std::string url; };

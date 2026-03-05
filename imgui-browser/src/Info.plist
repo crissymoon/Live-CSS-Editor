@@ -24,11 +24,35 @@
     <key>NSHighResolutionCapable</key>
     <true/>
 
-    <!-- Disable ATS so all HTTP/HTTPS endpoints load without policy blocks -->
+    <!-- ATS: allow arbitrary HTTP loads for general browsing, but enforce
+         certificate transparency on HTTPS connections.
+         Localhost is explicitly allowed for the dev PHP/Node servers. -->
     <key>NSAppTransportSecurity</key>
     <dict>
+        <!-- Allow HTTP navigation to arbitrary remote sites (general browser) -->
         <key>NSAllowsArbitraryLoads</key>
         <true/>
+        <!-- Require Certificate Transparency logging for all HTTPS connections.
+             CT is enforced by the Apple CT policy on macOS 10.15+ -- this key
+             makes it explicit so future OS changes cannot relax it. -->
+        <key>NSRequiresCertificateTransparency</key>
+        <true/>
+        <key>NSExceptionDomains</key>
+        <dict>
+            <!-- Local dev servers (PHP / Node) always run over HTTP -->
+            <key>localhost</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+                <key>NSIncludesSubdomains</key>
+                <false/>
+            </dict>
+            <key>127.0.0.1</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+        </dict>
     </dict>
 
     <!-- Privacy usage strings needed for camera/mic access (LinkedIn calls, etc.) -->

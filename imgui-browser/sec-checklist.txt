@@ -1,0 +1,37 @@
+Security Checklist for /Users/mac/Documents/live-css/imgui-browser
+
+https://browseraudit.com/
+
+Referrer-Policy 'no-referrer' from https://browseraudit.com	
+Referrer-Policy 'origin' from https://browseraudit.com	
+Referrer-Policy 'no-referrer' from https://test.browseraudit.com	
+Referrer-Policy 'origin' from https://test.browseraudit.com	
+Referrer-Policy 'same-origin' from https://browseraudit.com
+Referrer-Policy 'origin-when-cross-origin' from https://browseraudit.com	
+Referrer-Policy 'origin-when-cross-origin' from https://test.browseraudit.com	
+Referrer-Policy 'unsafe-url'	
+
+Caller can't access Content-Length with Access-Control-Expose-Headers: Connection	
+Caller can't access Content-Length with Access-Control-Expose-Headers: Date, Connection	
+
+Caller can't access Content-Length with no Access-Control-Expose-Headers header
+
+Caller can access Content-Type with no Access-Control-Expose-Headers header
+
+Framing https://browseraudit.com with frame-ancestors 'self'	
+Framing https://browseraudit.com with frame-ancestors 'https://browseraudit.com'	
+Framing https://browseraudit.com with frame-ancestors scheme source 'https:'	
+
+Form with action from https://test.browseraudit.com and form-action https://test.browseraudit.com
+
+Form with action from https://browseraudit.com and form-action 'self'
+
+Manifest from https://test.browseraudit.com with manifest-src https://test.browseraudit.com
+
+Manifest from https://test.browseraudit.com with default-src https://test.browseraudit.com
+
+Manifest from https://browseraudit.com with manifest-src 'self'
+
+Manifest from https://browseraudit.com with default-src 'self'
+
+report received with report-to

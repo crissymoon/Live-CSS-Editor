@@ -75,6 +75,7 @@ find_library(QUARTZCORE  QuartzCore)
 find_library(NETWORK_FW  Network)
 find_library(SYSCFG_FW   SystemConfiguration)
 find_library(CFNETWORK_FW CFNetwork)
+find_library(SECURITY_FW  Security)
 
 target_link_libraries(imgui_browser PRIVATE
     imgui
@@ -88,6 +89,7 @@ target_link_libraries(imgui_browser PRIVATE
     ${NETWORK_FW}
     ${SYSCFG_FW}
     ${CFNETWORK_FW}
+    ${SECURITY_FW}
 )
 
 # Set macOS deployment target and bundle properties.

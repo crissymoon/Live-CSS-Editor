@@ -8,6 +8,7 @@
 #import <Network/Network.h>
 #import <CFNetwork/CFNetwork.h>
 #import <SystemConfiguration/SystemConfiguration.h>
+#import <Security/SecTrust.h>
 #include "webview.h"
 #include "app_state.h"
 #include <string>
@@ -227,6 +228,110 @@ static NSString* const JS_MASK_WEBVIEW = @"(function(){"
 
     "})();";
 
+// JS_FINGERPRINT_NOISE: add human-like hardware variation so automated
+// fingerprinting scripts cannot identify this as a headless / bot client.
+// Runs at document-start before any page JS executes.
+//
+// Covered vectors:
+//  1. Canvas 2D getImageData -- LSB noise on a few pixels per read
+//  2. WebGL getParameter -- mask UNMASKED_VENDOR/RENDERER to neutral Intel strings
+//  3. AudioBuffer.getChannelData -- sub-10^-7 amplitude noise on two samples
+//  4. navigator.hardwareConcurrency -- stable 8 (common desktop value)
+//  5. navigator.platform -- "MacIntel" (correct for Firefox/macOS)
+//
+// The noise uses a session-unique seed derived at injection time so the
+// same page gets consistent values within its lifetime but different values
+// across tabs and page loads.
+static NSString* const JS_FINGERPRINT_NOISE = @"(function(){"
+
+    // Session-stable Xorshift32 PRNG seeded at injection time.
+    "var _s=(Date.now()^(Math.random()*0x7FFFFFFF))|1;"
+    "function _r(){"
+    "  _s=(_s^(_s<<13)|0)>>>0;"
+    "  _s=(_s^(_s>>>17))>>>0;"
+    "  _s=(_s^(_s<<5)|0)>>>0;"
+    "  return _s;"
+    "}"
+    "function _r2(){return _r()&1?1:-1;}"
+
+    // 1. Canvas 2D -- getImageData LSB noise
+    "try{"
+    "  var _ogc=HTMLCanvasElement.prototype.getContext;"
+    "  HTMLCanvasElement.prototype.getContext=function(t,o){"
+    "    var ctx=_ogc.call(this,t,o);"
+    "    if(ctx&&t==='2d'&&ctx.getImageData){"
+    "      var _og=ctx.getImageData.bind(ctx);"
+    "      ctx.getImageData=function(x,y,w,h){"
+    "        var d=_og(x,y,w,h);"
+    "        if(d&&d.data&&d.data.length>16){"
+    "          for(var i=0;i<3;i++){"
+    "            var idx=(_r()%(d.data.length>>>2))<<2;"
+    "            d.data[idx]=(d.data[idx]+_r2()+256)&255;"
+    "          }"
+    "        }"
+    "        return d;"
+    "      };"
+    "    }"
+    "    return ctx;"
+    "  };"
+    "}catch(e){}"
+
+    // 2. WebGL / WebGL2 -- mask hardware identity strings
+    "var _WGLV=0x9245,_WGLR=0x9246;"
+    "function _patchWGL(P){"
+    "  try{"
+    "    var og=P.getParameter.bind(P.__proto__||P);"
+    "    P.constructor.prototype.getParameter=function(param){"
+    "      if(param===_WGLV)return'Intel Inc.';"
+    "      if(param===_WGLR)return'Intel Iris OpenGL Engine';"
+    "      return og.call(this,param);"
+    "    };"
+    "  }catch(e){}"
+    "}"
+    "try{"
+    "  var _c2=document.createElement('canvas');"
+    "  var _g=_c2.getContext('webgl')||_c2.getContext('experimental-webgl');"
+    "  if(_g)_patchWGL(_g);"
+    "  var _g2=_c2.getContext('webgl2');"
+    "  if(_g2)_patchWGL(_g2);"
+    "}catch(e){}"
+
+    // 3. AudioBuffer.getChannelData -- tiny sub-perception amplitude noise
+    "try{"
+    "  var _oab=AudioBuffer.prototype.getChannelData;"
+    "  AudioBuffer.prototype.getChannelData=function(ch){"
+    "    var d=_oab.call(this,ch);"
+    "    if(d&&d.length>4){"
+    "      var i1=_r()%d.length,i2=_r()%d.length;"
+    "      d[i1]+=_r2()*5e-8;"
+    "      d[i2]+=_r2()*5e-8;"
+    "    }"
+    "    return d;"
+    "  };"
+    "}catch(e){}"
+
+    // 4. navigator.hardwareConcurrency -- common desktop value, stable
+    "try{"
+    "  if(!navigator.hardwareConcurrency||navigator.hardwareConcurrency<2){"
+    "    Object.defineProperty(navigator,'hardwareConcurrency',{"
+    "      get:function(){return 8;},"
+    "      configurable:true"
+    "    });"
+    "  }"
+    "}catch(e){}"
+
+    // 5. navigator.platform -- ensure correct macOS string
+    "try{"
+    "  if(navigator.platform!=='MacIntel'){"
+    "    Object.defineProperty(navigator,'platform',{"
+    "      get:function(){return'MacIntel';},"
+    "      configurable:true"
+    "    });"
+    "  }"
+    "}catch(e){}"
+
+    "})();";
+
 // Firefox 134 on macOS -- current as of March 2026.
 // Firefox UA bypasses Google's embedded-WebView sign-in block more reliably
 // than a Chrome UA because Google's detection targets Chrome-in-WebView
@@ -374,6 +479,19 @@ static NSMutableArray<XCMPopupDelegate*>* s_popup_delegates = nil;
     type:(WKMediaCaptureType)type
     decisionHandler:(void (^)(WKPermissionDecision))decisionHandler {
     decisionHandler(WKPermissionDecisionGrant);
+}
+
+// TLS validation (same policy as main delegate).
+- (void)webView:(WKWebView*)wv
+    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge*)challenge
+    completionHandler:(void(^)(NSURLSessionAuthChallengeDisposition, NSURLCredential*))completionHandler {
+    NSURLProtectionSpace* ps = challenge.protectionSpace;
+    if ([ps.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        fprintf(stderr, "[tls/popup] %s:%ld\n", ps.host.UTF8String, (long)ps.port);
+        completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    } else {
+        completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    }
 }
 @end
 
@@ -542,6 +660,33 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler {
     decisionHandler(WKNavigationResponsePolicyAllow);
 }
+
+// TLS validation.
+// Use the OS default evaluator which enforces:
+//   - Valid certificate chain anchored to a trusted root
+//   - Certificate not expired
+//   - Hostname match
+//   - TLS 1.2 minimum (macOS 12+ system policy)
+//   - TLS 1.3 negotiated automatically when server supports it
+// We log the host/port so TLS errors surface in the console.
+- (void)webView:(WKWebView*)wv
+    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge*)challenge
+    completionHandler:(void(^)(NSURLSessionAuthChallengeDisposition, NSURLCredential*))completionHandler {
+    NSURLProtectionSpace* ps = challenge.protectionSpace;
+    if ([ps.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        SecTrustRef trust = ps.serverTrust;
+        if (trust) {
+            CFErrorRef tls_err = nil;
+            bool ok = SecTrustEvaluateWithError(trust, &tls_err);
+            fprintf(stderr, "[tls] %s:%ld eval=%s\n",
+                    ps.host.UTF8String, (long)ps.port, ok ? "ok" : "FAIL");
+            if (tls_err) CFRelease(tls_err);
+        }
+        completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    } else {
+        completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    }
+}
 @end
 
 // ── KVO observer for title + estimatedProgress ───────────────────────
@@ -598,8 +743,13 @@ static void xcm_inject_masks(WKUserContentController* ucc) {
         initWithSource:JS_MASK_WEBVIEW
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart
         forMainFrameOnly:NO];
+    WKUserScript* noise = [[WKUserScript alloc]
+        initWithSource:JS_FINGERPRINT_NOISE
+        injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+        forMainFrameOnly:NO];
     [ucc addUserScript:init];
     [ucc addUserScript:mask];
+    [ucc addUserScript:noise];
 
     // Inject any app-supplied extra scripts (e.g. input-watcher.js,
     // chrome-gl-compositor.js) in the order they were registered.
