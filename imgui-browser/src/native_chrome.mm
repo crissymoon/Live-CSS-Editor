@@ -1,7 +1,6 @@
 // native_chrome.mm -- AppKit-native browser chrome
-// Tab bar and status bar are drawn NSViews.
-// Toolbar (URL bar + nav buttons) is a WKWebView child panel
-// (src/toolbar.html) with a JS bridge so the HTML page drives
+// Chrome (tab bar, toolbar, traffic lights) is a WKWebView child panel
+// (src/chrome.html) with a JS bridge so the HTML page drives
 // navigation and receives live tab state every frame.
 
 #import <Cocoa/Cocoa.h>
@@ -21,13 +20,11 @@ static NSWindow* s_window   = nil;
 static int       s_php_port = 0;
 
 // forward declarations
-@class XCMStatusView;
 @class XCMBridgeHandler;
 
 static NSPanel*          s_toolbar_panel = nil;
 static WKWebView*        s_toolbar_wv    = nil;
 static XCMBridgeHandler* s_bridge        = nil;
-static XCMStatusView*    s_status        = nil;
 static bool              s_tb_ready      = false;
 
 static float   s_bm_btn_x    = 0.0f;
@@ -38,11 +35,7 @@ static int     s_panel_win_h = 0;
 
 // ── Color palette ─────────────────────────────────────────────────────
 
-static NSColor* xcmTxtDim(){ return [NSColor colorWithRed:.400 green:.427 blue:.502 alpha:1]; }
-static NSColor* cSep()     { return [NSColor colorWithRed:.388 green:.400 blue:.941 alpha:.12]; }
-static NSColor* cStatusBg(){ return [NSColor colorWithRed:.165 green:.130 blue:.270 alpha:1]; }
-static NSColor* cOK()      { return [NSColor colorWithRed:.204 green:.827 blue:.600 alpha:1]; }
-static NSColor* cBad()     { return [NSColor colorWithRed:.973 green:.529 blue:.451 alpha:1]; }
+
 
 
 // ── XCMBridgeHandler -- WKScriptMessageHandler for chrome.html ────────
@@ -237,6 +230,18 @@ static void toolbar_sync_state(AppState* st) {
         else                url_esc += c;
     }
 
+    // Escape hover/status text for the info panel
+    const std::string& raw_st = !st->hover_url.empty() ? st->hover_url : st->status_text;
+    std::string st_esc;
+    st_esc.reserve(raw_st.size() + 16);
+    for (char c : raw_st) {
+        if      (c == '\\') st_esc += "\\\\";
+        else if (c == '"')  st_esc += "\\\"";        else if (c == '\n') st_esc += "\\n";
+        else                st_esc += c;
+    }
+    int vp_h = s_panel_win_h - TOTAL_CHROME_TOP;
+    int vp_w = s_panel_win_w;
+
     std::ostringstream js;
     js << "xcmSetState({"
        << "url:\""   << url_esc << "\","
@@ -248,8 +253,13 @@ static void toolbar_sync_state(AppState* st) {
        << "http:"     << (http && !https ? "true" : "false") << ","
        << "devtOpen:" << (st->dev_tools_open ? "true" : "false") << ","
        << "jsOn:"     << (tab && tab->js_enabled ? "true" : "false") << ","
-       << "isBm:"     << (isBm ? "true" : "false")
-       << ",tabs:[";
+       << "isBm:"     << (isBm ? "true" : "false") << ","
+       << "phpOk:"    << (st->php_server_ok  ? "true" : "false") << ","
+       << "nodeOk:"   << (st->node_server_ok ? "true" : "false") << ","
+       << "statusTxt:\"" << st_esc << "\","
+       << "vpW:"      << vp_w << ","
+       << "vpH:"      << vp_h
+       << ",tabs:[";  
     for (size_t i = 0; i < st->tabs.size(); i++) {
         const auto& tb = st->tabs[i];
         std::string raw = tb.title.empty() ? tb.url : tb.title;
@@ -278,92 +288,6 @@ static void toolbar_sync_state(AppState* st) {
 }
 
 
-// ── XCMStatusView ─────────────────────────────────────────────────────
-
-@interface XCMStatusView : NSView
-@property (strong) NSTextField* leftLabel;
-@property (strong) NSTextField* rightLabel;
-@end
-
-@implementation XCMStatusView
-
-- (BOOL)isFlipped { return YES; }
-- (BOOL)isOpaque  { return YES; }
-
-- (instancetype)initWithFrame:(NSRect)r {
-    if (!(self = [super initWithFrame:r])) return nil;
-
-    auto makeLbl = [](NSView* parent) {
-        NSTextField* f = [NSTextField labelWithString:@""];
-        f.font             = [NSFont monospacedDigitSystemFontOfSize:10.5 weight:NSFontWeightRegular];
-        f.textColor        = [NSColor colorWithRed:.400 green:.427 blue:.502 alpha:1];
-        f.drawsBackground  = NO;
-        f.backgroundColor  = NSColor.clearColor;
-        [parent addSubview:f];
-        return f;
-    };
-    _leftLabel  = makeLbl(self);
-    _rightLabel = makeLbl(self);
-    return self;
-}
-
-- (void)drawRect:(NSRect)dirty {
-    [cStatusBg() set];
-    NSRectFill(self.bounds);
-    // Top separator
-    [[cSep() colorWithAlphaComponent:.30] set];
-    NSRectFill(NSMakeRect(0, 0, self.bounds.size.width, 1.0));
-
-    // PHP + Node LED dots (drawn with CoreGraphics for pixel precision)
-    CGFloat W = self.bounds.size.width;
-    CGFloat midY = self.bounds.size.height * 0.5;
-    CGFloat r    = 3.5;
-    CGFloat lx   = W - 60.0;
-
-    NSBezierPath* phpDot = [NSBezierPath bezierPathWithOvalInRect:
-        NSMakeRect(lx - r, midY - r, r*2, r*2)];
-    [(s_state && s_state->php_server_ok ? cOK() : cBad()) set];
-    [phpDot fill];
-
-    NSDictionary* la = @{NSFontAttributeName: [NSFont systemFontOfSize:9.5],
-                         NSForegroundColorAttributeName: xcmTxtDim()};
-    [@"php" drawAtPoint:NSMakePoint(lx + r + 2, midY - 5.5) withAttributes:la];
-
-    NSBezierPath* jsDot = [NSBezierPath bezierPathWithOvalInRect:
-        NSMakeRect(lx + 36.0 - r, midY - r, r*2, r*2)];
-    [(s_state && s_state->node_server_ok ? cOK() : cBad()) set];
-    [jsDot fill];
-
-    [@"js" drawAtPoint:NSMakePoint(lx + 36.0 + r + 2, midY - 5.5) withAttributes:la];
-}
-
-- (void)syncState:(AppState*)st {
-    // Left: hover URL or status text
-    NSString* leftTxt = @"";
-    if (!st->hover_url.empty())
-        leftTxt = [NSString stringWithUTF8String:st->hover_url.c_str()];
-    else if (!st->status_text.empty())
-        leftTxt = [NSString stringWithUTF8String:st->status_text.c_str()];
-    _leftLabel.stringValue = leftTxt;
-
-    // Right: viewport size
-    int ch = st->win_h - TAB_BAR_HEIGHT_PX - CHROME_HEIGHT_PX - STATUS_HEIGHT_PX;
-    _rightLabel.stringValue = [NSString stringWithFormat:@"%d x %d", st->win_w, ch];
-
-    // Layout labels
-    CGFloat H = self.bounds.size.height;
-    CGFloat W = self.bounds.size.width;
-    CGFloat lh = 14.0;
-    CGFloat ly = (H - lh) * 0.5;
-    _leftLabel.frame  = NSMakeRect(10, ly, W * 0.5, lh);
-    _rightLabel.frame = NSMakeRect(W - 160.0, ly, 100.0, lh);
-    _rightLabel.alignment = NSTextAlignmentRight;
-
-    [self setNeedsDisplay:YES];
-}
-
-@end
-
 // ── XCMToolbarPanel ──────────────────────────────────────────────────
 // Borderless child NSPanel holding the toolbar WKWebView (toolbar.html).
 // Being a separate NSWindow from the GLFW GL view means it gets its own
@@ -372,8 +296,11 @@ static void toolbar_sync_state(AppState* st) {
 @interface XCMToolbarPanel : NSPanel
 @end
 @implementation XCMToolbarPanel
-- (BOOL)canBecomeKeyWindow  { return YES; }
-- (BOOL)canBecomeMainWindow { return NO;  }
+- (BOOL)canBecomeKeyWindow       { return YES; }
+- (BOOL)canBecomeMainWindow      { return NO;  }
+// Always receive mouse-moved events so CSS :hover in the WKWebView stays
+// active even when the user has focus in the browser content area or URL field.
+- (BOOL)acceptsMouseMovedEvents  { return YES; }
 @end
 
 // ── WKWebView navigation delegate for toolbar ─────────────────────────
@@ -439,9 +366,10 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
                       styleMask:NSWindowStyleMaskBorderless
                         backing:NSBackingStoreBuffered
                           defer:NO];
-        s_toolbar_panel.opaque          = NO;
-        s_toolbar_panel.backgroundColor = NSColor.clearColor;
-        s_toolbar_panel.hasShadow       = NO;
+        s_toolbar_panel.opaque                  = NO;
+        s_toolbar_panel.backgroundColor         = NSColor.clearColor;
+        s_toolbar_panel.hasShadow               = NO;
+        s_toolbar_panel.acceptsMouseMovedEvents = YES;
         [s_toolbar_panel setAppearance:
             [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]];
         [s_toolbar_panel setReleasedWhenClosed:NO];
@@ -484,6 +412,20 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
         s_toolbar_wv.navigationDelegate = s_tb_nav;
 
         [s_toolbar_panel.contentView addSubview:s_toolbar_wv];
+
+        // Round the top two corners to match the macOS window frame.
+        // We clip at the contentView level, not the WKWebView, because
+        // WKWebView has internal sublayers that can render outside its own
+        // top-level layer, making masksToBounds on WKWebView unreliable.
+        // Clipping the plain NSView contentView is guaranteed to work.
+        NSView* cv = s_toolbar_panel.contentView;
+        cv.wantsLayer              = YES;
+        cv.layer.backgroundColor   = NSColor.clearColor.CGColor;
+        cv.layer.cornerRadius      = 10.0;
+        cv.layer.maskedCorners     =
+            kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner; // top-left + top-right
+        cv.layer.masksToBounds     = YES;
+
         [s_window addChildWindow:s_toolbar_panel ordered:NSWindowAbove];
 
         // Load chrome.html
@@ -499,12 +441,6 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
             [s_toolbar_wv loadHTMLString:fallback baseURL:nil];
         }
     }
-
-    // Status bar
-    NSRect stFrame = NSMakeRect(0, 0, win_w, (CGFloat)STATUS_HEIGHT_PX);
-    s_status = [[XCMStatusView alloc] initWithFrame:stFrame];
-    s_status.autoresizingMask = NSViewWidthSizable | NSViewMaxYMargin;
-    [cv addSubview:s_status];
 
     fprintf(stderr, "[chrome] native chrome created w=%.0f h=%.0f\n", win_w, win_h);
 
@@ -547,7 +483,7 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
 }
 
 int native_chrome_update(AppState* st) {
-    if (!s_toolbar_panel || !s_status) return TOTAL_CHROME_TOP;
+    if (!s_toolbar_panel) return TOTAL_CHROME_TOP;
 
     // Cmd+L: focus toolbar URL field
     if (st->focus_url_next_frame) {
@@ -562,12 +498,10 @@ int native_chrome_update(AppState* st) {
     // Push state into toolbar WKWebView every frame
     toolbar_sync_state(st);
 
-    [s_status syncState:st];
-
     return TOTAL_CHROME_TOP;
 }
 
-int  native_chrome_status_h() { return STATUS_HEIGHT_PX; }
+int  native_chrome_status_h() { return 0; }
 
 bool native_chrome_has_hover() {
     if (!s_window) return false;
@@ -577,12 +511,11 @@ bool native_chrome_has_hover() {
     CGFloat win_h = s_window.contentView.bounds.size.height;
     CGFloat chrome_bottom = win_h - (CGFloat)TOTAL_CHROME_TOP;
     bool in_top    = (mp.y >= chrome_bottom);
-    bool in_status = (mp.y <= (CGFloat)STATUS_HEIGHT_PX);
-    return in_top || in_status;
+    return in_top;
 }
 
 void native_chrome_resize(int win_w, int win_h) {
-    if (!s_toolbar_panel || !s_status) return;
+    if (!s_toolbar_panel) return;
 
     s_panel_win_w = win_w;
     s_panel_win_h = win_h;
@@ -596,8 +529,6 @@ void native_chrome_resize(int win_w, int win_h) {
     CGFloat sy = s_window.frame.origin.y + (CGFloat)win_h - (CGFloat)TOTAL_CHROME_TOP;
     NSRect pf  = NSMakeRect(sx, sy, (CGFloat)win_w, (CGFloat)TOTAL_CHROME_TOP);
     [s_toolbar_panel setFrame:pf display:NO];
-
-    [s_status setNeedsDisplay:YES];
 }
 
 float native_chrome_bm_btn_x()   { return s_bm_btn_x;   }
@@ -620,6 +551,5 @@ void native_chrome_destroy() {
     s_toolbar_wv = nil;
     s_bridge     = nil;
     s_tb_nav     = nil;
-    [s_status removeFromSuperview]; s_status = nil;
 }
 

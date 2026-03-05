@@ -29,6 +29,67 @@
 #include <cstring>
 #include <cstdlib>
 #include <ctime>
+#include <signal.h>
+#include <execinfo.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+// ── Crash / signal handling ──────────────────────────────────────────
+
+static char g_debug_dir[1024] = {};
+static char g_crash_log[1024] = {};
+
+static void xcm_write_crash(const char* header, const char* detail) {
+    // Write to both stderr and the crash log file.
+    fprintf(stderr, "\n[CRASH] %s\n%s\n", header, detail);
+    fflush(stderr);
+    if (g_crash_log[0]) {
+        FILE* f = fopen(g_crash_log, "a");
+        if (f) {
+            time_t t = time(nullptr);
+            char tbuf[64];
+            strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M:%S", localtime(&t));
+            fprintf(f, "========================================\n");
+            fprintf(f, "[%s] CRASH: %s\n", tbuf, header);
+            fprintf(f, "%s\n", detail);
+
+            // backtrace
+            void* frames[64];
+            int   nframes = backtrace(frames, 64);
+            char** syms   = backtrace_symbols(frames, nframes);
+            fprintf(f, "--- backtrace (%d frames) ---\n", nframes);
+            for (int i = 0; i < nframes; i++) {
+                fprintf(f, "  %s\n", syms ? syms[i] : "(unavailable)");
+            }
+            if (syms) free(syms);
+            fprintf(f, "========================================\n");
+            fclose(f);
+        }
+    }
+}
+
+static void xcm_signal_handler(int sig) {
+    const char* name = "UNKNOWN";
+    switch (sig) {
+        case SIGABRT: name = "SIGABRT (abort/assertion)"; break;
+        case SIGSEGV: name = "SIGSEGV (segmentation fault)"; break;
+        case SIGBUS:  name = "SIGBUS (bus error)"; break;
+        case SIGILL:  name = "SIGILL (illegal instruction)"; break;
+        case SIGFPE:  name = "SIGFPE (floating point exception)"; break;
+        case SIGPIPE: name = "SIGPIPE (broken pipe -- ignored)"; return;  // not fatal
+    }
+    xcm_write_crash(name, "see backtrace above");
+    // Re-raise with the default handler so macOS can generate a .crash report.
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void xcm_objc_exception_handler(NSException* e) {
+    NSString* msg = [NSString stringWithFormat:@"name=%@ reason=%@\nstack=\n%@",
+                     e.name, e.reason,
+                     e.callStackSymbols ? [e.callStackSymbols componentsJoinedByString:@"\n"] : @"(none)"];
+    xcm_write_crash("Uncaught ObjC exception", msg.UTF8String);
+}
 
 // Forward declaration
 void fps_host_tick(AppState& st, double now_sec);
@@ -216,6 +277,47 @@ static void cb_error(int, const char* desc) {
 // ── Main ──────────────────────────────────────────────────────────────
 
 int main(int argc, char** argv) {
+    // ── Debug / crash log setup ───────────────────────────────────────
+    // Resolve the debug directory relative to the executable so it works
+    // both from run.sh and when launched from the .app bundle.
+    {
+        char exe[1024] = {};
+        uint32_t sz = sizeof(exe);
+        _NSGetExecutablePath(exe, &sz);
+        std::string ep(exe);
+        auto sl = ep.rfind('/');
+        std::string bin_dir = (sl != std::string::npos) ? ep.substr(0, sl) : ".";
+        // build/ -> imgui-browser/
+        std::string proj_dir = bin_dir;
+        auto sl2 = bin_dir.rfind('/');
+        if (sl2 != std::string::npos) proj_dir = bin_dir.substr(0, sl2);
+        // If inside an .app bundle (MacOS/), go up three more levels
+        if (proj_dir.find("Contents/MacOS") != std::string::npos ||
+            proj_dir.find(".app") != std::string::npos) {
+            for (int up = 0; up < 3; up++) {
+                auto s = proj_dir.rfind('/');
+                if (s != std::string::npos) proj_dir = proj_dir.substr(0, s);
+            }
+        }
+        snprintf(g_debug_dir, sizeof(g_debug_dir), "%s/debug", proj_dir.c_str());
+        snprintf(g_crash_log, sizeof(g_crash_log), "%s/crash.log", g_debug_dir);
+        // Create the directory if it does not exist (mkdir -p equivalent)
+        mkdir(g_debug_dir, 0755);
+        fprintf(stderr, "[main] debug dir: %s\n", g_debug_dir);
+    }
+
+    // Install signal handlers for common fatal signals.
+    // SIGPIPE is non-fatal (broken pipe from a dead server connection).
+    signal(SIGABRT, xcm_signal_handler);
+    signal(SIGSEGV, xcm_signal_handler);
+    signal(SIGBUS,  xcm_signal_handler);
+    signal(SIGILL,  xcm_signal_handler);
+    signal(SIGFPE,  xcm_signal_handler);
+    signal(SIGPIPE, xcm_signal_handler);  // returns without raising
+
+    // Install ObjC uncaught exception handler.
+    NSSetUncaughtExceptionHandler(xcm_objc_exception_handler);
+
     // NSApplication needs to be running on the main thread
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -681,6 +783,11 @@ int main(int argc, char** argv) {
         }
 
         // ── Dear ImGui frame ─────────────────────────────────────────
+        // Wrapped in @try/@catch so that an ObjC exception thrown by a
+        // WKWebView delegate or AppKit callback during a single frame does
+        // not kill the process. The exception is logged to debug/crash.log
+        // and the frame is skipped; the render loop continues.
+        @try {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -731,9 +838,15 @@ int main(int argc, char** argv) {
         {
             double mx, my;
             glfwGetCursorPos(g_win, &mx, &my);
-            bool over_chrome = (my < (double)g_prev_top) ||
-                               (my > (double)(g_state.win_h - g_prev_bot));
-            if (over_chrome) {
+            // The top chrome (my < g_prev_top) is entirely covered by the
+            // WKWebView chrome panel. WebKit manages cursor there via its own
+            // NSTrackingAreas (IBeam over the URL input, pointer over buttons,
+            // etc.). If we call NSCursor here we overwrite what WebKit just set,
+            // so we must leave that zone alone.
+            // Only manage cursor for the bottom ImGui chrome (if any).
+            bool over_bottom_chrome = g_prev_bot > 0 &&
+                                      (my > (double)(g_state.win_h - g_prev_bot));
+            if (over_bottom_chrome) {
                 ImGuiMouseCursor want = ImGui::GetMouseCursor();
                 if (want == ImGuiMouseCursor_TextInput)
                     [[NSCursor IBeamCursor] set];
@@ -750,7 +863,7 @@ int main(int argc, char** argv) {
                 else
                     [[NSCursor arrowCursor] set];
             }
-            // No else: content area cursor is owned by WKWebView.
+            // Top chrome and content area: cursor is owned by WKWebView.
         }
 
         // glViewport uses PHYSICAL PIXELS.
@@ -764,7 +877,15 @@ int main(int argc, char** argv) {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(g_win);
-    }
+        } @catch (NSException* e) {
+            // Log and skip the frame -- do not let a single-frame ObjC exception
+            // terminate the entire process.
+            NSString* msg = [NSString stringWithFormat:@"name=%@ reason=%@\n%@",
+                             e.name, e.reason,
+                             [e.callStackSymbols componentsJoinedByString:@"\n"]];
+            xcm_write_crash("ObjC exception in render loop (frame skipped)", msg.UTF8String);
+        }
+    } // end render loop
 
     // ── Cleanup ───────────────────────────────────────────────────────
     // Persist bookmarks and history before tearing down

@@ -14,7 +14,7 @@
 
 // ── Constants ─────────────────────────────────────────────────────────
 constexpr int    CHROME_HEIGHT_PX  = 44;   // toolbar row (URL bar + nav buttons)
-constexpr int    STATUS_HEIGHT_PX  = 22;   // bottom status bar
+constexpr int    STATUS_HEIGHT_PX  = 0;    // status bar removed (info lives in URL bar)
 constexpr int    TAB_BAR_HEIGHT_PX = 70;   // title strip + tab row (includes 30px top padding for traffic lights)
 constexpr int    TOTAL_CHROME_TOP  = TAB_BAR_HEIGHT_PX + CHROME_HEIGHT_PX;
 constexpr int    TRAFFIC_LIGHT_W   = 82;   // px to skip on left for macOS traffic lights

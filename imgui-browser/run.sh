@@ -3,6 +3,18 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+# --- debug logging setup ---
+DEBUG_DIR="$ROOT/debug"
+mkdir -p "$DEBUG_DIR"
+LOG="$DEBUG_DIR/app.log"
+# Rotate: keep the last run as app.log.1
+[[ -f "$LOG" ]] && mv "$LOG" "${LOG}.1"
+exec > >(tee -a "$LOG") 2>&1
+echo "========================================"
+echo "[run] started at $(date)"
+echo "========================================"
+trap 'EXIT_CODE=$?; echo "[run] exited with code $EXIT_CODE at $(date)" >> "$LOG"' EXIT
 # When built as a proper macOS .app bundle the binary lives inside the bundle.
 # Fall back to the flat binary path for non-bundle builds.
 BIN_BUNDLE="$ROOT/build/imgui_browser.app/Contents/MacOS/imgui_browser"

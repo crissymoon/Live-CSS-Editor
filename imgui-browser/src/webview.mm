@@ -565,25 +565,30 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     // any violation events that were queued during page startup.
     // didFinishNavigation fires after all document-start scripts have run,
     // so window.__xcmSetReportTo is guaranteed to exist at this point.
-    if (wv.URL.scheme.length && wv.URL.host.length) {
-        std::string origin = std::string(wv.URL.scheme.UTF8String)
-                           + "://" + wv.URL.host.UTF8String;
-        auto it = s_report_to.find(origin);
-        if (it != s_report_to.end()) {
-            NSString* epRaw = [NSString stringWithUTF8String:it->second.c_str()];
-            NSData* epJson  = [NSJSONSerialization dataWithJSONObject:epRaw
-                                                             options:0 error:nil];
-            if (epJson) {
-                NSString* epStr = [[NSString alloc] initWithData:epJson
-                                                        encoding:NSUTF8StringEncoding];
+    @try {
+        if (wv.URL.scheme.length && wv.URL.host.length) {
+            std::string origin = std::string(wv.URL.scheme.UTF8String)
+                               + "://" + wv.URL.host.UTF8String;
+            auto it = s_report_to.find(origin);
+            if (it != s_report_to.end()) {
+                NSString* epRaw = [NSString stringWithUTF8String:it->second.c_str()];
+                // NSJSONSerialization requires a top-level container (Array/Dict).
+                // Passing a bare NSString raises NSInvalidArgumentException.
+                // Manually produce the JSON string representation instead.
+                NSString* esc = [epRaw stringByReplacingOccurrencesOfString:@"\\"
+                                                                 withString:@"\\\\"];
+                esc = [esc stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
+                NSString* epStr = [NSString stringWithFormat:@"\"%@\"", esc];
                 NSString* js = [NSString stringWithFormat:
                     @"typeof window.__xcmSetReportTo==='function'"
                     "&&window.__xcmSetReportTo(%@)", epStr];
                 [wv evaluateJavaScript:js completionHandler:nil];
-                fprintf(stderr, "[report-to] injected endpoint for %s\n",
-                        origin.c_str());
+                fprintf(stderr, "[report-to] injected endpoint for %s\n", origin.c_str());
             }
         }
+    } @catch (NSException* e) {
+        fprintf(stderr, "[nav] report-to inject exception: %s -- %s\n",
+                e.name.UTF8String, e.reason.UTF8String);
     }
 }
 - (void)webView:(WKWebView*)wv didFailNavigation:(WKNavigation*)nav withError:(NSError*)err {
@@ -598,6 +603,20 @@ static void xcm_inject_masks(WKUserContentController* ucc);
             err.localizedDescription.UTF8String);
     if (s_cbs.on_loading) s_cbs.on_loading(self.tabId, false);
 }
+
+// Called when the WebContent process crashes (OOM, sandbox violation, etc.).
+// Gmail, Google Docs, and other heavy Google apps frequently hit memory limits
+// and terminate the renderer. Without this handler the WKWebView becomes a
+// permanent blank white panel with no way to recover. We reload the last URL
+// so the tab comes back automatically.
+- (void)webViewWebContentProcessDidTerminate:(WKWebView*)wv {
+    fprintf(stderr, "[nav] WebContent process terminated for tab %d, url=%s -- reloading\n",
+            self.tabId,
+            wv.URL.absoluteString.UTF8String ?: "(nil)");
+    // Reload triggers didStartProvisionalNavigation which will update chrome state.
+    [wv reload];
+}
+
 - (void)webView:(WKWebView*)wv
     didReceiveServerRedirectForProvisionalNavigation:(WKNavigation*)nav {
     fprintf(stderr, "[nav] redirect -> %s\n", wv.URL.absoluteString.UTF8String ?: "(nil)");

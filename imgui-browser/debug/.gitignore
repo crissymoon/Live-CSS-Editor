@@ -1,0 +1,4 @@
+# ignore all log files in this debug folder
+*.log
+*.crash
+*.trace

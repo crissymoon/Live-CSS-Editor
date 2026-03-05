@@ -1,0 +1,102 @@
+========================================
+[run] started at Thu Mar  5 00:01:16 PST 2026
+========================================
+[main] debug dir: /Users/mac/Documents/live-css/imgui-browser/debug
+[ui] loaded font: /System/Library/Fonts/Menlo.ttc @ 30px
+[main] loaded 79 history entries, 0 bookmarks
+[main] logo loaded: 600x652 tex=1
+[main] loaded extra script: input-watcher.js
+[main] loaded extra script: chrome-gl-compositor.js
+[net] proxy settings:
+  FTPPassive = 1
+  ExceptionsList = (
+    "*.local",
+    "169.254/16"
+)
+  __SCOPED__ = {
+    en3 =     {
+        ExceptionsList =         (
+            "*.local",
+            "169.254/16"
+        );
+        FTPPassive = 1;
+    };
+}
+[net] Private Relay not detected.
+[chrome] native chrome created w=1400 h=789
+[wv] _serviceWorkerEnabled not available on this OS
+[nav] load: http://127.0.0.1:8080/pb_admin/login.php
+[nav] allow: http://127.0.0.1:8080/pb_admin/login.php
+[server] PHP already running on :9879
+[server] Node already running on :7779
+[cmd] HTTP API listening on 127.0.0.1:9878
+[nav] start: http://127.0.0.1:8080/pb_admin/login.php
+[nav] finish: http://127.0.0.1:8080/pb_admin/login.php
+[nav] page-probe: PB Admin — Login | body.children=3
+[nav] load: https://www.google.com/search?q=leto's%20angels
+[nav] allow: https://www.google.com/search?q=leto%27s%20angels
+[nav] allow: http://127.0.0.1:8080/pb_admin/login.php
+[nav] start: http://127.0.0.1:8080/pb_admin/login.php
+[tls] www.google.com:443 eval=ok
+[nav] finish: http://127.0.0.1:8080/pb_admin/login.php
+[nav] page-probe: PB Admin — Login | body.children=3
+[nav] load: https://www.google.com/search?q=letos%20angels
+[nav] allow: https://www.google.com/search?q=letos%20angels
+[nav] allow: http://127.0.0.1:8080/pb_admin/login.php
+[nav] start: http://127.0.0.1:8080/pb_admin/login.php
+[nav] finish: http://127.0.0.1:8080/pb_admin/login.php
+[nav] page-probe: PB Admin — Login | body.children=3
+[nav] allow: http://127.0.0.1:8080/pb_admin/login.php
+[nav] start: http://127.0.0.1:8080/pb_admin/login.php
+[nav] finish: http://127.0.0.1:8080/pb_admin/login.php
+[nav] page-probe: PB Admin — Login | body.children=3
+[nav] load: https://google.com
+[nav] allow: http://127.0.0.1:8080/pb_admin/login.php
+[nav] allow: https://google.com/
+[nav] start: https://google.com/
+[nav] allow: https://www.google.com/
+[nav] redirect -> https://www.google.com/
+[tls] google.com:443 eval=ok
+[tls] www.google.com:443 eval=ok
+[tls] ogads-pa.clients6.google.com:443 eval=ok
+[tls] waa-pa.clients6.google.com:443 eval=ok
+[nav] allow: https://accounts.google.com/RotateCookiesPage?og_pid=538&rot=3&origin=https%3A%2F%2Fwww.google.com&exp_id=0
+[tls] waa-pa.clients6.google.com:443 eval=ok
+[tls] ogads-pa.clients6.google.com:443 eval=ok
+[tls] accounts.google.com:443 eval=ok
+[nav] allow: about:blank
+[tls] play.google.com:443 eval=ok
+[nav] finish: https://www.google.com/
+2026-03-05 00:02:26.888 imgui_browser[86387:1071334] *** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason: '*** +[NSJSONSerialization dataWithJSONObject:options:error:]: Invalid top-level type in JSON write'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00007ff800c7adeb __exceptionPreprocess + 242
+	1   libobjc.A.dylib                     0x00007ff8009dbb34 objc_exception_throw + 48
+	2   Foundation                          0x00007ff8019e6700 +[NSJSONSerialization dataWithJSONObject:options:error:] + 256
+	3   imgui_browser                       0x0000000108b812e2 -[XCMNavDelegate webView:didFinishNavigation:] + 1202
+	4   WebKit                              0x00007ff9057e5401 _ZN6WebKit15NavigationState16NavigationClient19didFinishNavigationERNS_12WebPageProxyEPN3API10NavigationEPNS4_6ObjectE + 115
+	5   WebKit                              0x00007ff9059b8ada _ZN6WebKit12WebPageProxy21didFinishLoadForFrameEN3WTF16ObjectIdentifierIN7WebCore19FrameIdentifierTypeEEEONS_13FrameInfoDataEONS3_15ResourceRequestEyRKNS_8UserDataE + 826
+	6   WebKit                              0x00007ff905d14086 _ZN6WebKit12WebPageProxy17didReceiveMessageERN3IPC10ConnectionERNS1_7DecoderE + 49300
+	7   WebKit                              0x00007ff9057d162d _ZN3IPC18MessageReceiverMap15dispatchMessageERNS_10ConnectionERNS_7DecoderE + 367
+	8   WebKit                              0x00007ff9059e0551 _ZN6WebKit15WebProcessProxy17didReceiveMessageERN3IPC10ConnectionERNS1_7DecoderE + 31
+	9   WebKit                              0x00007ff9057c0605 _ZN3IPC10Connection15dispatchMessageENSt3__110unique_ptrINS_7DecoderENS1_14default_deleteIS3_EEEE + 221
+	10  WebKit                              0x00007ff9057c0049 _ZN3IPC10Connection24dispatchIncomingMessagesEv + 629
+	11  JavaScriptCore                      0x00007ff8199924df _ZN3WTF7RunLoop11performWorkEv + 431
+	12  JavaScriptCore                      0x00007ff819992fca _ZN3WTF7RunLoop11performWorkEPv + 26
+	13  CoreFoundation                      0x00007ff800c0026a __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 17
+	14  CoreFoundation                      0x00007ff800c001d2 __CFRunLoopDoSource0 + 180
+	15  CoreFoundation                      0x00007ff800bfff50 __CFRunLoopDoSources0 + 242
+	16  CoreFoundation                      0x00007ff800bfe960 __CFRunLoopRun + 892
+	17  CoreFoundation                      0x00007ff800bfdf24 CFRunLoopRunSpecific + 562
+	18  HIToolbox                           0x00007ff809d1e5e6 RunCurrentEventLoopInMode + 292
+	19  HIToolbox                           0x00007ff809d1e213 ReceiveNextEventCommon + 283
+	20  HIToolbox                           0x00007ff809d1e0e5 _BlockUntilNextEventMatchingListInModeWithFilter + 70
+	21  AppKit                              0x00007ff803573f6d _DPSNextEvent + 927
+	22  AppKit                              0x00007ff80357262a -[NSApplication(NSEvent) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 1394
+	23  imgui_browser                       0x0000000108b6f207 main + 9159
+	24  dyld                                0x0000000110c8952e start + 462
+)
+libc++abi: terminating with uncaught exception of type NSException
+
+[CRASH] SIGABRT (abort/assertion)
+see backtrace above
