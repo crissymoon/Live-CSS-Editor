@@ -41,6 +41,7 @@ target_compile_definitions(imgui PUBLIC
 add_executable(imgui_browser
     src/main.mm
     src/chrome.cpp
+    src/native_chrome.mm
     src/webview.mm
     src/server_manager.cpp
     src/cmd_server.cpp

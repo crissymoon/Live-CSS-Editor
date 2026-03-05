@@ -26,6 +26,10 @@ static WebViewCallbacks  s_cbs;
 // a separate WebContent process and the popup's session is invisible to the
 // main window, causing auth loops even when the persistent data store is shared.
 static WKProcessPool*    s_process_pool = nil;
+// Per-origin cache of Reporting API endpoints extracted from response headers.
+// Keyed by "scheme://host". Populated in decidePolicyForNavigationResponse and
+// consumed in didFinishNavigation to inform the JS polyfill.
+static std::unordered_map<std::string, std::string> s_report_to;
 // We piggyback on the existing stats-inject.js from dev-browser/src/.
 static NSString* const JS_FPS_PROBE = @"(function(){"
     "var s=window.__xcmStats||window.__xcm&&window.__xcm.stats;"
@@ -341,6 +345,42 @@ static NSString* const kUserAgent =
     @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) "
      "Gecko/20100101 Firefox/134.0";
 
+// Reporting API polyfill: captures CSP violation DOM events and POSTs them
+// to the endpoint from the page's Report-To / Reporting-Endpoints header.
+// The native side calls window.__xcmSetReportTo(endpointURL) from
+// didFinishNavigation after reading and caching the header value.
+// Injected into the main frame only to avoid duplicate reports from iframes.
+static NSString* const JS_REPORT_TO_RELAY = @"(function(){"
+    "var _ep=null,_q=[];"
+    "function _send(r){"
+    "  if(!_ep){_q.push(r);return;}"
+    "  try{"
+    "    fetch(_ep,{"
+    "      method:'POST',"
+    "      headers:{'Content-Type':'application/reports+json'},"
+    "      body:JSON.stringify([r]),"
+    "      keepalive:true,"
+    "      credentials:'omit'"
+    "    }).catch(function(){});"
+    "  }catch(e){}"
+    "}"
+    "function _flush(){var q=_q.splice(0);for(var i=0;i<q.length;i++)_send(q[i]);}"
+    "document.addEventListener('securitypolicyviolation',function(e){"
+    "  _send({"
+    "    type:'csp-violation',age:0,url:e.documentURI,user_agent:navigator.userAgent,"
+    "    body:{"
+    "      blockedURL:e.blockedURI,columnNumber:e.columnNumber,"
+    "      disposition:e.disposition,documentURL:e.documentURI,"
+    "      effectiveDirective:e.effectiveDirective,lineNumber:e.lineNumber,"
+    "      originalPolicy:e.originalPolicy,referrer:e.referrer,"
+    "      sample:e.sample||'',sourceFile:e.sourceFile,"
+    "      statusCode:e.statusCode,violatedDirective:e.violatedDirective"
+    "    }"
+    "  });"
+    "},true);"
+    "window.__xcmSetReportTo=function(ep){_ep=ep;_flush();};"
+    "})();";
+
 // ── Popup delegate (OAuth / window.open windows) ─────────────────────
 // When a page calls window.open() (e.g. "Sign in with Google") WKWebKit
 // calls createWebViewWithConfiguration:. We return a real WKWebView so
@@ -521,6 +561,30 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     }];
     if (s_cbs.on_loading)   s_cbs.on_loading(self.tabId, false);
     if (s_cbs.on_nav_state) s_cbs.on_nav_state(self.tabId, wv.canGoBack, wv.canGoForward);
+    // Hand the cached Report-To endpoint to the JS polyfill so it can flush
+    // any violation events that were queued during page startup.
+    // didFinishNavigation fires after all document-start scripts have run,
+    // so window.__xcmSetReportTo is guaranteed to exist at this point.
+    if (wv.URL.scheme.length && wv.URL.host.length) {
+        std::string origin = std::string(wv.URL.scheme.UTF8String)
+                           + "://" + wv.URL.host.UTF8String;
+        auto it = s_report_to.find(origin);
+        if (it != s_report_to.end()) {
+            NSString* epRaw = [NSString stringWithUTF8String:it->second.c_str()];
+            NSData* epJson  = [NSJSONSerialization dataWithJSONObject:epRaw
+                                                             options:0 error:nil];
+            if (epJson) {
+                NSString* epStr = [[NSString alloc] initWithData:epJson
+                                                        encoding:NSUTF8StringEncoding];
+                NSString* js = [NSString stringWithFormat:
+                    @"typeof window.__xcmSetReportTo==='function'"
+                    "&&window.__xcmSetReportTo(%@)", epStr];
+                [wv evaluateJavaScript:js completionHandler:nil];
+                fprintf(stderr, "[report-to] injected endpoint for %s\n",
+                        origin.c_str());
+            }
+        }
+    }
 }
 - (void)webView:(WKWebView*)wv didFailNavigation:(WKNavigation*)nav withError:(NSError*)err {
     fprintf(stderr, "[nav] fail %s -- %s\n",
@@ -555,6 +619,20 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     createWebViewWithConfiguration:(WKWebViewConfiguration*)cfg
     forNavigationAction:(WKNavigationAction*)action
     windowFeatures:(WKWindowFeatures*)features {
+
+    // target=_blank link clicks should open as a new tab, not a floating panel.
+    // Only true window.open() calls (navigationType == WKNavigationTypeOther)
+    // need the popup path for OAuth / sign-in flows.
+    if (action.navigationType == WKNavigationTypeLinkActivated && action.request.URL) {
+        NSString* urlStr = action.request.URL.absoluteString;
+        if (s_state && urlStr.length > 0) {
+            std::string url = urlStr.UTF8String;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (s_state) s_state->push_nav(-2, url);
+            });
+        }
+        return nil;
+    }
 
     if (!s_popup_delegates) s_popup_delegates = [NSMutableArray array];
 
@@ -655,9 +733,53 @@ static void xcm_inject_masks(WKUserContentController* ucc);
 
 // Allow all response types (including application/pdf, downloads, etc.).
 // Without this WKWebView silently cancels responses with unrecognised MIME types.
+// Also harvest Report-To / Reporting-Endpoints headers so the JS polyfill can
+// POST CSP violation reports to the correct endpoint.
 - (void)webView:(WKWebView*)wv
     decidePolicyForNavigationResponse:(WKNavigationResponse*)response
     decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler {
+    if ([response.response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSHTTPURLResponse* http = (NSHTTPURLResponse*)response.response;
+        NSURL* ru = response.response.URL;
+        if (ru.scheme.length && ru.host.length) {
+            std::string origin = std::string(ru.scheme.UTF8String)
+                               + "://" + ru.host.UTF8String;
+            // Modern: Reporting-Endpoints: name="url", ...
+            NSString* repEP = http.allHeaderFields[@"Reporting-Endpoints"];
+            if (repEP) {
+                NSRange q1 = [repEP rangeOfString:@"\""];
+                if (q1.location != NSNotFound) {
+                    NSRange q2 = [repEP rangeOfString:@"\""
+                                             options:0
+                                               range:NSMakeRange(q1.location+1,
+                                                     repEP.length-q1.location-1)];
+                    if (q2.location != NSNotFound && q2.location > q1.location) {
+                        NSString* ep = [repEP substringWithRange:
+                            NSMakeRange(q1.location+1, q2.location-q1.location-1)];
+                        if (ep.length > 4) s_report_to[origin] = ep.UTF8String;
+                    }
+                }
+            }
+            // Legacy: Report-To: {"group":"...","endpoints":[{"url":"..."}]}
+            if (s_report_to.find(origin) == s_report_to.end()) {
+                NSString* rtHdr = http.allHeaderFields[@"Report-To"];
+                if (rtHdr) {
+                    NSData* d = [rtHdr dataUsingEncoding:NSUTF8StringEncoding];
+                    id parsed = [NSJSONSerialization JSONObjectWithData:d
+                                                               options:0 error:nil];
+                    NSDictionary* obj = nil;
+                    if ([parsed isKindOfClass:[NSArray class]])
+                        obj = [(NSArray*)parsed firstObject];
+                    else if ([parsed isKindOfClass:[NSDictionary class]])
+                        obj = (NSDictionary*)parsed;
+                    id epRaw = [[obj[@"endpoints"] firstObject] objectForKey:@"url"];
+                    NSString* ep = [epRaw isKindOfClass:[NSString class]]
+                                   ? (NSString*)epRaw : nil;
+                    if (ep.length > 4) s_report_to[origin] = ep.UTF8String;
+                }
+            }
+        }
+    }
     decisionHandler(WKNavigationResponsePolicyAllow);
 }
 
@@ -747,9 +869,16 @@ static void xcm_inject_masks(WKUserContentController* ucc) {
         initWithSource:JS_FINGERPRINT_NOISE
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart
         forMainFrameOnly:NO];
+    // Reporting API polyfill -- main frame only to avoid duplicate POSTs
+    // from cross-origin child frames.
+    WKUserScript* relay = [[WKUserScript alloc]
+        initWithSource:JS_REPORT_TO_RELAY
+        injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+        forMainFrameOnly:YES];
     [ucc addUserScript:init];
     [ucc addUserScript:mask];
     [ucc addUserScript:noise];
+    [ucc addUserScript:relay];
 
     // Inject any app-supplied extra scripts (e.g. input-watcher.js,
     // chrome-gl-compositor.js) in the order they were registered.

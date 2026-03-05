@@ -26,3 +26,11 @@ int chrome_draw_bottom(AppState* state, int win_w, int win_h);
 
 // Apply the custom dark theme to ImGui::GetStyle().
 void chrome_apply_theme();
+
+// Draw ONLY the floating bookmark and history panels.
+// anchor_bm_x / anchor_hist_x are window-logical-point X coords of the
+// right edge of each button (supplied by native_chrome_bm_btn_x / hist_btn_x).
+// panel_top is the Y below the toolbar where panels should appear.
+void chrome_draw_panels(AppState* st,
+                        float anchor_bm_x, float anchor_hist_x,
+                        int   panel_top);

@@ -18,6 +18,7 @@
 
 #include "app_state.h"
 #include "chrome.h"
+#include "native_chrome.h"
 #include "webview.h"
 #include "server_manager.h"
 #include "cmd_server.h"
@@ -127,6 +128,20 @@ static void dispatch_nav(AppState::NavCmd& cmd) {
         tab->wv_handle = webview_create(tab->id, cmd.url);
         reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
         return;
+    // tab_id -5: close tab -- url is the tab .id as a decimal string
+    } else if (cmd.tab_id == -5) {
+        int tid = 0;
+        try { tid = std::stoi(cmd.url); } catch (...) {}
+        for (int i = 0; i < (int)g_state.tabs.size(); i++) {
+            if (g_state.tabs[i].id == tid) {
+                webview_destroy(g_state.tabs[i].wv_handle);
+                g_state.tabs[i].wv_handle = nullptr;
+                g_state.close_tab(i);
+                reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
+                return;
+            }
+        }
+        return;
     } else if (cmd.tab_id == -3) {
         // Eval request: "__eval__:<js>"
         tab = g_state.current_tab();
@@ -163,6 +178,10 @@ static void dispatch_nav(AppState::NavCmd& cmd) {
             g_state.bookmarks.push_back({tab->url, tab->title});
         persist_save_bookmarks(g_state.bookmarks);
     }
+    else if (cmd.url == "__devtools__") {
+        g_state.dev_tools_open = !g_state.dev_tools_open;
+        webview_open_inspector(h);
+    }
     else                               webview_load_url(h, cmd.url);
 }
 
@@ -172,6 +191,7 @@ static void dispatch_nav(AppState::NavCmd& cmd) {
 static void cb_window_size(GLFWwindow*, int w, int h) {
     g_state.win_w = w;
     g_state.win_h = h;
+    native_chrome_resize(w, h);
     reposition_webviews(g_prev_top, g_prev_bot, w, h);
 }
 
@@ -185,6 +205,7 @@ static void cb_framebuffer_size(GLFWwindow*, int w, int h) {
     g_fb_h = h;
     if (g_state.win_w > 0)
         g_state.dpi_scale = (float)w / (float)g_state.win_w;
+    native_chrome_resize(g_state.win_w, g_state.win_h);
     reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
 }
 
@@ -509,6 +530,9 @@ int main(int argc, char** argv) {
 
     webview_init((__bridge void*)ns_win, &g_state, wv_cbs);
 
+    // ── Native AppKit chrome (tab bar + toolbar + status bar) ────────
+    native_chrome_create((__bridge void*)ns_win, &g_state, args.php_port);
+
     // If --clear-data was passed, flush all cookies/cache/SW before any tab
     // loads. This clears stuck auth tokens that may cause login loops.
     if (args.clear_data) {
@@ -669,27 +693,16 @@ int main(int argc, char** argv) {
         int ww = g_state.win_w;
         int wh = g_state.win_h;
 
-        bool new_tab_req = false;
-        int  close_tab   = -1;
-        int  chrome_top  = chrome_draw_top(&g_state, ww, wh,
-                                           new_tab_req, close_tab);
-        int  chrome_bot  = chrome_draw_bottom(&g_state, ww, wh);
+        // ── Native chrome sync (updates NSViews, returns pixel heights) ──
+        int  chrome_top  = native_chrome_update(&g_state);
+        int  chrome_bot  = native_chrome_status_h();
+        g_chrome_has_hover = native_chrome_has_hover();
 
-        // Update hover flag used by the drag-bar NSEvent monitor.
-        // IsAnyItemHovered() is valid here (between NewFrame and Render).
-        g_chrome_has_hover = ImGui::IsAnyItemHovered();
-
-        // Handle tab actions
-        if (new_tab_req) {
-            std::string nt_url = "http://127.0.0.1:" + std::to_string(args.php_port) + "/";
-            int idx = g_state.new_tab(nt_url);
-            g_state.tabs[idx].wv_handle = webview_create(g_state.tabs[idx].id, nt_url);
-        }
-        if (close_tab >= 0 && close_tab < (int)g_state.tabs.size()) {
-            webview_destroy(g_state.tabs[close_tab].wv_handle);
-            g_state.tabs[close_tab].wv_handle = nullptr;
-            g_state.close_tab(close_tab);
-        }
+        // ── Floating ImGui panels (bookmarks / history) ───────────────
+        chrome_draw_panels(&g_state,
+                           native_chrome_bm_btn_x(),
+                           native_chrome_hist_btn_x(),
+                           chrome_top);
 
         // Reposition content views if chrome height changed.
         // All values here are logical points -- WKWebView NSView uses points.

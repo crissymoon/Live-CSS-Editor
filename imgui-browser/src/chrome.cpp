@@ -46,8 +46,8 @@ static const ImVec4 COL_WARN       = {0.984f, 0.753f, 0.259f, 1.0f};
 static const ImVec4 COL_BAD        = {0.973f, 0.529f, 0.451f, 1.0f};
 // Border / separator
 static const ImVec4 COL_SEP        = {0.388f, 0.400f, 0.941f, 0.12f};
-// Status bar background -- lighter purple, clearly distinct from content area
-static const ImVec4 COL_STATUS_BG  = {0.138f, 0.108f, 0.220f, 1.0f};
+// Status bar background -- visibly lighter purple, clearly distinct from content
+static const ImVec4 COL_STATUS_BG  = {0.165f, 0.130f, 0.270f, 1.0f};
 
 void chrome_apply_theme() {
     ImGuiStyle& s = ImGui::GetStyle();
@@ -122,6 +122,9 @@ static int   s_drop_tgt   = -1;     // computed insert position during drag
 // Anchor positions for floating panels (screen X of button that opens each)
 static float s_bm_btn_screen_x   = 0.0f;
 static float s_hist_btn_screen_x = 0.0f;
+// Frame counters: prevent panels from closing on the same frame they open.
+static int   s_bm_open_frame     = -1;
+static int   s_hist_open_frame   = -1;
 
 // ── Internal helpers ──────────────────────────────────────────────────
 
@@ -193,9 +196,11 @@ static int draw_title_tab_row(AppState* st, int win_w,
         to_u32({0.40f, 0.38f, 0.88f, 0.055f}),
         to_u32({0.00f, 0.00f, 0.00f, 0.00f}),
         to_u32({0.00f, 0.00f, 0.00f, 0.00f}));
-    // Single-pixel top highlight edge
-    dl->AddLine({0.0f, 0.5f}, {(float)win_w, 0.5f},
-                to_u32({0.60f, 0.58f, 1.00f, 0.18f}), 1.0f);
+    // Single-pixel top highlight edge -- drawn on the foreground draw list
+    // so it is never clipped by the ImGui window content rect.
+    ImDrawList* fg = ImGui::GetForegroundDrawList();
+    fg->AddLine({0.0f, 0.5f}, {(float)win_w, 0.5f},
+                to_u32({0.60f, 0.58f, 1.00f, 0.22f}), 1.0f);
 
     const float TL_GAP = (float)TRAFFIC_LIGHT_W;
     const float PLUS_W = 28.0f;
@@ -236,15 +241,12 @@ static int draw_title_tab_row(AppState* st, int win_w,
             dl->AddRectFilled(tMin, tMax, to_u32(COL_TAB_HOV), 6.0f,
                               ImDrawFlags_RoundCornersTop);
         }
-        // Thin border on top, left, right edges of every tab
+        // Rounded border on top/left/right matching the tab fill shape
         {
             ImU32 tb = to_u32(active
-                ? ImVec4{0.388f, 0.400f, 0.941f, 0.50f}
-                : ImVec4{0.388f, 0.400f, 0.941f, 0.16f});
-            // Top: full width edge-to-edge
-            dl->AddLine({tMin.x, tMin.y + 0.5f}, {tMax.x, tMin.y + 0.5f}, tb, 1.0f);
-            dl->AddLine({tMin.x + 0.5f, tMin.y}, {tMin.x + 0.5f, tMax.y}, tb, 1.0f); // left
-            dl->AddLine({tMax.x - 0.5f, tMin.y}, {tMax.x - 0.5f, tMax.y}, tb, 1.0f); // right
+                ? ImVec4{0.388f, 0.400f, 0.941f, 0.55f}
+                : ImVec4{0.388f, 0.400f, 0.941f, 0.18f});
+            dl->AddRect(tMin, tMax, tb, 6.0f, ImDrawFlags_RoundCornersTop, 1.0f);
         }
 
         // Label (clipped if too long)
@@ -416,12 +418,15 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
     begin_panel("##toolbar", 0, (float)y_offset, (float)win_w, H, COL_SURFACE);
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
+    // GetWindowDrawList uses absolute screen coords; offset manually.
+    ImVec2 wpos = ImGui::GetWindowPos();
 
     // Bottom hair line
-    dl->AddLine({0, H - 1}, {(float)win_w, H - 1}, to_u32(COL_SEP), 1.0f);
+    dl->AddLine({0, wpos.y + H - 1}, {(float)win_w, wpos.y + H - 1},
+                to_u32(COL_SEP), 1.0f);
     // Morphism: top-to-bottom shimmer, lighter at top
     dl->AddRectFilledMultiColor(
-        {0.0f, 0.0f}, {(float)win_w, H},
+        {0.0f, wpos.y}, {(float)win_w, wpos.y + H},
         to_u32({0.38f, 0.36f, 0.88f, 0.045f}),
         to_u32({0.38f, 0.36f, 0.88f, 0.045f}),
         to_u32({0.00f, 0.00f, 0.00f, 0.00f}),
@@ -515,13 +520,9 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
     ImGui::SetNextItemWidth(url_w);
 
-    // Auto-focus URL bar on very first frame so buttons respond immediately
-    static bool s_url_focused_once = false;
-    if (!s_url_focused_once) {
-        ImGui::SetKeyboardFocusHere();
-        s_url_focused_once = true;
-    }
-    // Focus if requested (e.g. Cmd+L)
+    // Focus URL bar only when explicitly requested (Cmd+L or click).
+    // Do NOT auto-focus on launch -- that steals keyboard input so nav
+    // buttons and tabs feel unresponsive until the user clicks elsewhere.
     if (st->focus_url_next_frame) {
         ImGui::SetKeyboardFocusHere();
         st->focus_url_next_frame = false;
@@ -648,6 +649,8 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
         if (ImGui::Button("##bm", {btn, btn})) {
             st->show_bookmarks_panel = !st->show_bookmarks_panel;
             st->show_history_panel   = false;
+            if (st->show_bookmarks_panel)
+                s_bm_open_frame = ImGui::GetFrameCount();
         }
         // Record screen position for panel anchoring
         s_bm_btn_screen_x = ImGui::GetItemRectMax().x;
@@ -707,6 +710,8 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
         if (ImGui::Button("##hist", {btn, btn})) {
             st->show_history_panel   = !st->show_history_panel;
             st->show_bookmarks_panel = false;
+            if (st->show_history_panel)
+                s_hist_open_frame = ImGui::GetFrameCount();
         }
         s_hist_btn_screen_x = ImGui::GetItemRectMax().x;
         {
@@ -749,7 +754,9 @@ int chrome_draw_bottom(AppState* st, int win_w, int win_h) {
     ImGui::PopStyleColor();
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddLine({0, 0}, {(float)win_w, 0}, to_u32(COL_SEP), 1.0f);
+    // GetWindowDrawList uses absolute screen coords; offset manually.
+    ImVec2 wpos = ImGui::GetWindowPos();
+    dl->AddLine({0, wpos.y}, {(float)win_w, wpos.y}, to_u32(COL_SEP), 1.0f);
 
     float cy = (H - ImGui::GetTextLineHeight()) * 0.5f;
     ImGui::SetCursorPos({10.0f, cy});
@@ -771,9 +778,9 @@ int chrome_draw_bottom(AppState* st, int win_w, int win_h) {
     ImGui::TextUnformatted(vp_str);
     ImGui::PopStyleColor();
 
-    // Server LED dots
+    // Server LED dots (absolute screen coords)
     float lx = (float)win_w - 58.0f;
-    float ly = H * 0.5f;
+    float ly = wpos.y + H * 0.5f;
     float r  = 3.5f;
     dl->AddCircleFilled({lx,      ly}, r,
         to_u32(st->php_server_ok  ? COL_OK : COL_BAD), 8);
@@ -848,7 +855,8 @@ static void draw_bookmarks_panel(AppState* st, float anchor_x, float panel_top) 
         // Close on click outside
         if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows |
                                     ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
-                && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                && ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+                && ImGui::GetFrameCount() != s_bm_open_frame)
             st->show_bookmarks_panel = false;
     }
     ImGui::End();
@@ -916,7 +924,8 @@ static void draw_history_panel(AppState* st, float anchor_x, float panel_top) {
 
         if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows |
                                     ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
-                && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                && ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+                && ImGui::GetFrameCount() != s_hist_open_frame)
             st->show_history_panel = false;
     }
     ImGui::End();
@@ -925,7 +934,8 @@ static void draw_history_panel(AppState* st, float anchor_x, float panel_top) {
 }
 
 // ── Top (title+tabs + toolbar) ────────────────────────────────────────
-
+// NOTE: When native_chrome is active this function is NOT called.
+// It is kept for fallback / testing only.
 int chrome_draw_top(AppState* st,
                     int win_w, int win_h,
                     bool& new_tab_requested,
@@ -933,8 +943,14 @@ int chrome_draw_top(AppState* st,
     int h = 0;
     h += draw_title_tab_row(st, win_w, new_tab_requested, close_tab_idx);
     h += draw_toolbar(st, win_w, h);
-    // Floating panels anchored below the toolbar
-    draw_bookmarks_panel(st, s_bm_btn_screen_x,   (float)h);
-    draw_history_panel  (st, s_hist_btn_screen_x, (float)h);
+    // panels now drawn via chrome_draw_panels()
     return h;
+}
+
+// ── Floating panels only (called from main.mm with native chrome) ─────
+void chrome_draw_panels(AppState* st,
+                        float anchor_bm_x, float anchor_hist_x,
+                        int   panel_top) {
+    draw_bookmarks_panel(st, anchor_bm_x,   (float)panel_top);
+    draw_history_panel  (st, anchor_hist_x, (float)panel_top);
 }
