@@ -41,7 +41,6 @@
 
     var CSS = '/* xcm-virtualizer */\n' +
         ROW_SEL + ' {\n' +
-        '  content-visibility: auto;\n' +
         '  contain-intrinsic-size: auto 400px;\n' +
         '}\n';
 
@@ -78,8 +77,8 @@
                     el.style.contentVisibility = 'hidden';
                     _frozen.add(el);
                 }
-                // If not yet rendered, content-visibility:auto (from CSS) already
-                // skips layout+paint for us -- no need to set 'hidden'.
+                // If not yet rendered, the element's contentVisibility is already
+                // 'auto' (set by _safeObserve) -- no need to set 'hidden'.
             }
         });
     }, { rootMargin: _MARGIN + 'px 0px', threshold: 0 });
@@ -105,13 +104,71 @@
         );
     }
 
+    /* Check whether a row contains expandable/collapsible interactive elements.
+     * content-visibility creates a new stacking+layout containment context.
+     * When a nested collapsible expands, its content can render underneath
+     * surrounding elements or get clipped by the contain box.  Skip rows
+     * that host any kind of expand/collapse widget. */
+    function _hasExpandable(el) {
+        return !!(
+            el.querySelector('[aria-expanded],[aria-controls],[aria-haspopup],details,summary') ||
+            el.matches('[aria-expanded],[aria-controls],[aria-haspopup],details,summary')
+        );
+    }
+
+    function _safeObserve(el) {
+        if (_hasStickyChild(el) || _hasExpandable(el)) return;
+        // Apply content-visibility:auto via JS (not CSS) so only safe rows get
+        // the containment context.  Rows with expandable children never get it.
+        el.style.contentVisibility = 'auto';
+        _freezeIO.observe(el);
+    }
+
     function _observeRows() {
         if (!document.body) return;
         var rows = document.body.querySelectorAll(CHILD_SEL);
         for (var i = 0; i < rows.length; i++) {
-            if (!_hasStickyChild(rows[i])) _freezeIO.observe(rows[i]);
+            _safeObserve(rows[i]);
         }
     }
+
+    /* ---------- Expandable / collapsible repair ----------
+     * content-visibility:auto/hidden establishes layout+stacking containment.
+     * When a collapsible inside a virtualized row is clicked or opened, the
+     * expanding content can render underneath surrounding elements or be
+     * clipped by the contain box.  Clear contentVisibility from the nearest
+     * virtualized ancestor on any click or aria-expanded change so the row
+     * is no longer contained while the interaction plays out. */
+    function _clearAncestorCV(el) {
+        var node = el;
+        while (node && node !== document.body) {
+            if (node.style && node.style.contentVisibility) {
+                node.style.contentVisibility = '';
+                _frozen.delete(node);
+            }
+            node = node.parentElement;
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        _clearAncestorCV(e.target);
+    }, true);
+
+    /* Watch for aria-expanded and <details open> attribute changes -- the
+     * page's own JS sets these when an accordion or disclosure widget opens. */
+    var _ariaObs = new MutationObserver(function (mutations) {
+        for (var mi = 0; mi < mutations.length; mi++) {
+            var m = mutations[mi];
+            if (m.attributeName === 'aria-expanded' || m.attributeName === 'open') {
+                _clearAncestorCV(m.target);
+            }
+        }
+    });
+    _ariaObs.observe(document.documentElement || document.body, {
+        attributes: true,
+        attributeFilter: ['aria-expanded', 'open'],
+        subtree: true
+    });
 
     /* Watch for rows added by infinite-scroll JS */
     var _mo = new MutationObserver(function (mutations) {
@@ -126,12 +183,12 @@
                     tag === 'ytd-rich-item-renderer' || tag === 'ytd-video-renderer' ||
                     cl.contains('Post') || cl.contains('feed-shared-update-v2') ||
                     cl.contains('occludable-update') || cl.contains('athing')) {
-                    if (!_hasStickyChild(node)) _freezeIO.observe(node);
+                    _safeObserve(node);
                 }
                 if (node.querySelectorAll) {
                     var kids = node.querySelectorAll(CHILD_SEL);
                     for (var ki = 0; ki < kids.length; ki++) {
-                        if (!_hasStickyChild(kids[ki])) _freezeIO.observe(kids[ki]);
+                        _safeObserve(kids[ki]);
                     }
                 }
             }

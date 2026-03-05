@@ -26,6 +26,7 @@ static WebViewCallbacks  s_cbs;
 // a separate WebContent process and the popup's session is invisible to the
 // main window, causing auth loops even when the persistent data store is shared.
 static WKProcessPool*    s_process_pool = nil;
+static WKContentRuleList* s_ad_rule_list = nil;
 // Per-origin cache of Reporting API endpoints extracted from response headers.
 // Keyed by "scheme://host". Populated in decidePolicyForNavigationResponse and
 // consumed in didFinishNavigation to inform the JS polyfill.
@@ -45,6 +46,9 @@ static NSString* const JS_INIT = @"(function(){"
     "Object.defineProperty(window,'status',{set:function(){},get:function(){return '';}});"
     // Tell stats-inject the display Hz (filled by the host after detection).
     "window.__xcmImguiHost=true;"
+    // Image proxy base URL -- read by compress-inject.js.
+    // The Node image-cache-server runs on this port (started by main.mm).
+    "window.__xcmImgProxy='http://127.0.0.1:7779';"
     "})();";
 
 // JS_SCROLL_KILL removed -- it broke SPA routers on LinkedIn and similar
@@ -561,6 +565,28 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     }];
     if (s_cbs.on_loading)   s_cbs.on_loading(self.tabId, false);
     if (s_cbs.on_nav_state) s_cbs.on_nav_state(self.tabId, wv.canGoBack, wv.canGoForward);
+    // Read the page's best favicon URL and propagate it to the tab state.
+    if (s_cbs.on_favicon_change) {
+        int tid = self.tabId;
+        [wv evaluateJavaScript:
+            @"(function(){"
+            "  var ll=document.querySelectorAll(\"link[rel~='icon']\");"
+            "  var b='',bs=0;"
+            "  for(var i=0;i<ll.length;i++){"
+            "    var h=ll[i].href||'';if(!h)continue;"
+            "    var m=(ll[i].getAttribute('sizes')||'').match(/(\\d+)/);"
+            "    var s=m?parseInt(m[1],10):1;"
+            "    if(s>bs||!b){bs=s;b=h;}"
+            "  }"
+            "  return b||(location.protocol+'//'+location.host+'/favicon.ico');"
+            "})()"
+            completionHandler:^(id res, NSError* jsErr) {
+                if (!jsErr && [res isKindOfClass:[NSString class]]) {
+                    std::string fav = ((NSString*)res).UTF8String ?: "";
+                    if (s_cbs.on_favicon_change) s_cbs.on_favicon_change(tid, fav);
+                }
+            }];
+    }
     // Hand the cached Report-To endpoint to the JS polyfill so it can flush
     // any violation events that were queued during page startup.
     // didFinishNavigation fires after all document-start scripts have run,
@@ -673,6 +699,9 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     // detects WKWebView in the popup and shows "This browser or app may not
     // be secure."
     xcm_inject_masks(cfg.userContentController);
+    if (s_ad_rule_list) {
+        [cfg.userContentController addContentRuleList:s_ad_rule_list];
+    }
 
     // Apply the same Chrome UA and media settings to the popup WKWebView.
     NSRect panelRect = NSMakeRect(0, 0, 520, 640);
@@ -974,6 +1003,39 @@ void webview_init(void* ns_window, AppState* state, WebViewCallbacks cbs) {
     xcm_check_network();
 }
 
+void webview_load_adblock(const std::string& rules_json) {
+    if (rules_json.empty()) return;
+    NSString* json = [NSString stringWithUTF8String:rules_json.c_str()];
+    // Remove any stale cached version first, then compile fresh.
+    [[WKContentRuleListStore defaultStore]
+        removeContentRuleListForIdentifier:@"xcm-adblock"
+        completionHandler:^(NSError* _) {
+            [[WKContentRuleListStore defaultStore]
+                compileContentRuleListForIdentifier:@"xcm-adblock"
+                encodedContentRuleList:json
+                completionHandler:^(WKContentRuleList* list, NSError* err) {
+                    if (err || !list) {
+                        fprintf(stderr, "[adblock] compile error: %s\n",
+                                err ? err.localizedDescription.UTF8String : "nil list");
+                        return;
+                    }
+                    s_ad_rule_list = list;
+                    fprintf(stderr, "[adblock] compiled OK (%lu rules)\n",
+                            (unsigned long)0);
+                    // Apply retroactively to any tabs that were created before
+                    // compilation finished (typically the first tab).
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        for (auto& kv : s_handles) {
+                            if (kv.second && kv.second->wv) {
+                                [kv.second->wv.configuration.userContentController
+                                    addContentRuleList:s_ad_rule_list];
+                            }
+                        }
+                    });
+                }];
+        }];
+}
+
 void* webview_create(int tab_id, const std::string& url) {
     NSCAssert(s_window != nil, @"webview_init() must be called first");
 
@@ -1010,6 +1072,11 @@ void* webview_create(int tab_id, const std::string& url) {
     // Inject Chrome-masking scripts into every frame (including cross-origin
     // iframes such as accounts.google.com) via the shared helper.
     xcm_inject_masks(cfg.userContentController);
+
+    // Apply ad blocking content rules if already compiled.
+    if (s_ad_rule_list) {
+        [cfg.userContentController addContentRuleList:s_ad_rule_list];
+    }
 
     // Frame: full content area (will be repositioned by webview_resize)
     NSRect frame = s_window.contentView.bounds;
@@ -1211,6 +1278,78 @@ void webview_open_inspector(void* handle) {
     } @catch (NSException*) {
         // Private API may not be available on all OS versions; fail silently.
     }
+}
+
+void webview_clipboard_action(void* handle, const char* action) {
+    if (!handle || !action) return;
+    WKWebView* wv = ((WVHandle*)handle)->wv;
+    if (!wv) return;
+
+    // copy and cut can use the responder-chain action -- WKWebView writes the
+    // selection to NSPasteboard.generalPasteboard correctly.
+    if (strcmp(action, "copy") == 0) {
+        [NSApp sendAction:@selector(copy:) to:wv from:nil];
+        fprintf(stderr, "[wv] clipboard action: copy\n");
+        return;
+    }
+    if (strcmp(action, "cut") == 0) {
+        [NSApp sendAction:@selector(cut:) to:wv from:nil];
+        fprintf(stderr, "[wv] clipboard action: cut\n");
+        return;
+    }
+    if (strcmp(action, "selectAll") == 0) {
+        [NSApp sendAction:@selector(selectAll:) to:wv from:nil];
+        fprintf(stderr, "[wv] clipboard action: selectAll\n");
+        return;
+    }
+
+    if (strcmp(action, "paste") == 0) {
+        // WKWebView keeps an internal clipboard that shadows NSPasteboard when
+        // paste: is sent via the responder chain.  Text copied from external
+        // apps (Pages, Preview, Terminal ...) ends up in NSPasteboard, not in
+        // WKWebView's internal clipboard, so a naive sendAction:paste: always
+        // inserts whatever was last copied INSIDE the browser.
+        //
+        // Fix: read NSPasteboard directly and call window.__xcmPaste(text)
+        // which is provided by xcm-clip-watcher.js.  That function finds the
+        // correct target element by the data-xcm-target attribute (set on
+        // focus, never cleared on blur) so it is reliable even after the
+        // toolbar button click blurred the page element.
+        NSPasteboard* pb   = NSPasteboard.generalPasteboard;
+        NSString*     text = [pb stringForType:NSPasteboardTypeString];
+        if (!text) {
+            // Nothing textual on the clipboard -- fall back to native paste so
+            // the page can handle rich/image pastes its own way.
+            [NSApp sendAction:@selector(paste:) to:wv from:nil];
+            fprintf(stderr, "[wv] clipboard action: paste (native fallback)\n");
+            return;
+        }
+
+        NSError* err  = nil;
+        NSData*  jraw = [NSJSONSerialization dataWithJSONObject:text
+                                                       options:NSJSONWritingFragmentsAllowed
+                                                         error:&err];
+        if (!jraw || err) {
+            [NSApp sendAction:@selector(paste:) to:wv from:nil];
+            fprintf(stderr, "[wv] clipboard action: paste (json err, native fallback)\n");
+            return;
+        }
+        NSString* j = [[NSString alloc] initWithData:jraw encoding:NSUTF8StringEncoding];
+
+        // window.__xcmPaste is provided by xcm-clip-watcher.js.
+        // It owns all element-finding and value-splicing logic so Objective-C
+        // does not need to know anything about the page DOM structure.
+        NSString* js = [NSString stringWithFormat:@"window.__xcmPaste(%@)", j];
+        [wv evaluateJavaScript:js completionHandler:^(id res, NSError* e) {
+            if (e) fprintf(stderr, "[wv] paste js error: %s\n",
+                           e.localizedDescription.UTF8String);
+        }];
+        fprintf(stderr, "[wv] clipboard action: paste (%lu chars)\n",
+                (unsigned long)text.length);
+        return;
+    }
+
+    fprintf(stderr, "[wv] clipboard action: unknown: %s\n", action);
 }
 
 void webview_clear_data() {

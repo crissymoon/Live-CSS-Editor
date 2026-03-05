@@ -1,6 +1,9 @@
 #pragma once
 // persistence.h -- bookmarks and browsing history for imgui_browser
-// Data lives in ~/.xcm-browser/ -- never inside the repository.
+// Default data dir: ~/Desktop/crissys-style-tool/
+// Settings file (always at fixed location): ~/.xcm-browser/settings.json
+//   Supported keys:
+//     "data_dir"  -- absolute path where history.json and bookmarks.json live
 // Pure C++17 header; no external libraries required.
 
 #include <string>
@@ -24,11 +27,72 @@ struct BookmarkEntry {
     std::string title;
 };
 
-// ── Storage directory ─────────────────────────────────────────────────
+// ── Settings + storage directory ─────────────────────────────────────
 
-inline std::string xcm_data_dir() {
+// Fixed path for the settings file -- always here regardless of data_dir.
+inline std::string xcm_settings_path() {
     const char* home = getenv("HOME");
-    return std::string(home ? home : ".") + "/.xcm-browser";
+    std::string cfg_dir = std::string(home ? home : ".") + "/.xcm-browser";
+    mkdir(cfg_dir.c_str(), 0700);
+    return cfg_dir + "/settings.json";
+}
+
+// Default data directory shown to the user.
+inline std::string xcm_default_data_dir() {
+    const char* home = getenv("HOME");
+    return std::string(home ? home : ".") + "/Desktop/crissys-style-tool";
+}
+
+// Write the default settings file if it does not exist yet.
+static inline void xcm_ensure_settings() {
+    std::string path = xcm_settings_path();
+    FILE* probe = fopen(path.c_str(), "r");
+    if (probe) { fclose(probe); return; }
+    FILE* f = fopen(path.c_str(), "w");
+    if (!f) return;
+    fprintf(f, "{\n  \"data_dir\": \"%s\"\n}\n",
+            xcm_default_data_dir().c_str());
+    fclose(f);
+}
+
+// Read data_dir from settings, create the directory, return the path.
+inline std::string xcm_data_dir() {
+    xcm_ensure_settings();
+    // Read settings file
+    FILE* f = fopen(xcm_settings_path().c_str(), "r");
+    std::string data_dir = xcm_default_data_dir();
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        long sz = ftell(f); rewind(f);
+        if (sz > 0) {
+            std::string buf(sz, '\0');
+            fread(&buf[0], 1, (size_t)sz, f);
+            // Find "data_dir" value (simple scan, no full parser needed)
+            const char* key = "\"data_dir\"";
+            auto pos = buf.find(key);
+            if (pos != std::string::npos) {
+                pos += strlen(key);
+                while (pos < buf.size() && (buf[pos] == ' ' || buf[pos] == ':')) pos++;
+                if (pos < buf.size() && buf[pos] == '"') {
+                    ++pos;
+                    std::string val;
+                    while (pos < buf.size() && buf[pos] != '"') {
+                        if (buf[pos] == '\\' && pos + 1 < buf.size()) {
+                            ++pos;
+                            val += buf[pos];
+                        } else {
+                            val += buf[pos];
+                        }
+                        ++pos;
+                    }
+                    if (!val.empty()) data_dir = val;
+                }
+            }
+        }
+        fclose(f);
+    }
+    mkdir(data_dir.c_str(), 0700);
+    return data_dir;
 }
 
 // ── Minimal JSON helpers ──────────────────────────────────────────────
@@ -99,7 +163,6 @@ static inline std::string xcm_read_file(const std::string& path) {
 inline void persist_save_history(const std::vector<HistoryEntry>& hist,
                                   size_t max_keep = 800) {
     std::string dir = xcm_data_dir();
-    mkdir(dir.c_str(), 0700);
     FILE* f = fopen((dir + "/history.json").c_str(), "w");
     if (!f) return;
     fprintf(f, "[\n");
@@ -139,7 +202,6 @@ inline std::vector<HistoryEntry> persist_load_history() {
 
 inline void persist_save_bookmarks(const std::vector<BookmarkEntry>& bm) {
     std::string dir = xcm_data_dir();
-    mkdir(dir.c_str(), 0700);
     FILE* f = fopen((dir + "/bookmarks.json").c_str(), "w");
     if (!f) return;
     fprintf(f, "[\n");

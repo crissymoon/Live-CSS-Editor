@@ -8,6 +8,7 @@
 #import <QuartzCore/QuartzCore.h>
 #include "native_chrome.h"
 #include "app_state.h"
+#include "webview.h"
 #include <cstdio>
 #include <algorithm>
 #include <string>
@@ -47,6 +48,7 @@ static int     s_panel_win_h = 0;
 //   navigate  -- data = URL string
 //   back / fwd / reload
 //   devt / js / bm / showbm / hist
+//   copy / cut / paste / paste_url / select_all  -- clipboard actions
 //   urlfocus / urlblur  -- tell native side URL field has focus
 //   tab_switch -- data = tab index (string)
 //   tab_close  -- data = tab index (string)
@@ -150,8 +152,12 @@ static void xcm_status(const char* msg);  // forward declared before use below
         int idx = data ? (int)data.integerValue : -1;
         if (idx >= 0 && idx < (int)s_state->tabs.size())
             s_state->push_nav(-5, std::to_string(s_state->tabs[idx].id));
+    } else if ([action isEqualToString:@"open_url"]) {
+        // Open a URL in a new tab (used by the app launcher in the drawer).
+        std::string url = data ? data.UTF8String : "";
+        if (!url.empty()) s_state->push_nav(-2, url);
     } else if ([action isEqualToString:@"tab_new"]) {
-        std::string url = "http://127.0.0.1:" + std::to_string(s_php_port) + "/";
+        std::string url = "https://lainc.tech/how_ai/";
         s_state->push_nav(-2, url);
     } else if ([action isEqualToString:@"tab_move"]) {
         if (data) {
@@ -175,6 +181,41 @@ static void xcm_status(const char* msg);  // forward declared before use below
                 }
             }
         }
+    } else if ([action isEqualToString:@"copy"]) {
+        if (t && t->wv_handle) webview_clipboard_action(t->wv_handle, "copy");
+    } else if ([action isEqualToString:@"cut"]) {
+        if (t && t->wv_handle) webview_clipboard_action(t->wv_handle, "cut");
+    } else if ([action isEqualToString:@"paste"]) {
+        if (t && t->wv_handle) webview_clipboard_action(t->wv_handle, "paste");
+    } else if ([action isEqualToString:@"paste_url"]) {
+        // The toolbar paste button always targets the URL <input> in the
+        // toolbar WKWebView -- never the page content.  After inserting,
+        // focus and select the field so the user sees the pasted URL and
+        // can press Enter immediately to navigate.
+        // _returnKey stays NO so the toolbar panel keeps key focus.
+        _returnKey = NO;
+        NSString* text = [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString];
+        if (text.length && s_toolbar_wv) {
+            NSData* d = [NSJSONSerialization dataWithJSONObject:text
+                                                       options:NSJSONWritingFragmentsAllowed
+                                                         error:nil];
+            if (d) {
+                NSString* jsonStr = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding];
+                NSString* js = [NSString stringWithFormat:
+                    @"(function(){"
+                    "  var el=document.getElementById('url');"
+                    "  if(!el)return;"
+                    "  var t=%@;"
+                    "  el.value=t;"
+                    "  el.focus();"
+                    "  el.select();"
+                    "  el.dispatchEvent(new Event('input',{bubbles:true}));"
+                    "})()", jsonStr];
+                [s_toolbar_wv evaluateJavaScript:js completionHandler:nil];
+            }
+        }
+    } else if ([action isEqualToString:@"select_all"]) {
+        if (t && t->wv_handle) webview_clipboard_action(t->wv_handle, "selectAll");
     } else if ([action isEqualToString:@"win_close"]) {
         _returnKey = NO;
         dispatch_async(dispatch_get_main_queue(), ^{ [s_window performClose:nil]; });
@@ -258,8 +299,9 @@ static void toolbar_sync_state(AppState* st) {
        << "nodeOk:"   << (st->node_server_ok ? "true" : "false") << ","
        << "statusTxt:\"" << st_esc << "\","
        << "vpW:"      << vp_w << ","
-       << "vpH:"      << vp_h
-       << ",tabs:[";  
+       << "vpH:"      << vp_h << ","
+       << "phpPort:" << s_php_port
+       << ",tabs:[";
     for (size_t i = 0; i < st->tabs.size(); i++) {
         const auto& tb = st->tabs[i];
         std::string raw = tb.title.empty() ? tb.url : tb.title;
@@ -272,9 +314,18 @@ static void toolbar_sync_state(AppState* st) {
             else if (c == '\n') tesc += "\\n";
             else                tesc += c;
         }
+        std::string fesc;
+        fesc.reserve(tb.favicon.size() + 8);
+        for (char c : tb.favicon) {
+            if      (c == '\\') fesc += "\\\\";
+            else if (c == '"')  fesc += "\\\"";
+            else if (c == '\n') fesc += "\\n";
+            else                fesc += c;
+        }
         js << (i > 0 ? "," : "")
            << "{title:\"" << tesc << "\",loading:"
-           << (tb.loading ? "true" : "false") << "}";
+           << (tb.loading ? "true" : "false")
+           << ",favicon:\"" << fesc << "\"}";
     }
     js << "],activeTab:" << st->active_tab << "});";
 

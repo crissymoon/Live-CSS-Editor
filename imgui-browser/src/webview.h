@@ -17,6 +17,7 @@ struct WebViewCallbacks {
     std::function<void(int tab_id, bool back, bool fwd)>      on_nav_state;
     std::function<void(const std::string& url)>               on_hover_url;
     std::function<void(double fps)>                           on_wkwv_fps;
+    std::function<void(int tab_id, const std::string& url)>   on_favicon_change;
 
     // Additional JS strings injected at document-start into every frame
     // (main tab and all popups). Injected after JS_INIT and JS_MASK_WEBVIEW
@@ -29,6 +30,12 @@ struct WebViewCallbacks {
 // Initialise the WebView subsystem.  Must be called from the main thread
 // AFTER the GLFW window is created.  Passes the NSWindow handle.
 void webview_init(void* ns_window, AppState* state, WebViewCallbacks cbs);
+
+// Compile and apply ad blocking content rules to every WKWebView tab.
+// Pass the full JSON string (WKContentRuleList format).
+// Asynchronous: compilation runs on a background thread; existing and future
+// tabs receive the rule list once compilation completes.
+void webview_load_adblock(const std::string& rules_json);
 
 // Create a WKWebView for a tab and add it as a subview.
 // Returns the opaque handle stored in Tab::wv_handle.
@@ -66,6 +73,12 @@ void  webview_set_js_enabled(void* handle, bool enabled);
 // Open the WKWebView Web Inspector (requires developerExtrasEnabled = YES).
 // Equivalent to right-click -> Inspect Element, opened programmatically.
 void  webview_open_inspector(void* handle);
+
+// Send a clipboard action to the page content.
+// action: "copy" | "cut" | "paste" | "selectAll"
+// Targets the WKWebView directly so it works regardless of which NSWindow
+// is currently key.  Must be called from the main thread.
+void  webview_clipboard_action(void* handle, const char* action);
 
 // Clear all stored website data (cookies, localStorage, IndexedDB, cache,
 // service worker registrations). Use this to flush a stuck auth state.

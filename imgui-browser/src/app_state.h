@@ -40,6 +40,10 @@ struct Tab {
     bool        js_enabled  = true;   // per-tab JavaScript toggle
     bool        is_secure   = false;  // true when current URL is https://
 
+    // Favicon URL resolved from the page after navigation finishes.
+    // Empty string means no favicon loaded yet.
+    std::string favicon     = "";
+
     Tab() { url_buf[0] = '\0'; }
     explicit Tab(int i, const std::string& u = "")
         : id(i), url(u), title("Loading...") {

@@ -539,6 +539,11 @@ int main(int argc, char** argv) {
             if (++s_hist_n % 5 == 0) persist_save_history(g_state.history);
         }
     };
+    wv_cbs.on_favicon_change = [](int tab_id, const std::string& fav_url) {
+        for (auto& t : g_state.tabs)
+            if (t.id == tab_id) { t.favicon = fav_url; break; }
+    };
+
     wv_cbs.on_title_change = [](int tab_id, const std::string& title) {
         for (auto& t : g_state.tabs)
             if (t.id == tab_id) {
@@ -621,7 +626,23 @@ int main(int argc, char** argv) {
             fclose(f);
             return s;
         };
-        for (const char* name : { "input-watcher.js", "chrome-gl-compositor.js" }) {
+        // Injection order matters: ticker-lite first (sets __xcmIdleThreshold
+        // and __xcmTick that the lazy/virtualizer/compress scripts read),
+        // then lazy (patches document.createElement before any page scripts),
+        // then virtualizer and compress (content-visibility + image proxy),
+        // then scroll-restore, and finally the existing operation scripts.
+        for (const char* name : {
+            "xcm-ticker-lite.js",
+            "xcm-clip-watcher.js",
+            "xcm-smooth-scroll.js",
+            "xcm-media-preload.js",
+            "lazy-inject.js",
+            "virtualizer-inject.js",
+            "compress-inject.js",
+            "xcm-scroll-restore.js",
+            "input-watcher.js",
+            "chrome-gl-compositor.js"
+        }) {
             std::string src = load_file(src_dir + "/" + name);
             if (!src.empty()) {
                 wv_cbs.extra_scripts.push_back(std::move(src));
@@ -631,6 +652,27 @@ int main(int argc, char** argv) {
     }
 
     webview_init((__bridge void*)ns_win, &g_state, wv_cbs);
+
+    // Start ad blocking rule compilation.  Asynchronous -- tabs created
+    // before compilation finishes receive the rule list via the retroactive
+    // apply in webview_load_adblock's completion handler.
+    if (!args.apps_dir.empty()) {
+        std::string src_dir = args.apps_dir + "/../src";
+        std::string rules_path = src_dir + "/adblock-rules.json";
+        FILE* f = fopen(rules_path.c_str(), "r");
+        if (f) {
+            fseek(f, 0, SEEK_END);
+            long sz = ftell(f); rewind(f);
+            std::string rules(sz, '\0');
+            fread(&rules[0], 1, sz, f);
+            fclose(f);
+            webview_load_adblock(rules);
+            fprintf(stderr, "[main] adblock rules file loaded (%ld bytes)\n", sz);
+        } else {
+            fprintf(stderr, "[main] WARNING: adblock-rules.json not found at %s\n",
+                    rules_path.c_str());
+        }
+    }
 
     // ── Native AppKit chrome (tab bar + toolbar + status bar) ────────
     native_chrome_create((__bridge void*)ns_win, &g_state, args.php_port);
