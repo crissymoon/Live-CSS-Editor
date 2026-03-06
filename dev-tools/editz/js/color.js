@@ -56,7 +56,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const textColorInput = document.getElementById('textColor');
     const highlightInput = document.getElementById('colorPicker');
+    const bgColorInput   = document.getElementById('bgColor');
     const editor         = document.getElementById('editor');
+
+    // Restore saved page background color
+    const savedBg = localStorage.getItem('editorBgColor');
+    if (savedBg) {
+        editor.style.background = savedBg;
+        if (bgColorInput) bgColorInput.value = savedBg;
+    }
+
+    // Page background color change
+    if (bgColorInput) {
+        bgColorInput.addEventListener('change', function () {
+            editor.style.background = this.value;
+            localStorage.setItem('editorBgColor', this.value);
+        });
+    }
 
     // Save selection on mousedown (fires before the input steals focus)
     textColorInput.addEventListener('mousedown', saveEditorSelection);

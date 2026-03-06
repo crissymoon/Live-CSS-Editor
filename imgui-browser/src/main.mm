@@ -698,6 +698,7 @@ int main(int argc, char** argv) {
             "lazy-inject.js",
             "virtualizer-inject.js",
             "compress-inject.js",
+            "xcm-app-helper.js",
             "xcm-scroll-restore.js",
             "input-watcher.js",
             "chrome-gl-compositor.js"

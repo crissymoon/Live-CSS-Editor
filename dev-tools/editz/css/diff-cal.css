@@ -1,0 +1,514 @@
+/* diff-cal.css — Calendar Tool Styles */
+
+* {
+    box-sizing: border-box;
+}
+
+/* ── Theme Variables ─────────────────────────────────────── */
+:root {
+    --theme-primary: #000000;
+    --theme-primary-hover: #ffffff;
+    --theme-border: #000000;
+}
+
+body.theme-classic {
+    --theme-primary: #000000;
+    --theme-primary-hover: #333333;
+    --theme-border: #000000;
+}
+
+body.theme-blue {
+    --theme-primary: #1e3a8a;
+    --theme-primary-hover: #2563eb;
+    --theme-border: #1e3a8a;
+}
+
+body.theme-green {
+    --theme-primary: #14532d;
+    --theme-primary-hover: #16a34a;
+    --theme-border: #14532d;
+}
+
+body.theme-purple {
+    --theme-primary: #581c87;
+    --theme-primary-hover: #9333ea;
+    --theme-border: #581c87;
+}
+
+body.theme-burgundy {
+    --theme-primary: #7f1d1d;
+    --theme-primary-hover: #dc2626;
+    --theme-border: #7f1d1d;
+}
+
+body.theme-navy {
+    --theme-primary: #0c4a6e;
+    --theme-primary-hover: #0284c7;
+    --theme-border: #0c4a6e;
+}
+
+body.theme-teal {
+    --theme-primary: #134e4a;
+    --theme-primary-hover: #14b8a6;
+    --theme-border: #134e4a;
+}
+
+body.theme-charcoal {
+    --theme-primary: #374151;
+    --theme-primary-hover: #6b7280;
+    --theme-border: #374151;
+}
+
+/* ── Cool / Specialty Themes ─────────────────────────────── */
+
+body.theme-cyberpunk {
+    --theme-primary: #ff00ff;
+    --theme-primary-hover: #00ffff;
+    --theme-border: #ff00ff;
+    background: linear-gradient(135deg, #0a0015 0%, #1a0033 100%);
+}
+
+body.theme-cyberpunk h1,
+body.theme-cyberpunk h2,
+body.theme-cyberpunk #current-month-year {
+    color: #00ffff;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+}
+
+body.theme-cyberpunk h1 { border-bottom-color: #00ffff; }
+
+body.theme-cyberpunk th {
+    background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+    color: #000000;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    font-weight: bold;
+}
+
+body.theme-cyberpunk .calendar-header {
+    background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+    color: #000000;
+    box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+}
+
+body.theme-cyberpunk button {
+    background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+    color: #000000;
+    border: 2px solid #00ffff;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+body.theme-cyberpunk td {
+    border-color: #00ffff;
+    background: rgba(255, 255, 255, 0.95);
+}
+
+/* Retro */
+body.theme-retro {
+    --theme-primary: #ff6b35;
+    --theme-primary-hover: #f7931e;
+    --theme-border: #ff6b35;
+    background: linear-gradient(135deg, #f7931e 0%, #ff6b35 50%, #c73866 100%);
+}
+
+body.theme-retro h1,
+body.theme-retro h2,
+body.theme-retro #current-month-year {
+    color: #ffffff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+body.theme-retro h1 { border-bottom-color: #ffffff; }
+
+body.theme-retro th {
+    background: linear-gradient(90deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
+    color: #000000;
+    font-weight: bold;
+}
+
+body.theme-retro .calendar-header {
+    background: linear-gradient(90deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
+    color: #000000;
+}
+
+body.theme-retro button {
+    background: linear-gradient(90deg, #ff6b35 0%, #f7931e 100%);
+    color: #ffffff;
+}
+
+/* Matrix */
+body.theme-matrix {
+    --theme-primary: #00ff00;
+    --theme-primary-hover: #00cc00;
+    --theme-border: #00ff00;
+    background-color: #000000;
+}
+
+body.theme-matrix h1,
+body.theme-matrix h2,
+body.theme-matrix #current-month-year {
+    color: #00ff00;
+    text-shadow: 0 0 10px #00ff00;
+}
+
+body.theme-matrix h1 { border-bottom-color: #00ff00; }
+
+body.theme-matrix th {
+    background-color: #003300;
+    color: #00ff00;
+    text-shadow: 0 0 5px #00ff00;
+    border-color: #00ff00;
+}
+
+body.theme-matrix .calendar-header {
+    background-color: #003300;
+    color: #00ff00;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+}
+
+body.theme-matrix button {
+    background-color: #003300;
+    color: #00ff00;
+    border: 2px solid #00ff00;
+    text-shadow: 0 0 5px #00ff00;
+}
+
+body.theme-matrix button:hover {
+    background-color: #00ff00;
+    color: #000000;
+}
+
+body.theme-matrix td { border-color: #00ff00; }
+
+/* Vaporwave */
+body.theme-vaporwave {
+    --theme-primary: #ff71ce;
+    --theme-primary-hover: #01cdfe;
+    --theme-border: #ff71ce;
+    background: linear-gradient(135deg, #01cdfe 0%, #ff71ce 50%, #b967ff 100%);
+}
+
+body.theme-vaporwave h1,
+body.theme-vaporwave h2,
+body.theme-vaporwave #current-month-year {
+    color: #ffffff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+body.theme-vaporwave h1 { border-bottom-color: #ffffff; }
+
+body.theme-vaporwave th {
+    background: linear-gradient(90deg, #ff71ce 0%, #01cdfe 50%, #b967ff 100%);
+    color: #ffffff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+body.theme-vaporwave .calendar-header {
+    background: linear-gradient(90deg, #ff71ce 0%, #01cdfe 50%, #b967ff 100%);
+    color: #ffffff;
+    box-shadow: 0 5px 20px rgba(255, 113, 206, 0.5);
+}
+
+body.theme-vaporwave button {
+    background: linear-gradient(135deg, #ff71ce 0%, #b967ff 100%);
+    color: #ffffff;
+    border: 2px solid #01cdfe;
+}
+
+body.theme-vaporwave td {
+    border-color: #ff71ce;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+/* Gothic */
+body.theme-gothic {
+    --theme-primary: #1a0000;
+    --theme-primary-hover: #4d0000;
+    --theme-border: #660000;
+    background: linear-gradient(135deg, #000000 0%, #1a0000 100%);
+}
+
+body.theme-gothic h1,
+body.theme-gothic h2,
+body.theme-gothic #current-month-year {
+    color: #cc0000;
+    text-shadow: 0 0 10px rgba(204, 0, 0, 0.8);
+}
+
+body.theme-gothic h1 { border-bottom-color: #660000; }
+
+body.theme-gothic th {
+    background: linear-gradient(135deg, #1a0000 0%, #4d0000 100%);
+    color: #cc0000;
+    border-color: #660000;
+    text-shadow: 0 0 10px rgba(204, 0, 0, 0.5);
+}
+
+body.theme-gothic .calendar-header {
+    background: linear-gradient(135deg, #1a0000 0%, #4d0000 100%);
+    color: #cc0000;
+    border-color: #660000;
+}
+
+body.theme-gothic button {
+    background-color: #1a0000;
+    color: #cc0000;
+    border: 2px solid #660000;
+}
+
+body.theme-gothic button:hover {
+    background-color: #4d0000;
+    color: #ff0000;
+}
+
+body.theme-gothic td { border-color: #660000; }
+
+/* Pastel */
+body.theme-pastel {
+    --theme-primary: #ffb3ba;
+    --theme-primary-hover: #ffdfba;
+    --theme-border: #bae1ff;
+    background: linear-gradient(135deg, #ffffba 0%, #ffdfba 50%, #baffc9 100%);
+}
+
+body.theme-pastel th {
+    background: linear-gradient(90deg, #ffb3ba 0%, #ffdfba 50%, #ffffba 100%);
+    color: #333333;
+    border-color: #bae1ff;
+}
+
+body.theme-pastel .calendar-header {
+    background: linear-gradient(90deg, #ffb3ba 0%, #ffdfba 50%, #ffffba 100%);
+    color: #333333;
+    border-color: #bae1ff;
+}
+
+body.theme-pastel button {
+    background: linear-gradient(135deg, #ffb3ba 0%, #ffdfba 100%);
+    color: #333333;
+    border: 2px solid #bae1ff;
+}
+
+body.theme-pastel button:hover {
+    background: linear-gradient(135deg, #ffdfba 0%, #ffffba 100%);
+}
+
+body.theme-pastel td { border-color: #bae1ff; }
+
+/* ── Base Layout ─────────────────────────────────────────── */
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #ffffff;
+    color: #000000;
+    min-height: 100vh;
+}
+
+.calendar-container {
+    width: 100%;
+    max-width: 1200px;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: var(--theme-primary);
+    color: #ffffff;
+    border: 2px solid var(--theme-border);
+    border-radius: 4px;
+}
+
+.month-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+/* ── Controls ────────────────────────────────────────────── */
+
+select,
+button {
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 10px 15px;
+    font-size: 16px;
+    border: 2px solid var(--theme-border);
+    background-color: #ffffff;
+    color: #000000;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+button {
+    background-color: var(--theme-primary);
+    color: #ffffff;
+    border: 2px solid var(--theme-border);
+    white-space: nowrap;
+}
+
+button:hover {
+    background-color: var(--theme-primary-hover);
+    color: #ffffff;
+}
+
+select {
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: #ffffff;
+    color: #000000;
+}
+
+/* ── Calendar Table ──────────────────────────────────────── */
+
+#the-cal {
+    width: 100%;
+    overflow-x: auto; /* allow horizontal scroll on tiny screens */
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 420px; /* keep table from becoming too narrow */
+}
+
+th {
+    background-color: var(--theme-primary);
+    color: #ffffff;
+    padding: 12px;
+    text-align: center;
+    border: 2px solid var(--theme-border);
+    font-weight: bold;
+}
+
+td {
+    border: 2px solid var(--theme-border);
+    padding: 10px;
+    height: 100px;
+    vertical-align: top;
+    position: relative;
+    background-color: #ffffff;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.day-number {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #000000;
+}
+
+.other-month {
+    background-color: #f5f5f5;
+    color: #999999;
+    border: 2px solid #cccccc;
+}
+
+.today {
+    background-color: #e6e6e6;
+    border: 3px solid #000000;
+}
+
+#current-month-year {
+    color: #000000;
+    font-weight: bold;
+}
+
+h1 {
+    color: #000000;
+    border-bottom: 3px solid #000000;
+    padding-bottom: 10px;
+}
+
+/* ── Save Status Indicator ───────────────────────────────── */
+
+.save-status {
+    display: inline-block;
+    font-size: 12px;
+    margin-left: 10px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    opacity: 0.85;
+}
+
+/* ── Storage Notice ──────────────────────────────────────── */
+
+.storage-notice {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 15px;
+    background-color: #f0f0f0;
+    border: 2px solid #666;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 14px;
+    color: #333;
+}
+
+/* ── Print ───────────────────────────────────────────────── */
+
+@media print {
+    body { padding: 0; }
+    button { display: none; }
+    .calendar-header { display: none; }
+    .storage-notice { display: none; }
+    .save-status { display: none; }
+}
+
+/* ── Tablet (≤768 px) ────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .calendar-header { padding: 10px; }
+
+    select,
+    button {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+
+    th,
+    td {
+        padding: 8px;
+        font-size: 14px;
+    }
+
+    td { height: 70px; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 20px; }
+}
+
+/* ── Phone (≤480 px) ─────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    body { padding: 5px; }
+
+    .calendar-header { padding: 5px; }
+
+    .month-selector { gap: 5px; }
+
+    select,
+    button {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+
+    th,
+    td {
+        padding: 4px;
+        font-size: 11px;
+    }
+
+    td { height: 52px; }
+    h1 { font-size: 18px; }
+    h2 { font-size: 15px; }
+
+    th { padding: 6px 2px; }
+}

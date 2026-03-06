@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Mobile Dropdowns ─────────────────────────────────────────────────────
     const dropdowns = document.querySelectorAll('.dropdown');
     dropdowns.forEach(function(dropdown) {
-        const toggle = dropdown.querySelector('.dropdown-toggle');
+        const toggle = dropdown.querySelector('.dropdown-toggle, .menu-btn');
         if (toggle) {
             toggle.addEventListener('click', function(e) {
                 e.stopPropagation();

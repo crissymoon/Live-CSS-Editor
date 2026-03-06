@@ -10,26 +10,63 @@
 
     <span id="successMessage"></span>
 
-    <div class="toolbar">
+    <!-- App menu bar -->
+    <div class="menubar">
+        <span class="app-title">EDITZ</span>
 
-        <!-- Edit Actions -->
-        <div class="dropdown">
-            <button class="dropdown-toggle">Edit</button>
+        <div class="menu-item dropdown">
+            <button class="menu-btn">File</button>
+            <div class="dropdown-content">
+                <button onclick="saveAsWord()">Save as Word</button>
+                <button id="saveButton">Save as Editz (HTML)</button>
+                <button onclick="document.getElementById('fileInput').click()">Load Editz File</button>
+                <div class="menu-sep"></div>
+                <button onclick="window.open('help-editz.html', '_blank')">Help</button>
+            </div>
+        </div>
+
+        <div class="menu-item dropdown">
+            <button class="menu-btn">Edit</button>
             <div class="dropdown-content">
                 <button id="selectDeleteBtn">Clear</button>
                 <button onclick="selectText()">Select All</button>
                 <button id="copyButton">Copy All</button>
-                <button id="undo" title="Undo (Ctrl+Z)">Undo</button>
-                <button id="redo" title="Redo (Ctrl+Y)">Redo</button>
+                <div class="menu-sep"></div>
+                <button id="undo">Undo</button>
+                <button id="redo">Redo</button>
+                <div class="menu-sep"></div>
                 <button onclick="clearFormattingAtSelection()">Clear Format</button>
                 <button onclick="makeUppercase()">UPPERCASE</button>
                 <button onclick="makeLowercase()">lowercase</button>
             </div>
         </div>
 
-        <!-- Templates -->
-        <div class="dropdown">
-            <button class="dropdown-toggle">Templates</button>
+        <div class="menu-item dropdown">
+            <button class="menu-btn">Format</button>
+            <div class="dropdown-content">
+                <button id="alignLeft">Align Left</button>
+                <button id="alignCenter">Center</button>
+                <button id="alignRight">Align Right</button>
+                <div class="menu-sep"></div>
+                <button onclick="insertHR()">Insert Line</button>
+                <button onclick="insertList('ul')">&#8226; Bullet List</button>
+                <button onclick="insertList('ol')">1. Number List</button>
+                <button onclick="insertHS1()">Heading</button>
+                <button onclick="insertHL()">Highlights</button>
+            </div>
+        </div>
+
+        <div class="menu-item dropdown">
+            <button class="menu-btn">Insert</button>
+            <div class="dropdown-content">
+                <button id="insertLinkBtn">Link</button>
+                <button onclick="document.getElementById('imageInput').click()">Image</button>
+                <button id="openPopup">Emoji</button>
+            </div>
+        </div>
+
+        <div class="menu-item dropdown">
+            <button class="menu-btn">Templates</button>
             <div class="dropdown-content">
                 <button id="fillButton">Business Resume</button>
                 <button id="basicResume">Basic Resume</button>
@@ -41,21 +78,24 @@
             </div>
         </div>
 
-        <!-- File -->
-        <div class="dropdown">
-            <button class="dropdown-toggle">File</button>
+        <div class="menu-item dropdown">
+            <button class="menu-btn">View</button>
             <div class="dropdown-content">
-                <button onclick="saveAsWord()">Save as Word</button>
-                <button id="saveButton">Save as Editz (HTML)</button>
-                <button onclick="document.getElementById('fileInput').click()">Load Editz File</button>
-                <button onclick="window.open('help-editz.html', '_blank')">Help</button>
+                <button onclick="window.location.reload();">Reload</button>
+                <button id="myBtn">Print</button>
             </div>
         </div>
 
-        <div class="tb-sep"></div>
+        <!-- Hidden file inputs -->
+        <input type="file" id="imageInput" accept="image/*"    style="display:none;" />
+        <input type="file" id="fileInput"  accept=".html,.htm" style="display:none;" />
+    </div>
+
+    <!-- Format toolbar -->
+    <div class="toolbar">
 
         <!-- Font Family -->
-        <select id="fontFamily">
+        <select id="fontFamily" title="Font Family">
             <option value="Arial, sans-serif">Arial</option>
             <option value="'Times New Roman', Times, serif">Times New Roman</option>
             <option value="Georgia, serif">Georgia</option>
@@ -72,28 +112,39 @@
         </select>
 
         <!-- Font Size -->
-        <select id="fontSize">
-            <option value="9pt">9pt</option>
-            <option value="10pt">10pt</option>
-            <option value="11pt" selected>11pt</option>
-            <option value="12pt">12pt</option>
-            <option value="13pt">13pt</option>
-            <option value="14pt">14pt</option>
-            <option value="16pt">16pt</option>
-            <option value="18pt">18pt</option>
-            <option value="20pt">20pt</option>
-            <option value="24pt">24pt</option>
-            <option value="36pt">36pt</option>
-            <option value="46pt">46pt</option>
-            <option value="64pt">64pt</option>
+        <select id="fontSize" title="Font Size">
+            <option value="9pt">9</option>
+            <option value="10pt">10</option>
+            <option value="11pt" selected>11</option>
+            <option value="12pt">12</option>
+            <option value="13pt">13</option>
+            <option value="14pt">14</option>
+            <option value="16pt">16</option>
+            <option value="18pt">18</option>
+            <option value="20pt">20</option>
+            <option value="24pt">24</option>
+            <option value="36pt">36</option>
+            <option value="46pt">46</option>
+            <option value="64pt">64</option>
         </select>
+
+        <div class="tb-sep"></div>
+
+        <!-- Style Buttons -->
+        <button id="boldBtn" class="fmt-btn" title="Bold"><b>B</b></button>
+        <button id="italicBtn" class="fmt-btn" title="Italic"><i>I</i></button>
+        <button id="underlineBtn" class="fmt-btn" title="Underline"><u>U</u></button>
+        <button id="strikeBtn" class="fmt-btn" title="Strikethrough"
+            onclick="document.execCommand('strikeThrough',false,null);document.getElementById('editor').focus();saveState();">
+            <s>S</s>
+        </button>
 
         <div class="tb-sep"></div>
 
         <!-- Colors -->
         <div class="color-picker-wrapper">
             <input type="color" id="textColor" class="color-picker" title="Text Color">
-            <label for="textColor" class="color-label">Txt</label>
+            <label for="textColor" class="color-label">A</label>
         </div>
         <div id="textColorHistory" class="color-history"></div>
 
@@ -103,49 +154,16 @@
         </div>
         <div id="highlightColorHistory" class="color-history"></div>
 
-        <div class="tb-sep"></div>
-
-        <!-- Style Buttons -->
-        <button id="boldBtn" title="Bold"><b>B</b></button>
-        <button id="italicBtn" title="Italic"><i>I</i></button>
-        <button id="underlineBtn" title="Underline"><u>U</u></button>
-        <button id="strikeBtn" title="Strikethrough"
-            onclick="document.execCommand('strikeThrough',false,null);document.getElementById('editor').focus();saveState();">
-            <s>S</s>
-        </button>
-
-        <div class="tb-sep"></div>
-
-        <!-- Format Dropdown -->
-        <div class="dropdown">
-            <button class="dropdown-toggle">Format</button>
-            <div class="dropdown-content">
-                <button id="alignLeft"   title="Align Left">Align Left</button>
-                <button id="alignCenter" title="Align Center">Center</button>
-                <button id="alignRight"  title="Align Right">Align Right</button>
-                <button onclick="insertHR()">Insert Line</button>
-                <button onclick="insertList('ul')">&#8226; Bullet List</button>
-                <button onclick="insertList('ol')">1. Number List</button>
-                <button onclick="insertHS1()">Heading</button>
-                <button onclick="insertHL()">Highlights</button>
-            </div>
-        </div>
-
-        <!-- Insert Dropdown -->
-        <div class="dropdown">
-            <button class="dropdown-toggle">Insert</button>
-            <div class="dropdown-content">
-                <button id="insertLinkBtn">Link</button>
-                <button onclick="document.getElementById('imageInput').click()">Image</button>
-                <button id="openPopup">Emoji</button>
-            </div>
+        <div class="color-picker-wrapper">
+            <input type="color" id="bgColor" class="color-picker" value="#ffffff" title="Page Background Color">
+            <label for="bgColor" class="color-label">BG</label>
         </div>
 
         <div class="tb-sep"></div>
 
         <!-- Line Spacing -->
         <div class="line-spacing-control">
-            <label for="lineSpacing">Line:</label>
+            <label for="lineSpacing">Spacing</label>
             <select id="lineSpacing" onchange="setLineSpacing(this.value)">
                 <option value="1">1.0</option>
                 <option value="1.2">1.2</option>
@@ -156,31 +174,19 @@
             </select>
         </div>
 
-        <div class="tb-sep"></div>
-
-        <button onclick="window.location.reload();">Reload</button>
-        <button id="myBtn">Print</button>
-
-        <!-- Hidden file inputs -->
-        <input type="file" id="imageInput" accept="image/*"        style="display:none;" />
-        <input type="file" id="fileInput"  accept=".html,.htm"     style="display:none;" />
     </div>
 
 
     <!-- Editor -->
     <div class="editor-container">
-        <div class="resume-title">
-            <img src="imgs/editz-logo.webp" alt="EDITZ">
-        </div>
-        <hr class="content-divider">
         <div id="editor" contenteditable="true" data-save-id="editor"
              spellcheck="true" data-gramm="true" data-gramm_editor="true"
              data-grammarly-shadow-root="true">
-&gt;_Click the help button for more information about all the features of this editor.
+&gt;_ Open the Help section from the File menu for a complete guide to all available editor features.
 <br><br>
-&gt;_Click the clear button and begin typing here, or insert a template to get started.
+&gt;_ Select Clear from the Edit menu to remove this message and begin writing, or choose a template from the Templates menu to get started.
 <br><br>
-&gt;_On some smaller mobile devices, you may need to rotate your phone sideways and then back to resize the 'Calendar Tool' correctly. This is not necessary on all devices.
+&gt;_ Note: On certain mobile devices, rotating the screen sideways and back may be required to correctly display the Calendar Tool. This step is not needed on all devices.
         </div>
     </div>
 
@@ -226,6 +232,9 @@
 
     <!-- Footer -->
     <footer>
+        <div class="footer-brand">
+            <img src="imgs/editz-logo.webp" alt="EDITZ" class="footer-brand-logo">
+        </div>
         <img src="imgs/footer-logo.webp" alt="EDITZ Footer Logo" class="footer-logo">
         <div class="footer-text">
             This is a seed project and free writing tool provided by EDITZ - Crissy Moon<br>
