@@ -48,6 +48,7 @@ add_executable(imgui_browser
     src/server_manager.cpp
     src/cmd_server.cpp
     src/fps_counter.cpp
+    src/xcm_shell.mm
 )
 
 target_include_directories(imgui_browser PRIVATE

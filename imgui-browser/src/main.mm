@@ -97,7 +97,7 @@ void fps_host_tick(AppState& st, double now_sec);
 // ── Arg parsing ───────────────────────────────────────────────────────
 
 struct Args {
-    std::string url        = "http://127.0.0.1:8080/pb_admin/login.php";
+    std::string url        = "http://127.0.0.1:8080/pb_admin/dashboard.php";
     std::string apps_dir   = "";
     int         php_port   = 9879;
     int         cmd_port   = 9878;
@@ -744,13 +744,9 @@ int main(int argc, char** argv) {
         [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.3]];
     }
 
-    // ── Initial tab ──────────────────────────────────────────────────
-    {
-        int idx = g_state.new_tab(args.url);
-        g_state.tabs[idx].wv_handle = webview_create(g_state.tabs[idx].id, args.url);
-    }
-
     // ── Server processes ─────────────────────────────────────────────
+    // Start servers first so the initial URL is more likely to be
+    // reachable by the time WKWebView sends its first request.
     if (!args.apps_dir.empty()) {
         server_start_php(args.apps_dir, args.php_port);
     }
@@ -766,6 +762,12 @@ int main(int argc, char** argv) {
 
     // ── Command API ───────────────────────────────────────────────────
     cmd_server_start(&g_state, args.cmd_port);
+
+    // ── Initial tab ──────────────────────────────────────────────────
+    {
+        int idx = g_state.new_tab(args.url);
+        g_state.tabs[idx].wv_handle = webview_create(g_state.tabs[idx].id, args.url);
+    }
 
     // ── Server status poll: every 3 seconds on a cheap timer ─────────
     double last_server_poll = 0.0;

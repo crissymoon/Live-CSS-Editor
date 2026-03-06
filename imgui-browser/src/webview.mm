@@ -12,6 +12,7 @@
 #import <Security/SecTrust.h>
 #include "webview.h"
 #include "app_state.h"
+#include "xcm_shell.h"
 #include <string>
 #include <unordered_map>
 #include <functional>
@@ -402,6 +403,79 @@ static std::unordered_map<int, bool> s_js_enabled;  // tab_id -> js enabled
 // Forward declaration
 @class XCMPopupDelegate;
 
+// ── Download delegate ─────────────────────────────────────────────────
+// Handles WKDownload callbacks: asks the user where to save the file,
+// then writes it to disk.  One shared instance is fine because downloads
+// are sequential in normal browser usage.
+// Defined before XCMPopupDelegate so popup-initiated downloads can reuse it.
+
+@interface XCMDownloadDelegate : NSObject <WKDownloadDelegate>
+@end
+
+@implementation XCMDownloadDelegate
+
+// Called by WKWebView to ask where to save the file.
+// We use runModal (free-floating dialog) rather than beginSheetModalForWindow
+// because the native-chrome toolbar NSPanel sits on top of s_window and
+// would hide a sheet that slides down from the title bar.
+- (void)download:(WKDownload*)download
+    decideDestinationUsingResponse:(NSURLResponse*)response
+    suggestedFilename:(NSString*)filename
+    completionHandler:(void (^)(NSURL* _Nullable))completionHandler {
+    // Capture the block so it survives the dispatch.
+    void (^cb)(NSURL*) = [completionHandler copy];
+    __strong WKDownload* dl_ref = download;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSSavePanel* panel = [NSSavePanel savePanel];
+        panel.nameFieldStringValue = filename.length ? filename : @"download";
+        panel.canCreateDirectories = YES;
+        panel.title = @"Save Downloaded File";
+        // Default to ~/Downloads.
+        NSURL* dlDir = [[NSFileManager defaultManager]
+                            URLForDirectory:NSDownloadsDirectory
+                                   inDomain:NSUserDomainMask
+                          appropriateForURL:nil
+                                     create:NO
+                                      error:nil];
+        if (dlDir) panel.directoryURL = dlDir;
+        // runModal shows a free-floating window, not a sheet attached to
+        // s_window, so it always appears on screen regardless of what
+        // other panels/webviews are layered on top of the main window.
+        NSModalResponse r = [panel runModal];
+        if (r == NSModalResponseOK && panel.URL) {
+            fprintf(stderr, "[dl] saving to: %s\n",
+                    panel.URL.path.UTF8String);
+            cb(panel.URL);
+        } else {
+            fprintf(stderr, "[dl] cancelled\n");
+            cb(nil);
+            [dl_ref cancel:nil];
+        }
+    });
+}
+
+- (void)downloadDidFinish:(WKDownload*)download {
+    fprintf(stderr, "[dl] finished\n");
+    // Reveal in Finder so the user can see the completed file.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            NSURL* dst = [download valueForKey:@"_destination"];
+            if (dst) [[NSWorkspace sharedWorkspace] selectFile:dst.path
+                              inFileViewerRootedAtPath:@""];
+        } @catch (NSException*) {}
+    });
+}
+
+- (void)download:(WKDownload*)download
+    didFailWithError:(NSError*)error
+    resumeData:(NSData*)resumeData {
+    fprintf(stderr, "[dl] error: %s\n",
+            error.localizedDescription.UTF8String);
+}
+@end
+
+static XCMDownloadDelegate* s_dl_delegate = nil;
+
 // Static set that keeps popup delegates alive until the panel closes.
 static NSMutableArray<XCMPopupDelegate*>* s_popup_delegates = nil;
 
@@ -505,7 +579,37 @@ static NSMutableArray<XCMPopupDelegate*>* s_popup_delegates = nil;
 - (void)webView:(WKWebView*)wv
     decidePolicyForNavigationResponse:(WKNavigationResponse*)response
     decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler {
+    // Mirror the main delegate's download-trigger logic so files downloaded
+    // from inside OAuth/popup windows also get the save panel.
+    BOOL triggerDownload = !response.canShowMIMEType;
+    if (!triggerDownload && [response.response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSString* cd = ((NSHTTPURLResponse*)response.response).allHeaderFields[@"Content-Disposition"];
+        if (cd && [cd.lowercaseString hasPrefix:@"attachment"]) triggerDownload = YES;
+    }
+    if (triggerDownload) {
+        fprintf(stderr, "[dl/popup] triggering download for: %s\n",
+                response.response.URL.absoluteString.UTF8String ?: "?");
+        decisionHandler(WKNavigationResponsePolicyDownload);
+        return;
+    }
     decisionHandler(WKNavigationResponsePolicyAllow);
+}
+
+// Wire up downloads that originate inside the popup webview.
+- (void)webView:(WKWebView*)wv
+    navigationResponse:(WKNavigationResponse*)response
+    didBecomeDownload:(WKDownload*)download {
+    if (!s_dl_delegate) s_dl_delegate = [[XCMDownloadDelegate alloc] init];
+    download.delegate = s_dl_delegate;
+    fprintf(stderr, "[dl/popup] download started from response\n");
+}
+
+- (void)webView:(WKWebView*)wv
+    navigationAction:(WKNavigationAction*)action
+    didBecomeDownload:(WKDownload*)download {
+    if (!s_dl_delegate) s_dl_delegate = [[XCMDownloadDelegate alloc] init];
+    download.delegate = s_dl_delegate;
+    fprintf(stderr, "[dl/popup] download started from action\n");
 }
 
 // Allow nested popups (e.g. Google account chooser opening another page).
@@ -540,13 +644,14 @@ static NSMutableArray<XCMPopupDelegate*>* s_popup_delegates = nil;
 }
 @end
 
-// Forward declaration -- defined after WVHandle in the Public API section.
+// Forward declaration -- xcm_inject_masks is defined after WVHandle in the Public API section.
 static void xcm_inject_masks(WKUserContentController* ucc);
 
 // ── WKWebView delegate (Obj-C class) ─────────────────────────────────
 
 @interface XCMNavDelegate : NSObject <WKNavigationDelegate, WKUIDelegate>
 @property (nonatomic, assign) int tabId;
+@property (nonatomic, assign) int retryConnect;  // consecutive localhost connect retries
 @end
 
 @implementation XCMNavDelegate
@@ -617,6 +722,8 @@ static void xcm_inject_masks(WKUserContentController* ucc);
         fprintf(stderr, "[nav] report-to inject exception: %s -- %s\n",
                 e.name.UTF8String, e.reason.UTF8String);
     }
+    // Reset retry counter on successful load.
+    self.retryConnect = 0;
 }
 - (void)webView:(WKWebView*)wv didFailNavigation:(WKNavigation*)nav withError:(NSError*)err {
     fprintf(stderr, "[nav] fail %s -- %s\n",
@@ -629,6 +736,28 @@ static void xcm_inject_masks(WKUserContentController* ucc);
             wv.URL.absoluteString.UTF8String ?: "(nil)",
             err.localizedDescription.UTF8String);
     if (s_cbs.on_loading) s_cbs.on_loading(self.tabId, false);
+
+    // Automatically retry localhost URLs when the server is not yet ready.
+    // Covers the race where the binary starts before port 8080 is listening.
+    NSInteger code = err.code;
+    BOOL isConnectErr = (code == NSURLErrorCannotConnectToHost ||
+                         code == NSURLErrorNetworkConnectionLost ||
+                         code == NSURLErrorTimedOut ||
+                         code == NSURLErrorCannotFindHost);
+    NSString* failing = err.userInfo[NSURLErrorFailingURLStringErrorKey] ?:
+                        wv.URL.absoluteString ?: @"";
+    BOOL isLocal = [failing containsString:@"127.0.0.1"] ||
+                   [failing containsString:@"localhost"];
+    if (isConnectErr && isLocal && self.retryConnect < 10) {
+        self.retryConnect++;
+        fprintf(stderr, "[nav] retrying localhost (attempt %d/10) in 2s...\n",
+                self.retryConnect);
+        dispatch_after(
+            dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
+            dispatch_get_main_queue(), ^{
+                [wv reload];
+            });
+    }
 }
 
 // Called when the WebContent process crashes (OOM, sandbox violation, etc.).
@@ -700,6 +829,9 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     // detects WKWebView in the popup and shows "This browser or app may not
     // be secure."
     xcm_inject_masks(cfg.userContentController);
+    // Shell must also be installed in popups so right-click and downloads
+    // work inside OAuth/popup windows.
+    xcm_shell_install(cfg.userContentController, s_window, s_state);
     if (s_ad_rule_list) {
         [cfg.userContentController addContentRuleList:s_ad_rule_list];
     }
@@ -761,6 +893,17 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     auto it = s_js_enabled.find(self.tabId);
     bool js = (it != s_js_enabled.end()) ? it->second : true;
     preferences.allowsContentJavaScript = js ? YES : NO;
+
+    // Honour the HTML download attribute on http/https anchor elements.
+    // WKNavigationAction.shouldPerformDownload is set by WebKit when the
+    // anchor's download attribute is present (macOS 11.3+).
+    if (@available(macOS 11.3, *)) {
+        if (action.shouldPerformDownload) {
+            fprintf(stderr, "[nav] shouldPerformDownload=YES -> .download\n");
+            decisionHandler(WKNavigationActionPolicyDownload, preferences);
+            return;
+        }
+    }
 
     NSURL* url = action.request.URL;
     NSString* scheme = url.scheme.lowercaseString ?: @"";
@@ -829,6 +972,22 @@ static void xcm_inject_masks(WKUserContentController* ucc);
             }
         }
     }
+    // Trigger a download when:
+    // 1. The response MIME type cannot be rendered by WebKit (e.g. .zip, .exe)
+    // 2. The server sends Content-Disposition: attachment
+    // WKNavigationResponsePolicyDownload fires webView:navigationResponse:didBecomeDownload:
+    // which sets the WKDownloadDelegate so we can present a save panel.
+    BOOL triggerDownload = !response.canShowMIMEType;
+    if (!triggerDownload && [response.response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSString* cd = ((NSHTTPURLResponse*)response.response).allHeaderFields[@"Content-Disposition"];
+        if (cd && [cd.lowercaseString hasPrefix:@"attachment"]) triggerDownload = YES;
+    }
+    if (triggerDownload) {
+        fprintf(stderr, "[dl] triggering download for: %s\n",
+                response.response.URL.absoluteString.UTF8String ?: "?");
+        decisionHandler(WKNavigationResponsePolicyDownload);
+        return;
+    }
     decisionHandler(WKNavigationResponsePolicyAllow);
 }
 
@@ -858,6 +1017,103 @@ static void xcm_inject_masks(WKUserContentController* ucc);
         completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
     }
 }
+
+// ── File upload  (<input type="file">) ───────────────────────────────
+// Without this WKUIDelegate method the open-file dialog never appears.
+- (void)webView:(WKWebView*)wv
+    runOpenPanelWithParameters:(WKOpenPanelParameters*)params
+    initiatedByFrame:(WKFrameInfo*)frame
+    completionHandler:(void (^)(NSArray<NSURL*>* _Nullable))completionHandler {
+    NSOpenPanel* panel = [NSOpenPanel openPanel];
+    panel.canChooseFiles          = YES;
+    panel.canChooseDirectories    = NO;
+    panel.allowsMultipleSelection = params.allowsMultipleSelection;
+    [panel beginSheetModalForWindow:s_window
+                  completionHandler:^(NSModalResponse r) {
+        completionHandler(r == NSModalResponseOK ? panel.URLs : nil);
+    }];
+}
+
+// ── JavaScript dialogs ───────────────────────────────────────────────
+// alert(), confirm(), and prompt() are silently dropped without these
+// WKUIDelegate methods.  Many sites (YouTube, LinkedIn, etc.) rely on
+// confirm() for destructive actions and prompt() for rename flows.
+
+- (void)webView:(WKWebView*)wv
+    runJavaScriptAlertPanelWithMessage:(NSString*)message
+    initiatedByFrame:(WKFrameInfo*)frame
+    completionHandler:(void (^)(void))completionHandler {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSAlert* alert       = [[NSAlert alloc] init];
+        alert.messageText    = message ?: @"";
+        alert.alertStyle     = NSAlertStyleInformational;
+        [alert addButtonWithTitle:@"OK"];
+        [alert beginSheetModalForWindow:s_window
+                      completionHandler:^(NSModalResponse __unused r) {
+            completionHandler();
+        }];
+    });
+}
+
+- (void)webView:(WKWebView*)wv
+    runJavaScriptConfirmPanelWithMessage:(NSString*)message
+    initiatedByFrame:(WKFrameInfo*)frame
+    completionHandler:(void (^)(BOOL))completionHandler {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSAlert* alert    = [[NSAlert alloc] init];
+        alert.messageText = message ?: @"";
+        alert.alertStyle  = NSAlertStyleInformational;
+        [alert addButtonWithTitle:@"OK"];
+        [alert addButtonWithTitle:@"Cancel"];
+        [alert beginSheetModalForWindow:s_window
+                      completionHandler:^(NSModalResponse r) {
+            completionHandler(r == NSAlertFirstButtonReturn);
+        }];
+    });
+}
+
+- (void)webView:(WKWebView*)wv
+    runJavaScriptTextInputPanelWithPrompt:(NSString*)prompt
+    defaultText:(NSString*)defaultText
+    initiatedByFrame:(WKFrameInfo*)frame
+    completionHandler:(void (^)(NSString* _Nullable))completionHandler {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSAlert* alert    = [[NSAlert alloc] init];
+        alert.messageText = prompt ?: @"";
+        alert.alertStyle  = NSAlertStyleInformational;
+        [alert addButtonWithTitle:@"OK"];
+        [alert addButtonWithTitle:@"Cancel"];
+        NSTextField* tf = [[NSTextField alloc] initWithFrame:NSMakeRect(0,0,260,22)];
+        tf.stringValue  = defaultText ?: @"";
+        alert.accessoryView = tf;
+        [alert beginSheetModalForWindow:s_window
+                      completionHandler:^(NSModalResponse r) {
+            completionHandler(r == NSAlertFirstButtonReturn ? tf.stringValue : nil);
+        }];
+    });
+}
+
+// ── Download handoff ─────────────────────────────────────────────────
+// Called when decidePolicyForNavigationResponse returned .download.
+// Sets up the shared XCMDownloadDelegate to manage the save panel.
+- (void)webView:(WKWebView*)wv
+    navigationResponse:(WKNavigationResponse*)response
+    didBecomeDownload:(WKDownload*)download {
+    if (!s_dl_delegate) s_dl_delegate = [[XCMDownloadDelegate alloc] init];
+    download.delegate = s_dl_delegate;
+    fprintf(stderr, "[dl] download started from response\n");
+}
+
+// Called when a navigation action (e.g. a direct download link) becomes
+// a download without a response phase.
+- (void)webView:(WKWebView*)wv
+    navigationAction:(WKNavigationAction*)action
+    didBecomeDownload:(WKDownload*)download {
+    if (!s_dl_delegate) s_dl_delegate = [[XCMDownloadDelegate alloc] init];
+    download.delegate = s_dl_delegate;
+    fprintf(stderr, "[dl] download started from action\n");
+}
+
 @end
 
 // ── KVO observer for title + estimatedProgress ───────────────────────
@@ -1074,6 +1330,10 @@ void* webview_create(int tab_id, const std::string& url) {
     // iframes such as accounts.google.com) via the shared helper.
     xcm_inject_masks(cfg.userContentController);
 
+    // Install the unified action shell: context menus, blob/data downloads,
+    // image copy/save, and shouldPerformDownload interception.
+    xcm_shell_install(cfg.userContentController, s_window, s_state);
+
     // Apply ad blocking content rules if already compiled.
     if (s_ad_rule_list) {
         [cfg.userContentController addContentRuleList:s_ad_rule_list];
@@ -1177,7 +1437,11 @@ void webview_destroy(void* handle) {
 
 void webview_show(void* handle) {
     if (!handle) return;
-    ((WVHandle*)handle)->wv.hidden = NO;
+    WVHandle* h = (WVHandle*)handle;
+    h->wv.hidden = NO;
+    // Keep the shell's active webview reference in sync with the visible tab
+    // so that evaluateJavaScript calls (image fetch, etc.) target the right view.
+    xcm_shell_set_webview(h->wv, h->tab_id);
 }
 
 void webview_hide(void* handle) {

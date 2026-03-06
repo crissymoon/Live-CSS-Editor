@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title id="status">EDITZ - Multi-tasker</title>
+    <link rel="stylesheet" href="css/editz.css">
+</head>
+<body>
+
+    <span id="successMessage"></span>
+
+    <div class="toolbar">
+
+        <!-- Edit Actions -->
+        <div class="dropdown">
+            <button class="dropdown-toggle">Edit</button>
+            <div class="dropdown-content">
+                <button id="selectDeleteBtn">Clear</button>
+                <button onclick="selectText()">Select All</button>
+                <button id="copyButton">Copy All</button>
+                <button id="undo" title="Undo (Ctrl+Z)">Undo</button>
+                <button id="redo" title="Redo (Ctrl+Y)">Redo</button>
+                <button onclick="clearFormattingAtSelection()">Clear Format</button>
+                <button onclick="makeUppercase()">UPPERCASE</button>
+                <button onclick="makeLowercase()">lowercase</button>
+            </div>
+        </div>
+
+        <!-- Templates -->
+        <div class="dropdown">
+            <button class="dropdown-toggle">Templates</button>
+            <div class="dropdown-content">
+                <button id="fillButton">Business Resume</button>
+                <button id="basicResume">Basic Resume</button>
+                <button id="hospitalityBtn">Hospitality Resume</button>
+                <button id="constructionBTN">Construction Resume</button>
+                <button id="coverL">Basic Cover Letter</button>
+                <button id="fancyCL">Fancy Cover Letter</button>
+                <button onclick="window.open('diff-cal-tool.html', '_blank')">Calendar Tool</button>
+            </div>
+        </div>
+
+        <!-- File -->
+        <div class="dropdown">
+            <button class="dropdown-toggle">File</button>
+            <div class="dropdown-content">
+                <button onclick="saveAsWord()">Save as Word</button>
+                <button id="saveButton">Save as Editz (HTML)</button>
+                <button onclick="document.getElementById('fileInput').click()">Load Editz File</button>
+                <button onclick="window.open('help-editz.html', '_blank')">Help</button>
+            </div>
+        </div>
+
+        <div class="tb-sep"></div>
+
+        <!-- Font Family -->
+        <select id="fontFamily">
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="'Calibri', sans-serif">Calibri</option>
+            <option value="'Helvetica', Arial, sans-serif">Helvetica</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="Tahoma, sans-serif">Tahoma</option>
+            <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+            <option value="Garamond, serif">Garamond</option>
+            <option value="'Palatino Linotype', 'Book Antiqua', Palatino, serif">Palatino</option>
+            <option value="'Courier New', Courier, monospace">Courier New</option>
+            <option value="'Cambria', serif">Cambria</option>
+            <option value="'Century Gothic', sans-serif">Century Gothic</option>
+        </select>
+
+        <!-- Font Size -->
+        <select id="fontSize">
+            <option value="9pt">9pt</option>
+            <option value="10pt">10pt</option>
+            <option value="11pt" selected>11pt</option>
+            <option value="12pt">12pt</option>
+            <option value="13pt">13pt</option>
+            <option value="14pt">14pt</option>
+            <option value="16pt">16pt</option>
+            <option value="18pt">18pt</option>
+            <option value="20pt">20pt</option>
+            <option value="24pt">24pt</option>
+            <option value="36pt">36pt</option>
+            <option value="46pt">46pt</option>
+            <option value="64pt">64pt</option>
+        </select>
+
+        <div class="tb-sep"></div>
+
+        <!-- Colors -->
+        <div class="color-picker-wrapper">
+            <input type="color" id="textColor" class="color-picker" title="Text Color">
+            <label for="textColor" class="color-label">Txt</label>
+        </div>
+        <div id="textColorHistory" class="color-history"></div>
+
+        <div class="color-picker-wrapper">
+            <input type="color" id="colorPicker" class="color-picker" value="#ff0000" title="Highlight">
+            <label for="colorPicker" class="color-label">HL</label>
+        </div>
+        <div id="highlightColorHistory" class="color-history"></div>
+
+        <div class="tb-sep"></div>
+
+        <!-- Style Buttons -->
+        <button id="boldBtn" title="Bold"><b>B</b></button>
+        <button id="italicBtn" title="Italic"><i>I</i></button>
+        <button id="underlineBtn" title="Underline"><u>U</u></button>
+        <button id="strikeBtn" title="Strikethrough"
+            onclick="document.execCommand('strikeThrough',false,null);document.getElementById('editor').focus();saveState();">
+            <s>S</s>
+        </button>
+
+        <div class="tb-sep"></div>
+
+        <!-- Format Dropdown -->
+        <div class="dropdown">
+            <button class="dropdown-toggle">Format</button>
+            <div class="dropdown-content">
+                <button id="alignLeft"   title="Align Left">Align Left</button>
+                <button id="alignCenter" title="Align Center">Center</button>
+                <button id="alignRight"  title="Align Right">Align Right</button>
+                <button onclick="insertHR()">Insert Line</button>
+                <button onclick="insertList('ul')">&#8226; Bullet List</button>
+                <button onclick="insertList('ol')">1. Number List</button>
+                <button onclick="insertHS1()">Heading</button>
+                <button onclick="insertHL()">Highlights</button>
+            </div>
+        </div>
+
+        <!-- Insert Dropdown -->
+        <div class="dropdown">
+            <button class="dropdown-toggle">Insert</button>
+            <div class="dropdown-content">
+                <button id="insertLinkBtn">Link</button>
+                <button onclick="document.getElementById('imageInput').click()">Image</button>
+                <button id="openPopup">Emoji</button>
+            </div>
+        </div>
+
+        <div class="tb-sep"></div>
+
+        <!-- Line Spacing -->
+        <div class="line-spacing-control">
+            <label for="lineSpacing">Line:</label>
+            <select id="lineSpacing" onchange="setLineSpacing(this.value)">
+                <option value="1">1.0</option>
+                <option value="1.2">1.2</option>
+                <option value="1.5">1.5</option>
+                <option value="1.8">1.8</option>
+                <option value="2">2.0</option>
+                <option value="2.5">2.5</option>
+            </select>
+        </div>
+
+        <div class="tb-sep"></div>
+
+        <button onclick="window.location.reload();">Reload</button>
+        <button id="myBtn">Print</button>
+
+        <!-- Hidden file inputs -->
+        <input type="file" id="imageInput" accept="image/*"        style="display:none;" />
+        <input type="file" id="fileInput"  accept=".html,.htm"     style="display:none;" />
+    </div>
+
+
+    <!-- Editor -->
+    <div class="editor-container">
+        <div class="resume-title">
+            <img src="imgs/editz-logo.webp" alt="EDITZ">
+        </div>
+        <hr class="content-divider">
+        <div id="editor" contenteditable="true" data-save-id="editor"
+             spellcheck="true" data-gramm="true" data-gramm_editor="true"
+             data-grammarly-shadow-root="true">
+&gt;_Click the help button for more information about all the features of this editor.
+<br><br>
+&gt;_Click the clear button and begin typing here, or insert a template to get started.
+<br><br>
+&gt;_On some smaller mobile devices, you may need to rotate your phone sideways and then back to resize the 'Calendar Tool' correctly. This is not necessary on all devices.
+        </div>
+    </div>
+
+
+    <!-- Print / Scale Modal -->
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <center>
+                <button class="refresh-btn" onclick="window.location.reload();">Click Here to Close This Window</button>
+            </center>
+            <div class="scale-control">
+                <p>Scale to fit page/pages:</p>
+                <button class="btn-scale" id="scale-down">-</button>
+                <div class="scale-value" id="scale-value">100%</div>
+                <button class="btn-scale" id="scale-up">+</button>
+                <button class="btn-scale" id="print-btn">Print</button>
+            </div>
+            <center>
+                <p><strong>Best Settings for Resumes:</strong></p>
+                <ul style="text-align:left; display:inline-block; margin:0 auto;">
+                    <li>Line spacing: 1.5</li>
+                    <li>Font size: Medium or Large</li>
+                    <li>Scale: 80%</li>
+                </ul>
+                <p>You can adjust these settings to fit your needs!</p>
+                <p><strong>Print Layout:</strong> When the print window opens, choose Portrait for resumes or Landscape for calendars.</p>
+                <p><strong>Scaling:</strong> Use the plus and minus buttons above to make your content bigger or smaller. This helps fit everything nicely on one page.</p>
+                <button class="refresh-btn" onclick="window.location.reload();">Click Here to Close This Window</button>
+            </center>
+        </div>
+    </div>
+
+
+    <!-- Emoji Popup -->
+    <div id="emojiPopup">
+        <p>Just click on an emoji to add it!</p>
+        <div id="emoji-container">
+            <!-- Emoji buttons injected by emoji.js -->
+        </div>
+        <button id="closePopup">Close</button>
+    </div>
+
+
+    <!-- Footer -->
+    <footer>
+        <img src="imgs/footer-logo.webp" alt="EDITZ Footer Logo" class="footer-logo">
+        <div class="footer-text">
+            This is a seed project and free writing tool provided by EDITZ - Crissy Moon<br>
+            <a href="https://crissymoon.com/projects.html" target="_blank">https://crissymoon.com/projects.html</a>
+        </div>
+    </footer>
+
+
+    <!-- Modular JS -->
+    <script src="js/editor.js"></script>
+    <script src="js/color.js"></script>
+    <script src="js/emoji.js"></script>
+    <script src="js/templates.js"></script>
+    <script src="js/file.js"></script>
+    <script src="js/ui.js"></script>
+
+</body>
+</html>

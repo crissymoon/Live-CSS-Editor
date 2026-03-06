@@ -1,0 +1,484 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editz Help Guide</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #000000;
+            background-image: 
+                linear-gradient(0deg, transparent 24%, rgba(0, 255, 255, 0.15) 25%, rgba(0, 255, 255, 0.15) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.15) 75%, rgba(0, 255, 255, 0.15) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(0, 255, 255, 0.15) 25%, rgba(0, 255, 255, 0.15) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.15) 75%, rgba(0, 255, 255, 0.15) 76%, transparent 77%, transparent);
+            background-size: 50px 50px;
+            color: #000000;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px;
+            background-color: #ffffff;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        h1 {
+            color: #000000;
+            border-bottom: 3px solid #00ffff;
+            padding-bottom: 15px;
+            margin-top: 0;
+            font-size: 32px;
+            text-align: center;
+        }
+        h2 {
+            color: #000000;
+            border-bottom: 2px solid #00ffff;
+            padding-bottom: 10px;
+            margin-top: 35px;
+            font-size: 24px;
+        }
+        h3 {
+            color: #000000;
+            margin-top: 25px;
+            font-size: 18px;
+        }
+        .intro {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-left: 4px solid #00ffff;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+        .button-guide {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #00ffff;
+        }
+        .button-name {
+            font-weight: bold;
+            color: #000000;
+            font-size: 16px;
+        }
+        .tip {
+            background-color: #e6f9ff;
+            padding: 15px;
+            border-left: 4px solid #00ffff;
+            margin: 15px 0;
+        }
+        .tip::before {
+            content: "TIP: ";
+            font-weight: bold;
+        }
+        ul, ol {
+            padding-left: 30px;
+            margin: 15px 0;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        p {
+            margin-bottom: 15px;
+        }
+        hr {
+            border: none;
+            border-top: 2px solid #00ffff;
+            margin: 30px 0;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #00ffff;
+            margin: 10px 0;
+            display: block;
+        }
+        .image-caption {
+            font-size: 14px;
+            color: #666666;
+            font-style: italic;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .highlight-example {
+            background-color: #000000;
+            color: #ffffff;
+            padding: 5px 10px;
+            display: inline-block;
+        }
+        .steps {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+        .steps li {
+            counter-increment: step-counter;
+            margin-bottom: 20px;
+            padding-left: 40px;
+            position: relative;
+        }
+        .steps li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background-color: #00ffff;
+            color: #000000;
+            font-weight: bold;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 26px;
+            }
+            h2 {
+                font-size: 20px;
+            }
+        }
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+            .container {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 22px;
+            }
+            h2 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Welcome to Editz!</h1>
+    
+    <div class="intro">
+        <strong>Editz</strong> is a simple, easy-to-use editor that helps you create resumes, cover letters, and calendars right in your web browser. No complicated software needed - just click, type, and create!
+    </div>
+
+    <h2>Getting Started</h2>
+    
+    <div class="tip">
+        First time using Editz? Click on any template from the "Templates" menu, then click the "Clear" button to start fresh and begin editing!
+    </div>
+
+    <h3>How Editz Works:</h3>
+    <ul>
+        <li><strong>Auto-Save:</strong> Your work saves automatically as you type - no need to worry about losing your work!</li>
+        <li><strong>Templates:</strong> Use ready-made resume and cover letter templates to get started fast</li>
+        <li><strong>Easy Editing:</strong> Click anywhere in the white box and start typing</li>
+        <li><strong>Save and Share:</strong> Save your work as PDF, Word, or HTML files</li>
+    </ul>
+
+    <hr>
+
+    <h2>How to Resize Pictures</h2>
+    
+    <div class="intro">
+        After you add a picture using the "Img" button, you can make it bigger or smaller by clicking on it!
+    </div>
+
+    <h3>Easy Picture Resizing:</h3>
+    
+    <ol class="steps">
+        <li>
+            <strong>Small Size (First Click):</strong> When you first add a picture, it starts small. This is perfect for small logos or icons.
+            <img src="small-img.png" alt="Small picture size example">
+            <div class="image-caption">Small size - good for logos and small images</div>
+        </li>
+        
+        <li>
+            <strong>Medium Size (Second Click):</strong> Click the picture once, and it grows to medium size. Great for most photos!
+            <img src="med-img.png" alt="Medium picture size example">
+            <div class="image-caption">Medium size - perfect for most pictures</div>
+        </li>
+        
+        <li>
+            <strong>Large Size (Third Click):</strong> Click the picture again, and it gets really big. Use this when you want the picture to stand out!
+            <img src="large-img.png" alt="Large picture size example">
+            <div class="image-caption">Large size - makes your picture the main focus</div>
+        </li>
+    </ol>
+
+    <div class="tip">
+        Keep clicking to go back to small! The sizes loop around: small to medium to large to small again. Click as many times as you need to get the perfect size!
+    </div>
+
+    <hr>
+
+    <h2>Editing Resume Skills (Important!)</h2>
+    
+    <div class="intro">
+        When you use a resume template, you'll see a "Skills" section with example skills. Here's how to change them to YOUR skills:
+    </div>
+
+    <h3>Three Easy Ways to Edit Skills:</h3>
+    
+    <ol class="steps">
+        <li>
+            <strong>Click and Highlight, Then Delete:</strong> Click on a skill box, highlight the text, and press the Delete key to remove it completely.
+            <img src="res-edit-1.png" alt="Highlighting and deleting a skill">
+            <div class="image-caption">Step 1: Highlight the skill and press Delete</div>
+        </li>
+        
+        <li>
+            <strong>Backspace All Characters:</strong> Click inside a skill box and press Backspace until all the text is gone. The box will disappear.
+            <img src="res-edit-2.png" alt="Using backspace to remove a skill">
+            <div class="image-caption">Step 2: Backspace to remove all text in the skill box</div>
+        </li>
+        
+        <li>
+            <strong>Press Enter to Add New Skills:</strong> Click at the end of a skill and press Enter to create a new skill box. Then type your new skill!
+            <img src="res-edit-3.png" alt="Pressing enter to add new skill">
+            <div class="image-caption">Step 3: Press Enter to add a new skill box</div>
+        </li>
+    </ol>
+
+    <div class="tip">
+        You can add as many skills as you want! Just keep pressing Enter to create new skill boxes.
+    </div>
+
+    <hr>
+
+    <h2>Toolbar Buttons Explained</h2>
+
+    <h3>Edit Menu:</h3>
+    <div class="button-guide">
+        <span class="button-name">Clear:</span> Removes everything from the editing area (don't worry - it asks "Are you sure?" first!)
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Select All:</span> Selects all your text at once - useful when you want to change the font for everything
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Copy All:</span> Copies all your content with all the formatting - great for pasting into emails
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Undo/Redo:</span> Go backward or forward through your changes (like an eraser and un-eraser!)
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Clear Format:</span> Removes all formatting (colors, bold, etc.) from the text you select
+    </div>
+
+    <h3>Templates Menu:</h3>
+    <p>Choose from ready-made templates:</p>
+    <ul>
+        <li>Business Resume</li>
+        <li>Basic Resume</li>
+        <li>Hospitality Resume</li>
+        <li>Construction Resume</li>
+        <li>Basic Cover Letter</li>
+        <li>Fancy Cover Letter</li>
+        <li>Calendar Tool (for making calendars)</li>
+    </ul>
+
+    <h3>File Menu:</h3>
+    <div class="button-guide">
+        <span class="button-name">Save as PDF/png:</span> Creates a PDF file you can print or share
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Save as Word:</span> Creates a Microsoft Word document (.doc file)
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Save as Editz (HTML):</span> Saves as an HTML file that works on any computer or device and takes up very little space - this is the best way to save your work so you can edit it again later!
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Load Editz File:</span> Opens a previously saved Editz HTML file
+    </div>
+
+    <h3>Text Formatting:</h3>
+    <div class="button-guide">
+        <span class="button-name">Font Family:</span> Change the font style (Arial, Times New Roman, etc.)
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Font Size:</span> Make text smaller or larger
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Text Color (Txt):</span> Click the colored box, pick a color, then select any text to change its color
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Highlight Color (HL):</span> Select your text first, then click this colored box to add a <span class="highlight-example">colored background behind your text</span>
+    </div>
+    <div class="button-guide">
+        <span class="button-name">B:</span> Makes text <strong>bold</strong>
+    </div>
+    <div class="button-guide">
+        <span class="button-name">I:</span> Makes text <em>italic</em>
+    </div>
+    <div class="button-guide">
+        <span class="button-name">U:</span> Makes text <u>underlined</u>
+    </div>
+
+    <h3>Format Menu:</h3>
+    <div class="button-guide">
+        <span class="button-name">Align Left/Center/Right:</span> Changes where your text appears on the page
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Insert Line:</span> Adds a horizontal line across the page
+    </div>
+    <div class="button-guide">
+        <span class="button-name">• Bullet List:</span> Creates a list with bullet points
+    </div>
+    <div class="button-guide">
+        <span class="button-name">1. Number List:</span> Creates a numbered list
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Heading:</span> Inserts a large, formatted heading
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Highlight:</span> Inserts a gray highlighted box for important text
+    </div>
+
+    <h3>Other Tools:</h3>
+    <div class="button-guide">
+        <span class="button-name">Link:</span> Highlight text or a web address and click this to make it clickable
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Img:</span> Click to upload and insert an image
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Emojis:</span> Opens a window with emojis you can click to insert
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Line Spacing:</span> Changes how much space is between each line - makes text easier to read
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Reload:</span> Refreshes the page - useful if something looks weird
+    </div>
+    <div class="button-guide">
+        <span class="button-name">Print:</span> Opens the print window with special options to help fit your resume on one page
+    </div>
+
+    <hr>
+
+    <h2>How to Save as PDF</h2>
+    
+    <p>You can save your resume or document as a PDF using your web browser's built-in print feature. Here's how:</p>
+    
+    <h3>Step 1: Open the Print Menu</h3>
+    <ul>
+        <li><strong>Windows:</strong> Press <strong>Ctrl + P</strong></li>
+        <li><strong>Mac:</strong> Press <strong>Cmd + P</strong></li>
+        <li><strong>Or:</strong> Right-click anywhere on the page and select "Print"</li>
+    </ul>
+    
+    <h3>Step 2: Choose "Save as PDF"</h3>
+    <ul>
+        <li>In the print dialog, look for the <strong>Destination</strong> or <strong>Printer</strong> dropdown</li>
+        <li>Select <strong>"Save as PDF"</strong> or <strong>"Microsoft Print to PDF"</strong></li>
+        <li>Do NOT select a regular printer</li>
+    </ul>
+    
+    <h3>Step 3: Adjust Settings (Optional)</h3>
+    <ul>
+        <li><strong>Layout:</strong> Choose Portrait or Landscape</li>
+        <li><strong>Pages:</strong> Select "All" to save everything</li>
+        <li><strong>Scale:</strong> Try 80% to 100% to fit your content nicely</li>
+        <li><strong>Margins:</strong> Default or None both work well</li>
+    </ul>
+    
+    <h3>Step 4: Save Your PDF</h3>
+    <ul>
+        <li>Click the <strong>"Save"</strong> or <strong>"Print"</strong> button</li>
+        <li>Choose where to save the file on your computer</li>
+        <li>Give it a name like "my-resume.pdf"</li>
+        <li>Click <strong>"Save"</strong></li>
+    </ul>
+    
+    <div class="tip">
+        <strong>Best Settings for Resumes:</strong> Use Line Spacing = 1.5, Font Size = Medium or Large, and when printing to PDF set Scale = 80% to fit everything on one page nicely.
+    </div>
+
+    <hr>
+
+    <h2>Helpful Tips</h2>
+
+    <div class="tip">
+        To start fresh: Click a template, then click "Clear" to remove the example text and start typing your own information.
+    </div>
+
+    <div class="tip">
+        You can change how big your pictures are! Just click on any picture you add, and it will grow bigger each time you click. Keep clicking to cycle through small, medium, and large sizes!
+    </div>
+
+    <div class="tip">
+        The emoji button is in the toolbar, but Windows users can also press the Windows Key + Period (.) to open Windows' emoji picker!
+    </div>
+
+    <div class="tip">
+        Save your work often! Use "Save as Editz (HTML)" to keep a backup copy you can open and edit again later. HTML files are small and work on any computer!
+    </div>
+
+    <hr>
+
+    <h2>Keyboard Shortcuts</h2>
+    <ul>
+        <li><strong>Ctrl+Z (or Cmd+Z on Mac):</strong> Undo your last change</li>
+        <li><strong>Ctrl+Y (or Cmd+Y on Mac):</strong> Redo a change you undid</li>
+        <li><strong>Windows Key + . (period):</strong> Open emoji picker (Windows only)</li>
+    </ul>
+
+    <h3>Special Characters (Windows Computers):</h3>
+    <p>Hold down the Alt key and type these numbers on your number pad (the numbers on the right side of your keyboard):</p>
+    <ul>
+        <li><strong>Alt + 0151:</strong> Long dash for emphasis</li>
+        <li><strong>Alt + 26:</strong> Right arrow</li>
+        <li><strong>Alt + 27:</strong> Left arrow</li>
+        <li><strong>Alt + 0169:</strong> Copyright symbol</li>
+        <li><strong>Alt + 0153:</strong> Trademark symbol</li>
+    </ul>
+
+    <h3>Special Characters (Mac Computers):</h3>
+    <p>Hold down the Option key (sometimes labeled Alt) and press these keys:</p>
+    <ul>
+        <li><strong>Option + Shift + - (minus):</strong> Long dash for emphasis</li>
+        <li><strong>Option + G:</strong> Copyright symbol</li>
+        <li><strong>Option + 2:</strong> Trademark symbol</li>
+        <li><strong>Control + Command + Space:</strong> Opens emoji and symbols picker (includes arrows and many more!)</li>
+    </ul>
+
+    <div class="tip">
+        Mac users: The emoji picker (Control + Command + Space) is the easiest way to find special symbols, arrows, and emojis. Just type what you are looking for, like "arrow" or "copyright"!
+    </div>
+
+    <hr>
+
+    <h2>Need More Help?</h2>
+    <p>Remember: Editz automatically saves your work as you type, so you will not lose anything! Just click around, try different buttons, and have fun creating your resume or cover letter. You cannot break anything!</p>
+    
+    <div class="intro">
+        <strong>Quick Start Guide:</strong> Click Templates Menu, pick a template, click "Clear" button, start typing your information, then use your browser's Print feature (Ctrl+P or Cmd+P) and choose "Save as PDF" when you are done!
+    </div>
+
+    <div class="tip">
+        <strong>Need Support?</strong> Visit our support page at <a href="https://xcaliburmoon.net/public_forms/support/" target="_blank" style="color: #0066cc; text-decoration: underline;">https://xcaliburmoon.net/public_forms/support/</a>
+        <br>We will get back to you in 24-48 hours, Monday through Friday. Sometimes on the weekends too!
+    </div>
+
+</div>
+
+</body>
+</html>
+            
+            
+            
+            
+            

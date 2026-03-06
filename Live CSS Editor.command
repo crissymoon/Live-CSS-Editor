@@ -116,10 +116,9 @@ _open_agent_flow() {
         printf "  ${C_GREEN}PHP server started (PID %s)${R}\n" "$pid"
     fi
     printf "  ${C_GREY}Opening http://localhost:%s ...${R}\n" "$port"
-    local wb_python="$DIR/dev-browser/venv/bin/python3"
-    local wb_script="$DIR/dev-browser/webbrowse.py"
-    if [[ -f "$wb_python" && -f "$wb_script" ]]; then
-        "$wb_python" "$wb_script" --url "http://localhost:$port" >/tmp/agent-flow-browser.log 2>&1 &
+    local imgui_run="$DIR/imgui-browser/run.sh"
+    if [[ -f "$imgui_run" ]]; then
+        bash "$imgui_run" --url "http://localhost:$port" >/tmp/agent-flow-browser.log 2>&1 &
         sleep 0.8
         printf "  ${C_GREEN}Browser launched${R}\n"
     elif command -v open &>/dev/null; then
@@ -203,22 +202,21 @@ _start_admin() {
     printf "\n"
 
     # launch browser
-    local PYTHON="$DIR/dev-browser/venv/bin/python3"
-    local BROWSER="$DIR/dev-browser/webbrowse.py"
-    local LOGIN_URL="http://127.0.0.1:8080/pb_admin/login.php"
-    if [[ -f "$PYTHON" && -f "$BROWSER" ]]; then
-        status_info "Launching dev browser..."
-        "$PYTHON" "$BROWSER" --url "$LOGIN_URL" >/tmp/live-css-browser.log 2>&1 &
+    local IMGUI_RUN="$DIR/imgui-browser/run.sh"
+    local LOGIN_URL="http://127.0.0.1:8080/pb_admin/dashboard.php"
+    if [[ -f "$IMGUI_RUN" ]]; then
+        status_info "Launching imgui-browser..."
+        bash "$IMGUI_RUN" >/tmp/live-css-browser.log 2>&1 &
         local BROWSER_PID=$!
-        sleep 0.8
+        sleep 1.0
         if kill -0 "$BROWSER_PID" 2>/dev/null; then
-            status_ok "Browser started  (PID $BROWSER_PID)"
+            status_ok "imgui-browser started  (PID $BROWSER_PID)"
         else
-            status_fail "Browser exited early -- check /tmp/live-css-browser.log"
+            status_fail "imgui-browser exited early -- check /tmp/live-css-browser.log"
             open "$LOGIN_URL" 2>/dev/null || true
         fi
     else
-        status_info "Dev browser venv not found -- opening system browser..."
+        status_info "imgui-browser/run.sh not found -- opening system browser..."
         open "$LOGIN_URL" 2>/dev/null || printf "  ${C_YELLOW}Visit: %s${R}\n" "$LOGIN_URL"
     fi
 

@@ -78,9 +78,9 @@ if ($action === 'generate' || $action === 'enhance') {
 
     if (trim($prompt) === '') { echo json_encode(['error' => 'Prompt is required']); exit; }
 
-    if ($model === 'gpt-image-1') {
+    if ($model === 'gpt-image-1' || $model === 'gpt-image-1.5') {
         $imgPayload = [
-            'model'         => 'gpt-image-1',
+            'model'         => $model,
             'prompt'        => $prompt,
             'n'             => 1,
             'size'          => $size,
@@ -458,6 +458,7 @@ select:focus { border-color: var(--accent); }
             <label>Model</label>
             <select id="opt-model" onchange="onModelChange()">
               <option value="gpt-image-1" selected>gpt-image-1</option>
+              <option value="gpt-image-1.5">gpt-image-1.5</option>
               <option value="dall-e-3">dall-e-3</option>
             </select>
           </div>
@@ -539,12 +540,14 @@ var CAT_DEFAULTS = {
 };
 
 var SIZES = {
-  'gpt-image-1': ['1024x1024', '1536x1024', '1024x1536'],
-  'dall-e-3':    ['1024x1024', '1792x1024', '1024x1792'],
+  'gpt-image-1':   ['1024x1024', '1536x1024', '1024x1536'],
+  'gpt-image-1.5': ['1024x1024', '1536x1024', '1024x1536'],
+  'dall-e-3':      ['1024x1024', '1792x1024', '1024x1792'],
 };
 var QUALITIES = {
-  'gpt-image-1': ['auto', 'high', 'medium', 'low'],
-  'dall-e-3':    ['hd', 'standard'],
+  'gpt-image-1':   ['auto', 'high', 'medium', 'low'],
+  'gpt-image-1.5': ['auto', 'high', 'medium', 'low'],
+  'dall-e-3':      ['hd', 'standard'],
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -575,7 +578,7 @@ function populateSelects(model) {
   if (prevQual && QUALITIES[model].includes(prevQual))   qualEl.value = prevQual;
 
   // Show/hide model-specific controls
-  var isGpt = (model === 'gpt-image-1');
+  var isGpt = (model === 'gpt-image-1' || model === 'gpt-image-1.5');
   document.getElementById('row-background').style.display = isGpt ? '' : 'none';
   document.getElementById('row-format').style.display     = isGpt ? '' : 'none';
   document.getElementById('row-style').style.display      = isGpt ? 'none' : '';

@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title id="status">Custom Calendar</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        /* Theme Variables */
+        :root {
+            --theme-primary: #000000;
+            --theme-primary-hover: #ffffff;
+            --theme-border: #000000;
+        }
+        
+        /* Theme Definitions */
+        body.theme-classic {
+            --theme-primary: #000000;
+            --theme-primary-hover: #333333;
+            --theme-border: #000000;
+        }
+        
+        body.theme-blue {
+            --theme-primary: #1e3a8a;
+            --theme-primary-hover: #2563eb;
+            --theme-border: #1e3a8a;
+        }
+        
+        body.theme-green {
+            --theme-primary: #14532d;
+            --theme-primary-hover: #16a34a;
+            --theme-border: #14532d;
+        }
+        
+        body.theme-purple {
+            --theme-primary: #581c87;
+            --theme-primary-hover: #9333ea;
+            --theme-border: #581c87;
+        }
+        
+        body.theme-burgundy {
+            --theme-primary: #7f1d1d;
+            --theme-primary-hover: #dc2626;
+            --theme-border: #7f1d1d;
+        }
+        
+        body.theme-navy {
+            --theme-primary: #0c4a6e;
+            --theme-primary-hover: #0284c7;
+            --theme-border: #0c4a6e;
+        }
+        
+        body.theme-teal {
+            --theme-primary: #134e4a;
+            --theme-primary-hover: #14b8a6;
+            --theme-border: #134e4a;
+        }
+        
+        body.theme-charcoal {
+            --theme-primary: #374151;
+            --theme-primary-hover: #6b7280;
+            --theme-border: #374151;
+        }
+        
+        /* Cool Themed Styles */
+        body.theme-cyberpunk {
+            --theme-primary: #ff00ff;
+            --theme-primary-hover: #00ffff;
+            --theme-border: #ff00ff;
+            background: linear-gradient(135deg, #0a0015 0%, #1a0033 100%);
+        }
+        
+        body.theme-cyberpunk h1,
+        body.theme-cyberpunk h2,
+        body.theme-cyberpunk #current-month-year {
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+        
+        body.theme-cyberpunk h1 {
+            border-bottom-color: #00ffff;
+        }
+        
+        body.theme-cyberpunk th {
+            background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+            color: #000000;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            font-weight: bold;
+        }
+        
+        body.theme-cyberpunk .calendar-header {
+            background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+            color: #000000;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+        }
+        
+        body.theme-cyberpunk button {
+            background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+            color: #000000;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        
+        body.theme-cyberpunk td {
+            border-color: #00ffff;
+            background: rgba(255, 255, 255, 0.95);
+        }
+        
+        body.theme-retro {
+            --theme-primary: #ff6b35;
+            --theme-primary-hover: #f7931e;
+            --theme-border: #ff6b35;
+            background: linear-gradient(135deg, #f7931e 0%, #ff6b35 50%, #c73866 100%);
+        }
+        
+        body.theme-retro h1,
+        body.theme-retro h2,
+        body.theme-retro #current-month-year {
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+        
+        body.theme-retro h1 {
+            border-bottom-color: #ffffff;
+        }
+        
+        body.theme-retro th {
+            background: linear-gradient(90deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
+            color: #000000;
+            font-weight: bold;
+        }
+        
+        body.theme-retro .calendar-header {
+            background: linear-gradient(90deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
+            color: #000000;
+        }
+        
+        body.theme-retro button {
+            background: linear-gradient(90deg, #ff6b35 0%, #f7931e 100%);
+            color: #ffffff;
+        }
+        
+        body.theme-matrix {
+            --theme-primary: #00ff00;
+            --theme-primary-hover: #00cc00;
+            --theme-border: #00ff00;
+            background-color: #000000;
+        }
+        
+        body.theme-matrix h1,
+        body.theme-matrix h2,
+        body.theme-matrix #current-month-year {
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        body.theme-matrix h1 {
+            border-bottom-color: #00ff00;
+        }
+        
+        body.theme-matrix th {
+            background-color: #003300;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+            border-color: #00ff00;
+        }
+        
+        body.theme-matrix .calendar-header {
+            background-color: #003300;
+            color: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+        
+        body.theme-matrix button {
+            background-color: #003300;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        body.theme-matrix button:hover {
+            background-color: #00ff00;
+            color: #000000;
+        }
+        
+        body.theme-matrix td {
+            border-color: #00ff00;
+        }
+        
+        body.theme-vaporwave {
+            --theme-primary: #ff71ce;
+            --theme-primary-hover: #01cdfe;
+            --theme-border: #ff71ce;
+            background: linear-gradient(135deg, #01cdfe 0%, #ff71ce 50%, #b967ff 100%);
+        }
+        
+        body.theme-vaporwave h1,
+        body.theme-vaporwave h2,
+        body.theme-vaporwave #current-month-year {
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        body.theme-vaporwave h1 {
+            border-bottom-color: #ffffff;
+        }
+        
+        body.theme-vaporwave th {
+            background: linear-gradient(90deg, #ff71ce 0%, #01cdfe 50%, #b967ff 100%);
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        body.theme-vaporwave .calendar-header {
+            background: linear-gradient(90deg, #ff71ce 0%, #01cdfe 50%, #b967ff 100%);
+            color: #ffffff;
+            box-shadow: 0 5px 20px rgba(255, 113, 206, 0.5);
+        }
+        
+        body.theme-vaporwave button {
+            background: linear-gradient(135deg, #ff71ce 0%, #b967ff 100%);
+            color: #ffffff;
+            border: 2px solid #01cdfe;
+        }
+        
+        body.theme-vaporwave td {
+            border-color: #ff71ce;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        body.theme-gothic {
+            --theme-primary: #1a0000;
+            --theme-primary-hover: #4d0000;
+            --theme-border: #660000;
+            background: linear-gradient(135deg, #000000 0%, #1a0000 100%);
+        }
+        
+        body.theme-gothic h1,
+        body.theme-gothic h2,
+        body.theme-gothic #current-month-year {
+            color: #cc0000;
+            text-shadow: 0 0 10px rgba(204, 0, 0, 0.8);
+        }
+        
+        body.theme-gothic h1 {
+            border-bottom-color: #660000;
+        }
+        
+        body.theme-gothic th {
+            background: linear-gradient(135deg, #1a0000 0%, #4d0000 100%);
+            color: #cc0000;
+            border-color: #660000;
+            text-shadow: 0 0 10px rgba(204, 0, 0, 0.5);
+        }
+        
+        body.theme-gothic .calendar-header {
+            background: linear-gradient(135deg, #1a0000 0%, #4d0000 100%);
+            color: #cc0000;
+            border-color: #660000;
+        }
+        
+        body.theme-gothic button {
+            background-color: #1a0000;
+            color: #cc0000;
+            border: 2px solid #660000;
+        }
+        
+        body.theme-gothic button:hover {
+            background-color: #4d0000;
+            color: #ff0000;
+        }
+        
+        body.theme-gothic td {
+            border-color: #660000;
+        }
+        
+        body.theme-pastel {
+            --theme-primary: #ffb3ba;
+            --theme-primary-hover: #ffdfba;
+            --theme-border: #bae1ff;
+            background: linear-gradient(135deg, #ffffba 0%, #ffdfba 50%, #baffc9 100%);
+        }
+        
+        body.theme-pastel th {
+            background: linear-gradient(90deg, #ffb3ba 0%, #ffdfba 50%, #ffffba 100%);
+            color: #333333;
+            border-color: #bae1ff;
+        }
+        
+        body.theme-pastel .calendar-header {
+            background: linear-gradient(90deg, #ffb3ba 0%, #ffdfba 50%, #ffffba 100%);
+            color: #333333;
+            border-color: #bae1ff;
+        }
+        
+        body.theme-pastel button {
+            background: linear-gradient(135deg, #ffb3ba 0%, #ffdfba 100%);
+            color: #333333;
+            border: 2px solid #bae1ff;
+        }
+        
+        body.theme-pastel button:hover {
+            background: linear-gradient(135deg, #ffdfba 0%, #ffffba 100%);
+        }
+        
+        body.theme-pastel td {
+            border-color: #bae1ff;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #ffffff;
+            color: #000000;
+        }
+        
+        .calendar-container {
+            width: 100%;
+            max-width: 1200px;
+        }
+        
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--theme-primary);
+            color: #ffffff;
+            border: 2px solid var(--theme-border);
+        }
+        
+        .month-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        select, button {
+            padding: 10px 15px;
+            font-size: 16px;
+            border: 2px solid var(--theme-border);
+            background-color: #ffffff;
+            color: #000000;
+            cursor: pointer;
+        }
+        
+        button {
+            background-color: var(--theme-primary);
+            color: #ffffff;
+            border: 2px solid var(--theme-border);
+        }
+        
+        button:hover {
+            background-color: var(--theme-primary-hover);
+            color: #ffffff;
+        }
+        
+        select {
+            background-color: #ffffff;
+            color: #000000;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background-color: var(--theme-primary);
+            color: #ffffff;
+            padding: 12px;
+            text-align: center;
+            border: 2px solid var(--theme-border);
+            font-weight: bold;
+        }
+        
+        td {
+            border: 2px solid var(--theme-border);
+            padding: 10px;
+            height: 100px;
+            vertical-align: top;
+            position: relative;
+            background-color: #ffffff;
+        }
+
+        .day-number {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #000000;
+        }
+        
+        .other-month {
+            background-color: #f5f5f5;
+            color: #999999;
+            border: 2px solid #cccccc;
+        }
+        
+        .today {
+            background-color: #e6e6e6;
+            border: 3px solid #000000;
+        }
+        
+        #current-month-year {
+            color: #000000;
+            font-weight: bold;
+        }
+        
+        h1 {
+            color: #000000;
+            border-bottom: 3px solid #000000;
+            padding-bottom: 10px;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            button {
+                display: none;
+            }
+            .calendar-header {
+                display: none;
+            }
+            .storage-notice {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .calendar-header {
+                padding: 10px;
+            }
+            select, button {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            th, td {
+                padding: 8px;
+                font-size: 14px;
+            }
+            td {
+                height: 80px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            h2 {
+                font-size: 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+            .calendar-header {
+                padding: 5px;
+            }
+            .month-selector {
+                gap: 5px;
+            }
+            select, button {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            th, td {
+                padding: 5px;
+                font-size: 12px;
+            }
+            td {
+                height: 60px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            h2 {
+                font-size: 18px;
+            }
+            th {
+                padding: 8px 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+    
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <div class="month-selector">
+                <select id="month-select">
+                    <option value="0">January</option>
+                    <option value="1">February</option>
+                    <option value="2">March</option>
+                    <option value="3">April</option>
+                    <option value="4">May</option>
+                    <option value="5">June</option>
+                    <option value="6">July</option>
+                    <option value="7">August</option>
+                    <option value="8">September</option>
+                    <option value="9">October</option>
+                    <option value="10">November</option>
+                    <option value="11">December</option>
+                </select>
+                
+                <select id="year-select"></select>
+                
+                <button id="go-btn">Create</button>
+                
+                <select id="theme-select">
+                    <option value="classic">Classic Black</option>
+                    <option value="blue">Ocean Blue</option>
+                    <option value="green">Forest Green</option>
+                    <option value="purple">Royal Purple</option>
+                    <option value="burgundy">Deep Burgundy</option>
+                    <option value="navy">Navy Professional</option>
+                    <option value="teal">Modern Teal</option>
+                    <option value="charcoal">Charcoal Gray</option>
+                    <option value="cyberpunk">Cyberpunk Neon</option>
+                    <option value="retro">Retro Sunset</option>
+                    <option value="matrix">Matrix Code</option>
+                    <option value="vaporwave">Vaporwave Dreams</option>
+                    <option value="gothic">Gothic Dark</option>
+                    <option value="pastel">Soft Pastel</option>
+                </select>
+                
+                <select id="font-family-select">
+                    <option value="Arial, sans-serif">Arial</option>
+                    <option value="'Times New Roman', serif">Times New Roman</option>
+                    <option value="Georgia, serif">Georgia</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="Verdana, sans-serif">Verdana</option>
+                    <option value="Helvetica, sans-serif">Helvetica</option>
+                    <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                    <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+                </select>
+                
+                <select id="font-size-select">
+                    <option value="12px">Small</option>
+                    <option value="14px" selected>Medium</option>
+                    <option value="16px">Large</option>
+                    <option value="18px">Extra Large</option>
+                    <option value="20px">Huge</option>
+                </select>
+                
+                <button class="print-button" onclick="window.print()">Print</button>
+                <button id="reset-btn" style="background-color: #dc2626; border-color: #dc2626;">Reset Calendar</button>
+            </div>
+           
+           
+        </div>
+
+<div id="the-cal">
+ <center>
+        <h1 contenteditable="true">Write Your Calendar Title Here</h1>
+       
+ <h2 id="current-month-year">Month Year</h2> 
+</center>
+
+
+<!--
+            <thead>
+                
+                <tr>
+                    <th>Sunday</th>
+                    <th>Monday</th>
+                    <th>Tuesday</th>
+                    <th>Wednesday</th>
+                    <th>Thursday</th>
+                    <th>Friday</th>
+                    <th>Saturday</th>
+                </tr>
+
+            </thead> -->
+
+     
+<div id="diff-cal-editit" contenteditable="true" data-save-id="diff-cal-editit">  
+        <table id="calendar">
+
+           <thead>
+                
+                <tr>
+                    <th>&nbsp&nbsp&nbspSunday&nbsp&nbsp&nbsp</th>
+                    <th>&nbsp&nbsp&nbspMonday&nbsp&nbsp&nbsp</th>
+                    <th>&nbsp&nbspTuesday&nbsp&nbsp</th>
+                    <th>Wednesday</th>
+                    <th>&nbspThursday&nbsp</th>
+                    <th>&nbsp&nbsp&nbspFriday&nbsp&nbsp&nbsp</th>
+                    <th>&nbspSaturday&nbsp</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="calendar-body">
+                <!-- Calendar days will be inserted here by JavaScript -->
+            </tbody>
+            
+        </table>
+    </div>
+
+
+</div>
+
+    <div class="storage-notice" style="max-width: 1200px; margin: 20px auto; padding: 15px; background-color: #f0f0f0; border: 2px solid #666; border-radius: 5px; text-align: center;">
+        <p style="margin: 0; color: #333; font-size: 14px;">
+            <strong>Notice:</strong> Your calendar content is automatically saved to your browser's local storage. 
+            If you clear your browser cache or local storage, the calendar will be reset. 
+            Use the "Reset Calendar" button to clear all content and start fresh.
+        </p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize year dropdown
+            const yearSelect = document.getElementById('year-select');
+            const currentYear = new Date().getFullYear();
+            for (let year = currentYear - 10; year <= currentYear + 10; year++) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+                
+                if (year === currentYear) {
+                    option.selected = true;
+                }
+            }
+            
+            // Initialize month dropdown to current month
+            const currentMonth = new Date().getMonth();
+            document.getElementById('month-select').value = currentMonth;
+            
+            // Load saved data from localStorage
+            loadCalendarData();
+            
+            // Generate calendar for current month/year
+            generateCalendar(currentMonth, currentYear);
+            
+            // Update calendar when Go button is clicked
+            document.getElementById('go-btn').addEventListener('click', function() {
+                const month = parseInt(document.getElementById('month-select').value);
+                const year = parseInt(document.getElementById('year-select').value);
+                generateCalendar(month, year);
+            });
+            
+            // Theme selector functionality
+            document.getElementById('theme-select').addEventListener('change', function() {
+                const selectedTheme = this.value;
+                // Remove all theme classes
+                document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
+                // Add selected theme class
+                document.body.classList.add('theme-' + selectedTheme);
+                saveCalendarData(); // Save theme
+            });
+            
+            // Font family selector functionality
+            document.getElementById('font-family-select').addEventListener('change', function() {
+                const selectedFont = this.value;
+                document.getElementById('the-cal').style.fontFamily = selectedFont;
+                saveCalendarData(); // Save font
+            });
+            
+            // Font size selector functionality
+            document.getElementById('font-size-select').addEventListener('change', function() {
+                const selectedSize = this.value;
+                const calendar = document.getElementById('the-cal');
+                calendar.style.fontSize = selectedSize;
+                saveCalendarData(); // Save font size
+            });
+            
+            // Reset button functionality
+            document.getElementById('reset-btn').addEventListener('click', function() {
+                if (confirm('Are you sure you want to reset the calendar? All content will be cleared.')) {
+                    // Clear localStorage
+                    localStorage.removeItem('calendarData');
+                    
+                    // Clear the calendar content
+                    const editableDiv = document.getElementById('diff-cal-editit');
+                    if (editableDiv) {
+                        const calendarBody = editableDiv.querySelector('#calendar-body');
+                        if (calendarBody) {
+                            calendarBody.innerHTML = '';
+                        }
+                    }
+                    
+                    // Reset title
+                    const titleH1 = document.querySelector('#the-cal h1');
+                    if (titleH1) {
+                        titleH1.textContent = 'Write Your Calendar Title Here';
+                    }
+                    
+                    // Reset theme to classic
+                    document.getElementById('theme-select').value = 'classic';
+                    document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
+                    document.body.classList.add('theme-classic');
+                    
+                    // Reset font family to Arial
+                    document.getElementById('font-family-select').value = 'Arial, sans-serif';
+                    document.getElementById('the-cal').style.fontFamily = 'Arial, sans-serif';
+                    
+                    // Reset font size to Medium
+                    document.getElementById('font-size-select').value = '14px';
+                    document.getElementById('the-cal').style.fontSize = '14px';
+                    
+                    // Regenerate the calendar
+                    const month = parseInt(document.getElementById('month-select').value);
+                    const year = parseInt(document.getElementById('year-select').value);
+                    generateCalendar(month, year);
+                }
+            });
+            
+            // Save calendar content on input
+            const editableDiv = document.getElementById('diff-cal-editit');
+            const titleH1 = document.querySelector('#the-cal h1');
+            
+            if (editableDiv) {
+                editableDiv.addEventListener('input', debounce(saveCalendarData, 1000));
+            }
+            
+            if (titleH1) {
+                titleH1.addEventListener('input', debounce(saveCalendarData, 1000));
+            }
+        });
+        
+        // Debounce function to prevent too frequent saves
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // Save calendar data to localStorage
+        function saveCalendarData() {
+            const data = {
+                content: document.getElementById('diff-cal-editit').innerHTML,
+                title: document.querySelector('#the-cal h1').textContent,
+                theme: document.getElementById('theme-select').value,
+                fontFamily: document.getElementById('font-family-select').value,
+                fontSize: document.getElementById('font-size-select').value
+            };
+            localStorage.setItem('calendarData', JSON.stringify(data));
+        }
+        
+        // Load calendar data from localStorage
+        function loadCalendarData() {
+            const savedData = localStorage.getItem('calendarData');
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    
+                    // Restore content
+                    if (data.content) {
+                        document.getElementById('diff-cal-editit').innerHTML = data.content;
+                    }
+                    
+                    // Restore title
+                    if (data.title) {
+                        document.querySelector('#the-cal h1').textContent = data.title;
+                    }
+                    
+                    // Restore theme
+                    if (data.theme) {
+                        document.getElementById('theme-select').value = data.theme;
+                        document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
+                        document.body.classList.add('theme-' + data.theme);
+                    }
+                    
+                    // Restore font family
+                    if (data.fontFamily) {
+                        document.getElementById('font-family-select').value = data.fontFamily;
+                        document.getElementById('the-cal').style.fontFamily = data.fontFamily;
+                    }
+                    
+                    // Restore font size
+                    if (data.fontSize) {
+                        document.getElementById('font-size-select').value = data.fontSize;
+                        document.getElementById('the-cal').style.fontSize = data.fontSize;
+                    }
+                } catch (e) {
+                    console.error('Error loading calendar data:', e);
+                }
+            }
+        }
+        
+        function generateCalendar(month, year) {
+            const calendarBody = document.getElementById('calendar-body');
+            const monthYearDisplay = document.getElementById('current-month-year');
+            
+            // Clear previous calendar
+            calendarBody.innerHTML = '';
+            
+            // Update month/year display
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                              "July", "August", "September", "October", "November", "December"];
+            monthYearDisplay.textContent = `${monthNames[month]} ${year}`;
+            
+            // Get first day of month and total days in month
+            const firstDay = new Date(year, month, 1);
+            const startingDay = firstDay.getDay(); // 0-6 (Sun-Sat)
+            
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            // Get days from previous month to show
+            const prevMonthLastDay = new Date(year, month, 0).getDate();
+            
+            // Create calendar rows
+            let date = 1;
+            let prevMonthDate = prevMonthLastDay - startingDay + 1;
+            
+            for (let i = 0; i < 6; i++) {
+                // Stop if we've gone past the end of the month
+                if (date > daysInMonth && i > 0) break;
+                
+                const row = document.createElement('tr');
+                
+                for (let j = 0; j < 7; j++) {
+                    const cell = document.createElement('td');
+                    
+                    if (i === 0 && j < startingDay) {
+                        // Days from previous month
+                        cell.innerHTML = `<div class="day-number">${prevMonthDate}</div>`;
+                        cell.classList.add('other-month');
+                        prevMonthDate++;
+                    } else if (date > daysInMonth) {
+                        // Days from next month
+                        const nextMonthDate = date - daysInMonth;
+                        cell.innerHTML = `<div class="day-number">${nextMonthDate}</div>`;
+                        cell.classList.add('other-month');
+                        date++;
+                    } else {
+                        // Current month days
+                        cell.innerHTML = `<div class="day-number">${date}</div>`;
+                        
+                        // Highlight today
+                        const today = new Date();
+                        if (date === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                            cell.classList.add('today');
+                        }
+                        
+                        date++;
+                    }
+                    
+                    row.appendChild(cell);
+                }
+                
+                calendarBody.appendChild(row);
+            }
+        }
+    </script>
+     <script> // Save an element
+        /**
+         * AutoSaveManager - A reusable class to handle auto-saving of editable content
+         */
+        class AutoSaveManager {
+            constructor(options = {}) {
+                // Default options
+                this.options = {
+                    storageKey: 'autoSaveData', // localStorage key
+                    debounceTime: 1000, // ms to wait after last keypress before saving
+                    statusElement: null, // Element to show save status
+                    ...options
+                };
+                
+                this.editableElements = [];
+                this.saveTimeout = null;
+                this.initialize();
+            }
+            
+            /**
+             * Initialize the manager
+             */
+            initialize() {
+                // Find all editable elements with data-save-id
+                this.editableElements = Array.from(document.querySelectorAll('[contenteditable][data-save-id]'));
+                
+                // Load saved content
+                this.loadContent();
+                
+                // Set up event listeners
+                this.setupEventListeners();
+            }
+            
+            /**
+             * Set up event listeners for editable elements
+             */
+            setupEventListeners() {
+                this.editableElements.forEach(element => {
+                    element.addEventListener('input', this.handleInput.bind(this));
+                });
+            }
+            
+            /**
+             * Handle input events with debouncing
+             */
+            handleInput() {
+                // Clear any pending save
+                if (this.saveTimeout) {
+                    clearTimeout(this.saveTimeout);
+                }
+                
+                // Show saving status
+                this.showStatus('Saving...');
+                
+                // Set new timeout for saving
+                this.saveTimeout = setTimeout(() => {
+                    this.saveContent();
+                    this.showStatus('All changes saved', true);
+                    
+                    // Hide status after 2 seconds
+                    setTimeout(() => {
+                        this.showStatus('');
+                    }, 2000);
+                }, this.options.debounceTime);
+            }
+            
+            /**
+             * Save all editable content to localStorage
+             */
+            saveContent() {
+                const saveData = {};
+                
+                this.editableElements.forEach(element => {
+                    const id = element.getAttribute('data-save-id');
+                    saveData[id] = element.innerHTML;
+                });
+                
+                localStorage.setItem(this.options.storageKey, JSON.stringify(saveData));
+            }
+            
+            /**
+             * Load saved content from localStorage
+             */
+            loadContent() {
+                const savedData = localStorage.getItem(this.options.storageKey);
+                
+                if (savedData) {
+                    try {
+                        const parsedData = JSON.parse(savedData);
+                        
+                        this.editableElements.forEach(element => {
+                            const id = element.getAttribute('data-save-id');
+                            if (parsedData[id]) {
+                                element.innerHTML = parsedData[id];
+                            }
+                        });
+                        
+                        this.showStatus('Loaded saved content', true);
+                    } catch (e) {
+                        console.error('Error loading saved content:', e);
+                    }
+                }
+            }
+            
+            /**
+             * Show status message
+             * @param {string} message - The status message
+             * @param {boolean} [success=false] - Whether to show as success
+             */
+            showStatus(message, success = false) {
+                if (!this.options.statusElement) return;
+                
+                const statusElement = typeof this.options.statusElement === 'string' 
+                    ? document.querySelector(this.options.statusElement)
+                    : this.options.statusElement;
+                
+                if (statusElement) {
+                    statusElement.textContent = message;
+                    statusElement.style.color = success ? '#4CAF50' : '#ff9800';
+                }
+            }
+            
+            /**
+             * Clear all saved data
+             */
+            clearSavedData() {
+                localStorage.removeItem(this.options.storageKey);
+                this.showStatus('Cleared saved data', true);
+                
+                // Hide status after 2 seconds
+                setTimeout(() => {
+                    this.showStatus('');
+                }, 2000);
+            }
+        }
+
+        // Initialize the AutoSaveManager when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const autoSaveManager = new AutoSaveManager({
+                statusElement: '#status' // Element to show status messages
+            });
+            
+            // Optional: Expose to window for debugging
+            window.autoSaveManager = autoSaveManager;
+        });
+    </script>
+        <script> // To Save Month Area
+        // Function to save content to localStorage
+        function saveContent() {
+            const content = document.getElementById('current-month-year').innerHTML;
+            localStorage.setItem('current-month-year', content);
+        }
+        
+        // Function to load content from localStorage
+        function loadContent() {
+            const savedContent = localStorage.getItem('current-month-year');
+            if (savedContent) {
+                document.getElementById('current-month-year').innerHTML = savedContent;
+            }
+        }
+        
+        // Load content when page loads
+        window.addEventListener('load', loadContent);
+        
+        // Save content when page is about to unload (closing or refreshing)
+        window.addEventListener('beforeunload', saveContent);
+        
+        // Optional: Auto-save periodically (every 5 seconds)
+        setInterval(saveContent, 5000);
+    </script>
+    <script>
+/**
+ * Sets up a color picker that changes the color of a specified element
+ * @param {string} elementSelector - CSS selector for the element to change color
+ * @param {string} [inputSelector] - Optional CSS selector for an input element to use as color picker
+ * @param {string} [property='color'] - CSS property to change ('color', 'background-color', etc.)
+ * @returns {void}
+ */
+function setupColorPicker(elementSelector, inputSelector, property = 'color') {
+  // If no input selector provided, create a color input element
+  let colorInput;
+  
+  if (!inputSelector) {
+    colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.style.position = 'fixed';
+    colorInput.style.top = '10px';
+    colorInput.style.right = '10px';
+    colorInput.style.zIndex = '1000';
+    document.body.appendChild(colorInput);
+  } else {
+    colorInput = document.querySelector(inputSelector);
+    if (!colorInput) {
+      console.error(`Input element with selector '${inputSelector}' not found`);
+      return;
+    }
+    colorInput.type = 'color';
+  }
+
+  // Get the target element
+  const targetElement = document.querySelector(elementSelector);
+  if (!targetElement) {
+    console.error(`Element with selector '${elementSelector}' not found`);
+    return;
+  }
+
+  // Set initial color from the element's current style
+  const initialColor = getComputedStyle(targetElement)[property];
+  colorInput.value = rgbToHex(initialColor) || '#000000';
+
+  // Add event listener
+  colorInput.addEventListener('input', function() {
+    targetElement.style[property] = this.value;
+  });
+
+  // Helper function to convert RGB to HEX
+  function rgbToHex(rgb) {
+    if (!rgb) return null;
+    
+    // Handle different RGB string formats
+    const rgbValues = rgb.match(/\d+/g);
+    if (!rgbValues || rgbValues.length < 3) return null;
+    
+    const [r, g, b] = rgbValues.map(Number);
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  }
+}
+    </script>
+
+</body>
+</html>
