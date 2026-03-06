@@ -1,0 +1,6 @@
+{
+  "name": "Image Generator",
+  "slug": "image-gen",
+  "description": "Generate UI elements, avatars, and marketing images with OpenAI gpt-image-1. Includes transparent-background export for UI assets.",
+  "version": "1.0"
+}
