@@ -66,6 +66,11 @@
         _videoCount++;
         var src = video.getAttribute('src') || '';
         if (!src) return;
+        // Never touch blob: or data: sources -- these are live MediaSource or
+        // inline objects that cannot be detached and restored.  Stripping a
+        // blob: src closes the MediaSource state machine permanently (LinkedIn,
+        // YouTube, and any HLS/DASH player use blob: for all their video).
+        if (src.startsWith('blob:') || src.startsWith('data:')) return;
         if (!video.dataset.xcmSrc) {
             video.dataset.xcmSrc = src;
             // preload=none prevents the browser reading video metadata/bytes
