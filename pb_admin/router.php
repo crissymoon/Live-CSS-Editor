@@ -53,18 +53,21 @@ if ($path === '/pb_admin') {
 }
 
 // ---- Route /pb_admin/* to the correct file ----------------------------------
-// PHP's built-in server needs an explicit file path when a router is active.
+// PHP 8.4 built-in server: "return false" can misbehave when the router lives
+// in a subdirectory of the document root. We resolve and require the file
+// directly so PHP parses and executes it with all variables ($_GET, $_POST,
+// $_SERVER['REQUEST_URI'], etc.) intact.
 if (strpos($path, '/pb_admin/') === 0) {
-    $file = __DIR__ . '/../' . ltrim($path, '/');
-    // Strip query string from file path if any leaked in
-    $file = strtok($file, '?');
-    if (is_file($file)) {
-        error_log('[router] /pb_admin/* -> serve file ' . realpath($file));
-        // Return false so PHP serves the file natively (handles PHP parsing).
-        return false;
+    $file = realpath(__DIR__ . '/../' . ltrim(strtok($path, '?'), '/'));
+    if ($file !== false && is_file($file)) {
+        error_log('[router] /pb_admin/* -> require ' . $file);
+        // Set SCRIPT_FILENAME so any code that inspects it gets the right value.
+        $_SERVER['SCRIPT_FILENAME'] = $file;
+        require $file;
+        exit;
     }
-    // File not found inside pb_admin -- log and fall through to 404.
-    error_log('[router] /pb_admin/* file not found: ' . $file);
+    // File not found inside pb_admin -- return 404.
+    error_log('[router] /pb_admin/* file not found: ' . $path);
     http_response_code(404);
     echo '404 - not found: ' . htmlspecialchars($path);
     exit;

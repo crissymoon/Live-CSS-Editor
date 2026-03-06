@@ -738,7 +738,7 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     if (s_cbs.on_loading) s_cbs.on_loading(self.tabId, false);
 
     // Automatically retry localhost URLs when the server is not yet ready.
-    // Covers the race where the binary starts before port 8080 is listening.
+    // Covers the race where the binary starts before port 8443 (nginx HTTPS) is listening.
     NSInteger code = err.code;
     BOOL isConnectErr = (code == NSURLErrorCannotConnectToHost ||
                          code == NSURLErrorNetworkConnectionLost ||

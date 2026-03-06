@@ -8,13 +8,13 @@
 #   bash vscode-bridge/bridge.sh pull [name]   -- write DB project back to projects/
 #
 # Default project name: crissys-style-tool
-# The tool must be running at http://127.0.0.1:8080
+# The tool must be running at https://localhost:8443
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECTS_DIR="$SCRIPT_DIR/projects"
-BASE_URL="http://127.0.0.1:8080"
+BASE_URL="https://localhost:8443"
 API="$BASE_URL/vscode-bridge/api/projects.php"
 
 CMD="${1:-}"

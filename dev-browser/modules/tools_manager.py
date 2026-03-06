@@ -11,13 +11,13 @@ import json
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _TOOLS_FILE = os.path.join(_HERE, 'tools.json')
 
-_BASE_URL = 'http://127.0.0.1:8080'
+_BASE_URL = 'https://localhost:8443'
 
 _DEFAULTS = [
-    {'name': 'Live CSS Tool',  'url': 'http://127.0.0.1:8080/index.php',     'type': 'tool'},
-    {'name': 'Agent Flow',     'url': 'http://127.0.0.1:8080/agent-flow/',   'type': 'tool'},
-    {'name': 'Page Builder',   'url': 'http://127.0.0.1:8080/page-builder/', 'type': 'tool'},
-    {'name': 'PB Admin',       'url': 'http://127.0.0.1:8080/pb_admin/',     'type': 'tool'},
+    {'name': 'Live CSS Tool',  'url': 'https://localhost:8443/index.php',     'type': 'tool'},
+    {'name': 'Agent Flow',     'url': 'https://localhost:8443/agent-flow/',   'type': 'tool'},
+    {'name': 'Page Builder',   'url': 'https://localhost:8443/page-builder/', 'type': 'tool'},
+    {'name': 'PB Admin',       'url': 'https://localhost:8443/pb_admin/',     'type': 'tool'},
 ]
 
 

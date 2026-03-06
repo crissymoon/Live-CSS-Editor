@@ -1,6 +1,6 @@
 """
 _PasswordsMixin: Fill Dev -- loads xcm_auth/dev-credentials.json and fills
-the pb_admin login form at http://127.0.0.1:8080/pb_admin/login.php.
+the pb_admin login form at https://localhost:8443/pb_admin/login.php.
 """
 
 import os
@@ -16,7 +16,7 @@ _DEV_CREDS_FILE = os.path.normpath(
     )
 )
 _LOGIN_PATH    = '/pb_admin/login.php'
-_DEV_LOGIN_URL = 'http://127.0.0.1:8080' + _LOGIN_PATH
+_DEV_LOGIN_URL = 'https://localhost:8443' + _LOGIN_PATH
 
 
 class _PasswordsMixin:

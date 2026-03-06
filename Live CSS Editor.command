@@ -133,8 +133,8 @@ _start_admin() {
     local AUTH_SCRIPT="$DIR/pb_admin/start-auth.sh"
     [[ ! -f "$AUTH_SCRIPT" ]] && die "pb_admin/start-auth.sh not found"
 
-    if _port_open 8080 && _port_open 9100; then
-        status_ok "Servers already running  (PHP :8080, Auth :9100)"
+    if _port_open 8443 && _port_open 9100; then
+        status_ok "Servers already running  (nginx :8443, Auth :9100)"
     else
         status_info "Starting auth servers..."
         bash "$AUTH_SCRIPT" >/tmp/live-css-auth.log 2>&1 &
@@ -142,19 +142,19 @@ _start_admin() {
         printf "\n"
         spin "Waiting for servers  (Go compiling if first run...)" &
         local SPIN_PID=$!
-        local _i=0 _go_ready=0 _php_ready=0
+        local _i=0 _go_ready=0 _nginx_ready=0
         while (( _i < 450 )); do
             (( ! _go_ready )) && _port_open 9100 && _go_ready=1
-            (( _go_ready )) && _port_open 8080 && { _php_ready=1; break; }
+            (( _go_ready )) && _port_open 8443 && { _nginx_ready=1; break; }
             sleep 0.2; (( _i++ ))
         done
         kill "$SPIN_PID" 2>/dev/null; wait "$SPIN_PID" 2>/dev/null
         printf "\r%72s\r" ""
-        (( _go_ready ))  && status_ok   "Auth server ready  :9100" \
-                         || status_fail "Auth server did not start -- see /tmp/live-css-auth.log"
-        (( _php_ready )) && status_ok   "PHP server ready  :8080" \
-                         || { status_fail "PHP did not start in time -- see /tmp/live-css-auth.log"
-                              status_info "Go compile can take 30+ seconds on first run -- try again"; }
+        (( _go_ready ))   && status_ok   "Auth server ready  :9100" \
+                          || status_fail "Auth server did not start -- see /tmp/live-css-auth.log"
+        (( _nginx_ready )) && status_ok   "nginx HTTPS ready  :8443" \
+                           || { status_fail "nginx not responding on :8443 -- run: bash server/start.sh"
+                                status_info "Try again after: bash $DIR/server/start.sh"; }
     fi
 
     printf "\n"
@@ -169,7 +169,7 @@ _start_admin() {
         _count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users;" 2>/dev/null || echo "0")
         if [[ -z "$_count" || "$_count" == "0" ]]; then
             status_info "No users yet -- run setup:"
-            printf "  ${C_CYAN}  http://127.0.0.1:8080/pb_admin/setup.php${R}\n"
+            printf "  ${C_CYAN}  https://localhost:8443/pb_admin/setup.php${R}\n"
         else
             # read plaintext password from dev-credentials.json if available
             local _devpass=""
@@ -197,13 +197,13 @@ _start_admin() {
         status_info "sqlite3 not found -- install with: brew install sqlite"
     fi
     box_mid
-    printf "  ${C_GREY}URL   :${R}  ${C_CYAN}http://127.0.0.1:8080/pb_admin/login.php${R}\n"
+    printf "  ${C_GREY}URL   :${R}  ${C_CYAN}https://localhost:8443/pb_admin/login.php${R}\n"
     box_bot
     printf "\n"
 
     # launch browser
     local IMGUI_RUN="$DIR/imgui-browser/run.sh"
-    local LOGIN_URL="http://127.0.0.1:8080/pb_admin/dashboard.php"
+    local LOGIN_URL="https://localhost:8443/pb_admin/dashboard.php"
     if [[ -f "$IMGUI_RUN" ]]; then
         status_info "Launching imgui-browser..."
         bash "$IMGUI_RUN" >/tmp/live-css-browser.log 2>&1 &
@@ -236,7 +236,7 @@ _start_admin() {
 cleanup() {
     printf "\n\n  ${C_GREY}Shutting down...${R}\n"
     [[ -n "$AUTH_BASH_PID" ]] && kill "$AUTH_BASH_PID" 2>/dev/null || true
-    lsof -iTCP:8080 -sTCP:LISTEN -t 2>/dev/null | xargs kill 2>/dev/null || true
+    # Kill only the auth Go server -- nginx is managed by launchd and should stay running.
     lsof -iTCP:9100 -sTCP:LISTEN -t 2>/dev/null | xargs kill 2>/dev/null || true
     printf "  ${C_GREEN}Done.${R}\n\n"; exit 0
 }
@@ -277,8 +277,8 @@ while true; do
     box_section "ADMIN PANEL"
     box_empty
     box_item "1" "Start"       "Start auth servers + dev browser  (login.php)"
-    box_item "2" "PHP only"    "PHP dev server only at 127.0.0.1:8080  (no auth)"
-    box_item "3" "Stop"        "Kill servers on ports 8080 and 9100"
+    box_item "2" "Server"     "Start nginx + PHP-FPM server stack  (:8443 HTTPS)"
+    box_item "3" "Stop"        "Stop server stack (nginx + auth)"
     box_empty
     box_mid
     box_section "PUSH"
@@ -309,17 +309,18 @@ while true; do
             ;;
 
         2)
-            printf "\n"; step "Starting PHP dev server at http://127.0.0.1:8080 ..."
-            printf "  ${C_YELLOW}Press Ctrl+C to stop.${R}\n\n"
-            php -S 127.0.0.1:8080 pb_admin/router.php \
-                || printf "  ${C_RED}ERROR: php -S failed${R}\n" >&2
+            printf "\n"; step "Starting nginx + PHP-FPM server stack..."
+            bash "$DIR/server/start.sh" \
+                || printf "  ${C_RED}ERROR: server/start.sh failed${R}\n" >&2
             printf "\n"; read -r "?Press ENTER to return..."; ;;
 
         3)
-            printf "\n"; step "Stopping servers on ports 8080 and 9100..."
+            printf "\n"; step "Stopping server stack (nginx + PHP-FPM) and auth (:9100)..."
             [[ -n "$AUTH_BASH_PID" ]] && kill "$AUTH_BASH_PID" 2>/dev/null || true
             AUTH_BASH_PID=""
-            for _port in 8080 9100; do
+            bash "$DIR/server/stop.sh" --kill \
+                || printf "  ${C_RED}ERROR: server/stop.sh failed${R}\n" >&2
+            for _port in 9100; do
                 local _pids
                 _pids=$(lsof -iTCP:"$_port" -sTCP:LISTEN -t 2>/dev/null || true)
                 if [[ -n "$_pids" ]]; then

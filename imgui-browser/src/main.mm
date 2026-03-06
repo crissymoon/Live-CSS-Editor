@@ -97,7 +97,7 @@ void fps_host_tick(AppState& st, double now_sec);
 // ── Arg parsing ───────────────────────────────────────────────────────
 
 struct Args {
-    std::string url        = "http://127.0.0.1:8080/pb_admin/dashboard.php";
+    std::string url        = "https://localhost:8443/pb_admin/dashboard.php";
     std::string apps_dir   = "";
     int         php_port   = 9879;
     int         cmd_port   = 9878;

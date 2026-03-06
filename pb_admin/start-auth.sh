@@ -41,6 +41,15 @@ if ! command -v php &>/dev/null; then
     exit 1
 fi
 
+# -- Detect whether nginx is already serving on PHP_PORT ----------------------
+# If nginx is running (brew services / launchd), do NOT kill it and do NOT
+# start a php -S process on that port -- FastCGI via PHP-FPM handles PHP.
+NGINX_ON_PHP_PORT=0
+if lsof -iTCP:"$PHP_PORT" -sTCP:LISTEN -t &>/dev/null; then
+    NGINX_ON_PHP_PORT=1
+    echo "[start-auth] nginx already on :$PHP_PORT -- skipping kill_port and php -S"
+fi
+
 # -- Kill anything already on these ports so we always get a fresh start -------
 
 kill_port() {
@@ -54,7 +63,10 @@ kill_port() {
     fi
 }
 
-kill_port "$PHP_PORT"
+# Only kill PHP_PORT if nginx is not already there (avoid nuking nginx/launchd).
+if [ "$NGINX_ON_PHP_PORT" -eq 0 ]; then
+    kill_port "$PHP_PORT"
+fi
 kill_port "$AUTH_PORT"
 
 # -- Start xcm_auth in background ----------------------------------------------
@@ -165,12 +177,17 @@ run_tests() {
 
 # Start PHP in background temporarily so we can run tests against both servers
 cd "$ROOT_DIR"
-echo "[start-auth] starting PHP dev server on :$PHP_PORT (router: pb_admin/router.php) ..."
-# The router script is required so PHP's built-in server does NOT fall back
-# to serving root index.php for unknown paths like /dashboard.php.
-php -S "127.0.0.1:$PHP_PORT" pb_admin/router.php &>/tmp/pb_admin_php.log &
-PHP_PID=$!
-echo "[start-auth] PHP started (PID $PHP_PID)"
+PHP_PID=""
+if [ "$NGINX_ON_PHP_PORT" -eq 1 ]; then
+    echo "[start-auth] nginx is serving on :$PHP_PORT via PHP-FPM -- skipping php -S"
+else
+    echo "[start-auth] starting PHP dev server on :$PHP_PORT (router: pb_admin/router.php) ..."
+    # The router script is required so PHP's built-in server does NOT fall back
+    # to serving root index.php for unknown paths like /dashboard.php.
+    php -S "127.0.0.1:$PHP_PORT" pb_admin/router.php &>/tmp/pb_admin_php.log &
+    PHP_PID=$!
+    echo "[start-auth] PHP started (PID $PHP_PID)"
+fi
 
 # Update cleanup to also stop PHP
 cleanup() {
@@ -194,8 +211,14 @@ sleep 1
 run_tests
 
 # Tail PHP logs to stdout so errors stay visible
-echo "[start-auth] PHP log: /tmp/pb_admin_php.log"
 echo "[start-auth] press Ctrl+C to stop"
 echo ""
-tail -f /tmp/pb_admin_php.log
+if [ -n "$PHP_PID" ]; then
+    echo "[start-auth] PHP log: /tmp/pb_admin_php.log"
+    tail -f /tmp/pb_admin_php.log
+else
+    # nginx + PHP-FPM is handling PHP -- just wait for the auth process.
+    echo "[start-auth] nginx serving PHP -- tailing xcm_auth output only"
+    wait "$AUTH_PID" 2>/dev/null || true
+fi
 

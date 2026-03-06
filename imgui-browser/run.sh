@@ -38,31 +38,30 @@ fi
 APPS_DIR="$(cd "$ROOT/../dev-browser/apps" && pwd)"
 LIVECSS_ROOT="$(cd "$ROOT/.." && pwd)"
 
-# Ensure the live-css PHP server on port 8080 is up before launching.
+# Ensure the nginx HTTPS server on port 8443 is up before launching.
+# nginx + PHP-FPM are managed by brew services (launchd) and should already
+# be running.  If not, run: bash "$LIVECSS_ROOT/server/start.sh"
 _port_open() { nc -z 127.0.0.1 "$1" &>/dev/null; }
-if ! _port_open 8080; then
-    echo "[run] port 8080 not listening -- starting live-css PHP server..."
-    ROUTER="$LIVECSS_ROOT/pb_admin/router.php"
-    if [[ -f "$ROUTER" ]]; then
-        mkdir -p "$LIVECSS_ROOT/logs"
-        php -S 127.0.0.1:8080 "$ROUTER" -t "$LIVECSS_ROOT" \
-            >> "$LIVECSS_ROOT/logs/php-8080.log" 2>&1 &
-        disown
-        for i in {1..12}; do
-            _port_open 8080 && break
+if ! _port_open 8443; then
+    echo "[run] WARNING: port 8443 (nginx HTTPS) not listening."
+    echo "[run] Attempting to start server stack..."
+    if bash "$LIVECSS_ROOT/server/start.sh" 2>/dev/null; then
+        for i in {1..14}; do
+            _port_open 8443 && break
             sleep 0.5
         done
-        _port_open 8080 && echo "[run] port 8080 ready" \
-                        || echo "[run] WARNING: port 8080 still not up after 6s"
+        _port_open 8443 && echo "[run] port 8443 ready" \
+                        || echo "[run] WARNING: port 8443 still not up after 7s"
     else
-        echo "[run] WARNING: $ROUTER not found -- cannot start port 8080"
+        echo "[run] server/start.sh failed -- open a terminal and run:"
+        echo "[run]   bash $LIVECSS_ROOT/server/start.sh"
     fi
 else
-    echo "[run] port 8080 already listening"
+    echo "[run] port 8443 already listening"
 fi
 
 exec "$BIN" \
-    --url "http://127.0.0.1:8080/pb_admin/dashboard.php" \
+    --url "https://localhost:8443/pb_admin/dashboard.php" \
     --apps-dir "$APPS_DIR" \
     --php-port 9879 \
     --cmd-port 9878 \
