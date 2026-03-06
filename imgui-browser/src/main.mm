@@ -150,6 +150,10 @@ static int           g_php_port = 9879; // set from args after parse_args
 // Physical framebuffer pixels -- only used for glViewport
 static int           g_fb_w     = 0;
 static int           g_fb_h     = 0;
+// Set true by window/framebuffer size callbacks; consumed once per frame so
+// WKWebView repositioning happens exactly once per resize step, not twice
+// (once from cb_window_size and once from cb_framebuffer_size).
+static bool          g_resize_dirty = false;
 // Set true each frame when any ImGui item is hovered in the chrome zone.
 // Used by the drag-bar NSEvent monitor to decide whether to let the OS
 // drag the window vs. letting ImGui handle the click (tab, button, URL bar).
@@ -251,24 +255,37 @@ static void dispatch_nav(AppState::NavCmd& cmd) {
 
 // Called by GLFW with LOGICAL POINT dimensions -- used for WKWebView and ImGui.
 static void cb_window_size(GLFWwindow*, int w, int h) {
-    g_state.win_w = w;
-    g_state.win_h = h;
-    native_chrome_resize(w, h);
-    reposition_webviews(g_prev_top, g_prev_bot, w, h);
+    g_state.win_w  = w;
+    g_state.win_h  = h;
+    g_resize_dirty = true;
 }
 
 // Called by GLFW with PHYSICAL PIXEL dimensions -- used only for glViewport.
-// Also fires when the window moves to a display with a different DPI, so we
-// recalculate dpi_scale and reposition WKWebViews (they use logical points but
-// WKWebView inherits the NSWindow backingScaleFactor automatically -- the
-// reposition call is still needed to flush any frame rounding delta).
+// Also fires when the window moves to a display with a different DPI.
 static void cb_framebuffer_size(GLFWwindow*, int w, int h) {
     g_fb_w = w;
     g_fb_h = h;
     if (g_state.win_w > 0)
         g_state.dpi_scale = (float)w / (float)g_state.win_w;
-    native_chrome_resize(g_state.win_w, g_state.win_h);
-    reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
+    g_resize_dirty = true;
+}
+
+// Called by GLFW when the window content needs to be redrawn, which on macOS
+// fires during the live-resize modal tracking loop that blocks glfwPollEvents.
+// Without this callback the render loop is frozen during resize dragging and
+// the window goes black or shows a stretched stale frame.
+static void cb_window_refresh(GLFWwindow*) {
+    // Flush any pending resize state immediately.
+    if (g_resize_dirty) {
+        native_chrome_resize(g_state.win_w, g_state.win_h);
+        reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
+        g_resize_dirty = false;
+    }
+    // Push a clear frame so the window does not go black while dragging.
+    glViewport(0, 0, g_fb_w, g_fb_h);
+    glClearColor(0.047f, 0.047f, 0.063f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glfwSwapBuffers(g_win);
 }
 
 static void cb_error(int, const char* desc) {
@@ -432,12 +449,15 @@ int main(int argc, char** argv) {
     glfwSetWindowSizeCallback(g_win, cb_window_size);
     // Physical pixel size -- drives glViewport only (also fires on DPI change).
     glfwSetFramebufferSizeCallback(g_win, cb_framebuffer_size);
+    // Refresh fires during macOS live-resize modal loop (blocks glfwPollEvents).
+    // Without this callback the window goes black while the user drags the edge.
+    glfwSetWindowRefreshCallback(g_win, cb_window_refresh);
     // Content scale change -- fires when the window moves to a different display.
     // The framebuffer callback covers the DPI recalc, but this one guarantees
     // we also flush WKWebView positioning on scale-only events (e.g. mirror mode).
     glfwSetWindowContentScaleCallback(g_win, [](GLFWwindow*, float xscale, float) {
         g_state.dpi_scale = xscale;
-        reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
+        g_resize_dirty    = true;
     });
 
     // Seed both dimension pairs before the first frame.
@@ -878,6 +898,14 @@ int main(int argc, char** argv) {
         // io.DisplayFramebufferScale to the pixel ratio; the OpenGL3 renderer
         // applies the scale when building the draw commands, so all ImGui
         // SetNextWindowPos/Size calls use logical points.
+        // Consume any pending resize (fires when the refresh callback did not
+        // get a chance to run, e.g. programmatic window resize).
+        if (g_resize_dirty) {
+            native_chrome_resize(g_state.win_w, g_state.win_h);
+            reposition_webviews(g_prev_top, g_prev_bot, g_state.win_w, g_state.win_h);
+            g_resize_dirty = false;
+        }
+
         int ww = g_state.win_w;
         int wh = g_state.win_h;
 

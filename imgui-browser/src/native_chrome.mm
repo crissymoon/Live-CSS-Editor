@@ -225,6 +225,31 @@ static void xcm_status(const char* msg);  // forward declared before use below
     } else if ([action isEqualToString:@"win_zoom"]) {
         _returnKey = NO;
         dispatch_async(dispatch_get_main_queue(), ^{ [s_window zoom:nil]; });
+    } else if ([action isEqualToString:@"resize_window"]) {
+        // data = "WxH" where W and H are desired viewport (content area) dimensions
+        // in logical points.  The window content height = H + TOTAL_CHROME_TOP.
+        int rw = 0, rh = 0;
+        if (data) sscanf(data.UTF8String, "%dx%d", &rw, &rh);
+        if (rw > 0 && rh > 0) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                // TOTAL_CHROME_TOP (tab bar + toolbar) accounts for the chrome
+                // that sits above the WKWebView content area.
+                int contentH = rh + TOTAL_CHROME_TOP;
+                // The NSWindow frame includes the native macOS title bar.
+                // Keep the top-left corner of the window fixed by adjusting
+                // origin.y (Cocoa coord origin is bottom-left).
+                NSRect fr   = s_window.frame;
+                CGFloat titleH = fr.size.height
+                               - s_window.contentView.bounds.size.height;
+                CGFloat newTotalH = (CGFloat)contentH + titleH;
+                fr.origin.y += fr.size.height - newTotalH;
+                fr.size      = NSMakeSize((CGFloat)rw, newTotalH);
+                [CATransaction begin];
+                [CATransaction setDisableActions:YES];
+                [s_window setFrame:fr display:YES animate:NO];
+                [CATransaction commit];
+            });
+        }
     }
     returnKeyIfNeeded();
 }

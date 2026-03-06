@@ -1194,7 +1194,13 @@ void webview_resize(void* handle, int x, int y, int w, int h) {
     CGFloat cv_h    = cv.bounds.size.height;
     // Flip Y: NSView origin is bottom-left
     CGFloat ns_y    = cv_h - y - h;
+    // Disable CoreAnimation's implicit 0.25s position/size animation.
+    // Without this, WKWebView rubberbands back to its old frame for one
+    // animation cycle every time the window is resized, causing visible lag.
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
     [wv setFrame:NSMakeRect(x, ns_y, w, h)];
+    [CATransaction commit];
 }
 
 void webview_load_url(void* handle, const std::string& url) {

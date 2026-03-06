@@ -358,6 +358,15 @@ html{
   white-space:nowrap;
 }
 #info-vp{font-variant-numeric:tabular-nums;}
+
+/* ── Viewport size submenu (inside drawer) ── */
+.vp-device{
+  font-size:10px;
+  color:var(--txt-dim);
+  margin-left:auto;
+  padding-left:8px;
+  white-space:nowrap;
+}
 .info-sep{width:1px;height:14px;background:var(--sep);flex-shrink:0;}
 
 #info-close{

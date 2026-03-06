@@ -467,6 +467,12 @@ function closeDrawer() {
   var chev = document.getElementById('devt-chev');
   if (sub)  sub.classList.remove('open');
   if (chev) chev.classList.remove('open');
+  // Collapse the viewport submenu.
+  _vpMenuOpen = false;
+  var vsub  = document.getElementById('vp-submenu');
+  var vchev = document.getElementById('vp-chev');
+  if (vsub)  vsub.classList.remove('open');
+  if (vchev) vchev.classList.remove('open');
   xcm('dropdownClose');
 }
 function closeDrawerSilent() {
@@ -480,6 +486,11 @@ function closeDrawerSilent() {
   var chev = document.getElementById('devt-chev');
   if (sub)  sub.classList.remove('open');
   if (chev) chev.classList.remove('open');
+  _vpMenuOpen = false;
+  var vsub  = document.getElementById('vp-submenu');
+  var vchev = document.getElementById('vp-chev');
+  if (vsub)  vsub.classList.remove('open');
+  if (vchev) vchev.classList.remove('open');
 }
 function toggleDrawer() {
   if (DRAWER_OPEN) closeDrawer(); else openDrawer();
@@ -492,6 +503,30 @@ function openApp(slug) {
   var url = 'http://127.0.0.1:' + _state.phpPort + '/' + slug + '/';
   closeDrawer();
   setTimeout(function() { xcm('open_url', url); }, 40);
+}
+
+var _vpMenuOpen = false;
+function toggleVpMenu() {
+  _vpMenuOpen = !_vpMenuOpen;
+  var sub  = document.getElementById('vp-submenu');
+  var chev = document.getElementById('vp-chev');
+  if (_vpMenuOpen) {
+    sub.classList.add('open');
+    chev.classList.add('open');
+  } else {
+    sub.classList.remove('open');
+    chev.classList.remove('open');
+  }
+  // Recompute drawer height so the native panel resizes.
+  var el = document.getElementById('drawer');
+  var h  = el.scrollHeight + 2;
+  if (h < 80) h = 80;
+  DRAWER_H = h;
+  xcm('dropdownOpen', h);
+}
+function vpPickSize(w, h) {
+  xcm('resize_window', w + 'x' + h);
+  closeDrawer();
 }
 
 var _devtMenuOpen = false;
@@ -781,4 +816,6 @@ document.addEventListener('mousedown', function(e) {
 // Dismiss on scroll or resize
 document.addEventListener('scroll', ctxHide, true);
 window.addEventListener('resize', ctxHide);
+
+
 
