@@ -1,0 +1,70 @@
+import sys
+import json
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtCore import QUrl, QTimer
+
+app = QApplication(sys.argv)
+web = QWebEngineView()
+web.setWindowTitle("Cloudflare Verification")
+web.resize(500, 600)
+
+TARGET_URL = "https://platform.openai.com"
+found_cookie = False
+
+def check_for_clearance():
+    global found_cookie
+    cookie_store = web.page().profile().cookieStore()
+    
+    def handle_cookie(cookie):
+        global found_cookie
+        name = cookie.name().data().decode()
+        if name == "cf_clearance":
+            found_cookie = True
+            session = {
+                "cookies_string": f"cf_clearance={cookie.value().data().decode()}",
+                "ua": web.page().userAgent()
+            }
+            with open("session.json", "w") as f:
+                json.dump(session, f)
+            sys.exit(0) # Success! Kill the bridge.
+
+    cookie_store.cookieAdded.connect(handle_cookie)
+
+# Timer: If not solved in 5 seconds, show the window for manual click
+def auto_show_if_stuck():
+    if not found_cookie:
+        print("[!] Manual interaction required. Showing window...")
+        web.show()
+        web.raise_() # Bring to front
+
+QTimer.singleShot(5000, auto_show_if_stuck)
+web.loadFinished.connect(check_for_clearance)
+web.load(QUrl(TARGET_URL))
+
+# Keep the script invisible initially
+# web.hide() is default for QWebEngineView until .show() is called
+sys.exit(app.exec())
+
+// Inside your ImGui Drawing Loop
+void DrawNetworkStatus() {
+    if (is_bridge_active) {
+        ImGui::BeginDisabled(); // Gray out the AI tools while bridge is working
+        
+        // Show a "Manual Action Required" hint if the bridge has been running > 5s
+        float elapsed = ImGui::GetTime() - bridge_start_time;
+        if (elapsed > 5.0f) {
+            ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x / 2 - 150, 100));
+            ImGui::Begin("Verify", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+            ImGui::TextColored(ImVec4(1, 1, 0, 1), "PLEASE CHECK THE POPUP WINDOW");
+            ImGui::Text("Cloudflare needs a manual click...");
+            ImGui::End();
+        } else {
+            // Standard "Ghosting" overlay
+            ImGui::SetNextWindowPos(ImVec2(20, 20));
+            ImGui::TextDisabled("Ghost Bridge: Negotiating with Cloudflare...");
+        }
+        
+        ImGui::EndDisabled();
+    }
+}

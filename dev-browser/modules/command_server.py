@@ -117,6 +117,23 @@ class BrowserCommandHandler(BaseHTTPRequestHandler):
             from .apps_manager import get_manager
             self._json(get_manager().list_jobs())
 
+        elif path == '/cf-solve':
+            # Solve a Cloudflare Turnstile challenge via the hidden Chromium
+            # engine and return the resulting cookies as JSON.
+            # GET /cf-solve?url=https://...
+            nav_url = params.get('url', [''])[0]
+            if not nav_url:
+                self._json({'error': 'missing url'}, status=400)
+                return
+            try:
+                from .cf_bridge import solve_url as _cf_solve
+                cookies = _cf_solve(nav_url)
+                cleared = any(c['name'] in ('__cf_clearance', 'cf_clearance')
+                              for c in cookies)
+                self._json({'ok': cleared, 'cookies': cookies})
+            except Exception as exc:
+                self._json({'error': str(exc)}, status=500)
+
         else:
             self.send_response(404)
             self.send_header('Access-Control-Allow-Origin', '*')

@@ -24,6 +24,16 @@ cmake .. \
 NPROC=$(sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
 cmake --build . --config Release -j "$NPROC"
 
+# macOS: ad-hoc sign the app bundle so Gatekeeper does not block it.
+# A Developer ID cert is not required; the "-" identity is sufficient for
+# local use. Also clear the quarantine xattr if it got set.
+if [[ "$(uname)" == "Darwin" ]]; then
+    echo "[build] ad-hoc signing $BUILD/imgui_browser.app ..."
+    codesign --force --deep --sign - "$BUILD/imgui_browser.app"
+    xattr -rd com.apple.quarantine "$BUILD/imgui_browser.app" 2>/dev/null || true
+    echo "[build] signed OK"
+fi
+
 echo ""
 echo "[build] done -> $BUILD/imgui_browser"
 echo "[build] run with: ./run.sh"

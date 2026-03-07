@@ -47,6 +47,7 @@ add_executable(imgui_browser
     src/webview.mm
     src/server_manager.cpp
     src/cmd_server.cpp
+    src/cf_client.cpp
     src/fps_counter.cpp
     src/xcm_shell.mm
 )
@@ -81,6 +82,9 @@ find_library(SYSCFG_FW   SystemConfiguration)
 find_library(CFNETWORK_FW CFNetwork)
 find_library(SECURITY_FW  Security)
 
+# libcurl -- ships with macOS; used by cf_client.cpp to call cf_bridge
+find_library(CURL_FW  curl)
+
 target_link_libraries(imgui_browser PRIVATE
     imgui
     glfw
@@ -94,6 +98,7 @@ target_link_libraries(imgui_browser PRIVATE
     ${SYSCFG_FW}
     ${CFNETWORK_FW}
     ${SECURITY_FW}
+    ${CURL_FW}
 )
 
 # Set macOS deployment target and bundle properties.

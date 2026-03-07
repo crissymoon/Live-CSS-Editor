@@ -152,6 +152,9 @@ static void xcm_status(const char* msg);  // forward declared before use below
         int idx = data ? (int)data.integerValue : -1;
         if (idx >= 0 && idx < (int)s_state->tabs.size())
             s_state->push_nav(-5, std::to_string(s_state->tabs[idx].id));
+    } else if ([action isEqualToString:@"clear_cache"]) {
+        webview_clear_cache();
+        xcm_status("Cache cleared");
     } else if ([action isEqualToString:@"open_url"]) {
         // Open a URL in a new tab (used by the app launcher in the drawer).
         std::string url = data ? data.UTF8String : "";

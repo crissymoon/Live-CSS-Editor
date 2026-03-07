@@ -60,6 +60,7 @@ import threading
 import subprocess
 import atexit
 import time
+import datetime
 
 from PyQt6.QtCore import (
     QObject, pyqtSignal, QThread, QTimer, Qt, QRect,
@@ -72,6 +73,15 @@ _HERE      = os.path.dirname(os.path.abspath(__file__))
 _SRC_DIR   = os.path.join(os.path.dirname(_HERE), 'src')
 _SERVER_JS = os.path.join(_SRC_DIR, 'puppeteer-server.js')
 _WS_PORT   = 9922
+
+
+def _ts():
+    """Return a compact timestamp string for log lines."""
+    return datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3]
+
+
+def _log(tag: str, msg: str):
+    print(f'[{_ts()}][{tag}] {msg}', flush=True)
 
 # ── Lazy websocket-client import ─────────────────────────────────────────────
 # websocket-client ships as 'websocket' on pip.
@@ -99,8 +109,7 @@ class _WsReader(QThread):
     def run(self):
         ws_mod = _import_websocket()
         if ws_mod is None:
-            print('[puppeteer_bridge] websocket-client not installed -- '
-                  'run: pip install websocket-client', flush=True)
+            _log('ws-reader', 'websocket-client not installed -- run: pip install websocket-client')
             return
 
         url = f'ws://127.0.0.1:{self._port}'
@@ -109,7 +118,9 @@ class _WsReader(QThread):
         while not self._stop.is_set() and retries < 30:
             try:
                 self._ws = ws_mod.WebSocket()
+                _log('ws-reader', f'connecting to {url} (attempt {retries + 1})')
                 self._ws.connect(url, timeout=2)
+                _log('ws-reader', f'connected on attempt {retries + 1}')
                 self.connected.emit()
                 retries = 0
 
@@ -120,24 +131,28 @@ class _WsReader(QThread):
                             try:
                                 obj = json.loads(raw)
                                 self.message.emit(obj)
-                            except json.JSONDecodeError:
-                                pass
-                    except Exception:
+                            except json.JSONDecodeError as e:
+                                _log('ws-reader', f'JSON decode error: {e} | raw={raw[:120]}')
+                    except Exception as e:
+                        _log('ws-reader', f'recv error: {type(e).__name__}: {e}')
                         break
 
                 self.disconnected.emit()
-            except Exception:
-                pass
+            except Exception as e:
+                _log('ws-reader', f'connect failed (attempt {retries + 1}): {type(e).__name__}: {e}')
 
             retries += 1
             time.sleep(0.5)
+
+        if retries >= 30:
+            _log('ws-reader', 'gave up after 30 attempts -- is puppeteer-server.js running?')
 
     def send(self, obj: dict):
         if self._ws:
             try:
                 self._ws.send(json.dumps(obj))
             except Exception as e:
-                print(f'[puppeteer_bridge] send error: {e}', flush=True)
+                _log('ws-reader', f'send error: {e}')
 
     def stop(self):
         self._stop.set()
@@ -256,6 +271,52 @@ class PuppeteerBridge(QObject):
     # ── Internal WebSocket message handler ───────────────────────────────────
     def _on_message(self, obj: dict):
         event = obj.get('event')
+
+        # Log every event so nothing is silently dropped.
+        if event == 'loadProgress':
+            # High-frequency -- only log at 0 / 50 / 100%.
+            pct = int(obj.get('percent', 0))
+            if pct in (0, 50, 70, 100):
+                _log('bridge', f'loadProgress {pct}%')
+        elif event == 'console':
+            level = obj.get('level', 'log')
+            text  = obj.get('text', '')
+            _log('page-console', f'[{level}] {text}')
+        elif event == 'cfChallenge':
+            _log('CF-CHALLENGE', f'Cloudflare challenge detected | url={obj.get("url")} status={obj.get("status")}')
+        elif event == 'cfClearance':
+            _log('CF-CLEARANCE', '__cf_clearance cookie received -- challenge solved')
+        elif event == 'cookies':
+            cookies = obj.get('cookies', [])
+            names   = [c.get('name') for c in cookies]
+            header  = obj.get('cookieHeader', '')
+            _log('cookies', f'{len(cookies)} cookies | names={names}')
+            _log('cookies', f'cookie-header ({len(header)} chars): {header[:200]}')
+        elif event == 'screenshot':
+            _log('bridge', f'screenshot received ({len(obj.get("data",""))} base64 chars)')
+        elif event == 'evalResult':
+            err = obj.get('error')
+            cid = obj.get('id', '')
+            if err:
+                _log('eval', f'id={cid} ERROR: {err}')
+            else:
+                result_repr = repr(obj.get('result'))[:120]
+                _log('eval', f'id={cid} result={result_repr}')
+        elif event == 'error':
+            _log('page-error', obj.get('msg', ''))
+        elif event == 'url':
+            _log('bridge', f'url -> {obj.get("url")}')
+        elif event == 'title':
+            _log('bridge', f'title -> {obj.get("title")}')
+        elif event == 'load':
+            _log('bridge', 'load (page fully loaded)')
+        elif event == 'loadStart':
+            _log('bridge', 'loadStart')
+        elif event == 'ready':
+            _log('bridge', 'Chrome ready')
+        else:
+            _log('bridge', f'unknown event: {obj}')
+
         if event == 'ready':
             self.ready.emit()
         elif event == 'url':
@@ -275,14 +336,13 @@ class PuppeteerBridge(QObject):
         elif event == 'error':
             self.error_occurred.emit(obj.get('msg', ''))
         elif event == 'evalResult':
-            # Routed by correlation id -- subclasses or callers can handle.
             pass
 
     def _on_connected(self):
-        print('[puppeteer_bridge] WebSocket connected', flush=True)
+        _log('bridge', 'WebSocket connected')
 
     def _on_disconnected(self):
-        print('[puppeteer_bridge] WebSocket disconnected', flush=True)
+        _log('bridge', 'WebSocket disconnected')
 
     # ── Public command API ────────────────────────────────────────────────────
     def _send(self, obj: dict):
@@ -292,18 +352,23 @@ class PuppeteerBridge(QObject):
     def navigate(self, url: str):
         if not url.startswith(('http://', 'https://', 'file://', 'about:', 'data:')):
             url = 'https://' + url
+        _log('bridge', f'navigate -> {url}')
         self._send({'cmd': 'navigate', 'url': url})
 
     def back(self):
+        _log('bridge', 'back')
         self._send({'cmd': 'back'})
 
     def forward(self):
+        _log('bridge', 'forward')
         self._send({'cmd': 'forward'})
 
     def reload(self):
+        _log('bridge', 'reload')
         self._send({'cmd': 'reload'})
 
     def stop_load(self):
+        _log('bridge', 'stop')
         self._send({'cmd': 'stop'})
 
     def evaluate(self, js: str, cid: str = ''):

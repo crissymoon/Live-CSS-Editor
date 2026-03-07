@@ -13,6 +13,7 @@
 #include "webview.h"
 #include "app_state.h"
 #include "xcm_shell.h"
+#include "cf_client.h"
 #include <string>
 #include <unordered_map>
 #include <functional>
@@ -44,13 +45,16 @@ static NSString* const JS_FPS_PROBE = @"(function(){"
 // User script injected at document-start: disables the native WKWebView
 // status bar (link-hover overlay) and fires performance hints.
 static NSString* const JS_INIT = @"(function(){"
-    // Disable the default status bar that would appear at the bottom.
-    "Object.defineProperty(window,'status',{set:function(){},get:function(){return '';}});"
     // Tell stats-inject the display Hz (filled by the host after detection).
     "window.__xcmImguiHost=true;"
     // Image proxy base URL -- read by compress-inject.js.
     // The Node image-cache-server runs on this port (started by main.mm).
     "window.__xcmImgProxy='http://127.0.0.1:7779';"
+    // NOTE: window.status override was removed. Cloudflare Turnstile calls
+    // Object.getOwnPropertyDescriptor(window,'status') as part of its probe
+    // sequence. A non-native descriptor (custom getter/setter) is flagged
+    // as automation and the challenge fails. The status bar suppression is
+    // not needed -- WKWebView does not show a link-preview status bar anyway.
     "})();";
 
 // JS_SCROLL_KILL removed -- it broke SPA routers on LinkedIn and similar
@@ -79,27 +83,13 @@ static NSString* const JS_MASK_WEBVIEW = @"(function(){"
     "  });"
     "}catch(e){}"
 
-    // navigator.vendor -- Firefox returns "" (empty string).
-    // WKWebView returns "Apple Computer, Inc." which is a strong signal.
-    "try{"
-    "  Object.defineProperty(navigator,'vendor',{"
-    "    get:function(){return '';},"
-    "    configurable:true"
-    "  });"
-    "}catch(e){}"
+    // navigator.vendor -- Safari/WebKit correctly returns "Apple Computer, Inc."
+    // No override needed; the WKWebView default matches genuine Safari.
+    // (Previous Firefox mode patched this to '' -- removed with UA change.)
 
-    // navigator.userAgentData -- Firefox 134 does not expose this API to web
-    // pages by default; leave it undefined so the fingerprint matches Firefox.
-    // Do not inject a Chrome-shaped object -- that would be inconsistent with
-    // the Firefox UA and could trigger detection.
-    "try{"
-    "  if(navigator.userAgentData){"
-    "    Object.defineProperty(navigator,'userAgentData',{"
-    "      get:function(){return undefined;},"
-    "      configurable:true"
-    "    });"
-    "  }"
-    "}catch(e){}"
+    // navigator.userAgentData -- Safari does not expose this Chromium-only API.
+    // WKWebView does not set it either, so no override is needed.
+    // Leaving it absent is the correct Safari fingerprint.
 
     // navigator.plugins / navigator.mimeTypes -- Firefox 89+ returns empty
     // arrays for both; WKWebView also returns empty arrays natively, so the
@@ -144,78 +134,18 @@ static NSString* const JS_MASK_WEBVIEW = @"(function(){"
     "  }"
     "}catch(e){}"
 
-    // window.trustedTypes (Trusted Types API) -- Chrome 83+ exposes this.
-    // Google's sign-in front-end (gapi.js / accounts.google.com) checks
-    // typeof trustedTypes !== 'undefined' and attempts to create a policy
-    // with it. If the object is absent the page detects a non-Chrome env
-    // and falls through to the 'unsupported browser' error path.
-    "try{"
-    "  if(!window.trustedTypes){"
-    "    var _ttPolicies={};"
-    "    Object.defineProperty(window,'trustedTypes',{"
-    "      value:{"
-    "        createPolicy:function(name,rules){"
-    "          var p={"
-    "            createHTML:rules&&rules.createHTML?function(s,x,y){return rules.createHTML(s,x,y);}:function(s){return s;},"
-    "            createScript:rules&&rules.createScript?function(s,x,y){return rules.createScript(s,x,y);}:function(s){return s;},"
-    "            createScriptURL:rules&&rules.createScriptURL?function(s,x,y){return rules.createScriptURL(s,x,y);}:function(s){return s;}"
-    "          };"
-    "          _ttPolicies[name]=p;"
-    "          return p;"
-    "        },"
-    "        isHTML:function(v){return false;},"
-    "        isScript:function(v){return false;},"
-    "        isScriptURL:function(v){return false;},"
-    "        getPolicyNames:function(){return Object.keys(_ttPolicies);},"
-    "        defaultPolicy:null,"
-    "        emptyHTML:'',"
-    "        emptyScript:''"
-    "      },"
-    "      configurable:true"
-    "    });"
-    "  }"
-    "}catch(e){}"
+    // window.trustedTypes -- Chrome 83+ only. Safari does not have it.
+    // Injecting it while claiming to be Safari would be a fingerprint
+    // inconsistency that CF detects. Removed with UA change to Safari.
+    //
+    // NOTE: Google sign-in pages check for trustedTypes but they also
+    // support Safari natively; the page degrades gracefully when it is absent.
 
-    // performance.memory -- Chrome exposes this; WKWebView does not.
-    // LinkedIn's module bundler checks for it to decide between the full
-    // and 'lite' page templates. Without it certain route-based bundles
-    // (including the global nav) are never fetched.
-    "try{"
-    "  if(typeof performance!=='undefined'&&!performance.memory){"
-    "    Object.defineProperty(performance,'memory',{"
-    "      get:function(){"
-    "        return{"
-    "          jsHeapSizeLimit:4294705152,"
-    "          totalJSHeapSize:60000000,"
-    "          usedJSHeapSize:30000000"
-    "        };"
-    "      },"
-    "      configurable:true"
-    "    });"
-    "  }"
-    "}catch(e){}"
+    // performance.memory -- V8/Chrome only, absent in Safari. Removed.
+    // LinkedIn and other sites handle its absence gracefully when UA is Safari.
 
-    // navigator.connection (Network Information API) -- present in Chrome,
-    // absent in WKWebView. LinkedIn uses it for network-aware lazy loading;
-    // if undefined the voyager SPA may skip loading the global-nav bundle.
-    "try{"
-    "  if(!navigator.connection){"
-    "    Object.defineProperty(navigator,'connection',{"
-    "      get:function(){"
-    "        return{"
-    "          effectiveType:'4g',"
-    "          downlink:10,"
-    "          rtt:50,"
-    "          saveData:false,"
-    "          onchange:null,"
-    "          addEventListener:function(){},"
-    "          removeEventListener:function(){}"
-    "        };"
-    "      },"
-    "      configurable:true"
-    "    });"
-    "  }"
-    "}catch(e){}"
+    // navigator.connection -- Chrome/Android only, absent in Safari. Removed.
+    // Injecting it while claiming to be Safari would trigger CF's consistency check.
 
     // window.outerWidth / window.outerHeight -- WKWebView returns 0 for both.
     // LinkedIn's global-nav component reads outerWidth to determine whether
@@ -342,14 +272,27 @@ static NSString* const JS_FINGERPRINT_NOISE = @"(function(){"
 
     "})();";
 
-// Firefox 134 on macOS -- current as of March 2026.
-// Firefox UA bypasses Google's embedded-WebView sign-in block more reliably
-// than a Chrome UA because Google's detection targets Chrome-in-WebView
-// specifically. The macOS version token is always "10.15" in Firefox
-// regardless of the actual OS version.
-static NSString* const kUserAgent =
-    @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) "
-     "Gecko/20100101 Firefox/134.0";
+// Safari 18 on macOS -- UA matches the Network.framework TLS fingerprint.
+//
+// WHY NOT Firefox/Chrome UA:
+//   WKWebView uses Apple's Network.framework for all TLS connections. The
+//   JA3 hash of the TLS ClientHello produced by Network.framework matches
+//   real Safari, not Firefox or Chrome. Cloudflare Bot Management checks
+//   UA-vs-TLS consistency as a primary signal. A Firefox UA with an Apple
+//   TLS stack is an immediate bot flag even before any JS runs.
+//
+// NOTE: customUserAgent is intentionally NOT set.
+// Cloudflare Turnstile requires:
+//   1. No modification to core browser behavior.
+//   2. A consistent User Agent throughout the session.
+// WKWebView's default UA is already in Safari format (e.g.
+// "Mozilla/5.0 ... AppleWebKit/605.1.15 ... Version/18 Safari/605.1.15").
+// That UA exactly matches the JA3 TLS fingerprint produced by
+// Network.framework. Any override string breaks this consistency.
+// See: https://developers.cloudflare.com/turnstile/get-started/mobile-implementation/
+//
+// For sites that require a specific browser identity, navigate via the
+// system browser with webview_open_in_system_browser().
 
 // Reporting API polyfill: captures CSP violation DOM events and POSTs them
 // to the endpoint from the page's Report-To / Reporting-Endpoints header.
@@ -488,20 +431,33 @@ static NSMutableArray<XCMPopupDelegate*>* s_popup_delegates = nil;
 @implementation XCMPopupDelegate
 
 - (void)webViewDidClose:(WKWebView*)wv {
-    // If the popup was on a linkedin.com page when it closed (user clicked X,
-    // or the page called window.close()), navigate the main tab to the same
-    // URL so it inherits whatever session state was just established.
     NSString* currentUrl = wv.URL.absoluteString ?: @"";
     NSString* host       = wv.URL.host.lowercaseString ?: @"";
-    BOOL isLinkedIn = [host hasSuffix:@"linkedin.com"];
-    BOOL isAuthPage = [currentUrl containsString:@"/login"] ||
+
+    // OAuth popups call window.close() once auth is done, landing on the app
+    // destination (e.g. claude.com after Google OAuth).  Detect whether the
+    // popup closed on an OAuth provider (mid-flow user cancel) vs. a real
+    // destination (auth complete) and act accordingly.
+    BOOL isOAuthProvider = [host hasSuffix:@"google.com"]   ||
+                            [host hasSuffix:@"github.com"]   ||
+                            [host hasSuffix:@"apple.com"]    ||
+                            [host hasSuffix:@"microsoft.com"];
+    BOOL isAuthPage = [currentUrl containsString:@"/login"]  ||
+                      [currentUrl containsString:@"/signin"] ||
                       [currentUrl containsString:@"/signup"] ||
+                      [currentUrl containsString:@"/oauth"]  ||
+                      [currentUrl containsString:@"/auth/"]  ||
                       [currentUrl containsString:@"authwall"];
-    if (isLinkedIn && !isAuthPage && currentUrl.length > 0) {
+
+    if (!isOAuthProvider && !isAuthPage && currentUrl.length > 0) {
+        // Auth complete: reload the main tab so it picks up newly-set
+        // session cookies (works for Claude, LinkedIn, and any OAuth site).
         int parentId = self.parentTabId;
-        if (s_state) s_state->push_nav(parentId, currentUrl.UTF8String);
-        fprintf(stderr, "[popup] closed on %s, navigating main tab %d\n",
+        fprintf(stderr, "[popup] closed on app page %s, reloading main tab %d\n",
                 currentUrl.UTF8String, parentId);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (s_state) s_state->push_nav(parentId, "__reload__");
+        });
     }
     [self.panel orderOut:nil];
     self.panel   = nil;
@@ -518,16 +474,24 @@ static NSMutableArray<XCMPopupDelegate*>* s_popup_delegates = nil;
     fprintf(stderr, "[popup] finish: %s\n", urlStr.UTF8String);
     if (self.panel) [self.panel center];
 
-    // When the popup lands on any linkedin.com page that is not the sign-in
-    // or signup page, consider auth done: navigate the main tab to that same
-    // URL so it inherits the session cookies the popup just wrote.
+    // When the popup lands on an app-destination page (not an OAuth provider,
+    // not a login/signup page), auth is done: navigate the main tab to the
+    // same URL so it inherits the session cookies the popup just wrote.
+    // Covers LinkedIn, Claude, Anthropic, and any future site using this flow.
     NSString* host = wv.URL.host.lowercaseString ?: @"";
-    BOOL isLinkedIn = [host hasSuffix:@"linkedin.com"];
-    BOOL isAuthPage = [urlStr containsString:@"/login"] ||
-                      [urlStr containsString:@"/signup"] ||
-                      [urlStr containsString:@"/uas/login"] ||
+    BOOL isOAuthProvider = [host hasSuffix:@"google.com"]    ||
+                            [host hasSuffix:@"github.com"]    ||
+                            [host hasSuffix:@"apple.com"]     ||
+                            [host hasSuffix:@"microsoft.com"] ||
+                            [host hasSuffix:@"facebook.com"];
+    BOOL isAuthPage = [urlStr containsString:@"/login"]    ||
+                      [urlStr containsString:@"/signin"]   ||
+                      [urlStr containsString:@"/signup"]   ||
+                      [urlStr containsString:@"/uas/login"]||
+                      [urlStr containsString:@"/oauth"]    ||
+                      [urlStr containsString:@"/auth/"]    ||
                       [urlStr containsString:@"authwall"];
-    if (isLinkedIn && !isAuthPage && urlStr.length > 0) {
+    if (!isOAuthProvider && !isAuthPage && urlStr.length > 0) {
         fprintf(stderr, "[popup] oauth done on %s, navigating main tab %d\n",
                 urlStr.UTF8String, self.parentTabId);
         NSString* destUrl = urlStr;
@@ -666,8 +630,33 @@ static void xcm_inject_masks(WKUserContentController* ucc);
     // Probe whether the page has real content or is blank.
     [wv evaluateJavaScript:@"(document.title||'(no title)')+' | body.children='+document.body.children.length"
          completionHandler:^(id res, NSError* jsErr) {
-        if (jsErr) fprintf(stderr, "[nav] page-probe err: %s\n", jsErr.localizedDescription.UTF8String);
-        else       fprintf(stderr, "[nav] page-probe: %s\n", [res description].UTF8String ?: "(nil)");
+        if (jsErr) {
+            fprintf(stderr, "[nav] page-probe err: %s\n", jsErr.localizedDescription.UTF8String);
+        } else {
+            NSString* info = [res description] ?: @"";
+            fprintf(stderr, "[nav] page-probe: %s\n", info.UTF8String);
+            // Detect Cloudflare challenge pages and auto-relay to cf_bridge.
+            //   "Just a moment..."  -- Turnstile / Bot Management waiting room
+            //   "1020"              -- CF Access Denied (rule-based reject)
+            //   "Attention Required!" -- CF WAF block page
+            BOOL isCfChallenge = [info containsString:@"Just a moment"] ||
+                                  [info containsString:@"1020"] ||
+                                  [info containsString:@"Attention Required"];
+            if (isCfChallenge) {
+                std::string page_url = wv.URL.absoluteString.UTF8String ?: "";
+                fprintf(stderr, "[cf] challenge on '%s' -- handing to cf_bridge\n",
+                        page_url.c_str());
+                // cf_client_solve_async has a per-host dedup guard so even if
+                // the page reloads and triggers this block again the bridge is
+                // only called once per host per app session.
+                cf_client_solve_async(page_url);
+                // Reload after the bridge's typical solve time (3-8s) + margin.
+                // By the time this fires __cf_clearance is in WKWebsiteDataStore.
+                dispatch_after(
+                    dispatch_time(DISPATCH_TIME_NOW, (int64_t)(12.0 * NSEC_PER_SEC)),
+                    dispatch_get_main_queue(), ^{ [wv reload]; });
+            }
+        }
     }];
     if (s_cbs.on_loading)   s_cbs.on_loading(self.tabId, false);
     if (s_cbs.on_nav_state) s_cbs.on_nav_state(self.tabId, wv.canGoBack, wv.canGoForward);
@@ -851,7 +840,7 @@ static void xcm_inject_masks(WKUserContentController* ucc);
 
     WKWebView* popup = [[WKWebView alloc] initWithFrame:panelRect
                                           configuration:cfg];
-    popup.customUserAgent = kUserAgent;
+    // No customUserAgent -- Turnstile requires the default Safari UA.
 
     XCMPopupDelegate* popupDel = [[XCMPopupDelegate alloc] init];
     popupDel.panel        = panel;
@@ -1156,24 +1145,37 @@ struct WVHandle {
 static std::unordered_map<int, WVHandle*> s_handles;  // tab_id -> handle
 
 // ── Mask injection helper ─────────────────────────────────────────────
-// Adds JS_INIT and JS_MASK_WEBVIEW to any WKUserContentController.
+// Injects JS_INIT and JS_REPORT_TO_RELAY into a WKUserContentController.
+// JS_MASK_WEBVIEW and JS_FINGERPRINT_NOISE have been REMOVED.
+//
+// Cloudflare Turnstile explicitly requires "no modification to core browser
+// behavior" and checks for overridden native functions via
+// Object.getOwnPropertyDescriptor internally. Those masks were overriding
+// navigator.webdriver, window.webkit, canvas, WebGL, and AudioBuffer APIs
+// which Turnstile's challenge script probes directly.
+//
+// WKWebView's native Safari properties are correct without any patching:
+//   navigator.vendor    = "Apple Computer, Inc."  (correct for Safari)
+//   navigator.webdriver = undefined                (correct, not set by WK)
+//   window.webkit       = present                  (correct for WKWebView)
+//
 // Called for the main WKWebView on creation AND for every popup window
 // because WebKit supplies a fresh (empty) userContentController in
 // createWebViewWithConfiguration:, so the scripts do not propagate
 // automatically from the parent page.
 static void xcm_inject_masks(WKUserContentController* ucc) {
+    // MAIN FRAME ONLY for all injected scripts.
+    // Turnstile runs inside a cross-origin iframe at challenges.cloudflare.com.
+    // Injecting scripts into it (forMainFrameOnly:NO) adds non-standard
+    // window properties (__xcmImguiHost, __xcmImgProxy) and overrides
+    // window.status via Object.defineProperty. Turnstile scans for both
+    // unexpected window properties and non-native property descriptors.
+    // Setting forMainFrameOnly:YES keeps all injections out of the
+    // Turnstile iframe and any other cross-origin subframe.
     WKUserScript* init = [[WKUserScript alloc]
         initWithSource:JS_INIT
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-        forMainFrameOnly:NO];
-    WKUserScript* mask = [[WKUserScript alloc]
-        initWithSource:JS_MASK_WEBVIEW
-        injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-        forMainFrameOnly:NO];
-    WKUserScript* noise = [[WKUserScript alloc]
-        initWithSource:JS_FINGERPRINT_NOISE
-        injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-        forMainFrameOnly:NO];
+        forMainFrameOnly:YES];
     // Reporting API polyfill -- main frame only to avoid duplicate POSTs
     // from cross-origin child frames.
     WKUserScript* relay = [[WKUserScript alloc]
@@ -1181,19 +1183,18 @@ static void xcm_inject_masks(WKUserContentController* ucc) {
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart
         forMainFrameOnly:YES];
     [ucc addUserScript:init];
-    [ucc addUserScript:mask];
-    [ucc addUserScript:noise];
     [ucc addUserScript:relay];
 
     // Inject any app-supplied extra scripts (e.g. input-watcher.js,
     // chrome-gl-compositor.js) in the order they were registered.
+    // Also main frame only -- do not leak app globals into payment/auth iframes.
     for (const auto& src : s_cbs.extra_scripts) {
         if (src.empty()) continue;
         NSString* nsSrc = [NSString stringWithUTF8String:src.c_str()];
         WKUserScript* extra = [[WKUserScript alloc]
             initWithSource:nsSrc
             injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-            forMainFrameOnly:NO];
+            forMainFrameOnly:YES];
         [ucc addUserScript:extra];
     }
 }
@@ -1346,9 +1347,9 @@ void* webview_create(int tab_id, const std::string& url) {
 
     WKWebView* wv = [[WKWebView alloc] initWithFrame:frame configuration:cfg];
     wv.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    // Present as Chrome so sites serve full desktop pages and do not
-    // block or degrade based on an unrecognised WebKit user agent.
-    wv.customUserAgent = kUserAgent;
+    // Do NOT set customUserAgent. WKWebView's native Safari UA is required
+    // by Cloudflare Turnstile ("consistent UA", "no modification to core
+    // browser behavior"). The default UA already matches the TLS JA3 hash.
 
     // Disable the link-preview status bar overlay
     if ([wv respondsToSelector:@selector(_setStatusBarEnabled:)])
@@ -1495,7 +1496,13 @@ void webview_load_url(void* handle, const std::string& url) {
         return;
     }
     fprintf(stderr, "[nav] load: %s\n", ns.absoluteString.UTF8String);
-    [wv loadRequest:[NSURLRequest requestWithURL:ns]];
+    // Use ReloadIgnoringLocalCacheData so stale cached 301 redirects from a
+    // previous server config (e.g. nginx redirecting port 8080 -> 8443) are
+    // never followed for explicit user navigations.
+    NSURLRequest* req = [NSURLRequest requestWithURL:ns
+                                         cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                     timeoutInterval:60.0];
+    [wv loadRequest:req];
 }
 
 void webview_go_back(void* handle) {
@@ -1641,6 +1648,24 @@ void webview_clipboard_action(void* handle, const char* action) {
     fprintf(stderr, "[wv] clipboard action: unknown: %s\n", action);
 }
 
+void webview_clear_cache() {
+    // Clear only HTTP disk/memory cache. Preserves cookies, localStorage,
+    // IndexedDB, and auth state. Use this to flush stale 301 redirects or
+    // other cached responses without logging the user out.
+    fprintf(stderr, "[wv] clearing http cache...\n");
+    WKWebsiteDataStore* store = WKWebsiteDataStore.defaultDataStore;
+    NSSet* types = [NSSet setWithObjects:
+        WKWebsiteDataTypeDiskCache,
+        WKWebsiteDataTypeMemoryCache,
+        nil];
+    NSDate* epoch = [NSDate dateWithTimeIntervalSince1970:0];
+    [store removeDataOfTypes:types
+               modifiedSince:epoch
+           completionHandler:^{
+        fprintf(stderr, "[wv] http cache cleared.\n");
+    }];
+}
+
 void webview_clear_data() {
     // Clear ALL website data from the persistent store: cookies, localStorage,
     // IndexedDB, cache, service worker registrations, etc. This is the nuclear
@@ -1663,4 +1688,110 @@ void webview_shutdown() {
         delete h;
     }
     s_handles.clear();
+}
+
+// Open a URL in the user's default browser (real Safari or Chrome).
+//
+// USE THIS FOR: Google sign-in, any site that blocks embedded WebView flows.
+//
+// Google's OAuth policy explicitly blocks sign-in from embedded WebViews
+// (WKWebView, Chrome CDP), regardless of UA string, because it is a
+// security policy (confused-deputy attacks) not just a fingerprint check.
+// The only reliable way to sign into Google accounts from a custom browser
+// is to delegate the auth flow to a full first-party browser via the OS.
+//
+// After the user completes login in the system browser and your app regains
+// focus, call webview_load_url on the original tab to reload the destination
+// page. If the site uses shared system cookies (Safari) the session will
+// already be active. If the site uses HttpOnly session tokens that are not
+// shared, the user will need to copy a token manually or you need to
+// implement an appropriate callback URL scheme.
+void webview_open_in_system_browser(const std::string& url) {
+    NSString* ns_url = [NSString stringWithUTF8String:url.c_str()];
+    NSURL* ns = [NSURL URLWithString:ns_url];
+    if (!ns) {
+        fprintf(stderr, "[wv] webview_open_in_system_browser: invalid URL: %s\n", url.c_str());
+        return;
+    }
+    [[NSWorkspace sharedWorkspace] openURL:ns];
+    fprintf(stderr, "[wv] opened in system browser: %s\n", url.c_str());
+}
+
+// Inject cookies harvested by the cf_bridge Chromium module into the
+// default WKWebsiteDataStore so every WKWebView tab benefits immediately.
+//
+// json_arr: a JSON array produced by cf_bridge -- each element has at
+//   minimum "name", "value", "domain" keys.  Optional keys: "path",
+//   "secure", "httpOnly", "expiresAt" (Unix timestamp as number).
+//
+// Called from cmd_server.cpp via POST /inject-cookies.
+// Dispatches the actual cookie injection onto the main thread as required
+// by WKHTTPCookieStore.
+void webview_inject_cookies(const std::string& json_arr) {
+    NSString* ns_json = [NSString stringWithUTF8String:json_arr.c_str()];
+    NSData*   data    = [ns_json dataUsingEncoding:NSUTF8StringEncoding];
+    if (!data) {
+        fprintf(stderr, "[wv] inject_cookies: empty input\n");
+        return;
+    }
+
+    NSError* err = nil;
+    id parsed = [NSJSONSerialization JSONObjectWithData:data
+                                               options:0
+                                                 error:&err];
+    if (!parsed || err) {
+        fprintf(stderr, "[wv] inject_cookies: JSON parse error: %s\n",
+                [[err localizedDescription] UTF8String]);
+        return;
+    }
+    if (![parsed isKindOfClass:[NSArray class]]) {
+        fprintf(stderr, "[wv] inject_cookies: expected JSON array\n");
+        return;
+    }
+
+    NSArray* arr = (NSArray*)parsed;
+    WKHTTPCookieStore* store =
+        [WKWebsiteDataStore defaultDataStore].httpCookieStore;
+
+    for (id obj in arr) {
+        if (![obj isKindOfClass:[NSDictionary class]]) continue;
+        NSDictionary* d = (NSDictionary*)obj;
+
+        NSString* name   = d[@"name"];
+        NSString* value  = d[@"value"];
+        NSString* domain = d[@"domain"];
+        if (!name || !value || !domain) continue;
+
+        NSMutableDictionary* props = [NSMutableDictionary dictionary];
+        props[NSHTTPCookieName]   = name;
+        props[NSHTTPCookieValue]  = value;
+        props[NSHTTPCookieDomain] = domain;
+        props[NSHTTPCookiePath]   = d[@"path"] ?: @"/";
+
+        if ([d[@"secure"] boolValue])
+            props[NSHTTPCookieSecure] = @"TRUE";
+
+        id expiresAt = d[@"expiresAt"];
+        if (expiresAt && [expiresAt isKindOfClass:[NSNumber class]]) {
+            double ts = [expiresAt doubleValue];
+            if (ts > 0)
+                props[NSHTTPCookieExpires] = [NSDate dateWithTimeIntervalSince1970:ts];
+        }
+
+        NSHTTPCookie* cookie = [NSHTTPCookie cookieWithProperties:props];
+        if (!cookie) {
+            fprintf(stderr, "[wv] inject_cookies: failed to build cookie '%s'\n",
+                    [name UTF8String]);
+            continue;
+        }
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [store setCookie:cookie completionHandler:^{
+                fprintf(stderr, "[wv] inject_cookies: injected '%s' '%s'\n",
+                        [name UTF8String], [domain UTF8String]);
+            }];
+        });
+    }
+    fprintf(stderr, "[wv] inject_cookies: queued %lu cookies for injection\n",
+            (unsigned long)[arr count]);
 }

@@ -1,0 +1,124 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <cstdlib> // for system()
+#include <curl/curl.h>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
+struct SessionData {
+    std::string cookies;
+    std::string user_agent;
+};
+
+// Global or Class Member to store your session
+SessionData current_session;
+
+void refresh_session() {
+    std::cout << "[!] Cloudflare Blocked! Launching Ghost Bridge..." << std::endl;
+    
+    // 1. Run the Python script (Hidden)
+    // On Windows: "pythonw ghost_bridge.py" (the 'w' hides the terminal)
+    // On macOS/Linux: "python3 ghost_bridge.py &"
+    int result = std::system("pythonw ghost_bridge.py"); 
+
+    // 2. Load the newly generated session file
+    std::ifstream f("session.json");
+    if (f.is_open()) {
+        json j;
+        f >> j;
+        current_session.cookies = j["cookies_string"];
+        current_session.user_agent = j["ua"];
+        std::cout << "[+] New Session Captured." << std::endl;
+    }
+}
+
+long perform_request(const std::string& url, std::string& response_body) {
+    CURL* curl = curl_easy_init();
+    if (!curl) return 0;
+
+    struct curl_slist* headers = NULL;
+    
+    // Inject the cookies we got from the Python Qt bridge
+    std::string cookie_header = "Cookie: " + current_session.cookies;
+    headers = curl_slist_append(headers, cookie_header.c_str());
+    headers = curl_slist_append(headers, ("User-Agent: " + current_session.user_agent).c_str());
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    // ... setup write callbacks to response_body ...
+
+    CURLcode res = curl_easy_perform(curl);
+    long http_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    return http_code;
+}
+
+// The Main Loop for your AI/Payment Data
+void fetch_ai_data(const std::string& url) {
+    std::string data;
+    long status = perform_request(url, data);
+
+    // If 403, we are likely being challenged by Cloudflare
+    if (status == 403) {
+        refresh_session();
+        // Retry once with the new session
+        status = perform_request(url, data);
+    }
+
+    if (status == 200) {
+        // Render your ImGui UI with 'data'
+    }
+}
+
+
+
+# ghost_bridge.py
+import sys
+import json
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtCore import QUrl
+
+app = QApplication(sys.argv)
+web = QWebEngineView()
+
+# Match the target page you need clearance for
+TARGET_URL = "https://platform.openai.com"
+
+def on_load_finished():
+    # Once the page loads, extract the cookies
+    cookie_store = web.page().profile().cookieStore()
+    all_cookies = []
+
+    def handle_cookie(cookie):
+        c_str = f"{cookie.name().data().decode()}={cookie.value().data().decode()}"
+        all_cookies.append(c_str)
+        
+        # If we see the magic token, save and KILL the script
+        if cookie.name().data().decode() == "cf_clearance":
+            session = {
+                "cookies_string": "; ".join(all_cookies),
+                "ua": web.page().userAgent()
+            }
+            with open("session.json", "w") as f:
+                json.dump(session, f)
+            sys.exit(0) 
+
+    cookie_store.cookieAdded.connect(handle_cookie)
+
+web.loadFinished.connect(on_load_finished)
+web.load(QUrl(TARGET_URL))
+# web.show() # Uncomment during debugging to see the challenge!
+sys.exit(app.exec())
+
+
+
+---
+
+Critical Note: Cloudflare links the cf_clearance cookie to your IP Address and User-Agent. If your C++ app uses a different User-Agent than the one Python reported, it will fail. Always use current_session.user_agent in your libcurl calls

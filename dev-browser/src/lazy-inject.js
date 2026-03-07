@@ -15,6 +15,11 @@
 (function () {
     'use strict';
 
+    // Skip entirely on OpenAI and Claude -- their SPAs manage resource loading
+    // internally and the createElement patch + video IO cause rendering issues.
+    var _h = location.hostname;
+    if (/(?:^|\.)openai\.com$|(?:^|\.)claude\.ai$|(?:^|\.)claude\.com$/.test(_h)) return;
+
     var NEAR_VIEWPORT = 1.5;
 
     // ── Off-main-thread scheduler ───────────────────────────────────────────
@@ -37,8 +42,8 @@
     })();
 
     // ── 1. Patch document.createElement ────────────────────────────────────
-    // Sets loading=lazy + decoding=async on every img/iframe before the caller
-    // can assign src, so the browser never eagerly fetches off-screen resources.
+    // Sets loading=lazy + decoding=async on every <img> before the caller
+    // can assign src, so the browser never eagerly fetches off-screen images.
     // fetchpriority=low tells the browser these images lose the bandwidth race
     // against above-fold content.  We upgrade to 'high' for visible images in
     // the full-DOM pass (section 5).
@@ -50,9 +55,6 @@
             el.loading       = 'lazy';
             el.decoding      = 'async';
             el.fetchPriority = 'low';
-        } else if (t === 'iframe') {
-            el.loading  = 'lazy';
-            el.decoding = 'async';
         }
         return el;
     };
@@ -124,9 +126,6 @@
             if (!el.getAttribute('decoding'))      el.setAttribute('decoding',      'async');
             if (!el.getAttribute('fetchpriority')) el.setAttribute('fetchpriority', 'low');
             _preserveAspectRatio(el);
-        } else if (t === 'iframe') {
-            if (!el.getAttribute('loading'))  el.setAttribute('loading',  'lazy');
-            if (!el.getAttribute('decoding')) el.setAttribute('decoding', 'async');
         }
         if (t === 'video') _observeVideo(el);
     }

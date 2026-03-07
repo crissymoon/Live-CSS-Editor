@@ -80,9 +80,28 @@ void  webview_open_inspector(void* handle);
 // is currently key.  Must be called from the main thread.
 void  webview_clipboard_action(void* handle, const char* action);
 
+// Clear only the HTTP disk/memory cache. Preserves cookies and auth state.
+// Use this to flush stale 301 redirects or cached responses.
+void  webview_clear_cache();
+
 // Clear all stored website data (cookies, localStorage, IndexedDB, cache,
 // service worker registrations). Use this to flush a stuck auth state.
 void  webview_clear_data();
+
+// Open a URL in the user's default system browser (real Safari, Chrome, etc.).
+// Use this for Google OAuth and any site that blocks embedded-WebView login
+// flows by policy. The auth happens in the system browser where there are no
+// TLS fingerprint or embedded-WebView detection issues. See webview.mm for
+// full details on why this is needed.
+void  webview_open_in_system_browser(const std::string& url);
+
+// Inject cookies from cf_bridge (or any external source) into the shared
+// WKWebsiteDataStore.  json_arr must be a JSON array where each element is
+// an object with at minimum { name, value, domain } string keys.
+// Optional per-cookie keys: path (string), secure (bool), httpOnly (bool),
+// expiresAt (number, Unix epoch seconds).
+// This function is safe to call from any C++ thread.
+void  webview_inject_cookies(const std::string& json_arr);
 
 // Tear down everything (called on app exit).
 void  webview_shutdown();

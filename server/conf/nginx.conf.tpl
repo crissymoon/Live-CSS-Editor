@@ -35,13 +35,6 @@ http {
     gzip_types text/plain text/css application/json application/javascript
                text/xml application/xml application/xml+rss text/javascript;
 
-    # ── HTTP: redirect everything to HTTPS ────────────────────────────────────
-    server {
-        listen  127.0.0.1:8080;
-        server_name localhost;
-        return  301 https://localhost:8443$request_uri;
-    }
-
     # ── HTTPS: Live CSS Editor ─────────────────────────────────────────────────
     server {
         listen  127.0.0.1:8443 ssl;

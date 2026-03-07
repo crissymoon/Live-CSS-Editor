@@ -53,6 +53,10 @@
  *   { "cmd": "zoomSet",  "factor": 1.25 }
  *   { "cmd": "setUserAgent", "ua": "..." }
  *   { "cmd": "clearCache"  }
+ *   { "cmd": "getCookies" }           -> emits { event:"cookies", cookies:[...], cookieHeader:"..." }
+ *   { "cmd": "waitForCfClearance", "timeout": 30000 }  -> waits until __cf_clearance cookie appears
+ *   { "cmd": "showWindow", "x": N, "y": N, "w": N, "h": N }  -- restore hidden window
+ *   { "cmd": "hideWindow" }                                    -- re-minimize window
  *   { "cmd": "mouseEvent",  "type": "click|mousedown|mouseup|mousemove",
  *                           "x": N, "y": N, "button": "left|right|middle" }
  *   { "cmd": "wheelEvent",  "x": N, "y": N, "dX": N, "dY": N }
@@ -60,6 +64,9 @@
  *                           "code": "...", "modifiers": 0 }
  *
  * Server -> Python events:
+ *   { "event": "cfChallenge", "url": "...", "status": 403 }   -- Cloudflare challenge page detected
+ *   { "event": "cfClearance"  }                               -- CF challenge solved, __cf_clearance present
+ *   { "event": "cookies",  "cookies": [...], "cookieHeader": "k=v; ..." }  -- CF+Stripe cookies after load
  *   { "event": "ready"    }          -- emitted once Chrome is fully started
  *   { "event": "url",     "url":   "..." }
  *   { "event": "title",   "title": "..." }
@@ -74,13 +81,34 @@
 
 'use strict';
 
-const os      = require('os');
-const fs      = require('fs');
-const path    = require('path');
-const http    = require('http');
-const net     = require('net');
-const WS      = require('ws');
+const os        = require('os');
+const fs        = require('fs');
+const path      = require('path');
+const http      = require('http');
+const net       = require('net');
+const WS        = require('ws');
 const puppeteer = require('puppeteer-core');
+
+// ── Real Chrome user-data directory ──────────────────────────────────────────
+// Using the real profile means Chrome already has the user's logged-in Google
+// session, saved passwords, and cookies -- which eliminates nearly all OAuth
+// friction because Google sees a known, trusted device instead of a fresh
+// anonymous session.
+function defaultUserDataDir() {
+    const p = os.platform();
+    if (p === 'darwin') {
+        return path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome');
+    }
+    if (p === 'linux') {
+        return path.join(os.homedir(), '.config', 'google-chrome');
+    }
+    // win32
+    return path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'User Data');
+}
+
+// CDP session kept for window show/hide commands.
+let _cdpSession  = null;
+let _windowId    = null;
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 const WS_PORT         = 9922;
@@ -102,18 +130,36 @@ const CHROME_LAUNCH_FLAGS = [
     // Compositor thread routing: ScrollUnification makes ALL scroll events
     // go through the compositor thread, eliminating the main-thread round-trip.
     '--enable-features=ScrollUnification,UseSkiaRenderer,CanvasOopRasterization,' +
-        'VaapiVideoDecodeLinuxGL,BackForwardCache,LazyImageLoading,' +
-        'SpeculationRules,Prerender2,PrefetchProxy',
+        'VaapiVideoDecodeLinuxGL,LazyImageLoading,SpeculationRules',
 
-    // Disable features that cause visual glitches
-    '--disable-features=TranslateUI,MediaRouter,PaintHolding,ElasticOverscroll',
+    // Disable features that cause visual glitches OR break Google OAuth.
+    //
+    // BackForwardCache: when the OAuth redirect lands on openai.com/anthropic.com
+    // Chrome restores a cache entry instead of navigating; the OAuth state/nonce
+    // in that entry no longer matches what Google issued, triggering the
+    // "Route Error (400): Unknown error" page.
+    //
+    // Prerender2 / PrefetchProxy: speculatively fetch pages in the redirect
+    // chain using wrong parameters, consuming the one-time OAuth nonce before
+    // the real navigation uses it.
+    //
+    // StoragePartitioningForNetworkState: Chrome 115+ partitions the cookie jar
+    // by top-level origin. This puts Google cookies for the OAuth popup into a
+    // different partition from the openerTab, so the auth handoff silently fails.
+    '--disable-features=TranslateUI,MediaRouter,PaintHolding,ElasticOverscroll,' +
+        'BackForwardCache,Prerender2,PrefetchProxy,StoragePartitioningForNetworkState',
 
     // Smooth scrolling: keeps trackpad momentum as fluid interpolation
     '--enable-smooth-scrolling',
 
     // Memory and process model
-    '--process-per-site',
+    // NOTE: --process-per-site is intentionally omitted here. It causes OAuth
+    // cookie-sharing to break between the originating tab and the Google auth
+    // popup because each origin runs in a separate renderer process with an
+    // isolated session context, preventing the popup from reading back the
+    // session cookies set by the original tab after the redirect.
     '--memory-model=high',
+    '--lang=en-US',
     '--disable-background-timer-throttling',
     '--disable-renderer-backgrounding',
     '--disable-backgrounding-occluded-windows',
@@ -133,6 +179,13 @@ const CHROME_LAUNCH_FLAGS = [
     // Rendering
     '--force-device-scale-factor=1',
     '--high-dpi-support=1',
+
+    // Suppress automation-related logging that can leak paths via Error.stack
+    // or performance entries.
+    '--disable-logging',
+    '--log-level=3',
+    // Silence the DevTools listening message on stderr.
+    '--silent-debugger-extension-api',
 ];
 
 // ── Chrome binary detection ───────────────────────────────────────────────────
@@ -191,7 +244,64 @@ let _page      = null;
 let _wss       = null;
 let _clients   = new Set();
 
-// ── Emit to all connected Python clients ─────────────────────────────────────
+// ── Cloudflare / Stripe domain and cookie helpers ─────────────────────────────
+//
+// Both OpenAI and Anthropic sit behind Cloudflare Bot Management and use
+// Stripe Link for billing. Cloudflare issues JS challenges that real Chrome
+// solves automatically, but only when:
+//   a) navigation waits for networkidle2 (not just domcontentloaded) so the
+//      CF JS challenge script runs to completion and sets __cf_clearance.
+//   b) Stripe payment iframes finish loading before cookies are harvested.
+//
+// The __cf_clearance cookie is the Cloudflare challenge clearance token.
+// __cf_bm is the Bot Management behavioral token.
+// _cfuvid is the Cloudflare Unique Visitor ID that ties sessions together.
+// __stripe_mid / __stripe_sid are set inside the Stripe iframe -- they must
+// be present in any C++ HTTP client request targeting billing endpoints.
+
+const _CF_DOMAINS = [
+    'openai.com', 'chat.openai.com', 'auth.openai.com', 'platform.openai.com',
+    'anthropic.com', 'claude.ai', 'console.anthropic.com',
+    'stripe.com', 'js.stripe.com', 'pay.stripe.com', 'checkout.stripe.com',
+    'link.stripe.com',
+];
+
+// Cookie name fragments to extract for the C++ client. Any cookie whose
+// name contains one of these strings is included in the cookies event.
+const _CF_COOKIE_FRAGMENTS = [
+    '__cf_bm', '_cfuvid', '__cf_clearance',
+    '__stripe_mid', '__stripe_sid',
+    '__Secure-next-auth', 'intercom', 'sess', '__Host-',
+];
+
+function _isCfDomain(url) {
+    try {
+        const h = new URL(url).hostname.replace(/^www\./, '');
+        return _CF_DOMAINS.some(d => h === d || h.endsWith('.' + d));
+    } catch (_) { return false; }
+}
+
+async function _emitCookies(page) {
+    try {
+        const all = await page.cookies();
+        const filtered = all.filter(c =>
+            _CF_COOKIE_FRAGMENTS.some(f => c.name.includes(f))
+        );
+        if (filtered.length === 0) {
+            _log('cookies', `no CF/Stripe/auth cookies yet on ${page.url().slice(0, 80)}`);
+            return;
+        }
+        const names  = filtered.map(c => c.name);
+        const header = filtered.map(c => `${c.name}=${c.value}`).join('; ');
+        _log('cookies', `emitting ${filtered.length} cookies: ${names.join(', ')}`);
+        _log('cookies', `header (${header.length} chars): ${header.slice(0, 200)}`);
+        emit({ event: 'cookies', cookies: filtered, cookieHeader: header });
+    } catch (e) {
+        _log('cookies', `error: ${e.message}`);
+    }
+}
+
+// ── Emit to all connected Python clients ───────────────────────────────
 function emit(obj) {
     const msg = JSON.stringify(obj);
     for (const ws of _clients) {
@@ -201,20 +311,59 @@ function emit(obj) {
     }
 }
 
+// ── Server-side timestamped logger ────────────────────────────────────
+function _log(tag, ...args) {
+    const t = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
+    console.log(`[${t}][${tag}]`, ...args);
+}
+
 // ── Attach CDP event listeners to a page ─────────────────────────────────────
 async function _attachPageListeners(page) {
+    // Catch popups as early as possible -- page.on('popup') fires on the
+    // opener page synchronously when window.open() is called, before the new
+    // target starts loading. This is earlier than browser.on('targetcreated')
+    // and guarantees auth-mask.js is registered before the Google sign-in URL
+    // issues its first request.
+    page.on('popup', async (popupPage) => {
+        if (!popupPage) return;
+        _log('popup', `new popup opened from ${page.url().slice(0, 80)}`);
+        try {
+            await _setupScriptInjection(popupPage);
+            await _attachPageListeners(popupPage);
+            await popupPage.setExtraHTTPHeaders({
+                'Accept-Language':    'en-US,en;q=0.9',
+                'sec-ch-ua':          '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'sec-ch-ua-mobile':   '?0',
+                'sec-ch-ua-platform': '"macOS"',
+            }).catch(() => {});
+            _log('popup', `setup complete for popup: ${popupPage.url().slice(0, 80)}`);
+        } catch (e) {
+            _log('popup', `setup error: ${e.message}`);
+        }
+    });
+
     page.on('framenavigated', async (frame) => {
         if (frame !== page.mainFrame()) return;
         const url   = frame.url();
         const title = await page.title().catch(() => '');
+        _log('nav', `framenavigated  url=${url.slice(0, 100)}  title="${title}"`);
         emit({ event: 'url',   url });
         emit({ event: 'title', title });
     });
 
+    // Unified load handler: emit load event, check CF challenge title,
+    // log cookies. Only one handler registered to avoid double-firing.
     page.on('load', async () => {
         const title = await page.title().catch(() => '');
+        const url   = page.url();
+        _log('load', `title="${title}" url=${url.slice(0, 100)}`);
         emit({ event: 'load'  });
         emit({ event: 'title', title });
+        if (title === 'Just a moment...' || title.startsWith('Checking if the site')) {
+            _log('CF-CHALLENGE', `Cloudflare interstitial: "${title}" | url=${url.slice(0, 80)}`);
+            emit({ event: 'cfChallenge', url, status: 0 });
+        }
+        await _emitCookies(page);
     });
 
     page.on('domcontentloaded', () => {
@@ -223,6 +372,12 @@ async function _attachPageListeners(page) {
 
     page.on('requestfailed', (req) => {
         const reason = req.failure() ? req.failure().errorText : 'unknown';
+        const url    = req.url();
+        // Only log failures on CF/auth domains or main-frame resources to
+        // avoid flooding logs with third-party tracker failures.
+        if (_isCfDomain(url) || req.resourceType() === 'document') {
+            _log('req-fail', `${reason} | ${url.slice(0, 120)}`);
+        }
         emit({ event: 'error', msg: `Request failed: ${req.url()} (${reason})` });
     });
 
@@ -234,8 +389,57 @@ async function _attachPageListeners(page) {
     });
 
     page.on('pageerror', (err) => {
+        _log('page-error', err.message.slice(0, 200));
         emit({ event: 'error', msg: err.message });
     });
+
+    // Cloudflare Bot Management challenge detection.
+    // CF returns HTTP 403 or 503 with a JavaScript challenge page when it
+    // detects automation. The cf-ray response header is always present on
+    // Cloudflare-proxied responses. A 403/503 + cf-ray on the main document
+    // URL means we hit a challenge. Real headful Chrome will solve the JS
+    // challenge automatically, but only after networkidle2 completes.
+    page.on('response', async (response) => {
+        const status  = response.status();
+        const headers = response.headers();
+        const url     = response.url();
+        const rtype   = response.request().resourceType();
+
+        // Log every main-document response for CF/auth domains.
+        if ((rtype === 'document' || rtype === 'xhr' || rtype === 'fetch') && _isCfDomain(url)) {
+            const cfRay    = headers['cf-ray']    || '';
+            const cfCache  = headers['cf-cache-status'] || '';
+            const cacheCtl = headers['cache-control'] || '';
+            const age      = headers['age'] || '';
+            const xCache   = headers['x-cache'] || '';
+            const location = headers['location'] || '';
+            _log('response',
+                `[${status}] ${rtype.padEnd(8)} ${url.slice(0, 120)}` +
+                (cfRay   ? ` | cf-ray=${cfRay}`         : '') +
+                (cfCache ? ` | cf-cache=${cfCache}`     : '') +
+                (cacheCtl? ` | cache-control=${cacheCtl}` : '') +
+                (age     ? ` | age=${age}s`             : '') +
+                (xCache  ? ` | x-cache=${xCache}`       : '') +
+                (location? ` | location=${location}`    : '')
+            );
+            // Warn explicitly if serving from cache -- this is often the root
+            // cause of stale CF challenge pages or stale OAuth state.
+            if (cfCache === 'HIT' || xCache === 'HIT' || (age && parseInt(age) > 0)) {
+                _log('CACHE-HIT', `WARN stale cached response for ${url.slice(0, 100)} age=${age}s cf-cache=${cfCache}`);
+            }
+        }
+
+        if ((status === 403 || status === 503) && headers['cf-ray']) {
+            if (rtype === 'document' || rtype === 'xhr' || rtype === 'fetch') {
+                _log('CF-BLOCK', `${status} blocked by CF | cf-ray=${headers['cf-ray']} | url=${url.slice(0, 100)}`);
+                emit({ event: 'cfChallenge', url, status });
+            }
+        }
+    });
+
+    // After every full page load: check for CF challenge title and emit cookies.
+    // NOTE: this second load handler is intentionally REMOVED -- it was a duplicate.
+    // The unified load handler above handles CF challenge detection and cookie emission.
 
     // Track navigation progress via the CDP Network domain.
     const cdp = await page.createCDPSession();
@@ -257,22 +461,24 @@ async function _setupScriptInjection(page) {
 
     // Auth mask is injected FIRST so navigator.webdriver and $cdc_* globals
     // are already false/removed before any page scripts execute.
-    // This is the primary fix for "Couldn't sign you in -- browser not secure"
-    // on Google and other OAuth providers that detect Chrome automation.
     if (authMaskSrc) {
-        await page.evaluateOnNewDocument(authMaskSrc).catch(e =>
-            console.error('[puppeteer-server] auth-mask inject error:', e.message)
+        await page.evaluateOnNewDocument(authMaskSrc).then(() => {
+            _log('auth-mask', `injected OK (${authMaskSrc.length} bytes)`);
+        }).catch(e =>
+            _log('auth-mask', `INJECT FAILED: ${e.message}`)
         );
+    } else {
+        _log('auth-mask', 'WARN: auth-mask.js is empty or failed to load -- bot detection NOT active');
     }
     // Inject in order: input-watcher first (atom must exist before cdm-sdk reads it).
     if (inputWatcherSrc) {
         await page.evaluateOnNewDocument(inputWatcherSrc).catch(e =>
-            console.error('[puppeteer-server] input-watcher inject error:', e.message)
+            _log('input-watcher', `inject error: ${e.message}`)
         );
     }
     if (glCompositorSrc) {
         await page.evaluateOnNewDocument(glCompositorSrc).catch(e =>
-            console.error('[puppeteer-server] gl-compositor inject error:', e.message)
+            _log('gl-compositor', `inject error: ${e.message}`)
         );
     }
 }
@@ -283,38 +489,118 @@ async function handleCommand(cmd) {
 
     switch (cmd.cmd) {
 
-        case 'navigate':
-            await _page.goto(cmd.url, {
-                waitUntil: 'domcontentloaded',
-                timeout:   30000,
-            }).catch(e => emit({ event: 'error', msg: e.message }));
+        case 'navigate': {
+            const navUrl = cmd.url;
+            // Cloudflare-protected domains need networkidle2 so the CF JS
+            // challenge script runs fully and sets __cf_clearance before we
+            // consider the navigation done.
+            const waitFor = _isCfDomain(navUrl) ? 'networkidle2' : 'domcontentloaded';
+            _log('navigate', `-> ${navUrl} | waitUntil=${waitFor} | isCfDomain=${_isCfDomain(navUrl)}`);
+            // Clear the browser cache before navigating to CF-protected domains.
+            // Stale cached CF challenge responses are a common cause of persistent
+            // 400 / "Just a moment..." loops even in fully headful Chrome.
+            if (_isCfDomain(navUrl)) {
+                const cdpCache = await _page.createCDPSession().catch(() => null);
+                if (cdpCache) {
+                    await cdpCache.send('Network.clearBrowserCache').catch(e =>
+                        _log('cache-clear', `warn: ${e.message}`)
+                    );
+                    await cdpCache.send('Network.clearBrowserCookies').catch(() => {});
+                    _log('cache-clear', `cleared browser cache + cookies before CF navigation`);
+                    await cdpCache.detach().catch(() => {});
+                }
+            }
+            const t0 = Date.now();
+            await _page.goto(navUrl, {
+                waitUntil: waitFor,
+                timeout:   45000,
+            }).then(() => {
+                _log('navigate', `done in ${Date.now() - t0}ms | url=${_page.url().slice(0, 80)}`);
+            }).catch(e => {
+                _log('navigate', `ERROR after ${Date.now() - t0}ms: ${e.message}`);
+                emit({ event: 'error', msg: e.message });
+            });
+            // Emit cookies after navigation in case CF set __cf_clearance.
+            await _emitCookies(_page);
+            // Stealth self-check: confirm auth-mask.js overrides are active on CF domains.
+            if (_isCfDomain(navUrl)) {
+                try {
+                    const stealthInfo = await _page.evaluate(() => ({
+                        webdriver:        navigator.webdriver,
+                        hasFocus:         document.hasFocus(),
+                        visibilityState:  document.visibilityState,
+                        outerWidth:       window.outerWidth,
+                        outerHeight:      window.outerHeight,
+                        screenX:          window.screenX,
+                        permissionsQuery: Function.prototype.toString.call(navigator.permissions.query),
+                        languages:        navigator.languages ? navigator.languages.join(',') : '',
+                        platform:         navigator.platform,
+                    }));
+                    _log('stealth-check', JSON.stringify(stealthInfo));
+                    if (stealthInfo.webdriver) {
+                        _log('STEALTH-WARN', 'navigator.webdriver is STILL true! auth-mask.js may not be injected.');
+                    }
+                    if (!stealthInfo.hasFocus) {
+                        _log('STEALTH-WARN', 'document.hasFocus() is false -- CF will detect hidden window.');
+                    }
+                    if (stealthInfo.visibilityState !== 'visible') {
+                        _log('STEALTH-WARN', `visibilityState="${stealthInfo.visibilityState}" -- CF detects hidden tab.`);
+                    }
+                    if (stealthInfo.outerWidth === 0) {
+                        _log('STEALTH-WARN', 'outerWidth=0 -- window dimensions leak minimized state.');
+                    }
+                    if (!stealthInfo.permissionsQuery.includes('[native code]')) {
+                        _log('STEALTH-WARN', `permissions.query toString not native: ${stealthInfo.permissionsQuery.slice(0, 80)}`);
+                    }
+                } catch (e) {
+                    _log('stealth-check', `evaluate failed: ${e.message}`);
+                }
+            }
             break;
+        }
 
         case 'back':
+            _log('cmd', `back from ${_page.url().slice(0, 80)}`);
             await _page.goBack({ waitUntil: 'domcontentloaded', timeout: 10000 })
-                .catch(() => {});
+                .catch(e => _log('cmd', `back ERROR: ${e.message}`));
             break;
 
         case 'forward':
+            _log('cmd', `forward from ${_page.url().slice(0, 80)}`);
             await _page.goForward({ waitUntil: 'domcontentloaded', timeout: 10000 })
-                .catch(() => {});
+                .catch(e => _log('cmd', `forward ERROR: ${e.message}`));
             break;
 
-        case 'reload':
-            await _page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 })
-                .catch(e => emit({ event: 'error', msg: e.message }));
+        case 'reload': {
+            const reloadUrl  = _page.url();
+            const reloadWait = _isCfDomain(reloadUrl) ? 'networkidle2' : 'domcontentloaded';
+            _log('reload', `${reloadUrl.slice(0, 80)} waitUntil=${reloadWait}`);
+            const t0 = Date.now();
+            await _page.reload({ waitUntil: reloadWait, timeout: 20000 })
+                .then(() => _log('reload', `done in ${Date.now() - t0}ms`))
+                .catch(e => {
+                    _log('reload', `ERROR: ${e.message}`);
+                    emit({ event: 'error', msg: e.message });
+                });
+            await _emitCookies(_page);
             break;
+        }
 
         case 'stop':
+            _log('cmd', `stop | url=${_page.url().slice(0, 80)}`);
             await _page.evaluate(() => window.stop()).catch(() => {});
             break;
 
         case 'evaluate': {
+            const jsPreview = (cmd.js || '').slice(0, 100).replace(/\n/g, ' ');
+            _log('eval', `id=${cmd.id || 'none'}  js=${jsPreview}`);
             let result = null, error = null;
             try {
                 result = await _page.evaluate(new Function(`return (${cmd.js})`));
+                _log('eval', `id=${cmd.id || 'none'}  result=${JSON.stringify(result).slice(0, 200)}`);
             } catch (e) {
                 error = e.message;
+                _log('eval', `id=${cmd.id || 'none'}  ERROR: ${e.message.slice(0, 200)}`);
             }
             if (cmd.id) emit({ event: 'evalResult', id: cmd.id, result, error });
             break;
@@ -377,9 +663,14 @@ async function handleCommand(cmd) {
             break;
 
         case 'clearCache': {
+            _log('cache', `manual clearCache command received | url=${_page.url().slice(0, 80)}`);
             const cdp = await _page.createCDPSession().catch(() => null);
             if (cdp) {
-                await cdp.send('Network.clearBrowserCache').catch(() => {});
+                await cdp.send('Network.clearBrowserCache').catch(e => _log('cache', `clearCache ERROR: ${e.message}`));
+                await cdp.send('Network.clearBrowserCookies').catch(() => {});
+                _log('cache', 'cache + cookies cleared');
+            } else {
+                _log('cache', 'WARN: could not create CDP session for clearCache');
             }
             break;
         }
@@ -438,6 +729,79 @@ async function handleCommand(cmd) {
             break;
         }
 
+        case 'getCookies': {
+            // Return all CF, Stripe, and session cookies. The Python side or
+            // the C++ client uses these to authenticate requests directly
+            // without requiring another browser-driven navigation.
+            try {
+                const all = await _page.cookies();
+                const filtered = all.filter(c =>
+                    _CF_COOKIE_FRAGMENTS.some(f => c.name.includes(f))
+                );
+                const header = filtered.map(c => `${c.name}=${c.value}`).join('; ');
+                emit({ event: 'cookies', cookies: filtered, cookieHeader: header });
+            } catch (e) {
+                emit({ event: 'error', msg: 'getCookies: ' + e.message });
+            }
+            break;
+        }
+
+        case 'waitForCfClearance': {
+            // Poll until __cf_clearance appears in the page's cookie jar.
+            // This is needed when the CF challenge is a slow JS proof-of-work
+            // that takes several seconds even in real Chrome.
+            const timeout = cmd.timeout || 30000;
+            const interval = 500;
+            const deadline = Date.now() + timeout;
+            let cleared = false;
+            while (Date.now() < deadline) {
+                try {
+                    const cookies = await _page.cookies();
+                    const ok = cookies.some(c => c.name === '__cf_clearance');
+                    if (ok) {
+                        cleared = true;
+                        await _emitCookies(_page);
+                        emit({ event: 'cfClearance' });
+                        break;
+                    }
+                } catch (_) {}
+                await new Promise(r => setTimeout(r, interval));
+            }
+            if (!cleared) {
+                emit({ event: 'error', msg: 'waitForCfClearance: timed out after ' + timeout + 'ms' });
+            }
+            break;
+        }
+
+        case 'showWindow': {
+            // Restore the Chrome window from its hidden/minimized state.
+            // Called by Python after OAuth auth is confirmed complete.
+            if (_cdpSession && _windowId !== null) {
+                await _cdpSession.send('Browser.setWindowBounds', {
+                    windowId: _windowId,
+                    bounds: {
+                        windowState: 'normal',
+                        left:   cmd.x || 0,
+                        top:    cmd.y || 0,
+                        width:  cmd.w || 1280,
+                        height: cmd.h || 900,
+                    },
+                }).catch(() => {});
+            }
+            break;
+        }
+
+        case 'hideWindow': {
+            // Minimise Chrome back into the background.
+            if (_cdpSession && _windowId !== null) {
+                await _cdpSession.send('Browser.setWindowBounds', {
+                    windowId: _windowId,
+                    bounds: { windowState: 'minimized' },
+                }).catch(() => {});
+            }
+            break;
+        }
+
         default:
             console.warn('[puppeteer-server] unknown command:', cmd.cmd);
     }
@@ -445,31 +809,63 @@ async function handleCommand(cmd) {
 
 // ── Launch ────────────────────────────────────────────────────────────────────
 async function launch() {
-    const chromePath = process.env.CHROME_BIN || findChromeBinary();
-    console.log(`[puppeteer-server] Chrome: ${chromePath}`);
+    const chromePath  = process.env.CHROME_BIN || findChromeBinary();
+    const userDataDir = process.env.CHROME_USER_DATA_DIR || defaultUserDataDir();
+    console.log(`[puppeteer-server] Chrome:      ${chromePath}`);
+    console.log(`[puppeteer-server] User data:   ${userDataDir}`);
+    _log('launch', `headless=false  userDataDir=${userDataDir}`);
+    _log('launch', `flags: ${CHROME_LAUNCH_FLAGS.filter(f => f.startsWith('--disable-features') || f.startsWith('--enable-features')).join(' | ')}`);
+    _log('launch', `CDP port: ${CDP_PORT} (bound to 127.0.0.1 only)`);
+    _log('launch', `AUTH_MASK_JS exists: ${require('fs').existsSync(AUTH_MASK_JS)} (${AUTH_MASK_JS})`);
+    _log('launch', `INPUT_WATCHER_JS exists: ${require('fs').existsSync(INPUT_WATCHER_JS)} (${INPUT_WATCHER_JS})`);
 
     _browser = await puppeteer.launch({
         executablePath: chromePath,
-        headless: false,      // visible window -- Chrome handles rendering natively
+
+        // headless: false keeps Chrome in full headful mode so pages see a real
+        // GPU-composited viewport and navigator.webdriver can be patched at the
+        // JS level.  We suppress visibility via CDP setWindowBounds (minimized)
+        // immediately after launch instead of using headless mode -- macOS
+        // headless Chrome still exposes automation signals that Google reads.
+        headless: false,
         devtools: false,
+
+        // Point at the real Chrome profile so Google, OpenAI, and Anthropic see
+        // an established session with known cookies instead of a fresh anonymous
+        // browser -- the single most effective way to avoid the 400 OAuth block.
+        userDataDir,
+
         args: [
             ...CHROME_LAUNCH_FLAGS,
             `--remote-debugging-port=${CDP_PORT}`,
-            // Start with a blank page; Python sends "navigate" immediately.
-            '--app=about:blank',
-            // No default browser check dialog.
+            // Bind the CDP port to localhost only so page scripts cannot
+            // probe it via fetch('http://<LAN-IP>:9223/json').
+            '--remote-debugging-address=127.0.0.1',
+            // Open to a blank page.  Python sends a "navigate" command immediately
+            // after the bridge emits "ready".  Using about:blank instead of --app
+            // mode so normal Chrome window chrome (toolbar, tabs) is present for
+            // the OAuth popup flow.
+            'about:blank',
             '--no-default-browser-check',
             '--no-first-run',
             '--disable-infobars',
             '--hide-crash-restore-bubble',
-            // Remove the Blink automation flag that sets navigator.webdriver=true.
-            // Without this Chrome injects webdriver=true at the engine level before
-            // any evaluateOnNewDocument script can override it, causing Google to
-            // block sign-in with "browser not secure".
+            // Remove the Blink automation flag that sets navigator.webdriver=true
+            // at the engine level before any evaluateOnNewDocument override runs.
             '--disable-blink-features=AutomationControlled',
+            // Start the window off-screen so there is no visible flash before the
+            // CDP minimize command fires.  Python sends showWindow when it wants
+            // Chrome to become visible (e.g. after OAuth completes).
+            '--window-position=-32000,0',
+            '--window-size=1280,900',
         ],
-        defaultViewport: null,  // use the window's actual size
-        ignoreDefaultArgs: ['--enable-automation'],  // remove the automation banner
+
+        defaultViewport: null,
+
+        // Must exclude --enable-automation or Chrome adds the info bar
+        // "Chrome is being controlled by automated software" which Google
+        // reads as an automation signal.
+        ignoreDefaultArgs: ['--enable-automation'],
     });
 
     const pages = await _browser.pages();
@@ -478,13 +874,76 @@ async function launch() {
     await _setupScriptInjection(_page);
     await _attachPageListeners(_page);
 
+    // Set real Chrome client-hint and language headers on every request.
+    //
+    // Cloudflare Bot Management checks sec-ch-ua to verify the browser brand
+    // matches the User-Agent string and the TLS JA3 fingerprint. If sec-ch-ua
+    // is absent (which it is when Puppeteer does not set it explicitly because
+    // it is only auto-sent for same-origin requests), CF treats the client as
+    // a non-browser bot and issues a challenge or a silent 400.
+    //
+    // The version string here must stay in sync with the Chrome binary in use.
+    // Chrome 131 ships with Puppeteer-core ^21; update if the Chrome version changes.
+    const CH_UA = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"';
+    await _page.setExtraHTTPHeaders({
+        'Accept-Language':     'en-US,en;q=0.9',
+        'sec-ch-ua':           CH_UA,
+        'sec-ch-ua-mobile':    '?0',
+        'sec-ch-ua-platform':  '"macOS"',
+    }).catch(() => {});
+
+    // Store a persistent CDP session for window management commands.
+    // We use this to minimize / restore the Chrome window without requiring
+    // a new session per command, which avoids a CDP target-not-found race
+    // when the page is navigating.
+    _cdpSession = await _page.createCDPSession().catch(() => null);
+    if (_cdpSession) {
+        const winInfo = await _cdpSession.send('Browser.getWindowForTarget')
+            .catch(() => null);
+        if (winInfo) {
+            _windowId = winInfo.windowId;
+            // Minimize immediately -- the window is off-screen from --window-position
+            // but minimizing also removes it from Expose / Mission Control so it is
+            // fully hidden as a background helper process until Python calls showWindow.
+            await _cdpSession.send('Browser.setWindowBounds', {
+                windowId: _windowId,
+                bounds: { windowState: 'minimized' },
+            }).catch(() => {});
+            console.log(`[puppeteer-server] window ${_windowId} hidden (minimized)`);
+        }
+    }
+
+    // Handle popup windows opened by OAuth flows (window.open).
+    // When OpenAI / Anthropic trigger Google sign-in they open a popup.
+    // Without this handler the popup page never receives auth-mask.js, so
+    // Google immediately detects automation and returns a 400 error.
+    _browser.on('targetcreated', async (target) => {
+        if (target.type() !== 'page') return;
+        _log('target', `targetcreated type=page url=${target.url().slice(0, 80)}`);
+        try {
+            const popup = await target.page();
+            if (!popup) return;
+            await _setupScriptInjection(popup);
+            await _attachPageListeners(popup);
+            await popup.setExtraHTTPHeaders({
+                'Accept-Language':    'en-US,en;q=0.9',
+                'sec-ch-ua':          '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'sec-ch-ua-mobile':   '?0',
+                'sec-ch-ua-platform': '"macOS"',
+            }).catch(() => {});
+            _log('target', `popup setup complete`);
+        } catch (e) {
+            _log('target', `popup setup error: ${e.message}`);
+        }
+    });
+
     // Graceful shutdown on browser close.
     _browser.on('disconnected', () => {
-        console.log('[puppeteer-server] Chrome disconnected -- shutting down');
+        _log('browser', 'Chrome disconnected -- shutting down');
         process.exit(0);
     });
 
-    console.log(`[puppeteer-server] Chrome ready`);
+    _log('launch', 'Chrome ready');
     return _page;
 }
 

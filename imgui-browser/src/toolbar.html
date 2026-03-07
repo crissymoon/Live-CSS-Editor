@@ -262,6 +262,11 @@ html{
       <span class="di-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
       <span class="di-label">History</span>
     </div>
+    <div class="drawer-sep"></div>
+    <div class="ditem full" onclick="drawerAction('clear_cache')">
+      <span class="di-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></span>
+      <span class="di-label">Clear Cache</span>
+    </div>
   </div>
 </div>
 
@@ -362,7 +367,7 @@ function onUrlBlur() { xcm('urlblur');  }
 
 // ---- drawer ----
 var DRAWER_OPEN = false;
-var DRAWER_H    = 220;  // fixed height of drawer panel in px
+var DRAWER_H    = 270;  // fixed height of drawer panel in px
 
 function openDrawer(){
   if (DRAWER_OPEN) return;

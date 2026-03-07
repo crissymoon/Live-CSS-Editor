@@ -119,6 +119,7 @@ from PyQt6.QtWidgets import QApplication
 
 from modules.command_server import start_command_server
 from modules.main_window import MainWindow
+from modules.cf_bridge import start_bridge as _start_cf_bridge
 
 
 _LOGIN_URL = 'http://localhost:8080/pb_admin/login.php'
@@ -236,6 +237,10 @@ def main():
         initial_geom = (args.x, args.y, args.w, args.h)
 
     app = QApplication(sys.argv)
+    # Start the hidden Chromium engine that solves Cloudflare Turnstile
+    # challenges and relays __cf_clearance cookies back to WKWebView.
+    # Must be called after QApplication exists and before the event loop.
+    _start_cf_bridge(app)
     window = MainWindow(frameless=args.frameless, initial_geometry=initial_geom)
 
     initial_url = args.url if args.url else _LOGIN_URL
