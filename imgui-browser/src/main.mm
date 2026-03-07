@@ -22,6 +22,7 @@
 #include "webview.h"
 #include "server_manager.h"
 #include "cmd_server.h"
+#include "virt_overlay.h"
 
 #include <string>
 #include <vector>
@@ -597,6 +598,21 @@ int main(int argc, char** argv) {
             static int s_hist_n = 0;
             if (++s_hist_n % 5 == 0) persist_save_history(g_state.history);
         }
+        // Virt overlay: show Qt Chromium on matching URLs, hide on others.
+        // Only react to the active tab.
+        Tab* active = g_state.current_tab();
+        if (active && active->id == tab_id) {
+            if (virt_overlay_check_url(url)) {
+                int wx = 0, wy = 0;
+                glfwGetWindowPos(g_win, &wx, &wy);
+                virt_overlay_show(url,
+                    wx, wy + g_prev_top,
+                    g_state.win_w,
+                    g_state.win_h - g_prev_top - g_prev_bot);
+            } else if (virt_overlay_is_active()) {
+                virt_overlay_hide();
+            }
+        }
     };
     wv_cbs.on_favicon_change = [](int tab_id, const std::string& fav_url) {
         for (auto& t : g_state.tabs)
@@ -701,12 +717,24 @@ int main(int argc, char** argv) {
             "xcm-app-helper.js",
             "xcm-scroll-restore.js",
             "input-watcher.js",
-            "chrome-gl-compositor.js"
+            "chrome-gl-compositor.js",
         }) {
             std::string src = load_file(src_dir + "/" + name);
             if (!src.empty()) {
                 wv_cbs.extra_scripts.push_back(std::move(src));
                 fprintf(stderr, "[main] loaded extra script: %s\n", name);
+            }
+        }
+
+        // All-frames scripts: injected into every sub-frame including
+        // third-party iframes (forMainFrameOnly:NO). Must have host-gate guards.
+        for (const char* name : {
+            "xcm-stripe-shim.js"   // needs to run inside js.stripe.com iframe
+        }) {
+            std::string src = load_file(src_dir + "/" + name);
+            if (!src.empty()) {
+                wv_cbs.extra_scripts_all_frames.push_back(std::move(src));
+                fprintf(stderr, "[main] loaded all-frames script: %s\n", name);
             }
         }
     }
@@ -718,6 +746,10 @@ int main(int argc, char** argv) {
     // apply in webview_load_adblock's completion handler.
     if (!args.apps_dir.empty()) {
         std::string src_dir = args.apps_dir + "/../src";
+
+        // Load virt-page patterns (URLs that should open in Qt Chromium overlay)
+        virt_overlay_init(src_dir + "/virt-pages.json");
+
         std::string rules_path = src_dir + "/adblock-rules.json";
         FILE* f = fopen(rules_path.c_str(), "r");
         if (f) {
@@ -759,6 +791,14 @@ int main(int argc, char** argv) {
             node_script = args.apps_dir.substr(0, sl) + "/src/image-cache-server.js";
         }
         server_start_node(node_script);
+    }
+    {
+        // cf_bridge Chromium cookie harvester for Cloudflare Turnstile
+        std::string dev_browser_dir;
+        auto sl = args.apps_dir.rfind('/');
+        if (sl != std::string::npos)
+            dev_browser_dir = args.apps_dir.substr(0, sl); // strip /apps
+        server_start_cf_bridge(dev_browser_dir);
     }
 
     // ── Command API ───────────────────────────────────────────────────
@@ -932,11 +972,34 @@ int main(int argc, char** argv) {
         }
 
         // Always maintain correct visibility for active vs inactive tabs
+        static int s_last_active_tab = -1;
         for (int i = 0; i < (int)g_state.tabs.size(); i++) {
             void* h = g_state.tabs[i].wv_handle;
             if (!h) continue;
             if (i == g_state.active_tab) webview_show(h);
             else                         webview_hide(h);
+        }
+
+        // Virt overlay: detect tab switches
+        if (g_state.active_tab != s_last_active_tab) {
+            s_last_active_tab = g_state.active_tab;
+            Tab* t = g_state.current_tab();
+            if (t && virt_overlay_check_url(t->url)) {
+                int wx = 0, wy = 0;
+                glfwGetWindowPos(g_win, &wx, &wy);
+                virt_overlay_show(t->url,
+                    wx, wy + g_prev_top,
+                    ww, wh - g_prev_top - g_prev_bot);
+            } else if (virt_overlay_is_active()) {
+                virt_overlay_hide();
+            }
+        }
+
+        // Sync overlay position while active (fires async only when window moved)
+        if (virt_overlay_is_active()) {
+            int wx = 0, wy = 0;
+            glfwGetWindowPos(g_win, &wx, &wy);
+            virt_overlay_tick(wx, wy + g_prev_top, ww, wh - g_prev_top - g_prev_bot);
         }
 
         ImGui::Render();

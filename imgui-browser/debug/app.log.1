@@ -1,10 +1,10 @@
 ========================================
-[run] started at Fri Mar  6 21:50:49 PST 2026
+[run] started at Fri Mar  6 22:39:03 PST 2026
 ========================================
 [run] port 8443 already listening
 [main] debug dir: /Users/mac/Documents/live-css/imgui-browser/debug
 [ui] loaded font: /System/Library/Fonts/Menlo.ttc @ 30px
-[main] loaded 232 history entries, 0 bookmarks
+[main] loaded 269 history entries, 0 bookmarks
 [main] logo loaded: 600x652 tex=1
 [main] loaded extra script: xcm-ticker-lite.js
 [main] loaded extra script: xcm-clip-watcher.js
@@ -17,6 +17,7 @@
 [main] loaded extra script: xcm-scroll-restore.js
 [main] loaded extra script: input-watcher.js
 [main] loaded extra script: chrome-gl-compositor.js
+[main] loaded all-frames script: xcm-stripe-shim.js
 [net] proxy settings:
   FTPPassive = 1
   ExceptionsList = (
@@ -36,44 +37,35 @@
 [main] adblock rules file loaded (7757 bytes)
 [chrome] native chrome created w=1400 h=786
 [wv] _serviceWorkerEnabled not available on this OS
-[xcm-shell] installed on UCC 0x6000026b3db0
+[xcm-shell] installed on UCC 0x60000176b790
 [nav] load: https://localhost:8443/pb_admin/dashboard.php
 [adblock] compile error: The operation couldn’t be completed. (WKErrorDomain error 6.)
 [xcm-shell] active webview set to tab 1
 [tls] localhost:8443 eval=ok
 [nav] allow: https://localhost:8443/pb_admin/dashboard.php
 [server] PHP already running on :9879
-[server] Node started (PID 73832) :7779
+[server] Node started (PID 82779) :7779
+[server] cf_bridge started (PID 82780) python=/Users/mac/Documents/live-css/dev-browser/../.venv/bin/python3
 [cmd] HTTP API listening on 127.0.0.1:9878
 [nav] start: https://localhost:8443/pb_admin/dashboard.php
 [nav] allow: https://localhost:8443/pb_admin/login.php?next=%2Fpb_admin%2Fdashboard.php
 [nav] redirect -> https://localhost:8443/pb_admin/login.php?next=%2Fpb_admin%2Fdashboard.php
 [nav] finish: https://localhost:8443/pb_admin/login.php?next=%2Fpb_admin%2Fdashboard.php
 [nav] page-probe: PB Admin — Login | body.children=3
-[nav] load: https://platform.claude.com/claude-code
+[nav] load: https://platform.claude.com/settings/billing
 [nav] allow: https://localhost:8443/pb_admin/login.php?next=%2Fpb_admin%2Fdashboard.php
-[nav] allow: https://platform.claude.com/claude-code
+[nav] allow: https://platform.claude.com/settings/billing
 [tls] platform.claude.com:443 eval=ok
-[nav] start: https://platform.claude.com/claude-code
+[nav] start: https://platform.claude.com/settings/billing
 [nav] allow: https://a.claude.ai/isolated-segment.html?v=dev
 [tls] a.claude.ai:443 eval=ok
-[nav] finish: https://platform.claude.com/claude-code
-[nav] page-probe: Claude Code | Claude Developer Platform | body.children=64
-[tls] s-cdn.anthropic.com:443 eval=ok
+[nav] allow: about:blank
+[nav] finish: https://platform.claude.com/settings/billing
+[nav] page-probe: Billing | Claude Developer Platform | body.children=67
 [tls] a-cdn.anthropic.com:443 eval=ok
+[tls] s-cdn.anthropic.com:443 eval=ok
 [tls] a-api.anthropic.com:443 eval=ok
 [tls] widget.intercom.io:443 eval=ok
 [nav] allow: about:blank
 [tls] api-iam.intercom.io:443 eval=ok
 [tls] nexus-websocket-a.intercom.io:443 eval=ok
-[tls] js.stripe.com:443 eval=ok
-[nav] allow: https://js.stripe.com/v3/controller-with-preconnect-f5af652d0c600836d544927585240b46.html#__shared_params__%5Bversion%5D=basil&__shared_params__%5Blight_experiment_assignments%5D=%7B%22token%22%3A%2243851f44-7ccc-4e6d-9352-c91accdcb0b5%22%2C%22assignments%22%3A%7B%7D%7D&apiKey=pk_live_51MExQ9BjIQrRQnuxA9s9ahUkfIUHPoc3NFNidarWIUhEpwuc1bdjSJU9medEpVjoP4kTUrV2G8QWdxi9GjRJMUri005KO5xdyD&apiVersion=2025-03-31.basil&stripeJsId=43851f44-7ccc-4e6d-9352-c91accdcb0b5&stripeObjId=sobj-2b8c75de-95d1-446a-9b60-8dbb609538b1&firstStripeInstanceCreatedLatency=47&controllerCount=1&isCheckout=false&usingUuidV2ForStripeJsId=false&stripeJsLoadTime=1772862681070&manualBrowserDeprecationRollout=false&mids%5Bguid%5D=NA&mids%5Bmuid%5D=acf26d95-0aa9-4301-8e2d-2f42659a0df22db68d&mids%5Bsid%5D=41391c33-c900-465d-ac46-ffd1b9fbd32c2ef314&referrer=https%3A%2F%2Fplatform.claude.com%2Fsettings%2Flimits&controllerId=__privateStripeController0111
-[tls] merchant-ui-api.stripe.com:443 eval=ok
-[tls] api.stripe.com:443 eval=ok
-[tls] js.stripe.com:443 eval=ok
-[nav] allow: https://js.stripe.com/v3/m-outer-3437aaddcdf6922d623e172c2d6f9278.html#url=https%3A%2F%2Fplatform.claude.com%2Fsettings%2Flimits&title=Limits%20%7C%20Claude%20Developer%20Platform&referrer=&muid=acf26d95-0aa9-4301-8e2d-2f42659a0df22db68d&sid=41391c33-c900-465d-ac46-ffd1b9fbd32c2ef314&version=6&preview=false&__shared_params__%5Bversion%5D=basil
-[nav] allow: https://m.stripe.network/inner.html#url=https%3A%2F%2Fplatform.claude.com%2Fsettings%2Flimits&title=Limits%20%7C%20Claude%20Developer%20Platform&referrer=&muid=acf26d95-0aa9-4301-8e2d-2f42659a0df22db68d&sid=41391c33-c900-465d-ac46-ffd1b9fbd32c2ef314&version=6&preview=false&__shared_params__%5Bversion%5D=basil
-[tls] m.stripe.network:443 eval=ok
-[tls] r.stripe.com:443 eval=ok
-[tls] m.stripe.com:443 eval=ok
-[tls] api-iam.intercom.io:443 eval=ok

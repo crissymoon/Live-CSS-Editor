@@ -32,5 +32,11 @@ void cf_client_solve_async(const std::string& url);
 // Also injects the cookies before returning.
 std::string cf_client_solve_sync(const std::string& url, int timeout_sec = 50);
 
+// Returns the Chrome User-Agent string that the bridge used to obtain the
+// last cf_clearance cookie.  WKWebView must send this exact UA with requests
+// that carry the cookie, otherwise CF will reject it.
+// Returns empty string if no solve has completed yet.
+std::string cf_client_get_last_ua();
+
 // Returns true when cf_bridge is reachable on port 9925.
 bool cf_client_bridge_alive();

@@ -25,6 +25,11 @@ struct WebViewCallbacks {
     // Use this for xcm performance scripts (input-watcher, chrome-gl-compositor)
     // and any app-specific bootstrap code.
     std::vector<std::string> extra_scripts;
+
+    // Like extra_scripts but injected with forMainFrameOnly:NO -- runs in
+    // every sub-frame including third-party payment/challenge iframes.
+    // Use only for shims that have their own host-gate guards.
+    std::vector<std::string> extra_scripts_all_frames;
 };
 
 // Initialise the WebView subsystem.  Must be called from the main thread
@@ -102,6 +107,13 @@ void  webview_open_in_system_browser(const std::string& url);
 // expiresAt (number, Unix epoch seconds).
 // This function is safe to call from any C++ thread.
 void  webview_inject_cookies(const std::string& json_arr);
+
+// Set the customUserAgent on every open WKWebView tab to the Chrome UA
+// that cf_bridge used when solving the Cloudflare challenge.  CF binds
+// cf_clearance to the UA that solved it -- requests carrying the cookie
+// must use the same UA string or CF will reject them.
+// Safe to call from any thread; dispatches to the main thread internally.
+void  webview_set_cf_user_agent(const std::string& ua);
 
 // Tear down everything (called on app exit).
 void  webview_shutdown();

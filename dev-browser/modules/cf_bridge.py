@@ -56,7 +56,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
-from PyQt6.QtCore import QObject, QTimer, QUrl, pyqtSignal, Qt
+from PyQt6.QtCore import QObject, QTimer, QUrl, pyqtSignal, pyqtSlot, Qt
 from PyQt6.QtNetwork import QNetworkCookie
 from PyQt6.QtWebEngineCore import QWebEngineProfile
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -68,6 +68,7 @@ log = logging.getLogger("cf_bridge")
 PORT          = 9925
 SOLVE_TIMEOUT = 45       # seconds before giving up and returning empty cookies
 POLL_INTERVAL = 500      # ms between cookie checks after page loads
+MANUAL_SHOW_AFTER = 5   # seconds without clearance before showing window for manual click
 
 # Cookie names produced by a solved Cloudflare Turnstile / Bot Management pass.
 # __cf_clearance -- standard CF Bot Management clearance cookie
@@ -85,6 +86,7 @@ RELAY_COOKIE_NAMES = {
 # ── Internal state ───────────────────────────────────────────────────────────
 
 _worker: Optional[_CfWorker] = None
+_virt_ctrl: Optional['_VirtController'] = None
 _bridge_started = False
 
 
@@ -132,6 +134,7 @@ class _CfWorker(QObject):
         self._active_id : Optional[str]               = None
         self._queue     : List[tuple]                 = []  # (id, url) backlog
         self._poll_timer: Optional[QTimer]            = None
+        self._ua        : str                         = ""  # Chrome UA for this profile
 
         self._solve_signal.connect(self._enqueue, Qt.ConnectionType.QueuedConnection)
 
@@ -157,6 +160,11 @@ class _CfWorker(QObject):
         )
         # Harvest every cookie as it is set -- this fires on the Qt main thread.
         self._profile.cookieStore().cookieAdded.connect(self._on_cookie_added)
+
+        # Record the exact UA string Chromium will send with every request.
+        # cf_clearance is bound to this UA -- the C++ side must use it too.
+        self._ua = self._profile.httpUserAgent()
+        log.info("[cf_bridge] Chromium UA: %s", self._ua)
 
         self._view = QWebEngineView()
         self._view.setPage(
@@ -191,6 +199,7 @@ class _CfWorker(QObject):
 
         req = self._pending[request_id]
         req._started_at = time.monotonic()
+        req._shown      = False   # becomes True if we show the window for manual solve
         log.info("[cf_bridge] loading  %s", url)
 
         self._view.loadFinished.connect(self._on_load_finished)
@@ -237,6 +246,17 @@ class _CfWorker(QObject):
         if cleared:
             log.info("[cf_bridge] CF clearance obtained after %.1fs", elapsed)
             self._finish(req)
+        elif elapsed > MANUAL_SHOW_AFTER and not getattr(req, "_shown", False):
+            # CF is showing an interactive challenge (checkbox CAPTCHA, etc.).
+            # Make the window visible so the user can click through it.
+            req._shown = True
+            log.warning("[cf_bridge] not cleared after %.0fs -- showing window for manual solve",
+                        elapsed)
+            self._view.resize(520, 640)
+            self._view.move(200, 100)
+            self._view.show()
+            self._view.raise_()
+            self._view.activateWindow()
         elif elapsed > SOLVE_TIMEOUT:
             log.warning("[cf_bridge] timeout after %ds -- returning %d cookies",
                         SOLVE_TIMEOUT, len(req.cookies))
@@ -244,9 +264,46 @@ class _CfWorker(QObject):
 
     def _finish(self, req: _PendingRequest):
         self._poll_timer.stop()
+        # If the window was shown for manual interaction, hide it again.
+        if self._view is not None and getattr(req, "_shown", False):
+            self._view.resize(2, 2)
+            self._view.move(-9000, -9000)
+            self._view.lower()
         req.done_event.set()
         self._active_id = None
         self._start_next()
+
+
+# ── Virt overlay controller (Qt main thread) ────────────────────────────────
+
+class _VirtController(QObject):
+    """
+    Thread-safe proxy for VirtOverlay.  The HTTP server thread calls the
+    public methods; pyqtSignals marshal the actual Qt GUI operations onto
+    the Qt main thread.
+    """
+
+    _show_sig = pyqtSignal(str, int, int, int, int)  # url, x, y, w, h
+    _hide_sig = pyqtSignal()
+    _move_sig = pyqtSignal(int, int, int, int)        # x, y, w, h
+
+    def __init__(self, profile: QWebEngineProfile, parent=None) -> None:
+        super().__init__(parent)
+        from modules.qt_virt import VirtOverlay
+        self._overlay = VirtOverlay(profile)
+        self._show_sig.connect(self._overlay.show_at,    Qt.ConnectionType.QueuedConnection)
+        self._hide_sig.connect(self._overlay.hide_overlay, Qt.ConnectionType.QueuedConnection)
+        self._move_sig.connect(self._overlay.move_overlay, Qt.ConnectionType.QueuedConnection)
+
+    # Called from the HTTP thread -------------------------------------------
+    def show(self, url: str, x: int, y: int, w: int, h: int) -> None:
+        self._show_sig.emit(url, x, y, w, h)
+
+    def hide(self) -> None:
+        self._hide_sig.emit()
+
+    def move(self, x: int, y: int, w: int, h: int) -> None:
+        self._move_sig.emit(x, y, w, h)
 
 
 # ── HTTP server (background thread) ─────────────────────────────────────────
@@ -281,8 +338,47 @@ class _Handler(BaseHTTPRequestHandler):
                 "cookies": req.cookies,
                 "elapsed": round(elapsed, 2),
                 "url":     url,
+                "ua":      _worker._ua,
             }).encode()
             self._respond(200, body, content_type="application/json")
+            return
+
+        self._respond(404, b'{"error":"not found"}')
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        length = int(self.headers.get("Content-Length", 0))
+        body   = self.rfile.read(length) if length > 0 else b"{}"
+        try:
+            data = json.loads(body)
+        except Exception:
+            data = {}
+
+        if parsed.path == "/virt-show":
+            url = data.get("url", "")
+            x   = int(data.get("x", 0))
+            y   = int(data.get("y", 0))
+            w   = int(data.get("w", 800))
+            h   = int(data.get("h", 600))
+            if url and _virt_ctrl is not None:
+                _virt_ctrl.show(url, x, y, w, h)
+            self._respond(200, b'{"ok":true}')
+            return
+
+        if parsed.path == "/virt-hide":
+            if _virt_ctrl is not None:
+                _virt_ctrl.hide()
+            self._respond(200, b'{"ok":true}')
+            return
+
+        if parsed.path == "/virt-move":
+            x = int(data.get("x", 0))
+            y = int(data.get("y", 0))
+            w = int(data.get("w", 800))
+            h = int(data.get("h", 600))
+            if _virt_ctrl is not None:
+                _virt_ctrl.move(x, y, w, h)
+            self._respond(200, b'{"ok":true}')
             return
 
         self._respond(404, b'{"error":"not found"}')
@@ -320,7 +416,13 @@ def start_bridge(app=None):
         return
     _bridge_started = True
 
+    global _virt_ctrl
     _worker = _CfWorker()
+
+    # Ensure the CF worker view is created (which also creates the shared profile)
+    # before VirtController so both share the same persistent cookie store.
+    _worker._ensure_view()
+    _virt_ctrl = _VirtController(_worker._profile)
 
     t = threading.Thread(target=_run_server, daemon=True, name="cf-bridge-http")
     t.start()

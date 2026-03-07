@@ -25,7 +25,7 @@ static size_t _write_cb(char* ptr, size_t size, size_t nmemb, void* user) {
 
 // ── Extract "cookies":[...] array from the cf_bridge JSON response ────────
 // We do NOT pull in a full JSON library.  The response format is fixed:
-//   {"ok":true/false,"cookies":[...],"elapsed":N.N,"url":"..."}
+//   {"ok":true/false,"cookies":[...],"elapsed":N.N,"url":"...","ua":"..."}
 // We find the key, then use bracket counting to extract the array.
 static std::string _extract_cookies_array(const std::string& body) {
     const char* needle = "\"cookies\":";
@@ -53,10 +53,28 @@ static std::string _extract_cookies_array(const std::string& body) {
     return {}; // unterminated
 }
 
+// Extract a simple top-level string value: "key":"value" from a JSON object.
+// Does NOT handle escaped quotes inside the value; sufficient for UA strings.
+static std::string _extract_str_value(const std::string& body, const char* key) {
+    std::string needle = std::string("\"") + key + "\":\"";
+    auto pos = body.find(needle);
+    if (pos == std::string::npos) return {};
+    pos += needle.size();
+    std::string result;
+    for (size_t i = pos; i < body.size(); ++i) {
+        if (body[i] == '\\') { ++i; if (i < body.size()) result += body[i]; continue; }
+        if (body[i] == '"')  break;
+        result += body[i];
+    }
+    return result;
+}
+
 // ── Rate-limit: avoid blasting the bridge with duplicate requests ─────────
 static std::mutex             s_mu;
 static std::unordered_set<std::string> s_in_flight;  // URLs currently solving
 static std::unordered_set<std::string> s_done_hosts; // hosts solved this session
+static std::string            s_last_ua;              // Chrome UA from last bridge response
+static std::mutex             s_ua_mu;
 
 // Derive scheme+host key from a full URL (simple, no dep on a URL parser).
 static std::string _host_key(const std::string& url) {
@@ -158,6 +176,19 @@ std::string cf_client_solve_sync(const std::string& url, int timeout_sec) {
         fprintf(stderr, "[cf_client] inject %zu-byte cookie array\n", arr.size());
         webview_inject_cookies(arr);
     }
+
+    // Extract the User-Agent that Chromium used.  CF binds cf_clearance to
+    // this exact UA string -- the reload timer in webview.mm applies it to
+    // the specific challenged tab only (not all tabs) before calling reload.
+    std::string ua = _extract_str_value(resp, "ua");
+    if (!ua.empty()) {
+        fprintf(stderr, "[cf_client] Chrome UA received (len=%zu)\n", ua.size());
+        { std::lock_guard<std::mutex> lk(s_ua_mu); s_last_ua = ua; }
+        // Do NOT call webview_set_cf_user_agent globally -- that would set
+        // Chrome UA on every tab including Stripe, payment pages, etc.
+        // The per-tab UA is applied in webview.mm's reload timer.
+    }
+
     return resp;
 }
 
@@ -173,4 +204,9 @@ void cf_client_solve_async(const std::string& url) {
         bool got = !_extract_cookies_array(resp).empty();
         _release(url_copy, got);
     }).detach();
+}
+
+std::string cf_client_get_last_ua() {
+    std::lock_guard<std::mutex> lk(s_ua_mu);
+    return s_last_ua;
 }

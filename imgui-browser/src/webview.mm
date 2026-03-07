@@ -651,10 +651,21 @@ static void xcm_inject_masks(WKUserContentController* ucc);
                 // only called once per host per app session.
                 cf_client_solve_async(page_url);
                 // Reload after the bridge's typical solve time (3-8s) + margin.
-                // By the time this fires __cf_clearance is in WKWebsiteDataStore.
+                // By the time this fires __cf_clearance is in WKWebsiteDataStore
+                // and the Chrome UA has been applied via webview_set_cf_user_agent.
+                // CF binds the cookie to the UA -- both must match.
                 dispatch_after(
                     dispatch_time(DISPATCH_TIME_NOW, (int64_t)(12.0 * NSEC_PER_SEC)),
-                    dispatch_get_main_queue(), ^{ [wv reload]; });
+                    dispatch_get_main_queue(), ^{
+                        // Re-apply UA in case it was not set yet when the timer was
+                        // scheduled (race: bridge finishes before 12s in most cases).
+                        std::string chrome_ua = cf_client_get_last_ua();
+                        if (!chrome_ua.empty()) {
+                            wv.customUserAgent = [NSString stringWithUTF8String:chrome_ua.c_str()];
+                            fprintf(stderr, "[cf] UA set for reload: %.60s\n", chrome_ua.c_str());
+                        }
+                        [wv reload];
+                    });
             }
         }
     }];
@@ -1195,6 +1206,19 @@ static void xcm_inject_masks(WKUserContentController* ucc) {
             initWithSource:nsSrc
             injectionTime:WKUserScriptInjectionTimeAtDocumentStart
             forMainFrameOnly:YES];
+        [ucc addUserScript:extra];
+    }
+
+    // All-frames scripts: run in every sub-frame (forMainFrameOnly:NO).
+    // Used for shims like xcm-stripe-shim that need to intercept beacon
+    // calls made from inside third-party iframes (e.g. js.stripe.com).
+    for (const auto& src : s_cbs.extra_scripts_all_frames) {
+        if (src.empty()) continue;
+        NSString* nsSrc = [NSString stringWithUTF8String:src.c_str()];
+        WKUserScript* extra = [[WKUserScript alloc]
+            initWithSource:nsSrc
+            injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+            forMainFrameOnly:NO];
         [ucc addUserScript:extra];
     }
 }
@@ -1794,4 +1818,24 @@ void webview_inject_cookies(const std::string& json_arr) {
     }
     fprintf(stderr, "[wv] inject_cookies: queued %lu cookies for injection\n",
             (unsigned long)[arr count]);
+}
+
+// Set the customUserAgent on every open WKWebView tab to the Chrome UA string
+// that cf_bridge reported.  CF binds cf_clearance to the UA that solved the
+// challenge; WKWebView must send that exact UA string when making requests
+// that carry the cookie or CF will re-challenge with a 403.
+//
+// Called from cf_client.cpp after a successful cookie harvest.  Dispatches
+// onto the main thread as required by UIKit/AppKit property setters.
+void webview_set_cf_user_agent(const std::string& ua) {
+    if (ua.empty()) return;
+    NSString* ns_ua = [NSString stringWithUTF8String:ua.c_str()];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        for (auto& [tab_id, h] : s_handles) {
+            if (h && h->wv) {
+                h->wv.customUserAgent = ns_ua;
+                fprintf(stderr, "[wv] set_cf_ua: tab %d\n", tab_id);
+            }
+        }
+    });
 }
