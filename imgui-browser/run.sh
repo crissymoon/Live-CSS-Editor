@@ -35,7 +35,7 @@ else
     fi
 fi
 
-APPS_DIR="$(cd "$ROOT/../dev-browser/apps" && pwd)"
+APPS_DIR="$(cd "$ROOT/../dev-tools/dev-browser/apps" && pwd)"
 LIVECSS_ROOT="$(cd "$ROOT/.." && pwd)"
 
 # Ensure the nginx HTTPS server on port 8443 is up before launching.
@@ -61,7 +61,7 @@ else
 fi
 
 exec "$BIN" \
-    --url "https://localhost:8443/pb_admin/dashboard.php" \
+    --url "https://localhost:8443/page-builder/pb_admin/dashboard.php" \
     --apps-dir "$APPS_DIR" \
     --php-port 9879 \
     --cmd-port 9878 \

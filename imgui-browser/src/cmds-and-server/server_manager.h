@@ -11,7 +11,7 @@ struct ServerStatus {
     int  node_pid= -1;
 };
 
-// Start the PHP built-in server (port 9879, serving dev-browser/apps/).
+// Start the PHP built-in server (port 9879, serving dev-tools/dev-browser/apps/).
 // Returns immediately; poll with server_poll_status().
 void server_start_php(const std::string& apps_dir, int php_port = 9879);
 

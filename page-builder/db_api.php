@@ -65,8 +65,8 @@ function pb_is_stage_token_valid(): bool
     return false;
 }
 
-$pb_admin_auth = dirname(__DIR__) . '/pb_admin/auth.php';
-$pb_admin_conf = dirname(__DIR__) . '/pb_admin/config.php';
+$pb_admin_auth = __DIR__ . '/pb_admin/auth.php';
+$pb_admin_conf = __DIR__ . '/pb_admin/config.php';
 
 $has_session = false;
 if (file_exists($pb_admin_conf) && file_exists($pb_admin_auth)) {

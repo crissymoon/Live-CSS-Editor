@@ -11,7 +11,7 @@
  *
  * Usage (pb_admin — uses session cookie, no token needed):
  *   import { DbClient } from '/db_bridge/db-client.js';
- *   const db = new DbClient({ endpoint: '/pb_admin/api_proxy.php?action=db' });
+ *   const db = new DbClient({ endpoint: '/page-builder/pb_admin/api_proxy.php?action=db' });
  *   const { ok, data } = await db.query('admin.table_list', {}, 'dev-tools/db-browser/databases/pages');
  */
 
@@ -168,7 +168,7 @@ export function getPageBuilderClient() {
  */
 export function getAdminClient() {
     return new DbClient({
-        endpoint: '/pb_admin/api_proxy.php?action=db',
+        endpoint: '/page-builder/pb_admin/api_proxy.php?action=db',
         debug: window._DB_DEBUG === true,
     });
 }

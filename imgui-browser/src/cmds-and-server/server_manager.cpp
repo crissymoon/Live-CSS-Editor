@@ -138,11 +138,11 @@ void server_start_wasm(const std::string& wasm_dir, int port) {
 }
 
 std::string server_find_wasm_dir(const std::string& apps_dir) {
-    // Try paths relative to apps_dir which is typically <root>/dev-browser/apps.
+    // Try paths relative to apps_dir which is typically <root>/dev-tools/dev-browser/apps.
     // The php-wasm-project lives at <root>/imgui-browser/php-wasm-project.
     std::vector<std::string> candidates;
     if (!apps_dir.empty()) {
-        // apps_dir = .../dev-browser/apps  -- go up two levels to repo root
+        // apps_dir = .../dev-tools/dev-browser/apps  -- go up three levels to repo root
         auto sl = apps_dir.rfind('/');
         if (sl != std::string::npos) {
             std::string dev_browser = apps_dir.substr(0, sl);

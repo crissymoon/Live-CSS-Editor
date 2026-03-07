@@ -1,0 +1,260 @@
+{
+  "_comment": "Canonical map of all AI API models used across live-css. Referenced by model-context.json files in each subdirectory. Costs are USD per 1K tokens. Updated: 2026-03-03.",
+  "version": "1.0.0",
+  "last_updated": "2026-03-03",
+  "config_ref": "ai/config.json",
+  "key_dir": "~/Desktop/my_keys",
+
+  "providers": {
+
+    "anthropic": {
+      "name": "Anthropic",
+      "base_url": "https://api.anthropic.com/v1",
+      "api_version_header": "2023-06-01",
+      "key_file": "anthropic_key.txt",
+      "supports_streaming": true,
+      "models": {
+
+        "claude-haiku-4-5-20251001": {
+          "tier": "fast",
+          "context_window_k": 200,
+          "max_output_tokens": 8096,
+          "cost_per_1k_input":  0.001,
+          "cost_per_1k_output": 0.005,
+          "active_in_project": true,
+          "use_cases": [
+            "streaming file-edit agent (rewrites complete source files in-place)",
+            "project mode executor (applies per-file edit steps sequentially)",
+            "agent run handler preview task (via prompts.json model_override)"
+          ],
+          "flow": "user instruction -> agent.py / project_mode.py -> Haiku streams full file content -> written back to disk",
+          "hardcoded_in": [
+            "dev-tools/c_tools/tui_agent/agent.py:36 (HAIKU_MODEL constant)",
+            "dev-tools/c_tools/tui_agent/project_mode.py:506",
+            "ai/agent/run.php (via prompts.json model_overrides.preview)"
+          ]
+        },
+
+        "claude-sonnet-4-5-20250929": {
+          "tier": "balanced",
+          "context_window_k": 200,
+          "max_output_tokens": 8096,
+          "cost_per_1k_input":  0.003,
+          "cost_per_1k_output": 0.015,
+          "active_in_project": false,
+          "use_cases": ["default provider model for Anthropic in config (not yet wired to a specific feature)"],
+          "flow": "available via ai/anthropic.php SSE endpoint when model is passed in POST body",
+          "hardcoded_in": [
+            "ai/config.json (providers.anthropic.default_model)"
+          ]
+        },
+
+        "claude-sonnet-4-6": {
+          "tier": "balanced",
+          "context_window_k": 200,
+          "max_output_tokens": 8096,
+          "cost_per_1k_input":  0.003,
+          "cost_per_1k_output": 0.015,
+          "active_in_project": false,
+          "use_cases": ["listed in Anthropic models catalog for future use"],
+          "flow": "available via ai/anthropic.php when specified by caller",
+          "hardcoded_in": [
+            "ai/config.json (providers.anthropic.models array)"
+          ]
+        },
+
+        "claude-opus-4-6": {
+          "tier": "powerful",
+          "context_window_k": 200,
+          "max_output_tokens": 8096,
+          "cost_per_1k_input":  0.015,
+          "cost_per_1k_output": 0.075,
+          "active_in_project": false,
+          "use_cases": ["listed in Anthropic models catalog for future use"],
+          "flow": "available via ai/anthropic.php when specified by caller",
+          "hardcoded_in": [
+            "ai/config.json (providers.anthropic.models array)"
+          ]
+        }
+      }
+    },
+
+    "openai": {
+      "name": "OpenAI",
+      "base_url": "https://api.openai.com/v1",
+      "key_file": "openai_key.txt",
+      "supports_streaming": true,
+      "models": {
+
+        "gpt-4o-mini": {
+          "tier": "fast-cheap",
+          "context_window_k": 128,
+          "max_output_tokens": 16384,
+          "cost_per_1k_input":  0.00015,
+          "cost_per_1k_output": 0.0006,
+          "active_in_project": true,
+          "use_cases": [
+            "tech-slang running commentary sidebar while Haiku edits (convo.py)",
+            "project planner -- parses file tree + instruction, returns JSON edit plan",
+            "phrases.db seeding -- generates 60 ai-working phrases on demand",
+            "agent-flow ai-call default model for workflow steps",
+            "debug-tool AI analyzer"
+          ],
+          "flow": "convo.py: starts in daemon thread alongside Haiku, drip-feeds commentary lines via callback to TUI log panel. project_mode.py ProjectPlanner: receives file tree outline, returns {prompt, phrases} JSON for executor. phrases.php: one-shot call to populate phrases.db when table has fewer than 30 rows.",
+          "hardcoded_in": [
+            "dev-tools/c_tools/tui_agent/convo.py:54 (GPT_MODEL constant)",
+            "dev-tools/c_tools/tui_agent/project_mode.py:336",
+            "ai/phrases.php:43",
+            "dev-tools/agent-flow/api/ai_run.php:234 (default for ai-call step)",
+            "dev-tools/debug-tool/ai/analyze.php:137"
+          ]
+        },
+
+        "gpt-4o": {
+          "tier": "flagship",
+          "context_window_k": 128,
+          "max_output_tokens": 16384,
+          "cost_per_1k_input":  0.005,
+          "cost_per_1k_output": 0.015,
+          "active_in_project": false,
+          "use_cases": ["default provider model for OpenAI in config (not yet wired to a specific feature)"],
+          "flow": "available via OpenAI SDK when model is specified by caller",
+          "hardcoded_in": [
+            "ai/config.json (providers.openai.default_model)"
+          ]
+        },
+
+        "gpt-4-turbo": {
+          "tier": "powerful",
+          "context_window_k": 128,
+          "max_output_tokens": 4096,
+          "cost_per_1k_input":  0.010,
+          "cost_per_1k_output": 0.030,
+          "active_in_project": false,
+          "use_cases": ["listed in OpenAI models catalog for future use"],
+          "flow": "available via OpenAI SDK when specified by caller",
+          "hardcoded_in": [
+            "ai/config.json (providers.openai.models array)"
+          ]
+        },
+
+        "gpt-3.5-turbo": {
+          "tier": "legacy-fast",
+          "context_window_k": 16,
+          "max_output_tokens": 4096,
+          "cost_per_1k_input":  0.0005,
+          "cost_per_1k_output": 0.0015,
+          "active_in_project": false,
+          "use_cases": ["listed in OpenAI models catalog, kept for legacy fallback"],
+          "flow": "available via OpenAI SDK when specified by caller",
+          "hardcoded_in": [
+            "ai/config.json (providers.openai.models array)"
+          ]
+        },
+
+        "gpt-5.1": {
+          "tier": "next-gen",
+          "context_window_k": 128,
+          "max_output_tokens": 16384,
+          "cost_per_1k_input":  0.005,
+          "cost_per_1k_output": 0.015,
+          "active_in_project": false,
+          "use_cases": ["listed in OpenAI models catalog for future use"],
+          "flow": "available via OpenAI SDK when specified by caller",
+          "hardcoded_in": [
+            "ai/config.json (providers.openai.models array)"
+          ]
+        },
+
+        "gpt-5.2": {
+          "tier": "next-gen-flagship",
+          "context_window_k": 128,
+          "max_output_tokens": 16384,
+          "cost_per_1k_input":  0.010,
+          "cost_per_1k_output": 0.030,
+          "active_in_project": false,
+          "use_cases": ["listed in OpenAI models catalog for future use"],
+          "flow": "available via OpenAI SDK when specified by caller",
+          "hardcoded_in": [
+            "ai/config.json (providers.openai.models array)"
+          ]
+        }
+      }
+    },
+
+    "deepseek": {
+      "name": "DeepSeek",
+      "base_url": "https://api.deepseek.com",
+      "key_file": "deepseek_key.txt",
+      "api_compatible_with": "openai",
+      "supports_streaming": true,
+      "agent_run_enabled": false,
+      "models": {
+
+        "deepseek-chat": {
+          "tier": "fast-cheap",
+          "context_window_k": 64,
+          "max_output_tokens": 4096,
+          "cost_per_1k_input":  0.0014,
+          "cost_per_1k_output": 0.0028,
+          "active_in_project": true,
+          "use_cases": [
+            "primary DeepSeek SSE streaming endpoint (ai/deepseek.php)",
+            "provider test suite (ai/test-providers.php)",
+            "debug-tool AI analyzer (callDeepSeek)"
+          ],
+          "flow": "client sends POST with messages array to ai/deepseek.php -> handler reads api_key from config -> streams response via SSE. Uses /chat/completions route (OpenAI-compatible). Reasoning content from deepseek-reasoner is surfaced separately if present.",
+          "hardcoded_in": [
+            "ai/config.json (providers.deepseek.default_model)",
+            "ai/deepseek.php (via AIConfig::provider('deepseek') default)",
+            "ai/test-providers.php:80 (key pattern detection)",
+            "dev-tools/debug-tool/ai/analyze.php (callDeepSeek function)",
+            "security_ck.py (key prefix pattern 'sk-' detection)"
+          ]
+        },
+
+        "deepseek-reasoner": {
+          "tier": "reasoning",
+          "context_window_k": 64,
+          "max_output_tokens": 8000,
+          "cost_per_1k_input":  0.0055,
+          "cost_per_1k_output": 0.0219,
+          "active_in_project": false,
+          "use_cases": ["listed in DeepSeek models catalog, reasoning/chain-of-thought tasks"],
+          "flow": "available via ai/deepseek.php when model is passed in POST body. reasoning_content is surfaced separately.",
+          "hardcoded_in": [
+            "ai/config.json (providers.deepseek.models array)"
+          ]
+        }
+      }
+    },
+
+    "local": {
+      "name": "Local (on-device)",
+      "base_url": null,
+      "key_file": null,
+      "supports_streaming": false,
+      "models": {
+
+        "emi-bio-inspired": {
+          "tier": "local-lightweight",
+          "context_window_k": null,
+          "cost_per_1k_input":  0,
+          "cost_per_1k_output": 0,
+          "active_in_project": true,
+          "description": "EMI bio-inspired 512-channel BCI model with 370K-word lexicon. Performs mood scoring via chunk-based analysis. No API key, no network call.",
+          "use_cases": [
+            "mood analysis of text (stdin, file, or --addon one-sentence mode)",
+            "chunk-based sentiment/emotion scoring with match_rate weighting"
+          ],
+          "flow": "mood_check.py reads text (stdin or --file) -> splits into chunks (default 250 words, 30 overlap) -> passes each chunk to EMIEngine.analyze() -> aggregates scores by match_rate weight -> prints dominant mood + top patterns + valence/arousal",
+          "hardcoded_in": [
+            "dev-tools/agent-flow/mood_ck/mood_check.py (EMIEngine import via emi_model symlink)",
+            "dev-tools/agent-flow/mood_ck/emi_model/engine.py (the engine itself)"
+          ],
+          "local_path": "dev-tools/agent-flow/mood_ck/emi_model"
+        }
+      }
+    }
+  }
+}

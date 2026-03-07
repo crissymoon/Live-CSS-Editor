@@ -332,8 +332,8 @@ _push_repo() {
 # ============================================================
 _open_agent_flow() {
     local port=9090
-    local dir="$SCRIPT_DIR/agent-flow"
-    local logfile="$SCRIPT_DIR/.agent-flow-server.log"
+    local dir="$SCRIPT_DIR/../agent-flow"
+    local logfile="$SCRIPT_DIR/../.agent-flow-server.log"
 
     if [[ ! -d "$dir" ]]; then
         printf "  ${C_RED}ERROR: agent-flow directory not found at %s${R}\n" "$dir" >&2

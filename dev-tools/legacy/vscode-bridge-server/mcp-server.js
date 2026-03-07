@@ -29,7 +29,7 @@ const SHEETS_DIR   = path.join(PROJECT_ROOT, 'style-sheets');
 const SESSION_FILE           = path.join(__dirname, '..', 'data', 'session.json');
 const CHANGES_FILE           = path.join(__dirname, '..', 'data', 'pending-changes.json');
 const REFRESH_FILE           = path.join(__dirname, '..', 'data', 'refresh-signal.json');
-const DEBUG_DB               = path.join(PROJECT_ROOT, 'debug-tool', 'db', 'errors.db');
+const DEBUG_DB               = path.join(PROJECT_ROOT, 'dev-tools', 'debug-tool', 'db', 'errors.db');
 const WIREFRAME_FILE         = path.join(__dirname, '..', 'data', 'wireframe.json');
 const WIREFRAME_CHANGES_FILE = path.join(__dirname, '..', 'data', 'wireframe-changes.json');
 const HTML_CONTENT_FILE      = path.join(__dirname, '..', 'data', 'html-content.json');
@@ -126,7 +126,7 @@ function writeSheet(name, css) {
 
 /** Run debug-tool CLI and return its output (ANSI stripped) */
 function runDebugCli(args) {
-    const cliPath = path.join(PROJECT_ROOT, 'debug-tool', 'cli', 'debug-cli.php');
+    const cliPath = path.join(PROJECT_ROOT, 'dev-tools', 'debug-tool', 'cli', 'debug-cli.php');
     const cmd     = `php ${cliPath} ${args}`;
     try {
         const out = execSync(cmd, { encoding: 'utf8', timeout: 8000 });
@@ -349,7 +349,7 @@ KEY DIRECTORIES:
   js/                 Frontend JS (editor, storage, fuzzy search, color tools, etc.)
   ai/                 PHP AI providers (OpenAI, Anthropic, DeepSeek) + agent
   data/               PHP data providers (CSS properties, stylesheets list, etc.)
-  debug-tool/         SQLite3 error tracking tool (tickets, AI analysis, CLI)
+  debug-tool/         SQLite3 error tracking tool (tickets, AI analysis, CLI) -- now at dev-tools/debug-tool/
   vscode-bridge/      This bridge - connects Copilot to the style tool
   vendor/             CodeMirror and linters
 

@@ -1,5 +1,5 @@
 // main_wvcbs.mm -- Builds the WebViewCallbacks struct passed to webview_init()
-// and loads performance-enhancement scripts from dev-browser/src/.
+// and loads performance-enhancement scripts from dev-tools/dev-browser/src/.
 //
 // Returned by value; caller passes the result straight to webview_init().
 
@@ -74,7 +74,7 @@ WebViewCallbacks build_webview_callbacks(const Args& args) {
     };
 
     // ── Performance-enhancement script loading ────────────────────────
-    // Scripts live in dev-browser/src/ (one level above apps_dir).
+    // Scripts live in dev-tools/dev-browser/src/ (one level above apps_dir).
     if (!args.apps_dir.empty()) {
         std::string src_dir = args.apps_dir + "/../src";
         auto load_file = [](const std::string& p) -> std::string {

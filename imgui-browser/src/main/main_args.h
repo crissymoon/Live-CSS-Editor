@@ -3,7 +3,7 @@
 #include <string>
 
 struct Args {
-    std::string url        = "https://localhost:8443/pb_admin/dashboard.php";
+    std::string url        = "https://localhost:8443/page-builder/pb_admin/dashboard.php";
     bool        url_explicit = false;   // true only when --url was passed on argv
     std::string apps_dir   = "";
     int         php_port   = 9879;

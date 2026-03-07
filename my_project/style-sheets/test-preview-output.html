@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Grid - CSS Theme Preview</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono:wght@400&family=Orbitron:wght@400;700;900&family=Share+Tech&display=swap">
+  <link rel="stylesheet" href="neon-grid.css">
+  <style>
+    .preview-section {
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+    }
+    .section-title {
+      margin-bottom: 1.5rem;
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .demo-item {
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body class="neon-grid">
+  <div class="ng-container" style="padding: 2rem;">
+
+    <!-- Header -->
+    <div class="preview-section">
+      <div class="ng-display ng-text-cyan" style="margin-bottom: 1rem;">NEON GRID</div>
+      <h1 class="ng-h1">Dark Dystopian Synthwave System</h1>
+      <p class="ng-text ng-text-muted">High-contrast neon on deep black, grid lines, scanline texture, glitch accents.</p>
+    </div>
+
+    <!-- Color Swatches -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Color Palette</h2>
+      <div class="ng-grid-4">
+        <div class="demo-item" style="background-color: var(--ng-bg); border: var(--ng-border); padding: 1.5rem; text-align: center;">
+          <div class="ng-text-muted" style="font-size: 0.85rem;">--ng-bg</div>
+          <div class="ng-text" style="font-size: 0.9rem; margin-top: 0.5rem;">Deep Black</div>
+        </div>
+        <div class="demo-item" style="background-color: var(--ng-cyan); color: var(--ng-bg); border: var(--ng-border-cyan); padding: 1.5rem; text-align: center;">
+          <div style="font-size: 0.85rem;">--ng-cyan</div>
+          <div style="font-size: 0.9rem; margin-top: 0.5rem;">Primary</div>
+        </div>
+        <div class="demo-item" style="background-color: var(--ng-pink); color: var(--ng-bg); border: var(--ng-border-pink); padding: 1.5rem; text-align: center;">
+          <div style="font-size: 0.85rem;">--ng-pink</div>
+          <div style="font-size: 0.9rem; margin-top: 0.5rem;">Secondary</div>
+        </div>
+        <div class="demo-item" style="background-color: var(--ng-surface); border: var(--ng-border); padding: 1.5rem; text-align: center;">
+          <div class="ng-text-muted" style="font-size: 0.85rem;">--ng-surface</div>
+          <div class="ng-text" style="font-size: 0.9rem; margin-top: 0.5rem;">Card Base</div>
+        </div>
+        <div class="demo-item" style="background-color: var(--ng-green); color: var(--ng-bg); border: none; padding: 1.5rem; text-align: center;">
+          <div style="font-size: 0.85rem;">--ng-green</div>
+          <div style="font-size: 0.9rem; margin-top: 0.5rem;">Success</div>
+        </div>
+        <div class="demo-item" style="background-color: var(--ng-yellow); color: var(--ng-bg); border: none; padding: 1.5rem; text-align: center;">
+          <div style="font-size: 0.85rem;">--ng-yellow</div>
+          <div style="font-size: 0.9rem; margin-top: 0.5rem;">Warning</div>
+        </div>
+        <div class="demo-item" style="background-color: var(--ng-purple); color: var(--ng-bg); border: none; padding: 1.5rem; text-align: center;">
+          <div style="font-size: 0.85rem;">--ng-purple</div>
+          <div style="font-size: 0.9rem; margin-top: 0.5rem;">Info</div>
+        </div>
+        <div class="demo-item" style="background-color: var(--ng-orange); color: var(--ng-bg); border: none; padding: 1.5rem; text-align: center;">
+          <div style="font-size: 0.85rem;">--ng-orange</div>
+          <div style="font-size: 0.9rem; margin-top: 0.5rem;">Alert</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Typography -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Typography</h2>
+      <div style="margin-bottom: 2rem;">
+        <div class="ng-display ng-text-cyan">Display Text</div>
+        <p class="ng-text-muted">Orbitron Bold</p>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <h1 class="ng-h1">Heading Level 1</h1>
+        <p class="ng-text-muted">Share Tech Mono</p>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <h2 class="ng-h2">Heading Level 2</h2>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <h3 class="ng-h3">Heading Level 3</h3>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-text">Regular body text with standard line height and spacing.</p>
+        <p class="ng-text ng-text-muted">Muted text for secondary information.</p>
+        <p class="ng-text ng-text-cyan">Cyan text emphasis.</p>
+        <p class="ng-text ng-text-pink">Pink text emphasis.</p>
+        <p class="ng-text ng-text-green">Green text emphasis.</p>
+      </div>
+    </div>
+
+    <!-- Cards -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Cards</h2>
+      <div class="demo-grid">
+        <div class="ng-card">
+          <div class="ng-card-header">
+            <h3 class="ng-card-title ng-text-cyan">Standard Card</h3>
+          </div>
+          <div class="ng-card-body">
+            <p class="ng-text">Base card with cyan border.</p>
+          </div>
+        </div>
+        <div class="ng-card ng-card-cyan">
+          <div class="ng-card-header">
+            <h3 class="ng-card-title ng-text-cyan">Cyan Accent</h3>
+          </div>
+          <div class="ng-card-body">
+            <p class="ng-text">Emphasizes cyan neon glow.</p>
+          </div>
+        </div>
+        <div class="ng-card ng-card-pink">
+          <div class="ng-card-header">
+            <h3 class="ng-card-title ng-text-pink">Pink Accent</h3>
+          </div>
+          <div class="ng-card-body">
+            <p class="ng-text">Emphasizes pink neon glow.</p>
+          </div>
+        </div>
+        <div class="ng-card ng-card-ghost">
+          <div class="ng-card-header">
+            <h3 class="ng-card-title">Ghost Card</h3>
+          </div>
+          <div class="ng-card-body">
+            <p class="ng-text">Minimal styling, subtle borders.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Buttons</h2>
+      <div style="margin-bottom: 2rem;">
+        <div class="ng-flex ng-flex-wrap">
+          <button class="ng-btn ng-btn-cyan" style="margin-right: 0.5rem; margin-bottom: 0.5rem;">Cyan Button</button>
+          <button class="ng-btn ng-btn-cyan-fill" style="margin-right: 0.5rem; margin-bottom: 0.5rem;">Cyan Fill</button>
+          <button class="ng-btn ng-btn-pink" style="margin-right: 0.5rem; margin-bottom: 0.5rem;">Pink Button</button>
+          <button class="ng-btn ng-btn-pink-fill" style="margin-right: 0.5rem; margin-bottom: 0.5rem;">Pink Fill</button>
+          <button class="ng-btn ng-btn-green" style="margin-right: 0.5rem; margin-bottom: 0.5rem;">Green Button</button>
+        </div>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-label" style="margin-bottom: 0.5rem;">Button Sizes</p>
+        <div class="ng-flex ng-flex-wrap">
+          <button class="ng-btn ng-btn-sm ng-btn-cyan" style="margin-right: 0.5rem; margin-bottom: 0.5rem;">Small</button>
+          <button class="ng-btn ng-btn-cyan" style="margin-right: 0.5rem; margin-bottom: 0.5rem;">Regular</button>
+          <button class="ng-btn ng-btn-lg ng-btn-cyan" style="margin-right: 0.5rem; margin-bottom: 0.5rem;">Large</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Forms -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Forms</h2>
+      <form class="ng-form-group">
+        <div style="margin-bottom: 1.5rem;">
+          <label class="ng-label" for="input-text">Text Input</label>
+          <input class="ng-input" id="input-text" type="text" placeholder="Enter text...">
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <label class="ng-label" for="input-email">Email Input</label>
+          <input class="ng-input" id="input-email" type="email" placeholder="user@example.com">
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <label class="ng-label" for="input-success">Success State</label>
+          <input class="ng-input ng-input-success" id="input-success" type="text" value="Valid input">
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <label class="ng-label" for="input-error">Error State</label>
+          <input class="ng-input ng-input-error" id="input-error" type="text" placeholder="Invalid input">
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <label class="ng-label" for="textarea">Textarea</label>
+          <textarea class="ng-textarea" id="textarea" rows="4" placeholder="Enter multiple lines..."></textarea>
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <label class="ng-label" for="select">Select Dropdown</label>
+          <select class="ng-select" id="select">
+            <option>Choose option...</option>
+            <option>Option 1</option>
+            <option>Option 2</option>
+            <option>Option 3</option>
+          </select>
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <div class="ng-check-group">
+            <label style="display: flex; align-items: center;">
+              <input type="checkbox" style="margin-right: 0.5rem;">
+              <span class="ng-text">Remember me</span>
+            </label>
+            <label style="display: flex; align-items: center;">
+              <input type="checkbox" style="margin-right: 0.5rem;">
+              <span class="ng-text">Accept terms</span>
+            </label>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Navigation -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Navigation</h2>
+      <nav class="ng-nav">
+        <div class="ng-nav-brand ng-text-cyan">NEON GRID</div>
+        <div style="display: flex; gap: 1rem;">
+          <a href="#" class="ng-nav-link active">Home</a>
+          <a href="#" class="ng-nav-link">Features</a>
+          <a href="#" class="ng-nav-link">Components</a>
+          <a href="#" class="ng-nav-link">Docs</a>
+        </div>
+      </nav>
+    </div>
+
+    <!-- Badges and Tags -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Badges and Tags</h2>
+      <div style="margin-bottom: 1rem;">
+        <span class="ng-badge ng-badge-cyan" style="margin-right: 0.5rem;">Cyan Badge</span>
+        <span class="ng-badge ng-badge-pink" style="margin-right: 0.5rem;">Pink Badge</span>
+        <span class="ng-badge ng-badge-green" style="margin-right: 0.5rem;">Green Badge</span>
+        <span class="ng-badge ng-badge-yellow" style="margin-right: 0.5rem;">Yellow Badge</span>
+        <span class="ng-badge ng-badge-purple" style="margin-right: 0.5rem;">Purple Badge</span>
+        <span class="ng-badge ng-badge-muted">Muted Badge</span>
+      </div>
+      <div>
+        <span class="ng-tag" style="margin-right: 0.5rem;">tag-one</span>
+        <span class="ng-tag" style="margin-right: 0.5rem;">tag-two</span>
+        <span class="ng-tag">tag-three</span>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Alerts</h2>
+      <div style="margin-bottom: 1rem;">
+        <div class="ng-alert ng-alert-info">
+          <div class="ng-alert-title">Information</div>
+          <div class="ng-alert-body">This is an informational alert message.</div>
+        </div>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <div class="ng-alert ng-alert-success">
+          <div class="ng-alert-title">Success</div>
+          <div class="ng-alert-body">Operation completed successfully.</div>
+        </div>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <div class="ng-alert ng-alert-warning">
+          <div class="ng-alert-title">Warning</div>
+          <div class="ng-alert-body">Please review this important warning message.</div>
+        </div>
+      </div>
+      <div>
+        <div class="ng-alert ng-alert-danger">
+          <div class="ng-alert-title">Error</div>
+          <div class="ng-alert-body">An error has occurred.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Bars -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Progress Bars</h2>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-label" style="margin-bottom: 0.5rem;">Cyan Progress</p>
+        <div class="ng-progress">
+          <div class="ng-progress-bar ng-progress-cyan" style="width: 65%;"></div>
+        </div>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-label" style="margin-bottom: 0.5rem;">Pink Progress</p>
+        <div class="ng-progress">
+          <div class="ng-progress-bar ng-progress-pink" style="width: 42%;"></div>
+        </div>
+      </div>
+      <div>
+        <p class="ng-label" style="margin-bottom: 0.5rem;">Green Progress</p>
+        <div class="ng-progress">
+          <div class="ng-progress-bar ng-progress-green" style="width: 88%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dividers -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Dividers</h2>
+      <p class="ng-text">Standard divider below</p>
+      <div class="ng-divider"></div>
+      <p class="ng-text" style="margin-top: 1rem;">Cyan divider below</p>
+      <div class="ng-divider ng-divider-cyan"></div>
+      <p class="ng-text" style="margin-top: 1rem;">Divider with label</p>
+      <div class="ng-divider">
+        <span class="ng-divider-label">Section Break</span>
+      </div>
+    </div>
+
+    <!-- Tables -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Tables</h2>
+      <div class="ng-table-wrap">
+        <table class="ng-table ng-table-striped">
+          <thead>
+            <tr>
+              <th class="ng-text-cyan">Name</th>
+              <th class="ng-text-cyan">Status</th>
+              <th class="ng-text-cyan">Progress</th>
+              <th class="ng-text-cyan">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>System Alpha</td>
+              <td><span class="ng-badge ng-badge-green">Active</span></td>
+              <td>100%</td>
+              <td><button class="ng-btn ng-btn-sm ng-btn-cyan">View</button></td>
+            </tr>
+            <tr>
+              <td>System Beta</td>
+              <td><span class="ng-badge ng-badge-yellow">Pending</span></td>
+              <td>75%</td>
+              <td><button class="ng-btn ng-btn-sm ng-btn-cyan">View</button></td>
+            </tr>
+            <tr>
+              <td>System Gamma</td>
+              <td><span class="ng-badge ng-badge-cyan">Running</span></td>
+              <td>50%</td>
+              <td><button class="ng-btn ng-btn-sm ng-btn-cyan">View</button></td>
+            </tr>
+            <tr>
+              <td>System Delta</td>
+              <td><span class="ng-badge ng-badge-muted">Offline</span></td>
+              <td>0%</td>
+              <td><button class="ng-btn ng-btn-sm ng-btn-cyan">View</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Layout Helpers -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Layout Helpers</h2>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-label" style="margin-bottom: 0.5rem;">Flex Row with Between</p>
+        <div class="ng-flex ng-flex-between" style="padding: 1rem; background: var(--ng-surface); border: var(--ng-border);">
+          <div class="ng-text">Left Item</div>
+          <div class="ng-text">Right Item</div>
+        </div>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-label" style="margin-bottom: 0.5rem;">Flex Column</p>
+        <div class="ng-flex ng-flex-col" style="padding: 1rem; background: var(--ng-surface); border: var(--ng-border); gap: 0.5rem;">
+          <div class="ng-text">Item 1</div>
+          <div class="ng-text">Item 2</div>
+          <div class="ng-text">Item 3</div>
+        </div>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-label" style="margin-bottom: 0.5rem;">Grid 4 Columns</p>
+        <div class="ng-grid-4">
+          <div style="padding: 1rem; background: var(--ng-surface); border: var(--ng-border); text-align: center;" class="ng-text">1</div>
+          <div style="padding: 1rem; background: var(--ng-surface); border: var(--ng-border); text-align: center;" class="ng-text">2</div>
+          <div style="padding: 1rem; background: var(--ng-surface); border: var(--ng-border); text-align: center;" class="ng-text">3</div>
+          <div style="padding: 1rem; background: var(--ng-surface); border: var(--ng-border); text-align: center;" class="ng-text">4</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Stats Display</h2>
+      <div class="ng-grid-3">
+        <div class="ng-stat">
+          <div class="ng-stat-value ng-text-cyan">2,547</div>
+          <div class="ng-stat-label">Active Connections</div>
+        </div>
+        <div class="ng-stat">
+          <div class="ng-stat-value ng-text-pink">98.5%</div>
+          <div class="ng-stat-label">System Uptime</div>
+        </div>
+        <div class="ng-stat">
+          <div class="ng-stat-value ng-text-green">15.2ms</div>
+          <div class="ng-stat-label">Response Time</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Text Effects -->
+    <div class="preview-section">
+      <h2 class="ng-h2">Text Effects</h2>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-text ng-glow-cyan">Text with cyan glow</p>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-text ng-glow-cyan-lg">Text with large cyan glow</p>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-text ng-glow-pink">Text with pink glow</p>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <p class="ng-text ng-glow-green">Text with green glow</p>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <div class="ng-code">const neon = 'synthwave';</div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

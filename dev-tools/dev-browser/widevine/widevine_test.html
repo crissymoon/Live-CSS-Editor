@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Widevine CDM Test</title>
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 20px;
+}
+h1 { color: #00d2ff; }
+.test { margin: 16px 0; padding: 12px; border-radius: 8px; background: #16213e; }
+.pass { border-left: 4px solid #00e676; }
+.fail { border-left: 4px solid #ff5252; }
+.warn { border-left: 4px solid #ffc107; }
+.pending { border-left: 4px solid #666; }
+code { background: #0a0a23; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+pre { background: #0a0a23; padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+#log { margin-top: 20px; }
+</style>
+</head>
+<body>
+<h1>Widevine CDM Test</h1>
+<p>This page checks if Encrypted Media Extensions (EME) and Widevine CDM
+are available in this browser.</p>
+
+<div id="results"></div>
+<h3>Log</h3>
+<pre id="log"></pre>
+
+<script>
+const results = document.getElementById('results');
+const logEl = document.getElementById('log');
+
+function log(msg) {
+    logEl.textContent += msg + '\n';
+}
+
+function addResult(name, status, detail) {
+    const div = document.createElement('div');
+    div.className = 'test ' + status;
+    const icon = status === 'pass' ? '&#10003;' : status === 'fail' ? '&#10007;' : '&#9888;';
+    div.innerHTML = '<strong>' + icon + ' ' + name + '</strong><br>' +
+                    '<span style="font-size:13px;color:#aaa">' + detail + '</span>';
+    results.appendChild(div);
+}
+
+async function runTests() {
+    // 1. Check navigator.requestMediaKeySystemAccess exists
+    if (typeof navigator.requestMediaKeySystemAccess === 'function') {
+        addResult('EME API', 'pass', '<code>navigator.requestMediaKeySystemAccess</code> is available');
+        log('[OK] EME API exists');
+    } else {
+        addResult('EME API', 'fail', '<code>navigator.requestMediaKeySystemAccess</code> is NOT available');
+        log('[FAIL] EME API missing');
+        return;
+    }
+
+    // 2. Check Widevine key system - try VP9 first (H.264 not available in this build)
+    const configSets = [
+        {
+            label: 'VP9/cenc',
+            configs: [{
+                initDataTypes: ['cenc'],
+                videoCapabilities: [{
+                    contentType: 'video/webm;codecs="vp9"',
+                    robustness: 'SW_SECURE_CRYPTO'
+                }],
+            }]
+        },
+        {
+            label: 'VP8/cenc',
+            configs: [{
+                initDataTypes: ['cenc'],
+                videoCapabilities: [{
+                    contentType: 'video/webm;codecs="vp8"',
+                    robustness: 'SW_SECURE_CRYPTO'
+                }],
+            }]
+        },
+        {
+            label: 'H.264/cenc',
+            configs: [{
+                initDataTypes: ['cenc'],
+                videoCapabilities: [{
+                    contentType: 'video/mp4;codecs="avc1.42E01E"',
+                    robustness: 'SW_SECURE_CRYPTO'
+                }],
+                audioCapabilities: [{
+                    contentType: 'audio/mp4;codecs="mp4a.40.2"',
+                    robustness: 'SW_SECURE_CRYPTO'
+                }]
+            }]
+        },
+        {
+            label: 'VP9 (no robustness)',
+            configs: [{
+                initDataTypes: ['cenc'],
+                videoCapabilities: [{
+                    contentType: 'video/webm;codecs="vp9"'
+                }],
+            }]
+        },
+        {
+            label: 'H.264 (no robustness)',
+            configs: [{
+                initDataTypes: ['cenc'],
+                videoCapabilities: [{
+                    contentType: 'video/mp4;codecs="avc1.42E01E"'
+                }]
+            }]
+        },
+    ];
+
+    let widevineWorked = false;
+    for (const cs of configSets) {
+        try {
+            log('[INFO] Requesting com.widevine.alpha with ' + cs.label + '...');
+            const access = await navigator.requestMediaKeySystemAccess('com.widevine.alpha', cs.configs);
+            const config = access.getConfiguration();
+            addResult('Widevine (' + cs.label + ')', 'pass',
+                'Key system <code>com.widevine.alpha</code> is available. ' +
+                'Video: <code>' + (config.videoCapabilities?.[0]?.contentType || 'none') + '</code>, ' +
+                'Audio: <code>' + (config.audioCapabilities?.[0]?.contentType || 'none') + '</code>');
+            log('[OK] Widevine CDM available for ' + cs.label);
+            log('  Config: ' + JSON.stringify(config, null, 2));
+
+            if (!widevineWorked) {
+                // 3. Try to create MediaKeys with the first successful config
+                widevineWorked = true;
+                try {
+                    const mediaKeys = await access.createMediaKeys();
+                    addResult('MediaKeys', 'pass', 'Successfully created MediaKeys object');
+                    log('[OK] MediaKeys created');
+
+                    // 4. Try to create a session
+                    try {
+                        const session = mediaKeys.createSession('temporary');
+                        addResult('Session', 'pass',
+                            'Created temporary session. Session ID: <code>' +
+                            (session.sessionId || '(empty until generateRequest)') + '</code>');
+                        log('[OK] Session created');
+                    } catch (e) {
+                        addResult('Session', 'fail', 'createSession failed: <code>' + e.message + '</code>');
+                        log('[FAIL] Session: ' + e.message);
+                    }
+                } catch (e) {
+                    addResult('MediaKeys', 'fail', 'createMediaKeys failed: <code>' + e.message + '</code>');
+                    log('[FAIL] MediaKeys: ' + e.message);
+                }
+            }
+        } catch (e) {
+            addResult('Widevine (' + cs.label + ')', 'fail',
+                'Not available: <code>' + e.message + '</code>');
+            log('[FAIL] Widevine ' + cs.label + ': ' + e.message);
+        }
+    }
+
+    if (!widevineWorked) {
+        addResult('Widevine CDM', 'fail',
+            'No configuration was accepted. The CDM may not be loaded.');
+        log('[FAIL] No Widevine configurations worked');
+    }
+
+    // 5. Check ClearKey (should always work as it is built into Chromium)
+    try {
+        const ckConfigs = [{
+            initDataTypes: ['keyids', 'webm'],
+            videoCapabilities: [{
+                contentType: 'video/webm;codecs="vp8"'
+            }]
+        }];
+        const access = await navigator.requestMediaKeySystemAccess('org.w3.clearkey', ckConfigs);
+        addResult('ClearKey', 'pass', '<code>org.w3.clearkey</code> is available (built-in)');
+        log('[OK] ClearKey available');
+    } catch (e) {
+        addResult('ClearKey', 'fail', '<code>org.w3.clearkey</code> failed: <code>' + e.message + '</code>');
+        log('[FAIL] ClearKey: ' + e.message);
+    }
+
+    // 6. Report user agent
+    addResult('User Agent', 'pass', '<code>' + navigator.userAgent + '</code>');
+    log('[INFO] UA: ' + navigator.userAgent);
+}
+
+runTests().catch(e => {
+    addResult('Error', 'fail', 'Test threw: <code>' + e.message + '</code>');
+    log('[ERROR] ' + e.stack);
+});
+</script>
+</body>
+</html>

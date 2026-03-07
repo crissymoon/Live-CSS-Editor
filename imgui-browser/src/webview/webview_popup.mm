@@ -111,8 +111,8 @@ void webview_open_virt_popup(const std::string& url) {
     // nohup + & reparents the child to launchd -- fully detached from this app.
     std::string cmd =
         "nohup "
-        "/Users/mac/Documents/live-css/dev-browser/venv/bin/python3 "
-        "/Users/mac/Documents/live-css/dev-browser/webbrowse_no_controls.py "
+        "/Users/mac/Documents/live-css/dev-tools/dev-browser/venv/bin/python3 "
+        "/Users/mac/Documents/live-css/dev-tools/dev-browser/webbrowse_no_controls.py "
         "--url '" + escaped_url + "' "
         "</dev/null >/dev/null 2>&1 &";
 
@@ -120,7 +120,7 @@ void webview_open_virt_popup(const std::string& url) {
         NSTask* task = [[NSTask alloc] init];
         task.launchPath = @"/bin/sh";
         task.arguments  = @[@"-c", [NSString stringWithUTF8String:cmd.c_str()]];
-        task.currentDirectoryPath = @"/Users/mac/Documents/live-css/dev-browser";
+        task.currentDirectoryPath = @"/Users/mac/Documents/live-css/dev-tools/dev-browser";
 
         NSError* err = nil;
         if (@available(macOS 10.13, *)) {

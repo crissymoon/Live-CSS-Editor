@@ -11,7 +11,7 @@ void start_all_servers(const Args& args) {
         server_start_php(args.apps_dir, args.php_port);
     }
 
-    // Node image-cache server (script lives in dev-browser/src/).
+    // Node image-cache server (script lives in dev-tools/dev-browser/src/).
     {
         std::string node_script;
         auto sl = args.apps_dir.rfind('/');

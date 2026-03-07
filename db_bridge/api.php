@@ -28,8 +28,8 @@ header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
 // Auth helpers from pb_admin (provides is_logged_in / access_token)
-$pb_admin_auth = dirname(__DIR__) . '/pb_admin/auth.php';
-$pb_admin_conf = dirname(__DIR__) . '/pb_admin/config.php';
+$pb_admin_auth = dirname(__DIR__) . '/page-builder/pb_admin/auth.php';
+$pb_admin_conf = dirname(__DIR__) . '/page-builder/pb_admin/config.php';
 
 $has_session_auth = file_exists($pb_admin_conf) && file_exists($pb_admin_auth);
 if ($has_session_auth) {

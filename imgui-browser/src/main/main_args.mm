@@ -18,7 +18,7 @@ Args parse_args(int argc, char** argv) {
         auto p2 = parent.rfind('/');
         if (p2 != std::string::npos) {
             std::string root = parent.substr(0, p2);
-            a.apps_dir = root + "/../dev-browser/apps";
+            a.apps_dir = root + "/../dev-tools/dev-browser/apps";
         }
     }
     for (int i = 1; i < argc; i++) {

@@ -149,7 +149,7 @@ nc -z 127.0.0.1 8443 2>/dev/null \
 
 echo ""
 echo "==> Setup complete."
-echo "    URL         : https://localhost:8443/pb_admin/dashboard.php"
+echo "    URL         : https://localhost:8443/page-builder/pb_admin/dashboard.php"
 echo "    Cert dir    : $CERTS_DIR"
 echo "    Nginx log   : $SERVER_DIR/logs/nginx-error.log"
 echo "    PHP-FPM log : $SERVER_DIR/logs/php-fpm-pool.log"

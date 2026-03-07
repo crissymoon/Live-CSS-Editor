@@ -92,18 +92,18 @@ printf "\n  ${C_GREY}HTTPS smoke test${R}\n"
 SYS_CURL="/usr/bin/curl"
 if _port_open 8443; then
     STATUS="$("$SYS_CURL" -so /dev/null -w "%{http_code}" \
-                   --max-time 3 https://localhost:8443/pb_admin/login.php 2>/dev/null)"
+                   --max-time 3 https://localhost:8443/page-builder/pb_admin/login.php 2>/dev/null)"
     if [[ "$STATUS" == "200" || "$STATUS" == "302" ]]; then
-        ok "GET /pb_admin/login.php -> HTTP $STATUS"
+        ok "GET /page-builder/pb_admin/login.php -> HTTP $STATUS"
     else
-        fail "GET /pb_admin/login.php -> HTTP $STATUS"
+        fail "GET /page-builder/pb_admin/login.php -> HTTP $STATUS"
     fi
     STATUS2="$("$SYS_CURL" -so /dev/null -w "%{http_code}" \
-                    --max-time 3 https://localhost:8443/pb_admin/dashboard.php 2>/dev/null)"
+                    --max-time 3 https://localhost:8443/page-builder/pb_admin/dashboard.php 2>/dev/null)"
     if [[ "$STATUS2" == "200" || "$STATUS2" == "302" ]]; then
-        ok "GET /pb_admin/dashboard.php -> HTTP $STATUS2"
+        ok "GET /page-builder/pb_admin/dashboard.php -> HTTP $STATUS2"
     else
-        fail "GET /pb_admin/dashboard.php -> HTTP $STATUS2"
+        fail "GET /page-builder/pb_admin/dashboard.php -> HTTP $STATUS2"
     fi
 else
     warn "Port 8443 not open -- skipping HTTPS test"
