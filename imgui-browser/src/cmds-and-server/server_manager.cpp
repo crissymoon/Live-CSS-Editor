@@ -115,100 +115,35 @@ ServerStatus server_poll_status(int php_port, int node_port) {
 }
 
 void server_shutdown() {
+    // Signal all child processes to exit at once.
     for (pid_t pid : s_procs) {
-        if (pid > 0) {
-            kill(pid, SIGTERM);
+        if (pid > 0) kill(pid, SIGTERM);
+    }
+    // Poll ALL processes inside one shared 1.5s window, then SIGKILL survivors.
+    const int timeout_ms = 1500;
+    const int step_ms    = 30;
+    int waited = 0;
+    while (waited < timeout_ms) {
+        bool any_alive = false;
+        for (pid_t pid : s_procs) {
+            if (pid <= 0) continue;
+            int st;
+            if (waitpid(pid, &st, WNOHANG) == 0)
+                any_alive = true;  // still running
+        }
+        if (!any_alive) break;
+        usleep(step_ms * 1000);
+        waited += step_ms;
+    }
+    // Force-kill anything still alive.
+    for (pid_t pid : s_procs) {
+        if (pid <= 0) continue;
+        if (kill(pid, 0) == 0) {
+            kill(pid, SIGKILL);
+            waitpid(pid, nullptr, 0);
         }
     }
     s_procs.clear();
 }
 
-void server_start_chrome_virt_bridge(const std::string& dev_browser_dir) {
-    if (dev_browser_dir.empty()) return;
-    if (port_open(9928)) {
-        printf("[server] virt-chrome-bridge already running on :9928\n");
-        return;
-    }
-    // Locate node binary
-    const char* node = nullptr;
-    for (auto* p : {"/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"}) {
-        if (access(p, X_OK) == 0) { node = p; break; }
-    }
-    if (!node) {
-        printf("[server] node not found -- virt-chrome-bridge will not start\n");
-        return;
-    }
-    std::string script = dev_browser_dir + "/../imgui-browser/src/dev-src/virt-chrome-bridge.js";
-    std::string cwd    = dev_browser_dir + "/../imgui-browser/src/dev-src";
-    if (access(script.c_str(), R_OK) != 0) {
-        printf("[server] virt-chrome-bridge.js not found at %s\n", script.c_str());
-        return;
-    }
-    std::string log_path = dev_browser_dir + "/../imgui-browser/debug/virt-chrome-bridge.log";
-    pid_t pid = fork();
-    if (pid < 0) { perror("fork"); return; }
-    if (pid == 0) {
-        FILE* lf = fopen(log_path.c_str(), "a");
-        if (lf) {
-            dup2(fileno(lf), STDOUT_FILENO);
-            dup2(fileno(lf), STDERR_FILENO);
-            fclose(lf);
-        }
-        chdir(cwd.c_str());
-        execlp(node, node, script.c_str(), nullptr);
-        _exit(127);
-    }
-    s_procs.push_back(pid);
-    printf("[server] virt-chrome-bridge started (PID %d)\n", pid);
-}
 
-void server_start_cf_bridge(const std::string& dev_browser_dir) {
-    if (dev_browser_dir.empty()) {
-        printf("[server] cf_bridge: dev_browser_dir not set -- skipping\n");
-        return;
-    }
-    if (port_open(9925)) {
-        printf("[server] cf_bridge already running on :9925\n");
-        return;
-    }
-    // Runner script
-    std::string runner = dev_browser_dir + "/cf_bridge_runner.py";
-    if (access(runner.c_str(), R_OK) != 0) {
-        printf("[server] cf_bridge_runner.py not found at %s\n", runner.c_str());
-        return;
-    }
-    // Find python3 in the project .venv first, then fall back to system python3
-    std::string venv_py = dev_browser_dir + "/../.venv/bin/python3";
-    const char* python  = nullptr;
-    if (access(venv_py.c_str(), X_OK) == 0) {
-        python = venv_py.c_str();
-    } else {
-        for (auto* p : {"/opt/homebrew/bin/python3",
-                        "/usr/local/bin/python3",
-                        "/usr/bin/python3"}) {
-            if (access(p, X_OK) == 0) { python = p; break; }
-        }
-    }
-    if (!python) {
-        printf("[server] python3 not found -- cf_bridge will not start\n");
-        return;
-    }
-    std::string log_path = dev_browser_dir + "/../imgui-browser/debug/cf_bridge.log";
-
-    pid_t pid = fork();
-    if (pid < 0) { perror("fork"); return; }
-    if (pid == 0) {
-        // Child -- redirect stdout+stderr to log file
-        FILE* lf = fopen(log_path.c_str(), "a");
-        if (lf) {
-            dup2(fileno(lf), STDOUT_FILENO);
-            dup2(fileno(lf), STDERR_FILENO);
-            fclose(lf);
-        }
-        chdir(dev_browser_dir.c_str());
-        execlp(python, python, runner.c_str(), nullptr);
-        _exit(127);
-    }
-    s_procs.push_back(pid);
-    printf("[server] cf_bridge started (PID %d) python=%s\n", pid, python);
-}

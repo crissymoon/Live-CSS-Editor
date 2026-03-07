@@ -4,6 +4,7 @@
         { "pattern": "platform.claude.com/settings/billing",  "reason": "stripe" },
         { "pattern": "console.anthropic.com/settings/billing","reason": "stripe" },
         { "pattern": "platform.openai.com/account/billing",   "reason": "stripe" },
-        { "pattern": "pay.stripe.com/",                       "reason": "stripe" }
+        { "pattern": "pay.stripe.com/",                       "reason": "stripe" },
+        { "pattern": "auth.openai.com/log-in",                "reason": "auth"   }
     ]
 }

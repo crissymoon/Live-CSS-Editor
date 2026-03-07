@@ -18,7 +18,9 @@ struct WebViewCallbacks {
     std::function<void(const std::string& url)>               on_hover_url;
     std::function<void(double fps)>                           on_wkwv_fps;
     std::function<void(int tab_id, const std::string& url)>   on_favicon_change;
-
+    // Called (on main thread) when a navigation matches a virt-pages pattern.
+    // The delegate has already cancelled the navigation -- caller should spawn
+    // the secure popup and show the badge.
     // Additional JS strings injected at document-start into every frame
     // (main tab and all popups). Injected after JS_INIT and JS_MASK_WEBVIEW
     // in the order they appear in this vector.
@@ -99,6 +101,10 @@ void  webview_clear_data();
 // TLS fingerprint or embedded-WebView detection issues. See webview.mm for
 // full details on why this is needed.
 void  webview_open_in_system_browser(const std::string& url);
+
+// Open a URL in a native floating WKWebView panel (no controls) -- the same
+// mechanism as OAuth popups. Shares the app cookie/session store.
+void  webview_open_virt_popup(const std::string& url);
 
 // Inject cookies from cf_bridge (or any external source) into the shared
 // WKWebsiteDataStore.  json_arr must be a JSON array where each element is

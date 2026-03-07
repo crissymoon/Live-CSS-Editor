@@ -45,3 +45,8 @@ void chrome_virt_show(const std::string& url, int x, int y, int w, int h,
                       const std::string& cookies_json = "");
 void chrome_virt_hide();
 std::string chrome_virt_loading_url(const std::string& target_url);
+
+// Set Python executable path and dev-browser directory so chrome_virt_show
+// can launch webbrowse_no_controls.py as a subprocess.
+void virt_overlay_set_paths(const std::string& python,
+                             const std::string& dev_browser_dir);

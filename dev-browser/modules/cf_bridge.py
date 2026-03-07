@@ -60,7 +60,6 @@ from PyQt6.QtCore import QObject, QTimer, QUrl, pyqtSignal, pyqtSlot, Qt
 from PyQt6.QtNetwork import QNetworkCookie
 from PyQt6.QtWebEngineCore import QWebEngineProfile
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from modules.virt_stream import start_virt_stream
 
 log = logging.getLogger("cf_bridge")
 
@@ -87,7 +86,6 @@ RELAY_COOKIE_NAMES = {
 # ── Internal state ───────────────────────────────────────────────────────────
 
 _worker: Optional[_CfWorker] = None
-_virt_ctrl: Optional['_VirtController'] = None
 _bridge_started = False
 
 
@@ -177,12 +175,29 @@ class _CfWorker(QObject):
         self._view.setPage(
             self._view.page().__class__(self._profile, self._view)
         )
+        # Qt.WindowType.Tool maps to NSPanel on macOS.  NSPanel windows do NOT
+        # appear in the Dock, the App Switcher, or the taskbar -- even if the
+        # app policy allows a Dock icon.  This is the most reliable way to keep
+        # the hidden Chromium view invisible to the user.
+        self._view.setWindowFlags(Qt.WindowType.Tool)
         # Must be shown (even off-screen) so Turnstile's visibility checks pass.
         # move() puts it outside any visible screen area.
         self._view.resize(2, 2)
         self._view.move(-9000, -9000)
         self._view.show()
         self._view.lower()
+
+        # Qt and the WebEngine Chromium helper subprocess can re-promote the
+        # app to a regular (Dock-visible) process when a window is shown.
+        # Re-assert the Accessory policy immediately after .show() so the Dock
+        # icon disappears even if it briefly appeared.
+        try:
+            from AppKit import NSApplication, NSApplicationActivationPolicyAccessory  # type: ignore
+            NSApplication.sharedApplication().setActivationPolicy_(
+                NSApplicationActivationPolicyAccessory
+            )
+        except Exception:
+            pass
 
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(POLL_INTERVAL)
@@ -281,43 +296,6 @@ class _CfWorker(QObject):
         self._start_next()
 
 
-# ── Virt overlay controller (Qt main thread) ────────────────────────────────
-
-class _VirtController(QObject):
-    """
-    Thread-safe proxy for VirtOverlay.  The HTTP server thread calls the
-    public methods; pyqtSignals marshal the actual Qt GUI operations onto
-    the Qt main thread.
-    """
-
-    _show_sig    = pyqtSignal(str, int, int, int, int)  # url, x, y, w, h
-    _hide_sig    = pyqtSignal()
-    _move_sig    = pyqtSignal(int, int, int, int)        # x, y, w, h
-    _cookies_sig = pyqtSignal(object)                    # list of cookie dicts
-
-    def __init__(self, profile: QWebEngineProfile, parent=None) -> None:
-        super().__init__(parent)
-        from modules.qt_virt import VirtOverlay
-        self._overlay = VirtOverlay(profile)
-        self._show_sig.connect(self._overlay.show_at,        Qt.ConnectionType.QueuedConnection)
-        self._hide_sig.connect(self._overlay.hide_overlay,   Qt.ConnectionType.QueuedConnection)
-        self._move_sig.connect(self._overlay.move_overlay,   Qt.ConnectionType.QueuedConnection)
-        self._cookies_sig.connect(self._overlay.inject_cookies, Qt.ConnectionType.QueuedConnection)
-
-    # Called from the HTTP thread -------------------------------------------
-    def show(self, url: str, x: int, y: int, w: int, h: int) -> None:
-        self._show_sig.emit(url, x, y, w, h)
-
-    def hide(self) -> None:
-        self._hide_sig.emit()
-
-    def move(self, x: int, y: int, w: int, h: int) -> None:
-        self._move_sig.emit(x, y, w, h)
-
-    def inject_cookies(self, cookies: list) -> None:
-        self._cookies_sig.emit(cookies)
-
-
 # ── HTTP server (background thread) ─────────────────────────────────────────
 
 class _Handler(BaseHTTPRequestHandler):
@@ -366,36 +344,6 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception:
             data = {}
 
-        if parsed.path == "/virt-show":
-            url = data.get("url", "")
-            x   = int(data.get("x", 0))
-            y   = int(data.get("y", 0))
-            w   = int(data.get("w", 800))
-            h   = int(data.get("h", 600))
-            cookies = data.get("cookies")  # list of dicts from WKWebView dump
-            if url and _virt_ctrl is not None:
-                if cookies:
-                    _virt_ctrl.inject_cookies(cookies)
-                _virt_ctrl.show(url, x, y, w, h)
-            self._respond(200, b'{"ok":true}')
-            return
-
-        if parsed.path == "/virt-hide":
-            if _virt_ctrl is not None:
-                _virt_ctrl.hide()
-            self._respond(200, b'{"ok":true}')
-            return
-
-        if parsed.path == "/virt-move":
-            x = int(data.get("x", 0))
-            y = int(data.get("y", 0))
-            w = int(data.get("w", 800))
-            h = int(data.get("h", 600))
-            if _virt_ctrl is not None:
-                _virt_ctrl.move(x, y, w, h)
-            self._respond(200, b'{"ok":true}')
-            return
-
         self._respond(404, b'{"error":"not found"}')
 
     def _respond(self, status: int, body: bytes, content_type: str = "application/json"):
@@ -431,21 +379,15 @@ def start_bridge(app=None):
         return
     _bridge_started = True
 
-    global _virt_ctrl
     _worker = _CfWorker()
 
-    # Ensure the CF worker view is created (which also creates the shared profile)
-    # before VirtController so both share the same persistent cookie store.
-    _worker._ensure_view()
-    _virt_ctrl = _VirtController(_worker._profile)
-
-    # Start the offscreen MJPEG streaming browser on port 9926.
-    # Shares the same QWebEngineProfile so cookies are already present.
-    start_virt_stream(profile=_worker._profile, port=9926)
+    # Do NOT warm up the view here -- creating a QWebEngineView calls .show()
+    # which makes a window appear on load. The view is created lazily on the
+    # first actual /solve request.
 
     t = threading.Thread(target=_run_server, daemon=True, name="cf-bridge-http")
     t.start()
-    log.info("[cf_bridge] started (Chromium WebEngine + HTTP :%d)", PORT)
+    log.info("[cf_bridge] started (HTTP :%d -- Chromium view lazy-init)", PORT)
 
 
 def solve_url(url: str, timeout: float = SOLVE_TIMEOUT) -> List[Dict]:

@@ -42,19 +42,36 @@ target_compile_definitions(imgui PUBLIC
 # ── Main executable ───────────────────────────────────────────────────
 add_executable(imgui_browser
     src/main.mm
-    src/chrome.cpp
-    src/native_chrome.mm
-    src/webview.mm
-    src/server_manager.cpp
-    src/cmd_server.cpp
-    src/cf_client.cpp
-    src/virt_overlay.cpp
+    src/main/main_crash.mm
+    src/main/main_args.mm
+    src/main/main_globals.mm
+    src/main/main_layout.mm
+    src/main/main_dispatch.mm
+    src/main/main_callbacks.mm
+    src/main/main_menu.mm
+    src/main/main_wvcbs.mm
+    src/main/main_servers.mm
+    src/main/main_render.mm
+    src/top-of-gui/chrome.cpp
+    src/top-of-gui/native_chrome.mm
+    src/webview/webview_state.mm
+    src/webview/webview_delegates.mm
+    src/webview/webview_popup.mm
+    src/webview/webview_core.mm
+    src/webview/webview_nav.mm
+    src/webview/webview_cookies.mm
+    src/cmds-and-server/server_manager.cpp
+    src/cmds-and-server/cmd_server.cpp
     src/fps_counter.cpp
     src/xcm_shell.mm
 )
 
 target_include_directories(imgui_browser PRIVATE
     src/
+    src/main/
+    src/cmds-and-server/
+    src/top-of-gui/
+    src/webview/
     "${VENDOR}/imgui"
     "${VENDOR}/imgui/backends"
     "${VENDOR}/httplib"
@@ -83,8 +100,6 @@ find_library(SYSCFG_FW   SystemConfiguration)
 find_library(CFNETWORK_FW CFNetwork)
 find_library(SECURITY_FW  Security)
 
-# libcurl -- ships with macOS; used by cf_client.cpp to call cf_bridge
-find_library(CURL_FW  curl)
 
 target_link_libraries(imgui_browser PRIVATE
     imgui
@@ -99,7 +114,6 @@ target_link_libraries(imgui_browser PRIVATE
     ${SYSCFG_FW}
     ${CFNETWORK_FW}
     ${SECURITY_FW}
-    ${CURL_FW}
 )
 
 # Set macOS deployment target and bundle properties.

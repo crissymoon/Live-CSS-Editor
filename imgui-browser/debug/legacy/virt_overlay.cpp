@@ -3,11 +3,16 @@
 #include <curl/curl.h>
 #include <atomic>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <mutex>
+#include <signal.h>
+#include <spawn.h>
 #include <sstream>
 #include <string>
+#include <sys/wait.h>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 // ── Internal state ────────────────────────────────────────────────────────────
@@ -191,49 +196,84 @@ const char* virt_stream_viewer_url() {
     return "http://127.0.0.1:9926/";
 }
 
-// Chrome virt bridge (port 9928)
-void chrome_virt_show(const std::string& url, int x, int y, int w, int h,
+// Subprocess-based secure popup (webbrowse_no_controls.py)
+static std::string s_popup_python;
+static std::string s_popup_dev_dir;
+static pid_t       s_popup_pid = -1;
+
+void virt_overlay_set_paths(const std::string& python,
+                             const std::string& dev_browser_dir) {
+    s_popup_python  = python;
+    s_popup_dev_dir = dev_browser_dir;
+}
+
+void chrome_virt_show(const std::string& url, int /*x*/, int /*y*/,
+                      int /*w*/, int /*h*/,
                       const std::string& cookies_json) {
-    // Build JSON: {url, x, y, w, h, cookies:[...]}
-    // cookies_json is either "" or a JSON array from webview_dump_cookies_json.
-    std::string body;
-    body.reserve(256);
-    body += "{\"url\":\"";
-    for (char c : url) { if (c=='"'||c=='\\') body += '\\'; body += c; }
-    char dims[64];
-    snprintf(dims, sizeof(dims), "\",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d", x, y, w, h);
-    body += dims;
-    if (!cookies_json.empty()) {
-        body += ",\"cookies\":";
-        body += cookies_json;
+    if (s_popup_python.empty()) {
+        fprintf(stderr, "[virt] chrome_virt_show: paths not set\n");
+        return;
     }
-    body += '}';
-    std::thread([body]() {
-        _http_post_port(9928, "/show", body);
-    }).detach();
+
+    // Kill any existing popup.
+    if (s_popup_pid > 0) {
+        kill(s_popup_pid, SIGTERM);
+        waitpid(s_popup_pid, nullptr, WNOHANG);
+        s_popup_pid = -1;
+    }
+
+    std::string script = s_popup_dev_dir + "/webbrowse_no_controls.py";
+    if (access(script.c_str(), R_OK) != 0) {
+        fprintf(stderr, "[virt] webbrowse_no_controls.py not found: %s\n",
+                script.c_str());
+        return;
+    }
+
+    // posix_spawn is safe to call from a Cocoa/NSApplication main thread.
+    // fork()+exec from a running NSApplication corrupts ObjC runtime state
+    // in the child on macOS, causing the subprocess to crash on startup.
+    extern char** environ;
+    const char* py  = s_popup_python.c_str();
+    const char* scr = script.c_str();
+    const char* u   = url.c_str();
+    const char* cj  = cookies_json.c_str();
+
+    // Build argv -- posix_spawn does NOT go through a shell, so special
+    // characters in URL/cookies are safe as-is.
+    std::vector<const char*> argv;
+    argv.push_back(py);
+    argv.push_back(scr);
+    argv.push_back("--url");
+    argv.push_back(u);
+    if (!cookies_json.empty() && cookies_json != "[]") {
+        argv.push_back("--cookies-json");
+        argv.push_back(cj);
+    }
+    argv.push_back(nullptr);
+
+    pid_t pid = -1;
+    int rc = posix_spawn(&pid, py, nullptr, nullptr,
+                         const_cast<char* const*>(argv.data()),
+                         environ);
+    if (rc != 0) {
+        fprintf(stderr, "[virt] posix_spawn failed: %s\n", strerror(rc));
+        return;
+    }
+    s_popup_pid = pid;
+    fprintf(stderr, "[virt] secure popup PID %d  url=%s\n", pid, url.c_str());
 }
 
 void chrome_virt_hide() {
-    std::thread([]() {
-        _http_post_port(9928, "/hide", "{}");
-    }).detach();
+    if (s_popup_pid > 0) {
+        kill(s_popup_pid, SIGTERM);
+        waitpid(s_popup_pid, nullptr, WNOHANG);
+        fprintf(stderr, "[virt] secure popup terminated PID %d\n", s_popup_pid);
+        s_popup_pid = -1;
+    }
 }
 
-std::string chrome_virt_loading_url(const std::string& target_url) {
-    // Minimally encode the target URL for display in the loading page query param.
-    std::string enc;
-    enc.reserve(target_url.size() + 8);
-    for (unsigned char c : target_url) {
-        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-            (c >= '0' && c <= '9') || c == '-' || c == '_' ||
-            c == '.' || c == '~' || c == ':' || c == '/' ||
-            c == '?' || c == '=' || c == '&' || c == '#') {
-            enc += (char)c;
-        } else {
-            char buf[4];
-            snprintf(buf, sizeof(buf), "%%%02X", c);
-            enc += buf;
-        }
-    }
-    return "http://127.0.0.1:9928/loading.html?url=" + enc;
+std::string chrome_virt_loading_url(const std::string& /*target_url*/) {
+    // We no longer redirect WKWebView to a placeholder page when using the
+    // subprocess popup.  Return empty string so callers can skip the load.
+    return "";
 }

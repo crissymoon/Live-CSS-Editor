@@ -8,7 +8,6 @@
 #include "httplib.h"   // vendor/httplib/httplib.h
 #include "cmd_server.h"
 #include "app_state.h"
-#include "cf_client.h"
 #include <thread>
 #include <atomic>
 #include <string>
@@ -98,45 +97,6 @@ void cmd_server_start(AppState* state, int port) {
                      state->php_server_ok  ? "true" : "false",
                      state->node_server_ok ? "true" : "false");
             res.set_content(buf, "application/json");
-        });
-
-        // GET /cf-solve?url=https://...  -- ask cf_bridge to solve CF Turnstile
-        // for the given URL and inject the resulting cookies into WKWebView.
-        // The caller does NOT need to wait; the bridge runs async and injects
-        // cookies when ready.  Returns immediately with bridge-alive status.
-        srv.Get("/cf-solve", [](const httplib::Request& req, httplib::Response& res) {
-            auto it = req.params.find("url");
-            if (it == req.params.end() || it->second.empty()) {
-                res.status = 400;
-                res.set_content("{\"error\":\"missing url param\"}", "application/json");
-                return;
-            }
-            bool alive = cf_client_bridge_alive();
-            if (!alive) {
-                fprintf(stderr, "[cmd] /cf-solve: cf_bridge not reachable on port 9925\n");
-                res.set_content("{\"ok\":false,\"error\":\"bridge not running\"}",
-                                "application/json");
-                return;
-            }
-            cf_client_solve_async(it->second);
-            res.set_content("{\"ok\":true,\"status\":\"solving\"}", "application/json");
-        });
-
-        // POST /cf-solve-sync  -- blocking version; waits up to 50s
-        srv.Post("/cf-solve-sync", [](const httplib::Request& req, httplib::Response& res) {
-            std::string url = json_str(req.body, "url");
-            if (url.empty()) {
-                res.status = 400;
-                res.set_content("{\"error\":\"missing url\"}", "application/json");
-                return;
-            }
-            std::string json = cf_client_solve_sync(url, 50);
-            if (json.empty()) {
-                res.set_content("{\"ok\":false,\"error\":\"bridge returned empty response\"}",
-                                "application/json");
-                return;
-            }
-            res.set_content(json, "application/json");
         });
 
         // POST /inject-cookies  -- relay CF clearance or session cookies from

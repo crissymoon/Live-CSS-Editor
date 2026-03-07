@@ -35,3 +35,7 @@ void native_chrome_focus_url();
 
 // Tear down all views on shutdown.
 void native_chrome_destroy();
+
+// Evaluate arbitrary JS in the toolbar WKWebView.
+// Safe to call from the render/main thread.
+void native_chrome_eval_toolbar_js(const char* js);

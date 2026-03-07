@@ -407,7 +407,7 @@ static XCMToolbarNavDelegate* s_tb_nav = nil;
 static NSURL* toolbarHtmlURL() {
     // 1. Dev build: 4 levels up from MacOS/ to reach imgui-browser/, then src/
     NSString* binDir = [NSBundle mainBundle].executablePath.stringByDeletingLastPathComponent;
-    NSString* dev1   = [binDir stringByAppendingPathComponent:@"../../../../src/chrome.html"];
+    NSString* dev1   = [binDir stringByAppendingPathComponent:@"../../../../src/top-of-gui/chrome.html"];
     NSString* dev1r  = dev1.stringByStandardizingPath;
     if ([[NSFileManager defaultManager] fileExistsAtPath:dev1r])
         return [NSURL fileURLWithPath:dev1r];
@@ -730,5 +730,13 @@ void native_chrome_destroy() {
     s_toolbar_wv = nil;
     s_bridge     = nil;
     s_tb_nav     = nil;
+}
+
+void native_chrome_eval_toolbar_js(const char* js) {
+    if (!s_toolbar_wv || !js) return;
+    NSString* src = [NSString stringWithUTF8String:js];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [s_toolbar_wv evaluateJavaScript:src completionHandler:nil];
+    });
 }
 
