@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PHP WASM Demo</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <header class="hero">
+        <h1>🐘 PHP × WebAssembly</h1>
+        <p class="subtitle">A full PHP interpreter running entirely in your browser.</p>
+    </header>
+
+    <main class="container">
+        <!-- URL bar / navigation -->
+        <section class="request-bar">
+            <label for="url-input">Path</label>
+            <div class="input-row">
+                <input id="url-input" type="text" value="/" placeholder="/your/path" />
+                <select id="method-select">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                </select>
+                <button id="run-btn">Run ▶</button>
+            </div>
+        </section>
+
+        <!-- POST body (hidden unless POST is selected) -->
+        <section class="post-body hidden" id="post-body-section">
+            <label for="post-body">Request body (raw)</label>
+            <textarea id="post-body" rows="4" placeholder='{"key":"value"}'></textarea>
+        </section>
+
+        <!-- Status bar -->
+        <div class="status-bar">
+            <span id="status-text">Initialising…</span>
+            <span id="response-code" class="code-badge"></span>
+        </div>
+
+        <!-- Output area (rendered HTML) -->
+        <section class="output-section">
+            <div class="output-tabs">
+                <button class="tab-btn active" data-tab="rendered">Rendered</button>
+                <button class="tab-btn" data-tab="raw">Raw output</button>
+                <button class="tab-btn" data-tab="headers">Headers</button>
+            </div>
+            <div id="tab-rendered" class="tab-pane active">
+                <iframe id="output-frame" sandbox="allow-scripts"></iframe>
+            </div>
+            <div id="tab-raw" class="tab-pane hidden">
+                <pre id="raw-output"></pre>
+            </div>
+            <div id="tab-headers" class="tab-pane hidden">
+                <pre id="headers-output"></pre>
+            </div>
+        </section>
+    </main>
+
+    <!--
+        php.js is the Emscripten-generated JS glue loader.
+        It is produced by build.sh and placed in wasm/php.js.
+        Copy it to public/ before serving, or adjust the path below.
+    -->
+    <script src="../wasm/php.js" defer></script>
+    <script src="php-wasm.js" type="module"></script>
+</body>
+</html>

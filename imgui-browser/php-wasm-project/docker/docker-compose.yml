@@ -1,0 +1,37 @@
+version: "3.9"
+
+# docker-compose.yml – Convenience wrappers for the PHP WASM build & dev server.
+#
+# Usage:
+#   docker compose run build          # compile PHP → WASM
+#   docker compose up serve           # start local dev server
+
+services:
+
+  # ── WASM build ─────────────────────────────────────────────────────────────
+  build:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: php-wasm-builder
+    volumes:
+      - ..:/src
+    working_dir: /src
+    command: bash build.sh
+
+  # -- Dev server (Node.js) ---------------------------------------------------
+  # Serves with COOP/COEP headers and application/wasm content-type.
+  # Use `make serve` instead of this for local development.
+  serve:
+    image: node:22-alpine
+    volumes:
+      - ..:/app
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    command: node server.js 8080
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 3

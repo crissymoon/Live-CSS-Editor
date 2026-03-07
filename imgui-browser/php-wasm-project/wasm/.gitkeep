@@ -1,0 +1,2 @@
+# This directory holds the compiled WebAssembly output files.
+# php.wasm and php.js will be generated here by the build scripts.

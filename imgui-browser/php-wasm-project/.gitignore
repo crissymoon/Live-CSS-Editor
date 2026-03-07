@@ -1,0 +1,25 @@
+# PHP WASM project – .gitignore
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Downloaded PHP source tree (large – re-fetch with scripts/fetch-php.sh)
+/php-src/
+
+# Compiled WASM output (re-generate with make build)
+/wasm/php.js
+/wasm/php.wasm
+
+# Local build logs
+*.log
+/tmp/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (if any tooling is added)
+node_modules/

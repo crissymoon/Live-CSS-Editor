@@ -1,0 +1,166 @@
+/* ── Reset / base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0f0f13;
+    color: #e5e7eb;
+    min-height: 100vh;
+}
+
+/* ── Hero header ─────────────────────────────────────────────── */
+.hero {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+    padding: 2.5rem 1rem;
+    text-align: center;
+    border-bottom: 1px solid #312e81;
+}
+.hero h1 { font-size: 2rem; letter-spacing: -0.02em; }
+.subtitle { color: #a5b4fc; margin-top: .4rem; font-size: .95rem; }
+
+/* ── Layout ──────────────────────────────────────────────────── */
+.container {
+    max-width: 960px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* ── Request bar ─────────────────────────────────────────────── */
+.request-bar label,
+.post-body label {
+    display: block;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #9ca3af;
+    margin-bottom: .35rem;
+}
+
+.input-row {
+    display: flex;
+    gap: .5rem;
+}
+
+#url-input {
+    flex: 1;
+    background: #1c1c27;
+    border: 1px solid #374151;
+    color: #e5e7eb;
+    padding: .55rem .75rem;
+    border-radius: 6px;
+    font-size: .9rem;
+    outline: none;
+    transition: border-color .15s;
+}
+#url-input:focus { border-color: #7c3aed; }
+
+#method-select {
+    background: #1c1c27;
+    border: 1px solid #374151;
+    color: #e5e7eb;
+    padding: .55rem .75rem;
+    border-radius: 6px;
+    font-size: .9rem;
+    cursor: pointer;
+}
+
+#run-btn {
+    background: #7c3aed;
+    color: #fff;
+    border: none;
+    padding: .55rem 1.25rem;
+    border-radius: 6px;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+}
+#run-btn:hover  { background: #6d28d9; }
+#run-btn:active { background: #5b21b6; }
+
+/* ── POST body ───────────────────────────────────────────────── */
+#post-body {
+    width: 100%;
+    background: #1c1c27;
+    border: 1px solid #374151;
+    color: #e5e7eb;
+    padding: .65rem .75rem;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: .85rem;
+    resize: vertical;
+    outline: none;
+}
+#post-body:focus { border-color: #7c3aed; }
+
+/* ── Status bar ──────────────────────────────────────────────── */
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    font-size: .82rem;
+    color: #9ca3af;
+}
+
+.code-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: .8rem;
+}
+.code-badge.ok  { background: #065f46; color: #6ee7b7; }
+.code-badge.err { background: #7f1d1d; color: #fca5a5; }
+
+/* ── Output tabs ─────────────────────────────────────────────── */
+.output-section {
+    background: #1c1c27;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.output-tabs {
+    display: flex;
+    border-bottom: 1px solid #374151;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: .6rem 1rem;
+    font-size: .82rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+}
+.tab-btn.active { color: #a78bfa; border-bottom-color: #7c3aed; }
+.tab-btn:hover:not(.active) { color: #e5e7eb; }
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+#output-frame {
+    width: 100%;
+    height: 480px;
+    border: none;
+    background: #fff;
+}
+
+#raw-output,
+#headers-output {
+    font-family: 'Fira Code', monospace;
+    font-size: .8rem;
+    padding: 1rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #d1d5db;
+    max-height: 480px;
+    overflow: auto;
+}
+
+/* ── Utilities ───────────────────────────────────────────────── */
+.hidden { display: none !important; }
