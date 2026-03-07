@@ -108,6 +108,12 @@ void  webview_open_in_system_browser(const std::string& url);
 // This function is safe to call from any C++ thread.
 void  webview_inject_cookies(const std::string& json_arr);
 
+// Async-read all cookies from WKWebsiteDataStore and deliver them as a
+// JSON array string to |callback| on the main thread.
+// Each element matches the inject_cookies format so the output can be
+// forwarded directly to a Qt WebEngine profile via /virt-show cookies field.
+void  webview_dump_cookies_json(std::function<void(const std::string&)> callback);
+
 // Set the customUserAgent on every open WKWebView tab to the Chrome UA
 // that cf_bridge used when solving the Cloudflare challenge.  CF binds
 // cf_clearance to the UA that solved it -- requests carrying the cookie

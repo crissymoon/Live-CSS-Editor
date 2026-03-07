@@ -1705,6 +1705,35 @@ void webview_clear_data() {
     }];
 }
 
+void webview_dump_cookies_json(std::function<void(const std::string&)> callback) {
+    WKHTTPCookieStore* store = [WKWebsiteDataStore defaultDataStore].httpCookieStore;
+    [store getAllCookies:^(NSArray<NSHTTPCookie*>* cookies) {
+        NSMutableArray* arr = [NSMutableArray array];
+        for (NSHTTPCookie* c in cookies) {
+            NSMutableDictionary* d = [NSMutableDictionary dictionary];
+            d[@"name"]     = c.name     ?: @"";
+            d[@"value"]    = c.value    ?: @"";
+            d[@"domain"]   = c.domain   ?: @"";
+            d[@"path"]     = c.path     ?: @"/";
+            d[@"secure"]   = @(c.isSecure);
+            d[@"httpOnly"] = @(c.isHTTPOnly);
+            if (c.expiresDate) {
+                d[@"expiresAt"] = @(c.expiresDate.timeIntervalSince1970);
+            }
+            [arr addObject:d];
+        }
+        NSError* je = nil;
+        NSData* data = [NSJSONSerialization dataWithJSONObject:arr options:0 error:&je];
+        std::string result = "[]";
+        if (data && !je) {
+            NSString* s = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+            if (s) result = s.UTF8String;
+        }
+        fprintf(stderr, "[wv] dump_cookies: %zu cookies serialised\n", (size_t)cookies.count);
+        if (callback) callback(result);
+    }];
+}
+
 void webview_shutdown() {
     for (auto& [id, h] : s_handles) {
         [h->fps_tmr invalidate];

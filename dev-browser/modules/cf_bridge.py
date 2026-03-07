@@ -283,17 +283,19 @@ class _VirtController(QObject):
     the Qt main thread.
     """
 
-    _show_sig = pyqtSignal(str, int, int, int, int)  # url, x, y, w, h
-    _hide_sig = pyqtSignal()
-    _move_sig = pyqtSignal(int, int, int, int)        # x, y, w, h
+    _show_sig    = pyqtSignal(str, int, int, int, int)  # url, x, y, w, h
+    _hide_sig    = pyqtSignal()
+    _move_sig    = pyqtSignal(int, int, int, int)        # x, y, w, h
+    _cookies_sig = pyqtSignal(object)                    # list of cookie dicts
 
     def __init__(self, profile: QWebEngineProfile, parent=None) -> None:
         super().__init__(parent)
         from modules.qt_virt import VirtOverlay
         self._overlay = VirtOverlay(profile)
-        self._show_sig.connect(self._overlay.show_at,    Qt.ConnectionType.QueuedConnection)
-        self._hide_sig.connect(self._overlay.hide_overlay, Qt.ConnectionType.QueuedConnection)
-        self._move_sig.connect(self._overlay.move_overlay, Qt.ConnectionType.QueuedConnection)
+        self._show_sig.connect(self._overlay.show_at,        Qt.ConnectionType.QueuedConnection)
+        self._hide_sig.connect(self._overlay.hide_overlay,   Qt.ConnectionType.QueuedConnection)
+        self._move_sig.connect(self._overlay.move_overlay,   Qt.ConnectionType.QueuedConnection)
+        self._cookies_sig.connect(self._overlay.inject_cookies, Qt.ConnectionType.QueuedConnection)
 
     # Called from the HTTP thread -------------------------------------------
     def show(self, url: str, x: int, y: int, w: int, h: int) -> None:
@@ -304,6 +306,9 @@ class _VirtController(QObject):
 
     def move(self, x: int, y: int, w: int, h: int) -> None:
         self._move_sig.emit(x, y, w, h)
+
+    def inject_cookies(self, cookies: list) -> None:
+        self._cookies_sig.emit(cookies)
 
 
 # ── HTTP server (background thread) ─────────────────────────────────────────
@@ -360,7 +365,10 @@ class _Handler(BaseHTTPRequestHandler):
             y   = int(data.get("y", 0))
             w   = int(data.get("w", 800))
             h   = int(data.get("h", 600))
+            cookies = data.get("cookies")  # list of dicts from WKWebView dump
             if url and _virt_ctrl is not None:
+                if cookies:
+                    _virt_ctrl.inject_cookies(cookies)
                 _virt_ctrl.show(url, x, y, w, h)
             self._respond(200, b'{"ok":true}')
             return

@@ -93,7 +93,8 @@ bool virt_overlay_check_url(const std::string& url) {
     return false;
 }
 
-void virt_overlay_show(const std::string& url, int x, int y, int w, int h) {
+void virt_overlay_show(const std::string& url, int x, int y, int w, int h,
+                        const std::string& cookies_json) {
     {
         std::lock_guard<std::mutex> g(s_pos_mu);
         s_last_x = x; s_last_y = y; s_last_w = w; s_last_h = h;
@@ -107,16 +108,30 @@ void virt_overlay_show(const std::string& url, int x, int y, int w, int h) {
         safe_url += ch;
     }
 
-    char json[4096];
-    snprintf(json, sizeof(json),
-             "{\"url\":\"%s\",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d}",
-             safe_url.c_str(), x, y, w, h);
+    // Build JSON body as a string so it can hold a large cookies array
+    std::string body;
+    body.reserve(256 + cookies_json.size());
+    body += "{\"url\":\"";
+    body += safe_url;
+    body += "\",\"x\":";
+    body += std::to_string(x);
+    body += ",\"y\":";
+    body += std::to_string(y);
+    body += ",\"w\":";
+    body += std::to_string(w);
+    body += ",\"h\":";
+    body += std::to_string(h);
+    if (!cookies_json.empty() && cookies_json != "[]") {
+        body += ",\"cookies\":";
+        body += cookies_json;
+    }
+    body += "}";
 
-    fprintf(stderr, "[virt] show %dx%d+%d+%d  url=%s\n", w, h, x, y, url.c_str());
+    fprintf(stderr, "[virt] show %dx%d+%d+%d  url=%s  cookies=%zu bytes\n",
+            w, h, x, y, url.c_str(), cookies_json.size());
 
     // Set active immediately (optimistic) then fire async so render loop never blocks.
     s_active = true;
-    std::string body(json);
     std::thread([body]() { _http_post("/virt-show", body); }).detach();
 }
 

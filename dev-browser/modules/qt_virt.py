@@ -1,18 +1,5 @@
 """
 qt_virt.py -- Qt Chromium overlay for virt-pages.
-
-Provides a borderless, stays-on-top QWebEngineView window that is spawned by
-cf_bridge over specific URLs (e.g. Stripe billing pages) that WKWebView cannot
-render correctly.  The overlay is positioned to exactly cover the imgui
-browser's content area, giving a seamless embedded feel.
-
-Managed via the HTTP API on port 9925:
-    POST /virt-show  {"url":"...", "x":N, "y":N, "w":N, "h":N}
-    POST /virt-hide  {}
-    POST /virt-move  {"x":N, "y":N, "w":N, "h":N}
-
-Coordinates use Qt screen convention: origin at top-left of primary screen,
-y increases downward (same as what C++ webview_get_content_screen_rect returns).
 """
 from __future__ import annotations
 
@@ -21,11 +8,37 @@ import logging
 from PyQt6.QtCore import (
     QEasingCurve, QPropertyAnimation, Qt, QUrl, pyqtProperty, pyqtSlot,
 )
-from PyQt6.QtWebEngineCore import QWebEngineProfile
+from PyQt6.QtNetwork import QNetworkCookie
+from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QMainWindow, QWidget
 
 log = logging.getLogger(__name__)
+
+
+# ── Popup page (Google OAuth + payment redirects) ────────────────────────────
+
+class _PopupPage(QWebEnginePage):
+    """
+    QWebEnginePage used for popup windows (window.open from the overlay).
+    Creates a small floating QMainWindow so OAuth flows complete normally.
+    """
+    def __init__(self, profile: QWebEngineProfile, parent=None) -> None:
+        super().__init__(profile, parent)
+        self._win: QMainWindow | None = None
+
+    def createWindow(self, win_type) -> 'QWebEnginePage':
+        pop = _PopupPage(self.profile(), self)
+        pop._win = QMainWindow()
+        pop._win.setWindowTitle("Sign In")
+        pop._win.resize(520, 680)
+        view = QWebEngineView(pop._win)
+        view.setPage(pop)
+        pop._win.setCentralWidget(view)
+        pop._win.show()
+        pop._win.raise_()
+        log.info("[qt_virt] popup opened")
+        return pop
 
 
 class VirtOverlay(QMainWindow):
@@ -53,11 +66,11 @@ class VirtOverlay(QMainWindow):
 
         # Internal opacity tracker (QPropertyAnimation needs a proper pyqtProperty)
         self._opacity: float = 0.0
+        self._profile = profile
 
         if profile is not None:
-            from PyQt6.QtWebEngineCore import QWebEnginePage
+            page = _PopupPage(profile)
             self._view = QWebEngineView(self)
-            page = QWebEnginePage(profile, self._view)
             self._view.setPage(page)
         else:
             self._view = QWebEngineView(self)
@@ -110,6 +123,32 @@ class VirtOverlay(QMainWindow):
         self.raise_()
 
         log.info("[qt_virt] show_at %s @ %dx%d+%d+%d", url, w, h, x, y)
+
+    def inject_cookies(self, cookies: list) -> None:
+        """Inject a list of cookie dicts (from WKWebView dump) into the Qt profile."""
+        if not self._profile or not cookies:
+            return
+        store = self._profile.cookieStore()
+        injected = 0
+        for c in cookies:
+            name  = c.get("name", "").encode()
+            value = c.get("value", "").encode()
+            domain = c.get("domain", "")
+            path   = c.get("path", "/")
+            if not name or not domain:
+                continue
+            qc = QNetworkCookie(name, value)
+            qc.setDomain(domain)
+            qc.setPath(path)
+            qc.setSecure(bool(c.get("secure", False)))
+            qc.setHttpOnly(bool(c.get("httpOnly", False)))
+            exp = c.get("expiresAt")
+            if exp:
+                from PyQt6.QtCore import QDateTime
+                qc.setExpirationDate(QDateTime.fromSecsSinceEpoch(int(exp)))
+            store.setCookie(qc)
+            injected += 1
+        log.info("[qt_virt] injected %d cookies into Qt profile", injected)
 
     @pyqtSlot()
     def hide_overlay(self) -> None:

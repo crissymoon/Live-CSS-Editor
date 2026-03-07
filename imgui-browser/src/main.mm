@@ -605,10 +605,14 @@ int main(int argc, char** argv) {
             if (virt_overlay_check_url(url)) {
                 int wx = 0, wy = 0;
                 glfwGetWindowPos(g_win, &wx, &wy);
-                virt_overlay_show(url,
-                    wx, wy + g_prev_top,
-                    g_state.win_w,
-                    g_state.win_h - g_prev_top - g_prev_bot);
+                // Capture position + url by value; callback fires on main thread
+                int vx = wx, vy = wy + g_prev_top,
+                    vw = g_state.win_w,
+                    vh = g_state.win_h - g_prev_top - g_prev_bot;
+                std::string vurl = url;
+                webview_dump_cookies_json([vurl, vx, vy, vw, vh](const std::string& cj) {
+                    virt_overlay_show(vurl, vx, vy, vw, vh, cj);
+                });
             } else if (virt_overlay_is_active()) {
                 virt_overlay_hide();
             }
@@ -988,9 +992,12 @@ int main(int argc, char** argv) {
             if (t && virt_overlay_check_url(t->url)) {
                 int wx = 0, wy = 0;
                 glfwGetWindowPos(g_win, &wx, &wy);
-                virt_overlay_show(t->url,
-                    wx, wy + g_prev_top,
-                    ww, wh - g_prev_top - g_prev_bot);
+                int vx = wx, vy = wy + g_prev_top;
+                int vw = ww, vh = wh - g_prev_top - g_prev_bot;
+                std::string vurl = t->url;
+                webview_dump_cookies_json([vurl, vx, vy, vw, vh](const std::string& cj) {
+                    virt_overlay_show(vurl, vx, vy, vw, vh, cj);
+                });
             } else if (virt_overlay_is_active()) {
                 virt_overlay_hide();
             }

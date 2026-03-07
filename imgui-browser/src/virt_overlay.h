@@ -19,8 +19,10 @@ void virt_overlay_init(const std::string& json_path);
 bool virt_overlay_check_url(const std::string& url);
 
 // Show (or navigate) the overlay at the given screen rect.
-// Blocks briefly (2-second libcurl timeout) if cf_bridge is not up yet.
-void virt_overlay_show(const std::string& url, int x, int y, int w, int h);
+// cookies_json: optional JSON array of WKWebView session cookies to inject into
+// the Qt profile so the user does not have to log in again inside the overlay.
+void virt_overlay_show(const std::string& url, int x, int y, int w, int h,
+                        const std::string& cookies_json = "");
 
 // Hide the overlay.  No-op if already hidden.
 void virt_overlay_hide();
