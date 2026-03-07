@@ -23,6 +23,10 @@ void server_start_node(const std::string& node_script);
 // can find the .venv Python and the cf_bridge module.
 void server_start_cf_bridge(const std::string& dev_browser_dir);
 
+// Start the virt-chrome-bridge Node server (port 9928).
+// dev_browser_dir: absolute path to the dev-browser/ directory.
+void server_start_chrome_virt_bridge(const std::string& dev_browser_dir);
+
 // Poll liveness of both servers.  Returns current status.
 ServerStatus server_poll_status(int php_port = 9879, int node_port = 7779);
 

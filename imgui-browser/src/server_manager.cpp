@@ -123,6 +123,45 @@ void server_shutdown() {
     s_procs.clear();
 }
 
+void server_start_chrome_virt_bridge(const std::string& dev_browser_dir) {
+    if (dev_browser_dir.empty()) return;
+    if (port_open(9928)) {
+        printf("[server] virt-chrome-bridge already running on :9928\n");
+        return;
+    }
+    // Locate node binary
+    const char* node = nullptr;
+    for (auto* p : {"/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"}) {
+        if (access(p, X_OK) == 0) { node = p; break; }
+    }
+    if (!node) {
+        printf("[server] node not found -- virt-chrome-bridge will not start\n");
+        return;
+    }
+    std::string script = dev_browser_dir + "/../imgui-browser/src/dev-src/virt-chrome-bridge.js";
+    std::string cwd    = dev_browser_dir + "/../imgui-browser/src/dev-src";
+    if (access(script.c_str(), R_OK) != 0) {
+        printf("[server] virt-chrome-bridge.js not found at %s\n", script.c_str());
+        return;
+    }
+    std::string log_path = dev_browser_dir + "/../imgui-browser/debug/virt-chrome-bridge.log";
+    pid_t pid = fork();
+    if (pid < 0) { perror("fork"); return; }
+    if (pid == 0) {
+        FILE* lf = fopen(log_path.c_str(), "a");
+        if (lf) {
+            dup2(fileno(lf), STDOUT_FILENO);
+            dup2(fileno(lf), STDERR_FILENO);
+            fclose(lf);
+        }
+        chdir(cwd.c_str());
+        execlp(node, node, script.c_str(), nullptr);
+        _exit(127);
+    }
+    s_procs.push_back(pid);
+    printf("[server] virt-chrome-bridge started (PID %d)\n", pid);
+}
+
 void server_start_cf_bridge(const std::string& dev_browser_dir) {
     if (dev_browser_dir.empty()) {
         printf("[server] cf_bridge: dev_browser_dir not set -- skipping\n");

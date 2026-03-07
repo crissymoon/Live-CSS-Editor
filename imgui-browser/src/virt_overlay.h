@@ -33,3 +33,15 @@ void virt_overlay_tick(int x, int y, int w, int h);
 
 // True while the overlay is shown or fading in.
 bool virt_overlay_is_active();
+
+// ── Stream mode (MJPEG via virt_stream.py on port 9926) ──────────────────────
+// Navigate the offscreen Qt browser to `url`.  Non-blocking.
+void virt_stream_navigate(const std::string& url);
+// URL of the MJPEG viewer page served by virt_stream.py.
+const char* virt_stream_viewer_url();
+
+// Chrome virt bridge (port 9928) -- native Chrome --app window, no controls.
+void chrome_virt_show(const std::string& url, int x, int y, int w, int h,
+                      const std::string& cookies_json = "");
+void chrome_virt_hide();
+std::string chrome_virt_loading_url(const std::string& target_url);

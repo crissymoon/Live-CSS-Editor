@@ -18,6 +18,10 @@ log = logging.getLogger(__name__)
 
 # ── Popup page (Google OAuth + payment redirects) ────────────────────────────
 
+# Keep alive references to all open popup windows so they are not GC-collected.
+_live_popups: list = []
+
+
 class _PopupPage(QWebEnginePage):
     """
     QWebEnginePage used for popup windows (window.open from the overlay).
@@ -29,14 +33,23 @@ class _PopupPage(QWebEnginePage):
 
     def createWindow(self, win_type) -> 'QWebEnginePage':
         pop = _PopupPage(self.profile(), self)
-        pop._win = QMainWindow()
-        pop._win.setWindowTitle("Sign In")
-        pop._win.resize(520, 680)
-        view = QWebEngineView(pop._win)
+        win = QMainWindow()
+        pop._win = win
+        win.setWindowTitle("Sign In")
+        win.resize(520, 680)
+        # Standard window with title bar - required for Google OAuth to work.
+        win.setWindowFlags(
+            Qt.WindowType.Window |
+            Qt.WindowType.WindowStaysOnTopHint
+        )
+        view = QWebEngineView(win)
         view.setPage(pop)
-        pop._win.setCentralWidget(view)
-        pop._win.show()
-        pop._win.raise_()
+        win.setCentralWidget(view)
+        win.show()
+        win.raise_()
+        win.activateWindow()
+        # Keep a hard reference so Python GC does not destroy the window.
+        _live_popups.append(win)
         log.info("[qt_virt] popup opened")
         return pop
 

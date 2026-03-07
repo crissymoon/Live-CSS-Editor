@@ -21,6 +21,14 @@ from modules.cf_bridge import start_bridge
 
 app = QApplication(sys.argv)
 
+# Hide the Python Dock icon - this is a background helper process, not a GUI app.
+# Use PyObjC if available; silently skip if not (avoids ctypes segfault on Apple Silicon).
+try:
+    from AppKit import NSApplication, NSApplicationActivationPolicyAccessory  # type: ignore
+    NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+except Exception as _dock_err:
+    print(f"[cf_bridge_runner] dock-hide skipped: {_dock_err}", flush=True)
+
 # Respond to SIGTERM from server_manager cleanly.
 signal.signal(signal.SIGTERM, lambda _s, _f: app.quit())
 

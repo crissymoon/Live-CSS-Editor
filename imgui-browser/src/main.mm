@@ -154,7 +154,13 @@ static int           g_fb_h     = 0;
 // Set true by window/framebuffer size callbacks; consumed once per frame so
 // WKWebView repositioning happens exactly once per resize step, not twice
 // (once from cb_window_size and once from cb_framebuffer_size).
-static bool          g_resize_dirty = false;
+static bool          g_resize_dirty   = false;
+static bool          g_win_iconified   = false;  // set by GLFW iconify callback
+// Pending virt-stream redirect: set by on_url_change, consumed by render loop.
+// Using a frame-deferred flag avoids calling webview_load_url from inside the
+// WKWebView navigation delegate (which would be silently dropped).
+struct PendingVirtRedirect { bool active = false; void* wv = nullptr; std::string url; };
+static PendingVirtRedirect g_pending_virt;
 // Set true each frame when any ImGui item is hovered in the chrome zone.
 // Used by the drag-bar NSEvent monitor to decide whether to let the OS
 // drag the window vs. letting ImGui handle the click (tab, button, URL bar).
@@ -460,6 +466,14 @@ int main(int argc, char** argv) {
         g_state.dpi_scale = xscale;
         g_resize_dirty    = true;
     });
+    // Minimize / restore -- hide the virt overlay when the host window is iconified;
+    // force a tab-switch re-check on restore so it reappears automatically.
+    glfwSetWindowIconifyCallback(g_win, [](GLFWwindow*, int iconified) {
+        g_win_iconified = (iconified != 0);
+        if (iconified) {
+            virt_overlay_hide();
+        }
+    });
 
     // Seed both dimension pairs before the first frame.
     int _lw, _lh;
@@ -580,15 +594,24 @@ int main(int argc, char** argv) {
 
     WebViewCallbacks wv_cbs;
     wv_cbs.on_url_change = [](int tab_id, const std::string& url) {
+        // Never treat the local stream viewer URL as a real navigation --
+        // it is an internal redirect and should not update the tab URL,
+        // appear in history, or re-trigger the virt check.
+        const bool is_stream = (url == virt_stream_viewer_url() ||
+                                 url.find("127.0.0.1:9928") != std::string::npos);
+
         for (auto& t : g_state.tabs)
             if (t.id == tab_id) {
-                t.url       = url;
-                t.is_secure = url.size() >= 8 && url.substr(0, 8) == "https://";
+                if (!is_stream) {
+                    t.url       = url;
+                    t.is_secure = url.size() >= 8 && url.substr(0, 8) == "https://";
+                }
                 break;
             }
-        // Push to browsing history (skip consecutive duplicates)
+        // Push to browsing history (skip consecutive duplicates, skip stream URL)
         auto& hist = g_state.history;
-        if (!url.empty() && (hist.empty() || hist.back().url != url)) {
+        if (!url.empty() && !is_stream &&
+            (hist.empty() || hist.back().url != url)) {
             HistoryEntry he;
             he.url = url;
             he.ts  = (int64_t)time(nullptr);
@@ -598,23 +621,18 @@ int main(int argc, char** argv) {
             static int s_hist_n = 0;
             if (++s_hist_n % 5 == 0) persist_save_history(g_state.history);
         }
-        // Virt overlay: show Qt Chromium on matching URLs, hide on others.
-        // Only react to the active tab.
+        // Virt: show matching URLs in the MJPEG stream viewer.
+        // Guard: skip if this is the stream URL firing back at us.
         Tab* active = g_state.current_tab();
-        if (active && active->id == tab_id) {
+        if (!is_stream && active && active->id == tab_id) {
             if (virt_overlay_check_url(url)) {
-                int wx = 0, wy = 0;
-                glfwGetWindowPos(g_win, &wx, &wy);
-                // Capture position + url by value; callback fires on main thread
-                int vx = wx, vy = wy + g_prev_top,
-                    vw = g_state.win_w,
-                    vh = g_state.win_h - g_prev_top - g_prev_bot;
-                std::string vurl = url;
-                webview_dump_cookies_json([vurl, vx, vy, vw, vh](const std::string& cj) {
-                    virt_overlay_show(vurl, vx, vy, vw, vh, cj);
-                });
-            } else if (virt_overlay_is_active()) {
-                virt_overlay_hide();
+                g_pending_virt.active = true;
+                g_pending_virt.wv     = active->wv_handle;
+                g_pending_virt.url    = url;
+            } else {
+                // Non-virt URL: cancel pending and hide Chrome if visible.
+                if (g_pending_virt.active) g_pending_virt.active = false;
+                chrome_virt_hide();
             }
         }
     };
@@ -804,6 +822,7 @@ int main(int argc, char** argv) {
         if (sl != std::string::npos)
             dev_browser_dir = args.apps_dir.substr(0, sl); // strip /apps
         server_start_cf_bridge(dev_browser_dir);
+        server_start_chrome_virt_bridge(dev_browser_dir);
     }
 
     // ── Command API ───────────────────────────────────────────────────
@@ -985,29 +1004,45 @@ int main(int argc, char** argv) {
             else                         webview_hide(h);
         }
 
-        // Virt overlay: detect tab switches
-        if (g_state.active_tab != s_last_active_tab) {
+        // Consume any pending virt-stream redirect (set by on_url_change).
+        // Runs here on the render thread, safely outside any WKWebView delegate.
+        if (g_pending_virt.active) {
+            g_pending_virt.active = false;
+            void* wv        = g_pending_virt.wv;
+            std::string vurl = g_pending_virt.url;
+            // Show loading animation immediately in WKWebView.
+            if (wv) webview_load_url(wv, chrome_virt_loading_url(vurl));
+            // Async cookie dump then show Chrome window over content area.
+            int wx = 0, wy = 0;
+            glfwGetWindowPos(g_win, &wx, &wy);
+            int vx = wx, vy = wy + g_prev_top;
+            int vw = ww, vh = wh - g_prev_top - g_prev_bot;
+            webview_dump_cookies_json([vurl, vx, vy, vw, vh](const std::string& cj) {
+                chrome_virt_show(vurl, vx, vy, vw, vh, cj);
+            });
+        }
+
+        // Virt: re-check on tab switch or window restore from minimise.
+        static bool s_was_iconified = false;
+        bool just_restored = (s_was_iconified && !g_win_iconified);
+        s_was_iconified = g_win_iconified;
+        if (g_state.active_tab != s_last_active_tab || just_restored) {
             s_last_active_tab = g_state.active_tab;
             Tab* t = g_state.current_tab();
             if (t && virt_overlay_check_url(t->url)) {
+                std::string vurl = t->url;
+                void* wv = t->wv_handle;
+                if (wv) webview_load_url(wv, chrome_virt_loading_url(vurl));
                 int wx = 0, wy = 0;
                 glfwGetWindowPos(g_win, &wx, &wy);
                 int vx = wx, vy = wy + g_prev_top;
-                int vw = ww, vh = wh - g_prev_top - g_prev_bot;
-                std::string vurl = t->url;
-                webview_dump_cookies_json([vurl, vx, vy, vw, vh](const std::string& cj) {
-                    virt_overlay_show(vurl, vx, vy, vw, vh, cj);
+                int vvw = ww, vvh = wh - g_prev_top - g_prev_bot;
+                webview_dump_cookies_json([vurl, vx, vy, vvw, vvh](const std::string& cj) {
+                    chrome_virt_show(vurl, vx, vy, vvw, vvh, cj);
                 });
-            } else if (virt_overlay_is_active()) {
-                virt_overlay_hide();
+            } else {
+                chrome_virt_hide();
             }
-        }
-
-        // Sync overlay position while active (fires async only when window moved)
-        if (virt_overlay_is_active()) {
-            int wx = 0, wy = 0;
-            glfwGetWindowPos(g_win, &wx, &wy);
-            virt_overlay_tick(wx, wy + g_prev_top, ww, wh - g_prev_top - g_prev_bot);
         }
 
         ImGui::Render();

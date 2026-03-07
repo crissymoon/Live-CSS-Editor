@@ -21,12 +21,12 @@ static int  s_last_x{-1}, s_last_y{-1}, s_last_w{-1}, s_last_h{-1};
 
 static size_t _null_write(char*, size_t sz, size_t n, void*) { return sz * n; }
 
-static bool _http_post(const char* path, const std::string& body) {
+static bool _http_post_port(int port, const char* path, const std::string& body) {
     CURL* c = curl_easy_init();
     if (!c) return false;
 
     char url[128];
-    snprintf(url, sizeof(url), "http://127.0.0.1:9925%s", path);
+    snprintf(url, sizeof(url), "http://127.0.0.1:%d%s", port, path);
 
     struct curl_slist* hdrs = nullptr;
     hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
@@ -42,6 +42,10 @@ static bool _http_post(const char* path, const std::string& body) {
     curl_slist_free_all(hdrs);
     curl_easy_cleanup(c);
     return (rc == CURLE_OK);
+}
+
+static bool _http_post(const char* path, const std::string& body) {
+    return _http_post_port(9925, path, body);
 }
 
 // ── JSON parsing ──────────────────────────────────────────────────────────────
@@ -164,4 +168,72 @@ void virt_overlay_tick(int x, int y, int w, int h) {
 
 bool virt_overlay_is_active() {
     return s_active.load();
+}
+
+// ── Stream mode ───────────────────────────────────────────────────────────────
+
+void virt_stream_navigate(const std::string& url) {
+    // Build JSON body escaping the URL (URLs in virt-pages.json are plain https
+    // strings so we only need to escape the double-quote and backslash chars).
+    std::string escaped;
+    escaped.reserve(url.size());
+    for (char c : url) {
+        if (c == '"' || c == '\\') escaped += '\\';
+        escaped += c;
+    }
+    std::string body = "{\"url\":\"" + escaped + "\"}";
+    std::thread([body]() {
+        _http_post_port(9926, "/navigate", body);
+    }).detach();
+}
+
+const char* virt_stream_viewer_url() {
+    return "http://127.0.0.1:9926/";
+}
+
+// Chrome virt bridge (port 9928)
+void chrome_virt_show(const std::string& url, int x, int y, int w, int h,
+                      const std::string& cookies_json) {
+    // Build JSON: {url, x, y, w, h, cookies:[...]}
+    // cookies_json is either "" or a JSON array from webview_dump_cookies_json.
+    std::string body;
+    body.reserve(256);
+    body += "{\"url\":\"";
+    for (char c : url) { if (c=='"'||c=='\\') body += '\\'; body += c; }
+    char dims[64];
+    snprintf(dims, sizeof(dims), "\",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d", x, y, w, h);
+    body += dims;
+    if (!cookies_json.empty()) {
+        body += ",\"cookies\":";
+        body += cookies_json;
+    }
+    body += '}';
+    std::thread([body]() {
+        _http_post_port(9928, "/show", body);
+    }).detach();
+}
+
+void chrome_virt_hide() {
+    std::thread([]() {
+        _http_post_port(9928, "/hide", "{}");
+    }).detach();
+}
+
+std::string chrome_virt_loading_url(const std::string& target_url) {
+    // Minimally encode the target URL for display in the loading page query param.
+    std::string enc;
+    enc.reserve(target_url.size() + 8);
+    for (unsigned char c : target_url) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' ||
+            c == '.' || c == '~' || c == ':' || c == '/' ||
+            c == '?' || c == '=' || c == '&' || c == '#') {
+            enc += (char)c;
+        } else {
+            char buf[4];
+            snprintf(buf, sizeof(buf), "%%%02X", c);
+            enc += buf;
+        }
+    }
+    return "http://127.0.0.1:9928/loading.html?url=" + enc;
 }

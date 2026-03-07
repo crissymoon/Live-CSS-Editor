@@ -60,6 +60,7 @@ from PyQt6.QtCore import QObject, QTimer, QUrl, pyqtSignal, pyqtSlot, Qt
 from PyQt6.QtNetwork import QNetworkCookie
 from PyQt6.QtWebEngineCore import QWebEngineProfile
 from PyQt6.QtWebEngineWidgets import QWebEngineView
+from modules.virt_stream import start_virt_stream
 
 log = logging.getLogger("cf_bridge")
 
@@ -155,6 +156,12 @@ class _CfWorker(QObject):
 
         log.info("[cf_bridge] creating hidden Chromium view")
         self._profile = QWebEngineProfile("cf_bridge_v1")
+        # Use a plain Chrome UA - Google OAuth blocks requests containing "QtWebEngine".
+        self._profile.setHttpUserAgent(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/131.0.0.0 Safari/537.36"
+        )
         self._profile.setPersistentCookiesPolicy(
             QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies
         )
@@ -431,6 +438,10 @@ def start_bridge(app=None):
     # before VirtController so both share the same persistent cookie store.
     _worker._ensure_view()
     _virt_ctrl = _VirtController(_worker._profile)
+
+    # Start the offscreen MJPEG streaming browser on port 9926.
+    # Shares the same QWebEngineProfile so cookies are already present.
+    start_virt_stream(profile=_worker._profile, port=9926)
 
     t = threading.Thread(target=_run_server, daemon=True, name="cf-bridge-http")
     t.start()
