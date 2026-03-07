@@ -232,6 +232,36 @@ _start_admin() {
     read -r "?" 2>/dev/null || true
 }
 
+# ── Full browser open (starts servers, then uses system browser) ────────────────
+_open_full_browser() {
+    if _port_open 8443 && _port_open 9100; then
+        status_ok "Servers already running  (nginx :8443, auth :9100)"
+    else
+        local AUTH_SCRIPT="$DIR/page-builder/pb_admin/start-auth.sh"
+        [[ ! -f "$AUTH_SCRIPT" ]] && die "page-builder/pb_admin/start-auth.sh not found"
+        status_info "Starting servers..."
+        bash "$AUTH_SCRIPT" >/tmp/live-css-auth.log 2>&1 &
+        AUTH_BASH_PID=$!
+        spin "Waiting for servers..." &
+        local SPIN_PID=$!
+        local _i=0
+        while (( _i < 200 )); do
+            _port_open 8443 && break
+            sleep 0.2; (( _i++ ))
+        done
+        kill "$SPIN_PID" 2>/dev/null; wait "$SPIN_PID" 2>/dev/null
+        printf "\r%72s\r" ""
+        _port_open 8443 && status_ok "Server ready  :8443" \
+                        || status_fail "Server did not start -- see /tmp/live-css-auth.log"
+    fi
+    local URL="https://localhost:8443/my_project/"
+    printf "  ${C_GREY}Opening: %s${R}\n" "$URL"
+    open "$URL" 2>/dev/null || printf "  ${C_YELLOW}Visit: %s${R}\n" "$URL"
+    printf "\n"
+    printf "  ${C_GREY}Browser opened. Press ENTER to return to menu.${R}\n"
+    read -r "?" 2>/dev/null || true
+}
+
 # ── Cleanup on Ctrl+C ──────────────────────────────────────────────────────────
 cleanup() {
     printf "\n\n  ${C_GREY}Shutting down...${R}\n"
@@ -273,141 +303,188 @@ while true; do
     printf "  ${C_GREY}Project :${R}  ${C_WHITE}$DIR${R}\n"
     printf "  ${C_GREY}Date    :${R}  ${C_WHITE}$(date '+%Y-%m-%d  %H:%M:%S')${R}\n"
     box_mid
+    # ── Load launcher.json each loop so edits are picked up right away ──────────
+    PUSH_LABELS=(); PUSH_DESCS=(); PUSH_PATHS=(); PUSH_STAGES=(); PUSH_MSGS=()
+    TOOL_LABELS=(); TOOL_DESCS=(); TOOL_SCRIPTS=()
+    if [[ -f "$DIR/launcher.json" ]]; then
+        while IFS=$'\t' read -r _l _d _p _s _m; do
+            PUSH_LABELS+=("$_l"); PUSH_DESCS+=("$_d")
+            PUSH_PATHS+=("$_p"); PUSH_STAGES+=("$_s"); PUSH_MSGS+=("$_m")
+        done < <(python3 -c "
+import json,sys
+try:
+    d=json.load(open(sys.argv[1]))
+    pd=sys.argv[2]
+    for r in d.get('push_repos',[]):
+        p=r.get('path','').replace('__project__',pd)
+        row=[r.get('label',''),r.get('description',''),p,r.get('stage','.'),r.get('default_message','Update')]
+        print('\t'.join(c.replace('\t','').replace('\n','') for c in row))
+except Exception:
+    pass
+" "$DIR/launcher.json" "$DIR" 2>/dev/null)
+        while IFS=$'\t' read -r _l _d _sc; do
+            TOOL_LABELS+=("$_l"); TOOL_DESCS+=("$_d"); TOOL_SCRIPTS+=("$_sc")
+        done < <(python3 -c "
+import json,sys
+try:
+    d=json.load(open(sys.argv[1]))
+    pd=sys.argv[2]
+    for t in d.get('tools',[]):
+        sc=t.get('script','').replace('__project__',pd)
+        row=[t.get('label',''),t.get('description',''),sc]
+        print('\t'.join(c.replace('\t','').replace('\n','') for c in row))
+except Exception:
+    pass
+" "$DIR/launcher.json" "$DIR" 2>/dev/null)
+    fi
+
     box_empty
-    box_section "ADMIN PANEL"
+    box_section "MY PROJECT"
     box_empty
-    box_item "1" "Start"       "Start auth servers + dev browser  (login.php)"
-    box_item "2" "Server"     "Start nginx + PHP-FPM server stack  (:8443 HTTPS)"
-    box_item "3" "Stop"        "Stop server stack (nginx + auth)"
+    box_item "1" "Grab bar"      "Open with just a small title bar"
+    box_item "2" "Full browser"  "Open in a full browser window"
+    box_item "3" "Server"        "Start the web server  (nginx + PHP)"
+    box_item "4" "Stop"          "Stop the web server"
     box_empty
     box_mid
     box_section "PUSH"
     box_empty
-    box_item "4" "Push live"   "Commit and push Live CSS Editor to GitHub"
-    box_item "5" "Push moon"   "Commit and push moon-lang  (xcm-editor repo)"
-    box_item "6" "Push gram"   "Commit and push gram-model (gramcheck)"
-    box_item "7" "Push all"    "Push all 3 repos in sequence"
+    box_item "p" "Push repos"    "Commit and push your repos to GitHub"
     box_empty
     box_mid
-    box_section "TOOLS  &  PROJECTS"
+    box_section "TOOLS"
     box_empty
-    box_item "t" "Tools"       "lines_count.py  /  security_ck.py"
-    box_item "a" "Agent Flow"  "Start agent-flow UI at localhost:9090"
+    box_item "t" "Tools"         "Code review, DB browser, and more"
+    box_item "a" "Agent Flow"    "Start agent-flow UI at localhost:9090"
     box_empty
     box_mid
-    box_item "q" "Quit"        ""
+    box_item "q" "Quit"          ""
     box_bot
     printf "\n"
-    printf "  ${C_GREY}Choice  [ 1-7 / t / a / q ] :${R}  "
+    printf "  ${C_GREY}Choice  [ 1-4 / p / t / a / q ] :${R}  "
     read -r CHOICE
 
     case "$CHOICE" in
 
         1)
-            printf "\n"; step "Starting admin panel..."
+            printf "\n"; step "Opening My Project -- grab bar..."
             _start_admin
             ;;
 
         2)
-            printf "\n"; step "Starting nginx + PHP-FPM server stack..."
+            printf "\n"; step "Opening My Project -- full browser..."
+            _open_full_browser
+            ;;
+
+        3)
+            printf "\n"; step "Starting web server  (nginx + PHP)..."
             bash "$DIR/server/start.sh" \
                 || printf "  ${C_RED}ERROR: server/start.sh failed${R}\n" >&2
             printf "\n"; read -r "?Press ENTER to return..."; ;;
 
-        3)
-            printf "\n"; step "Stopping server stack (nginx + PHP-FPM) and auth (:9100)..."
+        4)
+            printf "\n"; step "Stopping web server and auth..."
             [[ -n "$AUTH_BASH_PID" ]] && kill "$AUTH_BASH_PID" 2>/dev/null || true
             AUTH_BASH_PID=""
             bash "$DIR/server/stop.sh" --kill \
                 || printf "  ${C_RED}ERROR: server/stop.sh failed${R}\n" >&2
             for _port in 9100; do
-                local _pids
                 _pids=$(lsof -iTCP:"$_port" -sTCP:LISTEN -t 2>/dev/null || true)
                 if [[ -n "$_pids" ]]; then
                     echo "$_pids" | xargs kill 2>/dev/null || true
-                    status_ok "Killed process(es) on :$_port"
+                    status_ok "Stopped process(es) on :$_port"
                 else
-                    status_info "Nothing listening on :$_port"
+                    status_info "Nothing running on :$_port"
                 fi
             done
             printf "\n"; read -r "?Press ENTER to return..."; ;;
 
-        4)
-            printf "\n"
-            bash "$DIR/push.sh" \
-                || printf "  ${C_RED}ERROR: push.sh failed${R}\n" >&2
-            printf "\n"; read -r "?Press ENTER to return..."; ;;
-
-        5)
-            printf "\n"
-            _push_repo \
-                "/Users/mac/Desktop/xcm-editor" \
-                "moon-lang/" \
-                "Update moon-lang" \
-                "moon-lang"
-            printf "\n"; read -r "?Press ENTER to return..."; ;;
-
-        6)
-            printf "\n"
-            _push_repo \
-                "/Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck" \
-                "." \
-                "Update gramcheck" \
-                "gram-model"
-            printf "\n"; read -r "?Press ENTER to return..."; ;;
-
-        7)
-            printf "\n"
-            step "Push All -- Live CSS Editor  /  moon-lang  /  gram-model"
-            printf "\n  ${C_GREY}Single commit message for all 3 repos${R}\n"
-            printf "  ${C_GREY}(blank = each repo uses its own default):${R}  "
-            read -r ALL_MSG
-            PUSH_ERRORS=0
-
-            step "1 / 3  Live CSS Editor..."
-            (
-                cd "$DIR" || exit 1
-                printf "  ${C_GREY}Running: git add .${R}\n"
-                _add_out="$(git add . 2>&1)"
-                _add_rc=$?
-                [[ -n "$_add_out" ]] && printf '%s\n' "$_add_out" | while IFS= read -r _l; do printf "    ${C_GREY}%s${R}\n" "$_l"; done
-                if [[ $_add_rc -ne 0 ]]; then
-                    printf "  ${C_RED}ERROR: git add failed (exit %s)${R}\n" "$_add_rc" >&2; exit 1
-                fi
-                if git diff --cached --quiet; then
-                    printf "  ${C_YELLOW}Nothing new to commit (Live CSS Editor)${R}\n"
+        p|P)
+            while true; do
+                printf "\n"
+                box_top
+                box_section "PUSH REPOS"
+                box_empty
+                if [[ ${#PUSH_LABELS[@]} -eq 0 ]]; then
+                    printf "  ${C_YELLOW}No repos found in launcher.json${R}\n"
+                    printf "  ${C_GREY}Open launcher.json and add items under push_repos.${R}\n"
                 else
-                    printf "  ${C_GREY}Staged files:${R}\n"
-                    git diff --cached --name-only 2>/dev/null | while read -r f; do printf "    ${C_LAVENDER}%s${R}\n" "$f"; done
-                    _msg="${ALL_MSG:-Update Live CSS Editor}"
-                    git commit -m "$_msg" 2>&1 || { printf "  ${C_RED}ERROR: commit failed${R}\n" >&2; exit 1; }
+                    _pi=1
+                    while (( _pi <= ${#PUSH_LABELS[@]} )); do
+                        box_item "$_pi" "${PUSH_LABELS[$_pi]}" "${PUSH_DESCS[$_pi]}"
+                        (( _pi++ ))
+                    done
+                    box_empty
+                    box_item "a" "Push all" "Push every repo listed above at once"
                 fi
-                _br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf 'main')"
-                printf "  ${C_GREY}Running: git push -v origin %s${R}\n" "$_br"
-                _pout="$(git push -v origin "$_br" 2>&1)"
-                _prc=$?
-                printf '%s\n' "$_pout" | while IFS= read -r _l; do printf "    ${C_GREY}%s${R}\n" "$_l"; done
-                if [[ $_prc -ne 0 ]]; then
-                    printf "  ${C_RED}ERROR: push failed (exit %s)${R}\n" "$_prc" >&2; exit 1
-                fi
-                printf "  ${C_GREEN}Live CSS Editor pushed${R}\n"
-            ) || PUSH_ERRORS=$((PUSH_ERRORS + 1))
+                box_empty
+                box_item "b" "Back" "Return to main menu"
+                box_bot
+                printf "\n  ${C_GREY}Push  [ 1-${#PUSH_LABELS[@]} / a / b ] :${R}  "
+                read -r PUSH_CHOICE
 
-            step "2 / 3  moon-lang..."
-            _push_repo "/Users/mac/Desktop/xcm-editor" "moon-lang/" "${ALL_MSG:-Update moon-lang}" "moon-lang" "no" \
-                || PUSH_ERRORS=$((PUSH_ERRORS + 1))
+                case "$PUSH_CHOICE" in
+                    a|A)
+                        printf "\n"
+                        step "Push All"
+                        printf "\n  ${C_GREY}One commit message for all repos (blank = each uses its own default):${R}  "
+                        read -r _all_msg
+                        _push_errors=0
+                        _pi=1
+                        while (( _pi <= ${#PUSH_LABELS[@]} )); do
+                            step "${_pi} / ${#PUSH_LABELS[@]}  ${PUSH_LABELS[$_pi]}..."
+                            if [[ "${PUSH_PATHS[$_pi]}" == "$DIR" ]]; then
+                                (
+                                    cd "$DIR" || exit 1
+                                    _add_out="$(git add . 2>&1)"; _add_rc=$?
+                                    [[ -n "$_add_out" ]] && printf '%s\n' "$_add_out" | while IFS= read -r _l; do printf "    ${C_GREY}%s${R}\n" "$_l"; done
+                                    if [[ $_add_rc -ne 0 ]]; then
+                                        printf "  ${C_RED}ERROR: git add failed${R}\n" >&2; exit 1
+                                    fi
+                                    if git diff --cached --quiet; then
+                                        printf "  ${C_YELLOW}Nothing new to commit${R}\n"
+                                    else
+                                        _msg="${_all_msg:-${PUSH_MSGS[$_pi]}}"
+                                        git commit -m "$_msg" 2>&1 || { printf "  ${C_RED}ERROR: commit failed${R}\n" >&2; exit 1; }
+                                    fi
+                                    _br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf 'main')"
+                                    _pout="$(git push -v origin "$_br" 2>&1)"; _prc=$?
+                                    printf '%s\n' "$_pout" | while IFS= read -r _l; do printf "    ${C_GREY}%s${R}\n" "$_l"; done
+                                    [[ $_prc -ne 0 ]] && { printf "  ${C_RED}ERROR: push failed${R}\n" >&2; exit 1; }
+                                    printf "  ${C_GREEN}Done${R}\n"
+                                ) || _push_errors=$(( _push_errors + 1 ))
+                            else
+                                _push_repo "${PUSH_PATHS[$_pi]}" "${PUSH_STAGES[$_pi]}" \
+                                    "${_all_msg:-${PUSH_MSGS[$_pi]}}" "${PUSH_LABELS[$_pi]}" "no" \
+                                    || _push_errors=$(( _push_errors + 1 ))
+                            fi
+                            (( _pi++ ))
+                        done
+                        printf "\n"
+                        if [[ $_push_errors -eq 0 ]]; then
+                            printf "  ${C_GREEN}${BOLD}All repos pushed.${R}\n"
+                        else
+                            printf "  ${C_RED}${BOLD}%d repo(s) had errors -- check output above.${R}\n" "$_push_errors" >&2
+                        fi
+                        printf "\n"; read -r "?Press ENTER to return..."; ;;
 
-            step "3 / 3  gram-model..."
-            _push_repo "/Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck" "." "${ALL_MSG:-Update gramcheck}" "gram-model" "no" \
-                || PUSH_ERRORS=$((PUSH_ERRORS + 1))
+                    b|B|"") break ;;
 
-            printf "\n"
-            if [[ $PUSH_ERRORS -eq 0 ]]; then
-                printf "  ${C_GREEN}${BOLD}All 3 repos pushed successfully.${R}\n"
-            else
-                printf "  ${C_RED}${BOLD}%d repo(s) had errors -- check output above.${R}\n" "$PUSH_ERRORS" >&2
-            fi
-            printf "\n"; read -r "?Press ENTER to return..."; ;;
+                    *)
+                        if [[ "$PUSH_CHOICE" =~ ^[0-9]+$ ]]; then
+                            _idx=$(( PUSH_CHOICE ))
+                            if (( _idx >= 1 && _idx <= ${#PUSH_LABELS[@]} )); then
+                                printf "\n"
+                                _push_repo "${PUSH_PATHS[$_idx]}" "${PUSH_STAGES[$_idx]}" \
+                                    "${PUSH_MSGS[$_idx]}" "${PUSH_LABELS[$_idx]}"
+                            else
+                                printf "  ${C_YELLOW}No repo at that number.  Add more repos in launcher.json.${R}\n"
+                                sleep 1
+                            fi
+                        fi
+                        printf "\n"; read -r "?Press ENTER to return..."; ;;
+                esac
+            done ;;
 
         t|T)
             while true; do
@@ -415,77 +492,45 @@ while true; do
                 box_top
                 box_section "TOOLS"
                 box_empty
-                box_item "a" "lines count"  "Count lines in this project  (threshold 1000)"
-                box_item "l" "lines dir"    "Count lines in a custom directory"
-                box_item "c" "sec scan"     "Scan this project for leaked keys / secrets"
-                box_item "d" "sec moon"     "Scan moon-lang for leaked keys / secrets"
-                box_item "e" "sec gram"     "Scan gram-model (gramcheck) for leaked keys"
-                box_item "j" "sec JSON"     "Scan this project, output as JSON"
+                if [[ ${#TOOL_LABELS[@]} -eq 0 ]]; then
+                    printf "  ${C_YELLOW}No tools found in launcher.json${R}\n"
+                    printf "  ${C_GREY}Open launcher.json and add items under tools.${R}\n"
+                else
+                    _ti=1
+                    while (( _ti <= ${#TOOL_LABELS[@]} )); do
+                        box_item "$_ti" "${TOOL_LABELS[$_ti]}" "${TOOL_DESCS[$_ti]}"
+                        (( _ti++ ))
+                    done
+                fi
                 box_empty
-                box_item "b" "back"         "Return to main menu"
+                box_item "b" "Back" "Return to main menu"
                 box_bot
-                printf "\n  ${C_GREY}Tools  [ a / l / c / d / e / j / b ] :${R}  "
+                printf "\n  ${C_GREY}Tools  [ 1-${#TOOL_LABELS[@]} / b ] :${R}  "
                 read -r TOOL_CHOICE
 
-                PY3="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
-                if [[ -z "$PY3" ]]; then
-                    printf "  ${C_RED}ERROR: python3 not found${R}\n" >&2
-                    read -r "?Press ENTER to return..."; break
-                fi
-                LINES_PY="$DIR/dev-tools/code-review/lines_count.py"
-                SEC_PY="$DIR/dev-tools/code-review/security_ck.py"
-
                 case "$TOOL_CHOICE" in
-                    a)
-                        step "lines_count.py -- this project"
-                        [[ -f "$LINES_PY" ]] && "$PY3" "$LINES_PY" "$DIR" 2>&1 \
-                            || printf "  ${C_RED}ERROR: lines_count.py not found${R}\n" >&2
-                        printf "\n"; read -r "?Press ENTER to continue...";;
-                    l)
-                        step "lines_count.py -- custom directory"
-                        printf "  ${C_GREY}Directory (blank = this project, b = cancel):${R}  "; read -r SCAN_DIR
-                        [[ "$SCAN_DIR" == "b" ]] && continue
-                        [[ -z "$SCAN_DIR" ]] && SCAN_DIR="$DIR"
-                        printf "  ${C_GREY}Threshold (blank = 1000):${R}  "; read -r THRESH; [[ -z "$THRESH" ]] && THRESH=1000
-                        [[ -f "$LINES_PY" && -d "$SCAN_DIR" ]] && "$PY3" "$LINES_PY" "$SCAN_DIR" "$THRESH" 2>&1 \
-                            || printf "  ${C_RED}ERROR${R}\n" >&2
-                        printf "\n"; read -r "?Press ENTER to continue...";;
-                    c)
-                        step "security_ck.py -- this project"
-                        [[ -f "$SEC_PY" ]] && "$PY3" "$SEC_PY" "$DIR" --no-color 2>&1 \
-                            || printf "  ${C_RED}ERROR: security_ck.py not found${R}\n" >&2
-                        printf "\n"; read -r "?Press ENTER to continue...";;
-                    d)
-                        step "security_ck.py -- moon-lang"
-                        MOON_SCAN="/Users/mac/Desktop/xcm-editor/moon-lang"
-                        [[ -f "$SEC_PY" && -d "$MOON_SCAN" ]] && "$PY3" "$SEC_PY" "$MOON_SCAN" --no-color 2>&1 \
-                            || printf "  ${C_RED}ERROR${R}\n" >&2
-                        printf "\n"; read -r "?Press ENTER to continue...";;
-                    e)
-                        step "security_ck.py -- gram-model"
-                        GRAM_SCAN="/Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck"
-                        [[ -f "$SEC_PY" && -d "$GRAM_SCAN" ]] && "$PY3" "$SEC_PY" "$GRAM_SCAN" --no-color 2>&1 \
-                            || printf "  ${C_RED}ERROR${R}\n" >&2
-                        printf "\n"; read -r "?Press ENTER to continue...";;
-                    j)
-                        step "security_ck.py --json -- this project"
-                        printf "  ${C_GREY}Output file (blank = screen):${R}  "; read -r JSON_OUT
-                        if [[ -f "$SEC_PY" ]]; then
-                            if [[ -n "$JSON_OUT" ]]; then
-                                "$PY3" "$SEC_PY" "$DIR" --json > "$JSON_OUT" 2>&1 \
-                                    && printf "  ${C_GREEN}JSON written to: %s${R}\n" "$JSON_OUT" \
-                                    || printf "  ${C_RED}ERROR${R}\n" >&2
+                    b|B|"") break ;;
+                    *)
+                        if [[ "$TOOL_CHOICE" =~ ^[0-9]+$ ]]; then
+                            _tidx=$(( TOOL_CHOICE ))
+                            if (( _tidx >= 1 && _tidx <= ${#TOOL_LABELS[@]} )); then
+                                _tscript="${TOOL_SCRIPTS[$_tidx]}"
+                                printf "\n"; step "${TOOL_LABELS[$_tidx]}..."
+                                if [[ -f "$_tscript" ]]; then
+                                    bash "$_tscript" 2>&1 \
+                                        || printf "  ${C_RED}ERROR: script exited with errors${R}\n" >&2
+                                else
+                                    printf "  ${C_RED}Script not found: %s${R}\n" "$_tscript" >&2
+                                    printf "  ${C_GREY}Check the script path in launcher.json${R}\n"
+                                fi
                             else
-                                "$PY3" "$SEC_PY" "$DIR" --json 2>&1
+                                printf "  ${C_YELLOW}No tool at that number.  Add more tools in launcher.json.${R}\n"
+                                sleep 1
                             fi
-                        else
-                            printf "  ${C_RED}ERROR: security_ck.py not found${R}\n" >&2
                         fi
-                        printf "\n"; read -r "?Press ENTER to continue...";;
-                    b|back) break;;
-                    *) printf "  ${C_YELLOW}Unknown choice: %s${R}\n" "$TOOL_CHOICE";;
+                        printf "\n"; read -r "?Press ENTER to continue..."; ;;
                 esac
-            done;;
+            done ;;
 
         a|A)
             printf "\n"; step "Opening Agent Flow..."
@@ -497,7 +542,7 @@ while true; do
             printf "\n  ${C_GREY}Exiting.${R}\n\n"; exit 0;;
 
         *)
-            printf "\n  ${C_YELLOW}Unknown choice '%s' -- returning to menu.${R}\n\n" "$CHOICE"
+            printf "\n  ${C_YELLOW}Unknown choice '%s' -- try again.${R}\n\n" "$CHOICE"
             sleep 1;;
     esac
 done

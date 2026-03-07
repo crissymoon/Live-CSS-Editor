@@ -84,7 +84,7 @@ config.local.*
 imgui-browser/build/
 imgui-browser/vendor/
 
-# Node
+# Node..
 node_modules/
 
 # Tauri
