@@ -747,7 +747,8 @@ int main(int argc, char** argv) {
     if (!args.apps_dir.empty()) {
         std::string src_dir = args.apps_dir + "/../src";
 
-        // Load virt-page patterns (URLs that should open in Qt Chromium overlay)
+        // Load virt-page patterns (URLs that should open in Qt Chromium overlay).
+        // Config lives at dev-browser/src/virt-pages.json (same dir as xcm JS files).
         virt_overlay_init(src_dir + "/virt-pages.json");
 
         std::string rules_path = src_dir + "/adblock-rules.json";

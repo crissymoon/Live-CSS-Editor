@@ -1,9 +1,0 @@
-{
-    "_comment": "URL patterns that should be rendered in the Qt Chromium overlay instead of WKWebView. Any URL containing a pattern string is matched. Add patterns for pages that require full Chromium (e.g. Stripe billing, complex payment flows).",
-    "pages": [
-        { "pattern": "platform.claude.com/settings/billing",  "reason": "stripe" },
-        { "pattern": "console.anthropic.com/settings/billing","reason": "stripe" },
-        { "pattern": "platform.openai.com/account/billing",   "reason": "stripe" },
-        { "pattern": "pay.stripe.com/",                       "reason": "stripe" }
-    ]
-}
