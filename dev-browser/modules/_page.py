@@ -154,7 +154,19 @@ class CustomWebEnginePage(QWebEnginePage):
             WebDialog = QWebEnginePage.WebWindowType.WebDialog
             WebBrowserWindow = QWebEnginePage.WebWindowType.WebBrowserWindow
 
-            if win_type in (WebDialog, WebBrowserWindow):
+            # webbrowse_no_controls.py sets _popup_mode=True on MainWindow so
+            # that all createWindow calls open as visible floating popups.
+            # view() and _main_window are set directly, no fragile parent walk.
+            popup_mode = False
+            view = self.view()
+            print('[createWindow] win_type=%s view=%r' % (win_type, view), flush=True)
+            if view is not None:
+                mw = getattr(view, '_main_window', None)
+                print('[createWindow] mw=%r _popup_mode=%r' % (mw, getattr(mw, '_popup_mode', None)), flush=True)
+                if mw is not None:
+                    popup_mode = getattr(mw, '_popup_mode', False)
+
+            if win_type in (WebDialog, WebBrowserWindow) or popup_mode:
                 # Open as a separate floating QWebEngineView window, not a tab.
                 # The profile is taken from this page so cookies/session are shared.
                 popup_view = QWebEngineView()
@@ -163,10 +175,13 @@ class CustomWebEnginePage(QWebEnginePage):
                 popup_view.setPage(popup_page)
                 popup_view.resize(900, 700)
                 popup_view.setWindowTitle('Popup')
+                popup_view.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
                 popup_page.titleChanged.connect(
                     lambda t, v=popup_view: v.setWindowTitle(t) if t else None
                 )
                 popup_view.show()
+                popup_view.raise_()
+                popup_view.activateWindow()
                 return popup_page
 
             # Default: open in a new tab.

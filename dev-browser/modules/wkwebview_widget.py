@@ -629,7 +629,11 @@ class _UIDelegate(NSObject):
                 webView.loadRequest_(navigationAction.request())
             return None
 
-        # ── OAuth popup: create a real WKWebView in an NSWindow ───
+        # ── OAuth popup: create a real WKWebView embedded in a Qt window ──
+        # Using createWindowContainer (the same technique WKBrowserTab uses)
+        # ensures the popup is a proper Qt window that appears correctly over
+        # a maximized Qt window on macOS.  A raw NSWindow would land on a
+        # separate Space or behind the maximized window.
         popup_wk = WebKit.WKWebView.alloc().initWithFrame_configuration_(
             NSMakeRect(0, 0, 900, 700), configuration)
 
@@ -637,40 +641,49 @@ class _UIDelegate(NSObject):
         if webView.customUserAgent():
             popup_wk.setCustomUserAgent_(webView.customUserAgent())
 
-        # Wrap in a native NSWindow so it shows on screen.
-        from AppKit import (
-            NSWindowStyleMaskTitled, NSWindowStyleMaskClosable,
-            NSWindowStyleMaskMiniaturizable, NSWindowStyleMaskResizable,
-            NSBackingStoreBuffered, NSScreen,
-        )
-        style = (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
-                 | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable)
-        screen_frame = NSScreen.mainScreen().frame()
-        # Centre the popup on screen.
-        x = (screen_frame.size.width - 900) / 2
-        y = (screen_frame.size.height - 700) / 2
-        win = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-            NSMakeRect(x, y, 900, 700), style, NSBackingStoreBuffered, False)
-        win.setContentView_(popup_wk)
-        win.setTitle_('Sign In')
-        win.setReleasedWhenClosed_(False)
-
-        # Close-tracking delegate so we can clean up references.
-        closer = _PopupCloseDelegate.alloc().initWithWindow_(win)
-        win.setDelegate_(closer)
-
         # Navigation delegate for the popup (allow all, handle cert).
         popup_nav = _NavigationDelegate.alloc().initWithBrowserTab_(None)
         popup_wk.setNavigationDelegate_(popup_nav)
 
-        win.makeKeyAndOrderFront_(None)
-        NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        # Prevent GC before the Qt window is constructed.
+        entry = {'wkview': popup_wk, 'nav_delegate': popup_nav, 'qt_window': None}
+        _popup_windows.append(entry)
 
-        # Prevent GC.
-        _popup_windows.append({
-            'window': win, 'wkview': popup_wk,
-            'nav_delegate': popup_nav, 'close_delegate': closer,
-        })
+        # Qt widget construction must happen on the main thread.
+        # singleShot(0) defers until the event loop is back on the main thread
+        # while still returning popup_wk synchronously to WebKit.
+        def _make_qt_window(wk=popup_wk, e=entry):
+            try:
+                qt_win = QWidget(None)
+                qt_win.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+                qt_win.setWindowTitle('Sign In')
+                qt_win.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+                qt_win.resize(900, 700)
+
+                foreign = QWindow.fromWinId(objc.pyobjc_id(wk))
+                container = QWidget.createWindowContainer(foreign, qt_win)
+
+                layout = QVBoxLayout(qt_win)
+                layout.setContentsMargins(0, 0, 0, 0)
+                layout.addWidget(container)
+
+                e['qt_window'] = qt_win
+
+                def _on_destroy():
+                    for i, item in enumerate(_popup_windows):
+                        if item.get('qt_window') is qt_win:
+                            _popup_windows.pop(i)
+                            break
+                qt_win.destroyed.connect(_on_destroy)
+
+                qt_win.show()
+                qt_win.raise_()
+                qt_win.activateWindow()
+            except Exception as exc:
+                print('[popup] Qt window creation failed: %s' % exc, flush=True)
+
+        QTimer.singleShot(0, _make_qt_window)
+
         return popup_wk
 
 

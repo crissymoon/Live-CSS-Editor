@@ -79,7 +79,6 @@ except Exception:
     pass
 
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
 
 from modules.cf_bridge import start_bridge as _start_cf_bridge
 from modules.main_window import MainWindow
@@ -102,13 +101,17 @@ def main():
     if args.x is not None and args.y is not None:
         initial_geom = (args.x, args.y, args.w, args.h)
 
-    app = QApplication(sys.argv[:1])
+    app = QApplication(sys.argv)
 
     # Start the hidden Chromium cf_bridge -- same as webbrowse.py.
     # This provides real Cloudflare clearance cookies for billing/auth pages.
     _start_cf_bridge(app)
 
     window = MainWindow(frameless=False, initial_geometry=initial_geom)
+
+    # Signal to createWindow in _page.py that all new-window requests
+    # must open as floating popup windows (no visible tab bar to click).
+    window._popup_mode = True
 
     # ── Hide all chrome: toolbar, tab bar, status bar, menu bar ──────
     window.navbar.hide()
@@ -125,11 +128,6 @@ def main():
             QApplication.primaryScreen().geometry().center().y() - args.h // 2,
             args.w, args.h,
         )
-
-    # Stay on top of the imgui browser native window.
-    window.setWindowFlags(
-        window.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
-    )
 
     # Derive a human-readable title from the URL host.
     try:
