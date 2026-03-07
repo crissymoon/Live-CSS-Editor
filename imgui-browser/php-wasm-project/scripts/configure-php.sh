@@ -51,12 +51,15 @@ emconfigure ./configure \
     --enable-bcmath         \
     --enable-ctype          \
     --enable-mbstring       \
+    --enable-json           \
+    --enable-filter         \
+    --enable-pdo            \
+    --with-pdo-sqlite       \
+    --with-sqlite3=bundled  \
     --with-layout=GNU       \
     --without-pcre-jit      \
     --without-iconv         \
     --without-libxml        \
-    --without-pdo-sqlite    \
-    --without-sqlite3       \
     CFLAGS="-O2"            \
     LDFLAGS=""              \
     2>&1 | tee /tmp/php-configure.log

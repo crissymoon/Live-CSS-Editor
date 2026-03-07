@@ -28,6 +28,7 @@ mkdir -p "${OUT}"
 # Virtual filesystem: embed the entire src/ PHP tree into the WASM module.
 # PHP scripts will be accessible at /src/... inside the runtime.
 FS_EMBED="--embed-file ${ROOT}/src@/src"
+FS_APP="--embed-file ${ROOT}/app@/app"
 
 # Exported C functions the JS layer calls via ccall()
 EXPORTS='["_php_wasm_init","_wasm_exec","_php_get_output","_php_get_headers","_php_get_status","_php_set_server_var","_php_set_request_body","_php_reset","_php_wasm_destroy","_malloc","_free"]'
@@ -43,10 +44,13 @@ emcc "${SHIM}"                          \
     -L"${PHP_SRC}/libs"                 \
     -lphp                               \
     ${FS_EMBED}                         \
+    ${FS_APP}                          \
     -s MODULARIZE=1                     \
     -s EXPORT_NAME="PHP"                \
     -s EXPORTED_FUNCTIONS="${EXPORTS}"  \
     -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","FS","HEAP8"]' \
+    -s FORCE_FILESYSTEM=1                  \
+    -lidbfs.js                             \
     -s ALLOW_MEMORY_GROWTH=1            \
     -s INITIAL_MEMORY=67108864          \
     -s MAXIMUM_MEMORY=536870912         \

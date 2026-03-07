@@ -37,6 +37,23 @@ async function initPHPModule() {
     // once the WASM binary finishes loading and compiling.
     const module = await window.PHP();
 
+    // Mount IDBFS at /data so the SQLite database persists across page loads.
+    // The directory is created if it does not exist in the virtual FS.
+    try {
+        module.FS.mkdir('/data');
+    } catch (_) {
+        // Already exists -- ignore.
+    }
+    module.FS.mount(module.IDBFS, {}, '/data');
+
+    // Sync IndexedDB -> memory before booting PHP so the DB is available.
+    await new Promise((resolve, reject) => {
+        module.FS.syncfs(true, (err) => {
+            if (err) reject(new Error('IDBFS initial sync failed: ' + err));
+            else resolve();
+        });
+    });
+
     // Boot the PHP embed runtime (calls php_embed_init internally).
     // Must be called exactly once before any wasm_exec() calls.
     const rc = module.ccall('php_wasm_init', 'number', [], []);
@@ -72,12 +89,12 @@ export async function phpExec(request) {
         injectPostBody(PHP, body);
     }
 
-    // Run /src/index.php from the virtual FS
+    // Run /app/index.php from the virtual FS
     const exitCode = PHP.ccall(
         'wasm_exec',        // C function exported from the build
         'number',
         ['string'],
-        ['/src/index.php'],
+        ['/app/index.php'],
     );
 
     const output  = PHP.ccall('php_get_output',  'string', [], []);
@@ -87,7 +104,20 @@ export async function phpExec(request) {
     // Reset runtime state for the next call
     PHP.ccall('php_reset', null, [], []);
 
-    return buildResponse(status || 200, rawHdrs, output, exitCode);
+    const response = buildResponse(status || 200, rawHdrs, output, exitCode);
+
+    // Flush IDBFS after any write operation so changes survive a page reload.
+    if (method === 'POST') {
+        PHP.FS.syncfs(false, () => {});
+    }
+
+    // If the PHP response includes X-Export-File, forward the content to the
+    // C++ native shell via postMessage so it can write to the real file system.
+    if (response.headers['x-export-file']) {
+        dispatchExport(response);
+    }
+
+    return response;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -177,6 +207,51 @@ function parseHeaders(raw) {
                     : [line.slice(0, idx).trim(), line.slice(idx + 1).trim()];
             }),
     );
+}
+
+// ── Export bridge ─────────────────────────────────────────────────────────
+
+/**
+ * Forward a PHP export response to the C++ native shell.
+ *
+ * The native webview bridge (WKScriptMessageHandler on macOS,
+ * add_WebMessageReceived on Windows, webkit script message handler on Linux)
+ * listens for messages with type "xcm_export" and writes the file to disk.
+ *
+ * The body of the response must be a JSON object with `filename` and `content`.
+ *
+ * @param {PHPResponse} response
+ */
+function dispatchExport(response) {
+    let payload;
+    try {
+        payload = JSON.parse(response.body);
+    } catch {
+        console.warn('[php-wasm] export response body is not valid JSON');
+        return;
+    }
+
+    const message = {
+        type:     'xcm_export',
+        filename: payload.filename || response.headers['x-export-file'],
+        content:  payload.content  || '',
+    };
+
+    // window.webkit.messageHandlers is available in WKWebView (macOS / iOS).
+    if (window.webkit?.messageHandlers?.xcmBridge) {
+        window.webkit.messageHandlers.xcmBridge.postMessage(message);
+        return;
+    }
+
+    // WebView2 (Windows) exposes window.chrome.webview.postMessage.
+    if (window.chrome?.webview) {
+        window.chrome.webview.postMessage(JSON.stringify(message));
+        return;
+    }
+
+    // WebKitGTK (Linux) also uses the webkit message handler path.
+    // Fallback: emit a CustomEvent that integrating code can intercept.
+    window.dispatchEvent(new CustomEvent('xcm:export', { detail: message }));
 }
 
 // ── Type docs ──────────────────────────────────────────────────────────────
