@@ -60,9 +60,21 @@ else
     echo "[run] port 8443 already listening"
 fi
 
-exec "$BIN" \
-    --url "https://localhost:8443/page-builder/pb_admin/dashboard.php" \
-    --apps-dir "$APPS_DIR" \
-    --php-port 9879 \
-    --cmd-port 9878 \
-    "$@"
+# Use --url from caller args if provided; fall back to the page-builder default.
+_has_url=0
+for _a in "$@"; do [[ "$_a" == "--url" ]] && { _has_url=1; break; }; done
+
+if (( _has_url )); then
+    exec "$BIN" \
+        --apps-dir "$APPS_DIR" \
+        --php-port 9879 \
+        --cmd-port 9878 \
+        "$@"
+else
+    exec "$BIN" \
+        --url "https://localhost:8443/page-builder/pb_admin/dashboard.php" \
+        --apps-dir "$APPS_DIR" \
+        --php-port 9879 \
+        --cmd-port 9878 \
+        "$@"
+fi

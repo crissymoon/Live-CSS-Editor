@@ -71,7 +71,8 @@
     box-shadow:       0 8px 24px rgba(0,0,0,0.5);
 }
 
-.menu-item.menu-open > .menu-dropdown {
+.menu-item.menu-open > .menu-dropdown,
+.menu-item:hover > .menu-dropdown {
     display: block;
 }
 

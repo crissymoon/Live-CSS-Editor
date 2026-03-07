@@ -130,9 +130,10 @@ static void xcm_status(const char* msg);  // forward declared before use below
             int ww = s_panel_win_w > 0 ? s_panel_win_w : (int)s_window.frame.size.width;
             int wh = s_panel_win_h > 0 ? s_panel_win_h : (int)s_window.frame.size.height;
             CGFloat sx = s_window.frame.origin.x;
-            CGFloat sy = s_window.frame.origin.y + wh - (CGFloat)TOTAL_CHROME_TOP - s_extra_h;
+            CGFloat chh = (CGFloat)(s_state ? s_state->settings.computed_top_height() : TOTAL_CHROME_TOP);
+            CGFloat sy = s_window.frame.origin.y + wh - chh - s_extra_h;
             [s_toolbar_panel setFrame:NSMakeRect(sx, sy, (CGFloat)ww,
-                (CGFloat)TOTAL_CHROME_TOP + s_extra_h) display:YES];
+                chh + s_extra_h) display:YES];
         }
     } else if ([action isEqualToString:@"dropdownClose"]) {
         s_extra_h = 0.0f;
@@ -140,9 +141,10 @@ static void xcm_status(const char* msg);  // forward declared before use below
             int ww = s_panel_win_w > 0 ? s_panel_win_w : (int)s_window.frame.size.width;
             int wh = s_panel_win_h > 0 ? s_panel_win_h : (int)s_window.frame.size.height;
             CGFloat sx = s_window.frame.origin.x;
-            CGFloat sy = s_window.frame.origin.y + wh - (CGFloat)TOTAL_CHROME_TOP;
+            CGFloat chh = (CGFloat)(s_state ? s_state->settings.computed_top_height() : TOTAL_CHROME_TOP);
+            CGFloat sy = s_window.frame.origin.y + wh - chh;
             [s_toolbar_panel setFrame:NSMakeRect(sx, sy, (CGFloat)ww,
-                (CGFloat)TOTAL_CHROME_TOP) display:YES];
+                chh) display:YES];
         }
     } else if ([action isEqualToString:@"tab_switch"]) {
         int idx = data ? (int)data.integerValue : 0;
@@ -235,9 +237,10 @@ static void xcm_status(const char* msg);  // forward declared before use below
         if (data) sscanf(data.UTF8String, "%dx%d", &rw, &rh);
         if (rw > 0 && rh > 0) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                // TOTAL_CHROME_TOP (tab bar + toolbar) accounts for the chrome
+                // computed chrome height (ui-mode-dependent) accounts for the chrome
                 // that sits above the WKWebView content area.
-                int contentH = rh + TOTAL_CHROME_TOP;
+                int chrome_top = s_state ? s_state->settings.computed_top_height() : TOTAL_CHROME_TOP;
+                int contentH = rh + chrome_top;
                 // The NSWindow frame includes the native macOS title bar.
                 // Keep the top-left corner of the window fixed by adjusting
                 // origin.y (Cocoa coord origin is bottom-left).
@@ -308,7 +311,7 @@ static void toolbar_sync_state(AppState* st) {
         else if (c == '"')  st_esc += "\\\"";        else if (c == '\n') st_esc += "\\n";
         else                st_esc += c;
     }
-    int vp_h = s_panel_win_h - TOTAL_CHROME_TOP;
+    int vp_h = s_panel_win_h - st->settings.computed_top_height();
     int vp_w = s_panel_win_w;
 
     std::ostringstream js;
@@ -355,7 +358,10 @@ static void toolbar_sync_state(AppState* st) {
            << (tb.loading ? "true" : "false")
            << ",favicon:\"" << fesc << "\"}";
     }
-    js << "],activeTab:" << st->active_tab << "});";
+    js << "],activeTab:"   << st->active_tab
+       << ",showTabs:"     << (st->settings.show_tabs    ? "true" : "false")
+       << ",showToolbar:"  << (st->settings.show_toolbar ? "true" : "false")
+       << "});";    
 
     NSString* jsStr = [NSString stringWithUTF8String:js.str().c_str()];
     [s_toolbar_wv evaluateJavaScript:jsStr completionHandler:nil];
@@ -433,11 +439,11 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
     CGFloat win_w = cv.bounds.size.width;
     CGFloat win_h = cv.bounds.size.height;
 
-    // Chrome panel (WKWebView) -- covers full TOTAL_CHROME_TOP height (tab bar + toolbar)
+    // Chrome panel (WKWebView) -- height determined by settings.computed_top_height() (ui mode)
     {
-        CGFloat ph = (CGFloat)TOTAL_CHROME_TOP;
+        CGFloat ph = (CGFloat)s_state->settings.computed_top_height();
         CGFloat sx = s_window.frame.origin.x;
-        CGFloat sy = s_window.frame.origin.y + win_h - (CGFloat)TOTAL_CHROME_TOP;
+        CGFloat sy = s_window.frame.origin.y + win_h - ph;
         NSRect panelFrame = NSMakeRect(sx, sy, win_w, ph);
 
         s_toolbar_panel = [[XCMToolbarPanel alloc]
@@ -643,9 +649,10 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
         int ww = s_panel_win_w > 0 ? s_panel_win_w : (int)s_window.frame.size.width;
         int wh = s_panel_win_h > 0 ? s_panel_win_h : (int)s_window.frame.size.height;
         CGFloat sx = s_window.frame.origin.x;
-        CGFloat sy = s_window.frame.origin.y + (CGFloat)wh - (CGFloat)TOTAL_CHROME_TOP;
+        int _dh = s_state ? s_state->settings.computed_top_height() : TOTAL_CHROME_TOP;
+        CGFloat sy = s_window.frame.origin.y + (CGFloat)wh - (CGFloat)_dh;
         [s_toolbar_panel setFrame:NSMakeRect(sx, sy, (CGFloat)ww,
-                                             (CGFloat)TOTAL_CHROME_TOP + s_extra_h)
+                                             (CGFloat)_dh + s_extra_h)
                           display:YES];
         [s_toolbar_panel orderFront:nil];
     }];
@@ -662,7 +669,7 @@ void native_chrome_create(void* ns_window, AppState* state, int php_port) {
 }
 
 int native_chrome_update(AppState* st) {
-    if (!s_toolbar_panel) return TOTAL_CHROME_TOP;
+    if (!s_toolbar_panel) return s_state ? s_state->settings.computed_top_height() : TOTAL_CHROME_TOP;
 
     // Cmd+L: focus toolbar URL field
     if (st->focus_url_next_frame) {
@@ -677,7 +684,7 @@ int native_chrome_update(AppState* st) {
     // Push state into toolbar WKWebView every frame
     toolbar_sync_state(st);
 
-    return TOTAL_CHROME_TOP;
+    return st->settings.computed_top_height();
 }
 
 int  native_chrome_status_h() { return 0; }
@@ -688,7 +695,7 @@ bool native_chrome_has_hover() {
     if (s_toolbar_panel && [s_toolbar_panel isKeyWindow]) return true;
     NSPoint mp    = [s_window mouseLocationOutsideOfEventStream];
     CGFloat win_h = s_window.contentView.bounds.size.height;
-    CGFloat chrome_bottom = win_h - (CGFloat)TOTAL_CHROME_TOP;
+    CGFloat chrome_bottom = win_h - (CGFloat)(s_state ? s_state->settings.computed_top_height() : TOTAL_CHROME_TOP);
     bool in_top    = (mp.y >= chrome_bottom);
     return in_top;
 }
@@ -705,8 +712,9 @@ void native_chrome_resize(int win_w, int win_h) {
     s_extra_h = 0.0f;
 
     CGFloat sx = s_window.frame.origin.x;
-    CGFloat sy = s_window.frame.origin.y + (CGFloat)win_h - (CGFloat)TOTAL_CHROME_TOP;
-    NSRect pf  = NSMakeRect(sx, sy, (CGFloat)win_w, (CGFloat)TOTAL_CHROME_TOP);
+    int dh = s_state ? s_state->settings.computed_top_height() : TOTAL_CHROME_TOP;
+    CGFloat sy = s_window.frame.origin.y + (CGFloat)win_h - (CGFloat)dh;
+    NSRect pf  = NSMakeRect(sx, sy, (CGFloat)win_w, (CGFloat)dh);
     [s_toolbar_panel setFrame:pf display:NO];
 }
 

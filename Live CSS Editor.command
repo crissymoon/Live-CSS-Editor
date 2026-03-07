@@ -203,21 +203,41 @@ _start_admin() {
 
     # launch browser
     local IMGUI_RUN="$DIR/imgui-browser/run.sh"
-    local LOGIN_URL="https://localhost:8443/page-builder/pb_admin/dashboard.php"
+    local PROJECT_DIR="$DIR/my_project"
+    local PROJECT_PORT=8080
+    local PROJECT_URL="http://localhost:${PROJECT_PORT}/"
+
+    # Start PHP built-in dev server for my_project/ if not already listening
+    if ! _port_open "$PROJECT_PORT"; then
+        status_info "Starting PHP dev server on port ${PROJECT_PORT}..."
+        php -S "127.0.0.1:${PROJECT_PORT}" -t "$PROJECT_DIR" >/tmp/php-dev-server.log 2>&1 &
+        local PHP_SRV_PID=$!
+        local _pw=0
+        while (( _pw < 20 )); do
+            _port_open "$PROJECT_PORT" && break
+            sleep 0.1; (( _pw++ ))
+        done
+        _port_open "$PROJECT_PORT" \
+            && status_ok "PHP dev server ready  :${PROJECT_PORT}  (PID $PHP_SRV_PID)" \
+            || status_fail "PHP dev server did not start -- see /tmp/php-dev-server.log"
+    else
+        status_ok "PHP dev server already running  :${PROJECT_PORT}"
+    fi
+
     if [[ -f "$IMGUI_RUN" ]]; then
-        status_info "Launching imgui-browser..."
-        bash "$IMGUI_RUN" >/tmp/live-css-browser.log 2>&1 &
+        status_info "Launching imgui-browser (grab bar)..."
+        bash "$IMGUI_RUN" --url "$PROJECT_URL" --ui-mode grab_bar_only >/tmp/live-css-browser.log 2>&1 &
         local BROWSER_PID=$!
         sleep 1.0
         if kill -0 "$BROWSER_PID" 2>/dev/null; then
             status_ok "imgui-browser started  (PID $BROWSER_PID)"
         else
             status_fail "imgui-browser exited early -- check /tmp/live-css-browser.log"
-            open "$LOGIN_URL" 2>/dev/null || true
+            open "$PROJECT_URL" 2>/dev/null || true
         fi
     else
         status_info "imgui-browser/run.sh not found -- opening system browser..."
-        open "$LOGIN_URL" 2>/dev/null || printf "  ${C_YELLOW}Visit: %s${R}\n" "$LOGIN_URL"
+        open "$PROJECT_URL" 2>/dev/null || printf "  ${C_YELLOW}Visit: %s${R}\n" "$PROJECT_URL"
     fi
 
     printf "\n"
@@ -254,9 +274,23 @@ _open_full_browser() {
         _port_open 8443 && status_ok "Server ready  :8443" \
                         || status_fail "Server did not start -- see /tmp/live-css-auth.log"
     fi
-    local URL="https://localhost:8443/my_project/"
-    printf "  ${C_GREY}Opening: %s${R}\n" "$URL"
-    open "$URL" 2>/dev/null || printf "  ${C_YELLOW}Visit: %s${R}\n" "$URL"
+    local URL="https://localhost:8443/"
+    local IMGUI_RUN="$DIR/imgui-browser/run.sh"
+    if [[ -f "$IMGUI_RUN" ]]; then
+        status_info "Launching imgui-browser (full toolbar)..."
+        bash "$IMGUI_RUN" --url "$URL" --ui-mode full >/tmp/live-css-browser.log 2>&1 &
+        local BROWSER_PID=$!
+        sleep 1.0
+        if kill -0 "$BROWSER_PID" 2>/dev/null; then
+            status_ok "imgui-browser started  (PID $BROWSER_PID)"
+        else
+            status_fail "imgui-browser exited early -- check /tmp/live-css-browser.log"
+            open "$URL" 2>/dev/null || printf "  ${C_YELLOW}Visit: %s${R}\n" "$URL"
+        fi
+    else
+        printf "  ${C_GREY}Opening: %s${R}\n" "$URL"
+        open "$URL" 2>/dev/null || printf "  ${C_YELLOW}Visit: %s${R}\n" "$URL"
+    fi
     printf "\n"
     printf "  ${C_GREY}Browser opened. Press ENTER to return to menu.${R}\n"
     read -r "?" 2>/dev/null || true

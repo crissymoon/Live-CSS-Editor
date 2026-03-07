@@ -240,9 +240,20 @@ function xcmSetState(s) {
             '|' + s.devtOpen + '|' + s.jsOn + '|' + s.isBm +
             '|' + (s.phpOk||false) + '|' + (s.nodeOk||false) +
             '|' + (s.statusTxt||'') +
-            '|' + (s.vpW||0) + 'x' + (s.vpH||0);
+            '|' + (s.vpW||0) + 'x' + (s.vpH||0) +
+            '|' + (s.showTabs !== false) + '|' + (s.showToolbar !== false);
   if (sig === _lastStateSig) return;
   _lastStateSig = sig;
+
+  // Show/hide chrome sections based on ui mode (grab_bar_only / no_tabs / full).
+  // Keep #tabbar visible always -- it holds the traffic light buttons.
+  // Only hide the tab chips row and new-tab button when tabs are off.
+  var _tabrow  = document.getElementById('tab-row');
+  var _newtab  = document.getElementById('newtab');
+  var _toolbar = document.getElementById('toolbar');
+  if (_tabrow)  _tabrow.style.display  = (s.showTabs    === false) ? 'none' : '';
+  if (_newtab)  _newtab.style.display  = (s.showTabs    === false) ? 'none' : '';
+  if (_toolbar) _toolbar.style.display = (s.showToolbar === false) ? 'none' : '';
 
   // back / fwd
   document.getElementById('btn-back').disabled = !s.canBack;

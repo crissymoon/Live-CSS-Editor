@@ -23,7 +23,7 @@
     // -------------------------------------------------------------------------
     // Config
     // -------------------------------------------------------------------------
-    var PROJECTS_API            = '/my_project/vscode-bridge/api/projects.php';
+    var PROJECTS_API            = '/vscode-bridge/api/projects.php';
     var POLL_INTERVAL_MS        = 4000;
     var STORAGE_KEY             = 'bridgeSync_enabled';
     var TOGGLE_BTN_ID           = 'vscodeBridgeToggle';

@@ -106,7 +106,7 @@ window.LiveCSS.storage = (function () {
 
     // ── SQLite-backed project storage (via vscode-bridge API) ──────
 
-    var PROJECTS_API = '/my_project/vscode-bridge/api/projects.php';
+    var PROJECTS_API = '/vscode-bridge/api/projects.php';
 
     /**
      * Fetch all projects from the SQLite database.

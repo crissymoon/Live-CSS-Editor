@@ -14,6 +14,47 @@
 
     var data = window.LiveCSSData;
 
+    // ── Menubar click-to-open dropdowns ─────────────────────────────────────
+    // Adds/removes .menu-open on .menu-item when the user clicks .menu-label.
+    // Clicking outside (or pressing Escape) closes all open menus.
+    (function () {
+        var menubar = document.getElementById('appMenubar');
+        if (!menubar) { return; }
+
+        function closeAll() {
+            var open = menubar.querySelectorAll('.menu-item.menu-open');
+            for (var i = 0; i < open.length; i++) {
+                open[i].classList.remove('menu-open');
+            }
+        }
+
+        var labels = menubar.querySelectorAll('.menu-label');
+        for (var i = 0; i < labels.length; i++) {
+            (function (label) {
+                label.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var item   = label.parentElement;
+                    var isOpen = item.classList.contains('menu-open');
+                    closeAll();
+                    if (!isOpen) { item.classList.add('menu-open'); }
+                });
+            }(labels[i]));
+        }
+
+        // Close when clicking a menu item button
+        menubar.addEventListener('click', function (e) {
+            if (e.target && e.target.tagName === 'BUTTON') {
+                closeAll();
+            }
+        });
+
+        // Close on outside click or Escape
+        document.addEventListener('click', closeAll);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { closeAll(); }
+        });
+    }());
+
     LiveCSS.cdnLoader.load(function () {
 
         // 1. Editors — use auto-saved session if one exists, otherwise defaults
@@ -144,7 +185,27 @@
         LiveCSS.indentGuide.init();
 
         // 11. Wireframe tool
-        LiveCSS.wireframe.init();
+        try {
+            if (LiveCSS.wireframe && typeof LiveCSS.wireframe.init === 'function') {
+                LiveCSS.wireframe.init();
+            } else {
+                console.warn('[app] LiveCSS.wireframe not ready -- wireframe.js module may have failed to load');
+            }
+        } catch (e) {
+            console.error('[app] wireframe.init threw:', e);
+        }
+
+        // Escape closes wireframe overlay regardless of module state
+        (function () {
+            var wfOverlay = document.getElementById('wireframeOverlay');
+            if (!wfOverlay) { return; }
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !wfOverlay.classList.contains('hidden')) {
+                    wfOverlay.classList.add('hidden');
+                }
+            });
+        }());
+
         document.getElementById('resetBtn').addEventListener('click', function () {
             if (confirm('Reset all editors to default code?')) {
                 LiveCSS.editor.getHtmlEditor().setValue(data.defaultHtml);
@@ -174,7 +235,7 @@
                         htmlVal.length + ' html, ' + cssVal.length + ' css, ' + jsVal.length + ' js)');
 
                     var xhr = new XMLHttpRequest();
-                    xhr.open('POST', '/my_project/vscode-bridge/api/projects.php?action=sync_to_bridge', true);
+                    xhr.open('POST', '/vscode-bridge/api/projects.php?action=sync_to_bridge', true);
                     xhr.setRequestHeader('Content-Type', 'application/json');
                     xhr.onload = function () {
                         try {
@@ -220,7 +281,7 @@
                     pullBtn.textContent = 'Pulling...';
 
                     var xhr = new XMLHttpRequest();
-                    xhr.open('GET', '/my_project/vscode-bridge/api/pull-from-vscode.php?project=' + encodeURIComponent(name), true);
+                    xhr.open('GET', '/vscode-bridge/api/pull-from-vscode.php?project=' + encodeURIComponent(name), true);
                     xhr.onload = function () {
                         pullBtn.disabled = false;
                         pullBtn.textContent = 'Pull from VSCode';

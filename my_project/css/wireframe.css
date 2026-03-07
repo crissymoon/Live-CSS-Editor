@@ -34,6 +34,8 @@
     background: #110b28;
     border-bottom: 1px solid #2a1a55;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
 }
 
 .wf-toolbar-title {

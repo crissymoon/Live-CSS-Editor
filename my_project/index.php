@@ -571,6 +571,32 @@ sort($allPropertyNames);
     <script src="js/ai-chat.js"></script>
     <!-- VSCode Copilot bridge: two-way sync with MCP server -->
     <script src="vscode-bridge/js/bridge-sync.js"></script>
+
+    <!-- last-resort direct wiring: runs after all scripts so module failures
+         and timing gaps do not leave the wireframe close non-functional.
+         NOTE: bridge-sync.js already wires vscodeBridgeToggle; do NOT
+         double-wire it here or BridgeSync.toggle() would fire twice per click. -->
+    <script>
+    (function () {
+        function wireWireframeClose() {
+            var btn     = document.getElementById('wfCloseBtn');
+            var overlay = document.getElementById('wireframeOverlay');
+            if (btn && overlay && !btn._closeBound) {
+                btn._closeBound = true;
+                btn.addEventListener('click', function () {
+                    overlay.classList.add('hidden');
+                });
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', wireWireframeClose);
+        } else {
+            wireWireframeClose();
+        }
+    }());
+    </script>
+
     <script>
     // Menu bar dropdown toggle
     (function () {

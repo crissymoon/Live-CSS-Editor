@@ -54,7 +54,7 @@ void platform_chrome_create(void* glfw_window, AppState* state, int php_port) {
     // native_chrome_create expects the NSWindow*, which GLFW exposes via
     // glfwGetCocoaWindow when GLFW_EXPOSE_NATIVE_COCOA is defined.
     NSWindow* nswin = glfwGetCocoaWindow((GLFWwindow*)glfw_window);
-    native_chrome_create(nswin, state, php_port);
+    native_chrome_create((__bridge void*)nswin, state, php_port);
 }
 
 int platform_chrome_update(AppState* state) {
