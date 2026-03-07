@@ -1,13 +1,34 @@
 # imgui-browser
 
-Native C++17 browser using Dear ImGui chrome + WKWebView content.
+A C++17 native browser shell built with Dear ImGui chrome. Current platform:
+macOS (WKWebView). Target: cross-platform packaged app with a per-platform
+web engine backend.
 
-**Why this exists:**
+## Vision
+
+This is being built toward a cross-platform browser app packaging tool. The
+goal is a single distributable binary per platform that wraps any web app
+(PHP, static, WASM) into a native desktop app with a configurable chrome,
+launch profiles, and a local server stack baked in. No Electron, no Python
+runtime, no framework install required on the end-user machine.
+
+Planned platform targets:
+
+| Platform | Web engine | Status |
+|----------|-----------|--------|
+| macOS | WKWebView (WebKit) | Active |
+| Windows | WebView2 (Chromium Edge) | Planned |
+| Linux | WebKitGTK or CEF | Planned |
+
+The PHP-WASM server (`php-wasm-project/`) is a first step toward baked-in
+server capability -- run PHP apps with no PHP install on the host.
+
+**Why Dear ImGui for chrome:**
 The Python/PyQt6/WKWebView stack has inherent flash and jank from the
 PyObjC bridge layer and PyQt6 event loop competing with WebKit rendering.
-This build eliminates those layers: ImGui renders the chrome (tabs, address
-bar, status bar) directly over OpenGL, and WKWebView is embedded as a raw
-NSView inside the same GLFW window at zero bridge cost.
+Dear ImGui renders the chrome (tabs, address bar, status bar) directly over
+OpenGL at zero bridge cost. The web engine NSView is positionally managed
+underneath the ImGui layer.
 
 ## Architecture
 

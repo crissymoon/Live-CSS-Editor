@@ -98,7 +98,7 @@ _push_repo() {
 # ── Agent-flow helper ──────────────────────────────────────────────────────────
 _open_agent_flow() {
     local port=9090
-    local dir="$DIR/../dev-tools/agent-flow"
+    local dir="$DIR/dev-tools/agent-flow"
     local logfile="$DIR/.agent-flow-server.log"
     if [[ ! -d "$dir" ]]; then
         printf "  ${C_RED}ERROR: agent-flow directory not found at %s${R}\n" "$dir" >&2; return 1
@@ -116,7 +116,7 @@ _open_agent_flow() {
         printf "  ${C_GREEN}PHP server started (PID %s)${R}\n" "$pid"
     fi
     printf "  ${C_GREY}Opening http://localhost:%s ...${R}\n" "$port"
-    local imgui_run="$DIR/../imgui-browser/run.sh"
+    local imgui_run="$DIR/imgui-browser/run.sh"
     if [[ -f "$imgui_run" ]]; then
         bash "$imgui_run" --url "http://localhost:$port" >/tmp/agent-flow-browser.log 2>&1 &
         sleep 0.8
@@ -130,7 +130,7 @@ _open_agent_flow() {
 AUTH_BASH_PID=""
 
 _start_admin() {
-    local AUTH_SCRIPT="$DIR/../page-builder/pb_admin/start-auth.sh"
+    local AUTH_SCRIPT="$DIR/page-builder/pb_admin/start-auth.sh"
     [[ ! -f "$AUTH_SCRIPT" ]] && die "page-builder/pb_admin/start-auth.sh not found"
 
     if _port_open 8443 && _port_open 9100; then
@@ -154,13 +154,13 @@ _start_admin() {
                           || status_fail "Auth server did not start -- see /tmp/live-css-auth.log"
         (( _nginx_ready )) && status_ok   "nginx HTTPS ready  :8443" \
                            || { status_fail "nginx not responding on :8443 -- run: bash server/start.sh"
-                                status_info "Try again after: bash $DIR/../server/start.sh"; }
+                                status_info "Try again after: bash $DIR/server/start.sh"; }
     fi
 
     printf "\n"
     # show credentials
-    local DB_PATH="$DIR/../page-builder/xcm_auth/xcm_auth_dev.db"
-    local CRED_FILE="$DIR/../page-builder/xcm_auth/dev-credentials.json"
+    local DB_PATH="$DIR/page-builder/xcm_auth/xcm_auth_dev.db"
+    local CRED_FILE="$DIR/page-builder/xcm_auth/dev-credentials.json"
     box_top
     printf "  ${C_VIOLET}${BOLD}LOGIN CREDENTIALS${R}\n"
     box_mid
@@ -202,7 +202,7 @@ _start_admin() {
     printf "\n"
 
     # launch browser
-    local IMGUI_RUN="$DIR/../imgui-browser/run.sh"
+    local IMGUI_RUN="$DIR/imgui-browser/run.sh"
     local LOGIN_URL="https://localhost:8443/page-builder/pb_admin/dashboard.php"
     if [[ -f "$IMGUI_RUN" ]]; then
         status_info "Launching imgui-browser..."
@@ -256,7 +256,7 @@ while true; do
     clear
 
     # Banner
-    if [[ -f "$DIR/xcm-moon-ascii.txt" ]]; then
+    if [[ -f "$DIR/my_project/xcm-moon-ascii.txt" ]]; then
         _moon_colors=('\033[38;5;54m' '\033[38;5;54m' '\033[38;5;99m' '\033[38;5;99m' '\033[38;5;99m'
                       '\033[38;5;141m' '\033[38;5;141m' '\033[38;5;141m' '\033[38;5;189m' '\033[38;5;189m')
         _ci=0; _total=${#_moon_colors[@]}
@@ -264,7 +264,7 @@ while true; do
             _col="${_moon_colors[$(( (_ci % _total) + 1 ))]}"
             printf "${_col}${BOLD}%s${R}\n" "$_mline"
             (( _ci++ )); sleep 0.06
-        done < "$DIR/xcm-moon-ascii.txt"
+        done < "$DIR/my_project/xcm-moon-ascii.txt"
     fi
 
     box_top
@@ -310,7 +310,7 @@ while true; do
 
         2)
             printf "\n"; step "Starting nginx + PHP-FPM server stack..."
-            bash "$DIR/../server/start.sh" \
+            bash "$DIR/server/start.sh" \
                 || printf "  ${C_RED}ERROR: server/start.sh failed${R}\n" >&2
             printf "\n"; read -r "?Press ENTER to return..."; ;;
 
@@ -318,7 +318,7 @@ while true; do
             printf "\n"; step "Stopping server stack (nginx + PHP-FPM) and auth (:9100)..."
             [[ -n "$AUTH_BASH_PID" ]] && kill "$AUTH_BASH_PID" 2>/dev/null || true
             AUTH_BASH_PID=""
-            bash "$DIR/../server/stop.sh" --kill \
+            bash "$DIR/server/stop.sh" --kill \
                 || printf "  ${C_RED}ERROR: server/stop.sh failed${R}\n" >&2
             for _port in 9100; do
                 local _pids
@@ -334,7 +334,7 @@ while true; do
 
         4)
             printf "\n"
-            bash "$DIR/../push.sh" \
+            bash "$DIR/push.sh" \
                 || printf "  ${C_RED}ERROR: push.sh failed${R}\n" >&2
             printf "\n"; read -r "?Press ENTER to return..."; ;;
 
@@ -432,8 +432,8 @@ while true; do
                     printf "  ${C_RED}ERROR: python3 not found${R}\n" >&2
                     read -r "?Press ENTER to return..."; break
                 fi
-                LINES_PY="$DIR/../dev-tools/code-review/lines_count.py"
-                SEC_PY="$DIR/../dev-tools/code-review/security_ck.py"
+                LINES_PY="$DIR/dev-tools/code-review/lines_count.py"
+                SEC_PY="$DIR/dev-tools/code-review/security_ck.py"
 
                 case "$TOOL_CHOICE" in
                     a)

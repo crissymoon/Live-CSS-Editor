@@ -82,6 +82,12 @@ fi
 echo "--- git remote -v:"
 git remote -v
 
+# Regenerate README.md before staging
+if [ -f make_readme.py ]; then
+    echo "--- Updating README.md..."
+    python3 make_readme.py
+fi
+
 # Stage all files
 echo "--- Running: git add ."
 add_out="$(git add . 2>&1)"

@@ -184,11 +184,11 @@ switch ($action) {
         $scriptPath = '/Users/mac/Documents/live-css/dev-tools/db-browser/quick-launch.sh';
         $dbFiles    = [];
         $dbScan     = [
-            '/Users/mac/Documents/live-css/xcm-editor.db',
+            '/Users/mac/Documents/live-css/page-builder/xcm-editor.db',
             '/Users/mac/Documents/live-css/dev-tools/debug-tool/db/errors.db',
             '/Users/mac/Documents/live-css/page-builder/xcm_auth/xcm_auth_dev.db',
-            '/Users/mac/Documents/live-css/vscode-bridge/data/projects.db',
-            '/Users/mac/Documents/live-css/ai/data/phrases.db',
+            '/Users/mac/Documents/live-css/my_project/vscode-bridge/data/projects.db',
+            '/Users/mac/Documents/live-css/my_project/ai/data/phrases.db',
         ];
         foreach ($dbScan as $p) {
             if (file_exists($p)) {

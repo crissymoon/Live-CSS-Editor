@@ -5,7 +5,7 @@
 # Theme is chosen inside the app and remembered automatically.
 #
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DB_PATH="$SCRIPT_DIR/../xcm-editor.db"
+DB_PATH="$SCRIPT_DIR/../../page-builder/xcm-editor.db"
 BROWSER_BIN="$SCRIPT_DIR/build/bin/db-browser"
 CSS_SRC="$SCRIPT_DIR/css"
 CSS_DST="$SCRIPT_DIR/build/bin/css"
