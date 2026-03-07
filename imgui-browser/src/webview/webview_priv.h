@@ -81,6 +81,7 @@ extern NSMutableArray*                    s_virt_delegates;
 // ── Auth popup patterns (defined in webview_popup.mm) ─────────────────
 extern const char* const s_popup_patterns[];
 bool xcm_is_auth_popup_url(const char* url);
+void webview_open_virt_popup(const std::string& url);
 
 // ── Internal helpers ──────────────────────────────────────────────────
 // Inject document-start user scripts into a WKUserContentController.

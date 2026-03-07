@@ -35,6 +35,93 @@ http {
     gzip_types text/plain text/css application/json application/javascript
                text/xml application/xml application/xml+rss text/javascript;
 
+    # ── Auth / billing reverse proxy (port 8445) ──────────────────────────────
+    include @@SERVER_DIR@@/conf/proxy-auth.conf;
+
+    # ── HTTP test proxy (port 8088) -- plain HTTP, no TLS ─────────────────────
+    # Allows quick curl / browser testing of billing proxy routes without needing
+    # the mkcert CA installed.  Only binds to loopback; never exposed externally.
+    # Port 8080 is already used by the PHP dev server on this machine.
+    server {
+        listen  127.0.0.1:8088;
+        server_name localhost;
+
+        resolver 8.8.8.8 8.8.4.4 valid=300s ipv6=off;
+        resolver_timeout 5s;
+
+        proxy_ssl_protocols     TLSv1.2 TLSv1.3;
+        proxy_ssl_session_reuse on;
+        proxy_ssl_verify        on;
+        proxy_ssl_trusted_certificate /etc/ssl/cert.pem;
+
+        proxy_buffer_size          16k;
+        proxy_buffers              8 128k;
+        proxy_busy_buffers_size    256k;
+        proxy_connect_timeout  15s;
+        proxy_send_timeout     60s;
+        proxy_read_timeout     60s;
+        proxy_no_cache      1;
+        proxy_cache_bypass  1;
+        proxy_set_header  Connection        "";
+        proxy_http_version 1.1;
+        proxy_set_header  X-Forwarded-For  "";
+        proxy_set_header  X-Real-IP        "";
+        proxy_set_header  X-Forwarded-Proto https;
+        proxy_pass_header Set-Cookie;
+
+        proxy_cookie_domain platform.claude.com   localhost;
+        proxy_cookie_domain platform.openai.com   localhost;
+        proxy_cookie_domain console.anthropic.com localhost;
+        proxy_cookie_domain anthropic.com         localhost;
+        proxy_cookie_domain openai.com            localhost;
+        proxy_cookie_domain stripe.com            localhost;
+
+        location /platform-claude/ {
+            set $up_host "platform.claude.com";
+            set $up_url  "https://platform.claude.com";
+            proxy_pass            $up_url/;
+            proxy_ssl_server_name on;
+            proxy_ssl_name        $up_host;
+            proxy_set_header      Host       $up_host;
+            proxy_set_header      Origin     $up_url;
+            proxy_set_header      Referer    $up_url/;
+            proxy_redirect        $up_url/  /platform-claude/;
+        }
+
+        location /openai-platform/ {
+            set $up_host "platform.openai.com";
+            set $up_url  "https://platform.openai.com";
+            proxy_pass            $up_url/;
+            proxy_ssl_server_name on;
+            proxy_ssl_name        $up_host;
+            proxy_set_header      Host       $up_host;
+            proxy_set_header      Origin     $up_url;
+            proxy_set_header      Referer    $up_url/;
+            proxy_redirect        $up_url/  /openai-platform/;
+        }
+
+        location /anthropic-console/ {
+            set $up_host "console.anthropic.com";
+            set $up_url  "https://console.anthropic.com";
+            proxy_pass            $up_url/;
+            proxy_ssl_server_name on;
+            proxy_ssl_name        $up_host;
+            proxy_set_header      Host       $up_host;
+            proxy_set_header      Origin     $up_url;
+            proxy_set_header      Referer    $up_url/;
+            proxy_redirect        $up_url/  /anthropic-console/;
+        }
+
+        location = /proxy-health {
+            access_log off;
+            return 200 "proxy-test ok\n";
+            add_header Content-Type text/plain;
+        }
+
+        access_log @@SERVER_DIR@@/logs/proxy-test-access.log;
+        error_log  @@SERVER_DIR@@/logs/proxy-test-error.log warn;
+    }
+
     # ── HTTPS: Live CSS Editor ─────────────────────────────────────────────────
     server {
         listen  127.0.0.1:8443 ssl;

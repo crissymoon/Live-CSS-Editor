@@ -28,6 +28,16 @@ void webview_load_url(void* handle, const std::string& url) {
         return;
     }
     fprintf(stderr, "[nav] load: %s\n", ns.absoluteString.UTF8String);
+
+    // Intercept popup-pattern URLs before any navigation starts so the main
+    // webview is never disturbed -- the virt popup opens and we return early.
+    if (xcm_is_auth_popup_url(ns.absoluteString.UTF8String)) {
+        fprintf(stderr, "[nav] popup intercept (pre-load): %s\n",
+                ns.absoluteString.UTF8String);
+        webview_open_virt_popup(std::string(ns.absoluteString.UTF8String));
+        return;
+    }
+
     // ReloadIgnoringLocalCacheData prevents stale cached 301 redirects from
     // a previous server config from hijacking explicit user navigations.
     NSURLRequest* req = [NSURLRequest requestWithURL:ns
