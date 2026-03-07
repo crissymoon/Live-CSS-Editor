@@ -1,0 +1,88 @@
+{
+  "_comment": "imgui-browser launch profiles.  Read by xcm.py (CLI) and by the app at runtime via browser_settings.h.  Edit this file to configure startup defaults or add custom profiles.",
+  "version": "1.0.0",
+
+  "defaults": {
+    "_comment": "Global defaults applied when a profile does not override a key.",
+    "wasm_port":   8082,
+    "wasm_dir":    "",
+    "php_port":    9879,
+    "cmd_port":    9878,
+    "win_w":       1400,
+    "win_h":       900,
+    "debug_log":   true
+  },
+
+  "profiles": {
+
+    "grab_bar": {
+      "_desc": "Thin window-drag strip only.  No toolbar, no tab bar.  Minimal chrome -- the webview fills the whole window below the macOS traffic lights.",
+      "ui_mode":       "grab_bar_only",
+      "show_tabs":     false,
+      "show_toolbar":  false,
+      "startup_url":   "",
+      "wasm_enabled":  false,
+      "win_w":         1000,
+      "win_h":         700
+    },
+
+    "explore": {
+      "_desc": "Full browser chrome.  Tab strip and URL toolbar are both visible.  Starts on about:blank so the user can type any URL or file:// path.",
+      "ui_mode":       "full",
+      "show_tabs":     true,
+      "show_toolbar":  true,
+      "startup_url":   "about:blank",
+      "wasm_enabled":  false,
+      "win_w":         1400,
+      "win_h":         900
+    },
+
+    "explore_local": {
+      "_desc": "Full browser chrome pointing at the local Style Tool dev server (localhost:9879).  Requires the PHP built-in server to be running.",
+      "ui_mode":       "full",
+      "show_tabs":     true,
+      "show_toolbar":  true,
+      "startup_url":   "http://localhost:9879",
+      "wasm_enabled":  false,
+      "win_w":         1400,
+      "win_h":         900
+    },
+
+    "wasm": {
+      "_desc": "Full browser backed by the PHP-WASM server.  No native PHP install required.  Node.js is used to run the WASM PHP interpreter.  The WASM server starts automatically on wasm_port.",
+      "ui_mode":       "full",
+      "show_tabs":     true,
+      "show_toolbar":  true,
+      "startup_url":   "",
+      "wasm_enabled":  true,
+      "wasm_port":     8082,
+      "win_w":         1400,
+      "win_h":         900
+    },
+
+    "wasm_kiosk": {
+      "_desc": "Minimal grab-bar chrome served by PHP-WASM.  Looks like a native app panel.  No PHP install required.",
+      "ui_mode":       "grab_bar_only",
+      "show_tabs":     false,
+      "show_toolbar":  false,
+      "startup_url":   "",
+      "wasm_enabled":  true,
+      "wasm_port":     8082,
+      "win_w":         1000,
+      "win_h":         700
+    },
+
+    "headless_test": {
+      "_desc": "Dry-run only profile.  Used by CI to validate CLI argument construction without launching the binary.",
+      "ui_mode":       "grab_bar_only",
+      "show_tabs":     false,
+      "show_toolbar":  false,
+      "startup_url":   "about:blank",
+      "wasm_enabled":  false,
+      "win_w":         800,
+      "win_h":         600,
+      "_dry_run_only": true
+    }
+
+  }
+}

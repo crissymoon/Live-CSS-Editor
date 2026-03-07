@@ -104,6 +104,64 @@ void server_start_node(const std::string& node_script) {
     }
 }
 
+void server_start_wasm(const std::string& wasm_dir, int port) {
+    if (wasm_dir.empty()) {
+        printf("[server] wasm_dir is empty -- WASM dev server will not start\n");
+        return;
+    }
+    if (port_open(port)) {
+        printf("[server] WASM server already running on :%d\n", port);
+        return;
+    }
+    // Locate node binary
+    const char* node = nullptr;
+    for (auto* p : {"/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"}) {
+        if (access(p, X_OK) == 0) { node = p; break; }
+    }
+    if (!node) {
+        printf("[server] node not found -- WASM dev server will not start\n");
+        return;
+    }
+    std::string server_js = wasm_dir + "/server.js";
+    if (access(server_js.c_str(), R_OK) != 0) {
+        printf("[server] WASM server.js not found at %s\n", server_js.c_str());
+        return;
+    }
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", port);
+    pid_t pid = spawn({node, server_js, port_str}, wasm_dir);
+    if (pid > 0) {
+        s_procs.push_back(pid);
+        printf("[server] PHP-WASM server started (PID %d) on :%d -> %s\n",
+               pid, port, wasm_dir.c_str());
+    }
+}
+
+std::string server_find_wasm_dir(const std::string& apps_dir) {
+    // Try paths relative to apps_dir which is typically <root>/dev-browser/apps.
+    // The php-wasm-project lives at <root>/imgui-browser/php-wasm-project.
+    std::vector<std::string> candidates;
+    if (!apps_dir.empty()) {
+        // apps_dir = .../dev-browser/apps  -- go up two levels to repo root
+        auto sl = apps_dir.rfind('/');
+        if (sl != std::string::npos) {
+            std::string dev_browser = apps_dir.substr(0, sl);
+            auto sl2 = dev_browser.rfind('/');
+            if (sl2 != std::string::npos) {
+                std::string root = dev_browser.substr(0, sl2);
+                candidates.push_back(root + "/imgui-browser/php-wasm-project");
+            }
+        }
+    }
+    // Also try the bundled sibling path next to the binary (for .app bundles)
+    candidates.push_back("/Users/mac/Documents/live-css/imgui-browser/php-wasm-project");
+    for (auto& c : candidates) {
+        std::string srv = c + "/server.js";
+        if (access(srv.c_str(), R_OK) == 0) return c;
+    }
+    return "";
+}
+
 ServerStatus server_poll_status(int php_port, int node_port) {
     ServerStatus st;
     st.php_ok  = port_open(php_port);

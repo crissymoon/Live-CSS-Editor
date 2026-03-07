@@ -933,16 +933,69 @@ static void draw_history_panel(AppState* st, float anchor_x, float panel_top) {
     ImGui::PopStyleVar(2);
 }
 
+// ── Minimal grab strip (used when both tabs and toolbar are hidden) ───
+// Renders only the 32 px macOS traffic-lights clearance area so the
+// window can still be dragged.  Returns height consumed.
+static int draw_grab_strip(int win_w) {
+    const float H = 32.0f;
+    begin_panel("##grabstrip", 0, 0, (float)win_w, H, COL_SURFACE);
+    ImDrawList* fg = ImGui::GetForegroundDrawList();
+    // Subtle top highlight edge
+    fg->AddLine({0.0f, 0.5f}, {(float)win_w, 0.5f},
+                to_u32({0.60f, 0.58f, 1.00f, 0.18f}), 1.0f);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    // Bottom separator
+    dl->AddLine({0.0f, H - 1}, {(float)win_w, H - 1}, to_u32(COL_SEP), 1.0f);
+    // Shimmer
+    dl->AddRectFilledMultiColor(
+        {0.0f, 0.0f}, {(float)win_w, H},
+        to_u32({0.40f, 0.38f, 0.88f, 0.04f}),
+        to_u32({0.40f, 0.38f, 0.88f, 0.04f}),
+        to_u32({0.00f, 0.00f, 0.00f, 0.00f}),
+        to_u32({0.00f, 0.00f, 0.00f, 0.00f}));
+    end_panel();
+    return (int)H;
+}
+
 // ── Top (title+tabs + toolbar) ────────────────────────────────────────
+// Rows drawn depend on AppState::settings visibility flags:
+//   show_tabs=true   -> draw the tab strip (TAB_BAR_HEIGHT_PX)
+//   show_tabs=false  -> if toolbar visible, add 30 px traffic-light pad;
+//                       if toolbar also hidden, draw the grab strip (32 px)
+//   show_toolbar=true  -> draw the URL bar + nav row (CHROME_HEIGHT_PX)
+//
 // NOTE: When native_chrome is active this function is NOT called.
 // It is kept for fallback / testing only.
 int chrome_draw_top(AppState* st,
-                    int win_w, int win_h,
+                    int win_w, int /*win_h*/,
                     bool& new_tab_requested,
                     int&  close_tab_idx) {
+    const bool want_tabs    = st->settings.show_tabs;
+    const bool want_toolbar = st->settings.show_toolbar;
+
     int h = 0;
-    h += draw_title_tab_row(st, win_w, new_tab_requested, close_tab_idx);
-    h += draw_toolbar(st, win_w, h);
+
+    if (want_tabs) {
+        h += draw_title_tab_row(st, win_w, new_tab_requested, close_tab_idx);
+    } else {
+        // No tab strip -- reset out-params.
+        close_tab_idx   = -1;
+        new_tab_requested = false;
+
+        if (!want_toolbar) {
+            // Grab-bar-only: just the drag strip.
+            h += draw_grab_strip(win_w);
+        } else {
+            // Toolbar at top -- reserve 30 px so the macOS traffic lights
+            // don't overlap the back/forward buttons on the left edge.
+            h += 30;
+        }
+    }
+
+    if (want_toolbar) {
+        h += draw_toolbar(st, win_w, h);
+    }
+
     // panels now drawn via chrome_draw_panels()
     return h;
 }

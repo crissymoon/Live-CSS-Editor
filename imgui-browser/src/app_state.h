@@ -11,6 +11,7 @@
 #include <deque>
 #include <chrono>
 #include "persistence.h"
+#include "browser_settings.h"
 
 // ── Constants ─────────────────────────────────────────────────────────
 constexpr int    CHROME_HEIGHT_PX  = 44;   // toolbar row (URL bar + nav buttons)
@@ -110,6 +111,10 @@ struct AppState {
     bool   node_server_ok = false;
     int    php_pid        = -1;
     int    node_pid       = -1;
+
+    // Browser chrome settings -- loaded from ~/.xcm-browser/settings.json.
+    // Use browser_settings_load() on startup and browser_settings_save() on change.
+    BrowserSettings settings;
 
     // Settings
     bool   dev_tools_open         = false;

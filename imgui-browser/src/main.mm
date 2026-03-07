@@ -125,6 +125,49 @@ int main(int argc, char** argv) {
     io.FontGlobalScale = (g_state.dpi_scale > 0.0f) ? 1.0f / g_state.dpi_scale : 1.0f;
 
     chrome_init(&g_state);
+
+    // Load browser chrome settings (startup URL + UI mode).
+    // Must come after chrome_init so the theme is applied first.
+    g_state.settings = browser_settings_load();
+    browser_settings_ensure_defaults();
+
+    // Apply --ui-mode argv override (always wins over settings.json).
+    if (!args.ui_mode_override.empty()) {
+        UiMode m = ui_mode_from_str(args.ui_mode_override);
+        g_state.settings.apply_mode(m);
+        fprintf(stderr, "[main] ui_mode override from argv: '%s'\n",
+                args.ui_mode_override.c_str());
+    }
+
+    // Resolve WASM settings: argv overrides > settings.json > auto-detect.
+    // Write the resolved values back into args so start_all_servers() can use them.
+    {
+        const BrowserSettings& bs = g_state.settings;
+
+        // 1. enabled flag
+        if (args.wasm_enabled_override == -1)
+            args.wasm_enabled_override = bs.wasm_enabled ? 1 : 0;
+
+        // 2. port: argv > settings > default 8082
+        if (args.wasm_port <= 0)
+            args.wasm_port = (bs.wasm_port > 0) ? bs.wasm_port : 8082;
+
+        // 3. wasm_dir: argv > settings > auto-detect from apps_dir
+        if (args.wasm_dir.empty())
+            args.wasm_dir = bs.wasm_dir;
+        if (args.wasm_dir.empty())
+            args.wasm_dir = server_find_wasm_dir(args.apps_dir);
+
+        fprintf(stderr, "[main] wasm: enabled=%d port=%d dir='%s'\n",
+                args.wasm_enabled_override, args.wasm_port, args.wasm_dir.c_str());
+    }
+
+    fprintf(stderr, "[main] ui_mode='%s' show_tabs=%d show_toolbar=%d startup_url='%s'\n",
+            ui_mode_to_str(g_state.settings.ui_mode()),
+            g_state.settings.show_tabs,
+            g_state.settings.show_toolbar,
+            g_state.settings.startup_url.c_str());
+
     g_state.history   = persist_load_history();
     g_state.bookmarks = persist_load_bookmarks();
     fprintf(stderr, "[main] loaded %zu history entries, %zu bookmarks\n",
@@ -229,9 +272,26 @@ int main(int argc, char** argv) {
     cmd_server_start(&g_state, args.cmd_port);
 
     // Initial tab
+    // Priority: explicit --url arg > WASM dev server (when wasm_enabled) >
+    //           settings startup_url > compiled default.
     {
-        int idx = g_state.new_tab(args.url);
-        g_state.tabs[idx].wv_handle = webview_create(g_state.tabs[idx].id, args.url);
+        std::string launch_url;
+        if (args.url_explicit) {
+            launch_url = args.url;
+        } else if (args.wasm_enabled_override == 1) {
+            // Point to the WASM demo page served by the Node dev server.
+            char wasm_url[128];
+            snprintf(wasm_url, sizeof(wasm_url),
+                     "http://localhost:%d/public/", args.wasm_port);
+            launch_url = wasm_url;
+        } else if (!g_state.settings.startup_url.empty()) {
+            launch_url = g_state.settings.startup_url;
+        } else {
+            launch_url = args.url;
+        }
+        fprintf(stderr, "[main] initial tab URL: %s\n", launch_url.c_str());
+        int idx = g_state.new_tab(launch_url);
+        g_state.tabs[idx].wv_handle = webview_create(g_state.tabs[idx].id, launch_url);
     }
 
     // Render loop (blocks until window close, persists data on return)
