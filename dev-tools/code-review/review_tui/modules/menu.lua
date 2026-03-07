@@ -21,8 +21,8 @@ function M.init(actions, colours)
         {
             label = "File",
             items = {
-                { label = "Set Path…",     action = actions.set_path },
-                { label = "Open Reports…", action = actions.open_reports },
+                { label = "Set Path...",     action = actions.set_path },
+                { label = "Open Reports...", action = actions.open_reports },
                 { separator = true },
                 { label = "Quit",          action = actions.quit },
             },
@@ -36,7 +36,7 @@ function M.init(actions, colours)
                 { label = "Py Audit",       action = actions.scan_py_audit },
                 { label = "Code Smells",    action = actions.scan_smells },
                 { separator = true },
-                { label = "Run All  ▶",    action = actions.scan_all },
+                { label = "Run All >",    action = actions.scan_all },
             },
         },
         {
@@ -143,14 +143,14 @@ function M.mousemoved(mx, my, bar_h)
     hover_sub = nil
     local x = PAD_H
     for idx, menu in ipairs(ITEMS) do
-        if mx >= menu._x and mx <= menu._x + menu._w and my >= 0 and my < bar_h then
+        if menu._x and mx >= menu._x and mx <= menu._x + menu._w and my >= 0 and my < bar_h then
             hover_top = idx
             if open_idx and open_idx ~= idx then
                 open_idx = idx   -- slide to adjacent menu
             end
         end
         -- Sub items
-        if open_idx == idx then
+        if open_idx == idx and menu._x then
             local dy = bar_h + 4
             for si, item in ipairs(menu.items) do
                 local iy = dy + (si - 1) * DROP_ITEM_H

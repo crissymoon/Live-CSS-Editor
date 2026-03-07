@@ -1,4 +1,4 @@
--- main.lua  –  Code Review TUI
+-- main.lua  -  Code Review TUI
 -- Love2D entry point.  Matches Live CSS Editor dark-purple theme.
 
 --------------------------------------------------------------------
@@ -6,8 +6,10 @@
 --------------------------------------------------------------------
 W, H = 1060, 720   -- updated each frame
 MENUBAR_H  = 24
-TOOLBAR_H  = 72
+TOOLBAR_H  = 96
 SUMMARY_H  = 32
+CHAR_H     = 16
+TABS_H     = 26
 
 -- Shell escape a single argument safely
 function shell_escape(s)
@@ -44,15 +46,15 @@ C = {
 --------------------------------------------------------------------
 local function gc(key)  love.graphics.setColor(C[key] or C.text) end
 
-local function fill_rect(x, y, w, h, r)
+function fill_rect(x, y, w, h, r)
     love.graphics.rectangle("fill", x, y, w, h, r or 0)
 end
 
-local function stroke_rect(x, y, w, h, r)
+function stroke_rect(x, y, w, h, r)
     love.graphics.rectangle("line", x, y, w, h, r or 0)
 end
 
-local function text_at(x, y, s)
+function text_at(x, y, s)
     love.graphics.print(s, math.floor(x), math.floor(y))
 end
 
@@ -60,16 +62,16 @@ local function trunc_str(s, max_w, font)
     if not s then return "" end
     if font:getWidth(s) <= max_w then return s end
     local t = s
-    while #t > 1 and font:getWidth(t .. "…") > max_w do
+    while #t > 1 and font:getWidth(t .. "...") > max_w do
         t = t:sub(1, -2)
     end
-    return t .. "…"
+    return t .. "..."
 end
 
 --------------------------------------------------------------------
--- Fonts
+-- Fonts (globals so editor.lua and other modules can access them)
 --------------------------------------------------------------------
-local font_sm, font_md, font_ui
+font_sm, font_md, font_ui = nil, nil, nil
 
 local function load_fonts()
     local mono_candidates = {
@@ -109,6 +111,19 @@ local path_editing = false
 local path_buf     = scan_path
 local about_open   = false
 
+-- text selection in results panel
+local sel_anchor   = nil   -- line index where drag started
+local sel_cur      = nil   -- line index at current mouse position
+local sel_dragging = false
+
+-- right-click context menu
+local ctx_menu     = { open=false, x=0, y=0 }
+local CTX_ITEMS    = {
+    { label="Copy selection",  key="copy_sel"  },
+    { label="Copy all",        key="copy_all"  },
+    { label="Clear results",   key="clear"     },
+}
+
 local counts = { critical=0, high=0, medium=0, low=0, info=0 }
 
 --------------------------------------------------------------------
@@ -117,6 +132,7 @@ local counts = { critical=0, high=0, medium=0, low=0, info=0 }
 local Bridge  = require "modules.bridge"
 local Menu    = require "modules.menu"
 local Browser = require "modules.browser"
+local Editor  = require "modules.editor"
 
 --------------------------------------------------------------------
 -- Results helpers
@@ -129,11 +145,17 @@ end
 
 local function classify_kind(text)
     local up = text:upper()
-    if up:find("CRITICAL") then counts.critical = counts.critical + 1; return "critical"
-    elseif up:find("%bHIGH%b") then counts.high = counts.high + 1; return "high"
-    elseif up:find("MEDIUM") then counts.medium = counts.medium + 1; return "medium"
-    elseif up:find("%bLOW%b" ) then counts.low  = counts.low  + 1; return "low"
-    elseif up:find("INFO") or up:find("NOTE") then counts.info = counts.info + 1; return "info"
+    -- plain = true avoids pattern errors from special chars in scanner output
+    if up:find("CRITICAL", 1, true) then
+        counts.critical = counts.critical + 1; return "critical"
+    elseif up:find("[HIGH]", 1, true) or up:find(": HIGH", 1, true) or up:find("HIGH]", 1, true) then
+        counts.high = counts.high + 1; return "high"
+    elseif up:find("MEDIUM", 1, true) then
+        counts.medium = counts.medium + 1; return "medium"
+    elseif up:find("[LOW]", 1, true) or up:find(": LOW", 1, true) or up:find("LOW]", 1, true) then
+        counts.low = counts.low + 1; return "low"
+    elseif up:find("INFO", 1, true) or up:find("NOTE", 1, true) then
+        counts.info = counts.info + 1; return "info"
     end
     return "result"
 end
@@ -175,7 +197,7 @@ local actions = {}
 local function run_scan(cmd_name, label)
     if Bridge.streaming then return end
     add_line("", "sep")
-    add_line("──── " .. label .. " ────  " .. scan_path, "head")
+    add_line("---- " .. label .. " ----  " .. scan_path, "head")
     status = "RUNNING"
     reset_counts()
     Bridge.start({cmd_name, scan_path},
@@ -237,12 +259,18 @@ function love.load()
 
     Bridge.init(bridge_path())
     Menu.init(actions, C)
-    Browser.init(C, function(path)
-        scan_path = path
-        Browser.set_root(path)
-    end)
+    Browser.init(C,
+        function(path)
+            scan_path = path
+            Browser.set_root(path)
+        end,
+        function(path)
+            Editor.open_file(path)
+        end
+    )
+    CHAR_H = font_sm:getHeight()
 
-    add_line("Code Review TUI  — Live CSS Editor Suite", "head")
+    add_line("Code Review TUI  - Live CSS Editor Suite", "head")
     add_line("Select a directory in the browser or type a path above, then choose a scan.", "dim")
     add_line("", "sep")
 end
@@ -276,87 +304,92 @@ local function draw_toolbar()
     gc("border")
     love.graphics.line(0, y + TOOLBAR_H, W, y + TOOLBAR_H)
 
+    local mx, my = love.mouse.getPosition()
+
+    -- Row 1: title on left, status badge on right
     love.graphics.setFont(font_ui)
-
-    -- Title
     gc("lavender")
-    text_at(12, y + 8, "Code Review")
+    text_at(12, y + 6, "Code Review")
 
-    -- Path label
-    gc("dim")
-    text_at(12, y + 32, "Path:")
-
-    -- Path input box
-    local bx, by, bw, bh = 54, y + 28, W - 300, 20
-    if path_editing then
-        gc("panel_bg")
-        fill_rect(bx, by, bw, bh, 3)
-        gc("violet")
-        stroke_rect(bx, by, bw, bh, 3)
-        gc("text_bright")
-        love.graphics.setFont(font_sm)
-        text_at(bx + 5, by + 3, trunc_str(path_buf, bw - 10, font_sm) .. (math.floor(love.timer.getTime() * 2) % 2 == 0 and "▌" or ""))
-    else
-        gc("panel_bg")
-        fill_rect(bx, by, bw, bh, 3)
-        gc("border")
-        stroke_rect(bx, by, bw, bh, 3)
-        gc("text")
-        love.graphics.setFont(font_sm)
-        text_at(bx + 5, by + 3, trunc_str(scan_path, bw - 10, font_sm))
-    end
-
-    -- Status badge
     local badge_colours = {
         READY   = C.dim,
         RUNNING = C.violet,
         DONE    = C.green,
         ERROR   = C.red,
     }
-    local bx2 = W - 240
+    local sc = badge_colours[status] or C.dim
     love.graphics.setFont(font_ui)
     gc("dim")
-    text_at(bx2, y + 8, "Status:")
-    local sc = badge_colours[status] or C.dim
+    local status_label = "Status:"
+    local slw = font_ui:getWidth(status_label)
+    local badge_w = 72
+    local badge_x = W - badge_w - 12
+    local sl_x    = badge_x - slw - 8
+    text_at(sl_x, y + 6, status_label)
     love.graphics.setColor(sc)
-    fill_rect(bx2 + 58, y + 5, 70, 18, 4)
+    fill_rect(badge_x, y + 3, badge_w, 20, 4)
     gc("bg")
     love.graphics.setFont(font_sm)
-    text_at(bx2 + 58 + (70 - font_sm:getWidth(status)) / 2, y + 8, status)
+    text_at(badge_x + (badge_w - font_sm:getWidth(status)) / 2, y + 7, status)
 
-    -- Scan buttons row
+    -- Row 2: path label + input spanning available width
+    love.graphics.setFont(font_ui)
+    gc("dim")
+    local path_label = "Path:"
+    text_at(12, y + 34, path_label)
+    local plw = font_ui:getWidth(path_label)
+    local px, pw = 12 + plw + 8, W - 12 - 12 - plw - 8
+    local ph     = 20
+    local py     = y + 30
+    if path_editing then
+        gc("panel_bg")
+        fill_rect(px, py, pw, ph, 3)
+        gc("violet")
+        stroke_rect(px, py, pw, ph, 3)
+        gc("text_bright")
+        love.graphics.setFont(font_sm)
+        text_at(px + 5, py + 3, trunc_str(path_buf, pw - 10, font_sm) .. (math.floor(love.timer.getTime() * 2) % 2 == 0 and "|" or ""))
+    else
+        gc("panel_bg")
+        fill_rect(px, py, pw, ph, 3)
+        gc("border")
+        stroke_rect(px, py, pw, ph, 3)
+        gc("text")
+        love.graphics.setFont(font_sm)
+        text_at(px + 5, py + 3, trunc_str(scan_path, pw - 10, font_sm))
+    end
+
+    -- Row 3: scan buttons left to right
     local btns = {
         { label="Security",  action=actions.scan_security  },
         { label="God Funcs", action=actions.scan_god_funcs },
         { label="Lines",     action=actions.scan_lines     },
         { label="Py Audit",  action=actions.scan_py_audit  },
         { label="Smells",    action=actions.scan_smells    },
-        { label="▶ All",     action=actions.scan_all, accent=true },
+        { label="> All",     action=actions.scan_all, accent=true },
     }
-    local bx3 = bx2 - 10
-    local btn_h = 20
+    local btn_h  = 20
+    local btn_y  = y + 58
+    local btn_cx = 12
     love.graphics.setFont(font_sm)
-    for i = #btns, 1, -1 do
-        local b   = btns[i]
-        local bw2 = font_sm:getWidth(b.label) + 16
-        bx3 = bx3 - bw2 - 6
-        b._x, b._y, b._w, b._h = bx3, y + 28, bw2, btn_h
+    for _, b in ipairs(btns) do
+        local bw2 = font_sm:getWidth(b.label) + 20
+        b._x, b._y, b._w, b._h = btn_cx, btn_y, bw2, btn_h
 
-        local mx, my = love.mouse.getPosition()
-        local hov = mx >= bx3 and mx < bx3 + bw2 and my >= y+28 and my < y+28+btn_h
+        local hov = mx >= btn_cx and mx < btn_cx + bw2 and my >= btn_y and my < btn_y + btn_h
 
         if b.accent then
             love.graphics.setColor(hov and C.violet or C.accent)
         else
             love.graphics.setColor(hov and C.hover or C.panel_bg)
         end
-        fill_rect(bx3, y+28, bw2, btn_h, 3)
+        fill_rect(btn_cx, btn_y, bw2, btn_h, 3)
         love.graphics.setColor(hov and C.text_bright or C.text)
-        stroke_rect(bx3, y+28, bw2, btn_h, 3)
+        stroke_rect(btn_cx, btn_y, bw2, btn_h, 3)
         gc(hov and "text_bright" or "text")
-        text_at(bx3 + 8, y + 31, b.label)
+        text_at(btn_cx + 10, btn_y + 3, b.label)
+        btn_cx = btn_cx + bw2 + 6
     end
-    -- store for click detection
     _toolbar_btns = btns
 end
 
@@ -379,12 +412,24 @@ local function draw_results()
     max_scroll = math.max(0, total_h - rh)
     scroll_y   = math.max(0, math.min(scroll_y, max_scroll))
 
+    -- selection range (normalised)
+    local sel_lo, sel_hi
+    if sel_anchor and sel_cur then
+        sel_lo = math.min(sel_anchor, sel_cur)
+        sel_hi = math.max(sel_anchor, sel_cur)
+    end
+
     love.graphics.setScissor(rx, ry, rw, rh)
     love.graphics.setFont(font_sm)
 
     local iy = ry + 6 - scroll_y
-    for _, r in ipairs(results) do
+    for i, r in ipairs(results) do
         if iy + RESULT_LINE_H >= ry and iy < ry + rh then
+            -- highlight selected lines
+            if sel_lo and i >= sel_lo and i <= sel_hi then
+                love.graphics.setColor(0.33, 0.0, 0.8, 0.28)
+                fill_rect(rx, iy, rw - 8, RESULT_LINE_H)
+            end
             love.graphics.setColor(kind_colour(r.kind))
             if r.kind == "sep" then
                 love.graphics.setColor(C.dark)
@@ -409,6 +454,31 @@ local function draw_results()
         fill_rect(sb_x, ry, sb_w, rh, 2)
         love.graphics.setColor(C.violet)
         fill_rect(sb_x, thumb_y, sb_w, thumb_h, 2)
+    end
+
+    -- Context menu
+    if ctx_menu.open then
+        local item_h = 22
+        local mw     = 160
+        local mh     = #CTX_ITEMS * item_h + 6
+        local cmx    = math.min(ctx_menu.x, W - mw - 4)
+        local cmy    = math.min(ctx_menu.y, H - mh - 4)
+        local mmx, mmy = love.mouse.getPosition()
+        love.graphics.setColor(C.menu_bg)
+        fill_rect(cmx, cmy, mw, mh, 4)
+        love.graphics.setColor(C.border)
+        stroke_rect(cmx, cmy, mw, mh, 4)
+        love.graphics.setFont(font_sm)
+        for ci, item in ipairs(CTX_ITEMS) do
+            local ity = cmy + 3 + (ci - 1) * item_h
+            local hov = mmx >= cmx and mmx < cmx + mw and mmy >= ity and mmy < ity + item_h
+            if hov then
+                love.graphics.setColor(C.accent)
+                fill_rect(cmx + 2, ity, mw - 4, item_h, 3)
+            end
+            gc(hov and "text_bright" or "text")
+            text_at(cmx + 10, ity + 4, item.label)
+        end
     end
 end
 
@@ -473,7 +543,7 @@ local function draw_about()
     text_at(mx + 20, my + 50, "Part of the Live CSS Editor Suite.")
     text_at(mx + 20, my + 70, "Built with Love2D + Lua + Python.")
     gc("dim")
-    text_at(mx + 20, my + 100, "Scanners: security_ck · god_funcs · lines_count · py_audit · code_smells")
+    text_at(mx + 20, my + 100, "Scanners: security_ck / god_funcs / lines_count / py_audit / code_smells")
     text_at(mx + 20, my + 118, "Reports written to:  dev-tools/code-review/reports/")
     gc("violet")
     local cls = "[ Close ]"
@@ -495,7 +565,11 @@ function love.draw()
 
     -- Main panels
     draw_toolbar()
-    draw_results()
+    if Editor.has_tabs() then
+        Editor.draw(content_x(), content_y(), content_w(), content_h())
+    else
+        draw_results()
+    end
     draw_summary()
 
     -- Menu on top
@@ -506,9 +580,53 @@ function love.draw()
 end
 
 --------------------------------------------------------------------
+-- Copy helpers
+--------------------------------------------------------------------
+local function lines_to_text(lo, hi)
+    local t = {}
+    lo = math.max(1, lo or 1)
+    hi = math.min(#results, hi or #results)
+    for i = lo, hi do
+        t[#t+1] = results[i].text
+    end
+    return table.concat(t, "\n")
+end
+
+local function line_idx_at(my)
+    local ry = content_y()
+    local offset = my - ry - 6 + scroll_y
+    local idx = math.floor(offset / RESULT_LINE_H) + 1
+    if idx < 1 then idx = 1 end
+    if idx > #results then idx = #results end
+    return idx
+end
+
+local function in_results(mx, my)
+    return mx >= content_x() and mx < content_x() + content_w()
+        and my >= content_y() and my < content_y() + content_h()
+end
+
+--------------------------------------------------------------------
 -- Input
 --------------------------------------------------------------------
 function love.keypressed(key)
+    -- Route to editor when tabs are open
+    if Editor.has_tabs() and not path_editing then
+        if key == "escape" and Editor.active_tab() and not Editor.active_tab()._ctx then
+            -- escape with no ctx: let editor clear selection; if nothing more, close top tab
+        end
+        if Editor.keypressed(key, content_h()) then return end
+    end
+
+    -- Cmd/Ctrl+C  copy selection
+    if (key == "c") and love.keyboard.isDown("lgui", "rgui", "lctrl", "rctrl") then
+        if sel_anchor and sel_cur then
+            local lo = math.min(sel_anchor, sel_cur)
+            local hi = math.max(sel_anchor, sel_cur)
+            love.system.setClipboardText(lines_to_text(lo, hi))
+        end
+        return
+    end
     if path_editing then
         if key == "return" or key == "escape" then
             if key == "return" then scan_path = path_buf end
@@ -528,12 +646,45 @@ function love.keypressed(key)
 end
 
 function love.textinput(t)
+    if Editor.has_tabs() and not path_editing then
+        if Editor.textinput(t) then return end
+    end
     if path_editing then
         path_buf = path_buf .. t
     end
 end
 
 function love.mousepressed(mx, my, btn)
+    -- Close context menu on any click
+    if ctx_menu.open then
+        if btn == 1 then
+            -- check if clicked on a context menu item
+            local item_h = 22
+            local mw     = 160
+            local cmx    = math.min(ctx_menu.x, W - mw - 4)
+            local cmy    = math.min(ctx_menu.y, H - (#CTX_ITEMS * item_h + 6) - 4)
+            for ci, item in ipairs(CTX_ITEMS) do
+                local ity = cmy + 3 + (ci - 1) * item_h
+                if mx >= cmx and mx < cmx + mw and my >= ity and my < ity + item_h then
+                    if item.key == "copy_sel" then
+                        if sel_anchor and sel_cur then
+                            local lo = math.min(sel_anchor, sel_cur)
+                            local hi = math.max(sel_anchor, sel_cur)
+                            love.system.setClipboardText(lines_to_text(lo, hi))
+                        end
+                    elseif item.key == "copy_all" then
+                        love.system.setClipboardText(lines_to_text(1, #results))
+                    elseif item.key == "clear" then
+                        actions.clear_results()
+                    end
+                    break
+                end
+            end
+        end
+        ctx_menu.open = false
+        return
+    end
+
     -- About modal close
     if about_open then
         about_open = false
@@ -553,14 +704,14 @@ function love.mousepressed(mx, my, btn)
 
     -- Toolbar buttons
     if my >= MENUBAR_H and my < MENUBAR_H + TOOLBAR_H then
-        -- Path box click
-        local bx, by, bw, bh = 54, MENUBAR_H + 28, W - 300, 20
+        local _plw = font_ui:getWidth("Path:")
+        local bx, by = 12 + _plw + 8, MENUBAR_H + 30
+        local bw, bh = W - 12 - 12 - _plw - 8, 20
         if mx >= bx and mx < bx + bw and my >= by and my < by + bh then
             path_editing = true
             path_buf     = scan_path
             return
         end
-        -- Scan buttons
         for _, b in ipairs(_toolbar_btns) do
             if b._x and mx >= b._x and mx < b._x + b._w and
                my >= b._y and my < b._y + b._h then
@@ -571,17 +722,53 @@ function love.mousepressed(mx, my, btn)
         return
     end
 
+    -- Results panel: left-click starts selection, right-click opens context menu
+    if in_results(mx, my) then
+        -- Route to editor if open
+        if Editor.has_tabs() then
+            Editor.mousepressed(mx, my, btn, content_x(), content_y(), content_w(), content_h())
+            return
+        end
+        if btn == 1 then
+            local idx = line_idx_at(my)
+            sel_anchor   = idx
+            sel_cur      = idx
+            sel_dragging = true
+            return
+        elseif btn == 2 then
+            ctx_menu.open = true
+            ctx_menu.x    = mx
+            ctx_menu.y    = my
+            return
+        end
+    end
+
     -- Browser
     if Browser.mousepressed(mx, my, btn) then return end
 end
 
+function love.mousereleased(mx, my, btn)
+    if btn == 1 then
+        sel_dragging = false
+    end
+end
+
 function love.mousemoved(mx, my, dx, dy)
     Menu.mousemoved(mx, my, MENUBAR_H)
+    -- extend selection while dragging
+    if sel_dragging and in_results(mx, my) then
+        sel_cur = line_idx_at(my)
+    end
 end
 
 function love.wheelmoved(wx, wy)
     local mx, my = love.mouse.getPosition()
     if Browser.wheelmoved(wx, wy, mx, my) then return end
+    -- Route to editor if open
+    if Editor.has_tabs() and mx >= content_x() then
+        Editor.wheelmoved(wy, content_x(), content_y(), content_w(), content_h())
+        return
+    end
     -- Scroll results
     if mx >= content_x() and my >= content_y() and my < H - SUMMARY_H then
         scroll_y = scroll_y - wy * 40

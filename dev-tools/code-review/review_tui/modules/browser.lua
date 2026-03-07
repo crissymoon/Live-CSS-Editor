@@ -9,8 +9,8 @@ local C = nil
 local W_PANEL   = 240
 local ITEM_H    = 22
 local INDENT_W  = 14
-local ICON_DIR  = "▸ "
-local ICON_DIR_O= "▾ "
+local ICON_DIR  = "+ "
+local ICON_DIR_O= "- "
 local ICON_FILE = "  "
 local SCROLL_SPEED = 40
 
@@ -23,10 +23,19 @@ local top_y     = 0  -- set by draw (menubar_h + toolbar_h)
 
 -- on_select(path) callback when user picks a directory
 local _on_select = nil
+-- on_edit(path) callback when user chooses "Edit file" from context menu
+local _on_edit   = nil
 
-function M.init(colours, on_select)
+-- Right-click context menu state
+local bctx        = nil   -- { x, y, entry_idx } or nil
+local BCTX_ITEMS  = { "Edit file", "Copy path", "Set as scan path" }
+local BCTX_W      = 160
+local BCTX_ITEM_H = 22
+
+function M.init(colours, on_select, on_edit)
     C          = colours
     _on_select = on_select
+    _on_edit   = on_edit
 end
 
 function M.set_visible(v)
@@ -89,6 +98,16 @@ function M.set_root(path)
     M.refresh()
 end
 
+function M.go_up()
+    -- strip trailing slash then take the parent segment
+    local parent = root_path:gsub("/?$", ""):match("^(.*)/[^/]+$")
+    if parent and parent ~= "" then
+        M.set_root(parent)
+    else
+        M.set_root("/")
+    end
+end
+
 function M.refresh()
     entries = {}
     if root_open then
@@ -135,8 +154,9 @@ function M.draw(x, y, h, font)
     if not visible then return end
     top_y = y
 
-    local total_h = #entries * ITEM_H
-    max_scroll = math.max(0, total_h - h + 8)
+    local total_h    = #entries * ITEM_H
+    local viewport_h = h - ITEM_H - 4   -- subtract root label bar + small bottom padding
+    max_scroll = math.max(0, total_h - viewport_h)
     scroll_y   = math.max(0, math.min(scroll_y, max_scroll))
 
     -- panel background
@@ -152,7 +172,19 @@ function M.draw(x, y, h, font)
     love.graphics.setColor(C.text_bright)
     love.graphics.setFont(font)
     local rname = root_path:match("([^/]+)$") or root_path
-    love.graphics.print("⌂  " .. rname, x + 6, y + 3)
+    love.graphics.print("~ " .. rname, x + 6, y + 3)
+    -- "up" button on the right of the root bar
+    local up_label = "^ up"
+    local up_w     = font:getWidth(up_label) + 10
+    local mx0, my0 = love.mouse.getPosition()
+    local up_hov   = (mx0 >= x + W_PANEL - up_w - 4 and mx0 < x + W_PANEL - 4
+                      and my0 >= y and my0 < y + ITEM_H)
+    if up_hov then
+        love.graphics.setColor(0, 0, 0, 0.25)
+        love.graphics.rectangle("fill", x + W_PANEL - up_w - 4, y + 2, up_w, ITEM_H - 4, 3)
+    end
+    love.graphics.setColor(up_hov and C.text_bright or C.lavender)
+    love.graphics.print(up_label, x + W_PANEL - up_w - 2, y + 3)
 
     love.graphics.setScissor(x, y + ITEM_H, W_PANEL, h - ITEM_H)
 
@@ -188,6 +220,36 @@ function M.draw(x, y, h, font)
     end
 
     love.graphics.setScissor()
+
+    -- context menu over browser panel
+    if bctx then
+        local e    = entries[bctx.entry_idx]
+        local cmx  = math.min(bctx.x, x + W_PANEL - BCTX_W - 4)
+        local cmy  = math.min(bctx.y, y + h - #BCTX_ITEMS * BCTX_ITEM_H - 6)
+        local mh   = #BCTX_ITEMS * BCTX_ITEM_H + 6
+        local mmx, mmy = love.mouse.getPosition()
+        love.graphics.setColor(C.menu_bg)
+        love.graphics.rectangle("fill", cmx, cmy, BCTX_W, mh, 4)
+        love.graphics.setColor(C.border)
+        love.graphics.rectangle("line", cmx, cmy, BCTX_W, mh, 4)
+        love.graphics.setFont(font)
+        for ci, label in ipairs(BCTX_ITEMS) do
+            -- hide "Edit file" for directories
+            if label == "Edit file" and e and e.is_dir then
+                -- skip
+            else
+                local ity = cmy + 3 + (ci - 1) * BCTX_ITEM_H
+                local hov = mmx >= cmx and mmx < cmx + BCTX_W
+                         and mmy >= ity and mmy < ity + BCTX_ITEM_H
+                if hov then
+                    love.graphics.setColor(C.accent)
+                    love.graphics.rectangle("fill", cmx + 2, ity, BCTX_W - 4, BCTX_ITEM_H, 3)
+                end
+                love.graphics.setColor(hov and C.text_bright or C.text)
+                love.graphics.print(label, cmx + 10, ity + 4)
+            end
+        end
+    end
 end
 
 function M.wheelmoved(wx, wy, mx, my)
@@ -201,21 +263,65 @@ end
 
 function M.mousepressed(mx, my, btn)
     if not visible then return false end
-    if mx >= W_PANEL or btn ~= 1 then return false end
+    if mx >= W_PANEL then return false end
 
-    if not hover_idx then return false end
-
-    local e = entries[hover_idx]
-    if not e then return false end
-
-    if e.is_dir then
-        -- single click: expand/collapse
-        e.open = not e.open
-        refresh_open_dirs()
-        -- double-click logic via timer in main (simplified here: single click sets path)
-        if _on_select then _on_select(e.path) end
+    -- right-click: open context menu (requires a hovered entry)
+    if btn == 2 then
+        if hover_idx then
+            bctx = { x = mx, y = my, entry_idx = hover_idx }
+            return true
+        end
+        return false
     end
-    return true
+
+    -- left-click: handle context menu or normal action
+    if btn == 1 then
+        -- click on root bar: "up" zone or full-bar up
+        if my >= top_y and my < top_y + ITEM_H then
+            bctx = nil
+            M.go_up()
+            return true
+        end
+
+        if bctx then
+            local e   = entries[bctx.entry_idx]
+            local cmx = math.min(bctx.x, W_PANEL - BCTX_W - 4)
+            local cmy = bctx.y
+            if mx >= cmx and mx < cmx + BCTX_W then
+                local ci = math.floor((my - cmy - 3) / BCTX_ITEM_H) + 1
+                if ci >= 1 and ci <= #BCTX_ITEMS then
+                    local label = BCTX_ITEMS[ci]
+                    bctx = nil
+                    if label == "Edit file" and e and not e.is_dir then
+                        if _on_edit then _on_edit(e.path) end
+                    elseif label == "Copy path" and e then
+                        love.system.setClipboardText(e.path)
+                    elseif label == "Set as scan path" and e then
+                        if _on_select then _on_select(e.is_dir and e.path or (e.path:match("^(.-/)[^/]+$") or e.path)) end
+                    end
+                    return true
+                end
+            end
+            bctx = nil
+            return true
+        end
+
+        if not hover_idx then return false end
+        local e = entries[hover_idx]
+        if not e then return false end
+
+        if e.is_dir then
+            e.open = not e.open
+            refresh_open_dirs()
+            if _on_select then _on_select(e.path) end
+        elseif _on_edit then
+            -- single-click on file opens it in the editor
+            _on_edit(e.path)
+        end
+        return true
+    end
+
+    return false
 end
 
 return M
