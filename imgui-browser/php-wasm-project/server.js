@@ -235,6 +235,15 @@ const server = http.createServer((req, res) => {
     // Default route
     if (pathname === '/') pathname = '/my_project/index.php';
 
+    // Share viewer: /view/{token} -> view.php?token={token}
+    const viewMatch = pathname.match(/^\/view\/([a-f0-9]{8})$/i);
+    if (viewMatch) {
+        const token    = viewMatch[1];
+        const viewPhp  = path.join(ROOT, 'my_project/vscode-bridge/api/view.php');
+        servePHP(req, res, viewPhp, '/my_project/vscode-bridge/api/view.php', 'token=' + token, req.headers.host);
+        return;
+    }
+
     const filepath = path.join(ROOT, pathname);
 
     // Prevent directory traversal outside ROOT

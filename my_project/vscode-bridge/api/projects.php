@@ -122,6 +122,15 @@ function getDb(): SQLite3 {
     ');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_backups_name ON project_backups(name)');
 
+    $db->exec('
+        CREATE TABLE IF NOT EXISTS shared_links (
+            token      TEXT PRIMARY KEY,
+            name       TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            views      INTEGER NOT NULL DEFAULT 0
+        )
+    ');
+
     return $db;
 }
 
@@ -400,6 +409,75 @@ try {
             'backedUp'  => $old !== false,
             'files'     => $wrote,
         ]);
+    }
+
+    // -- GET/POST ?action=publish&name=...
+    // Creates a shareable token for the named project. Idempotent: calling
+    // again for the same project name returns the existing token.
+    if ($action === 'publish') {
+        $name = $_GET['name'] ?? '';
+        if ($name === '') {
+            $body = readBody();
+            $name = $body['name'] ?? '';
+        }
+        if ($name === '') jsonOut(['success' => false, 'error' => 'Missing name parameter'], 400);
+
+        $db = getDb();
+
+        // Verify project exists
+        $chk = $db->prepare('SELECT name FROM projects WHERE name = :name');
+        $chk->bindValue(':name', $name, SQLITE3_TEXT);
+        if (!$chk->execute()->fetchArray(SQLITE3_ASSOC)) {
+            $db->close();
+            jsonOut(['success' => false, 'error' => 'Project not found: ' . $name], 404);
+        }
+
+        // Reuse existing token for this project name if one exists
+        $existing = $db->prepare('SELECT token FROM shared_links WHERE name = :name ORDER BY rowid DESC LIMIT 1');
+        $existing->bindValue(':name', $name, SQLITE3_TEXT);
+        $row = $existing->execute()->fetchArray(SQLITE3_ASSOC);
+
+        if ($row) {
+            $token = $row['token'];
+        } else {
+            // Generate a URL-safe 8-char token
+            $token = bin2hex(random_bytes(4)); // 8 hex chars
+            $ins = $db->prepare('INSERT INTO shared_links (token, name, created_at) VALUES (:token, :name, :ts)');
+            $ins->bindValue(':token', $token, SQLITE3_TEXT);
+            $ins->bindValue(':name',  $name,  SQLITE3_TEXT);
+            $ins->bindValue(':ts',    date('Y-m-d H:i:s'), SQLITE3_TEXT);
+            $ins->execute();
+            error_log('[Projects] Published "' . $name . '" as token=' . $token);
+        }
+
+        $db->close();
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
+        jsonOut(['success' => true, 'token' => $token, 'url' => 'http://' . $host . '/view/' . $token]);
+    }
+
+    // -- GET ?action=get_by_token&token=...
+    // Returns project data for a share token. Used by server.js /view route.
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_by_token') {
+        $token = $_GET['token'] ?? '';
+        if ($token === '') jsonOut(['success' => false, 'error' => 'Missing token parameter'], 400);
+
+        $db   = getDb();
+        $stmt = $db->prepare('SELECT sl.token, sl.name, sl.views, p.html, p.css, p.js, p.updated_at FROM shared_links sl JOIN projects p ON p.name = sl.name WHERE sl.token = :token');
+        $stmt->bindValue(':token', $token, SQLITE3_TEXT);
+        $row  = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+
+        if (!$row) {
+            $db->close();
+            jsonOut(['success' => false, 'error' => 'Share link not found'], 404);
+        }
+
+        // Increment view count
+        $upd = $db->prepare('UPDATE shared_links SET views = views + 1 WHERE token = :token');
+        $upd->bindValue(':token', $token, SQLITE3_TEXT);
+        $upd->execute();
+        $db->close();
+
+        jsonOut(['success' => true, 'project' => $row]);
     }
 
     // Fallthrough

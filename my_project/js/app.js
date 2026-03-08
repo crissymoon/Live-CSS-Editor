@@ -417,6 +417,47 @@
             if (LiveCSS.agent) { LiveCSS.agent.open(); }
         });
 
+        // Share Design Link -- publish current project and show the share URL
+        (function () {
+            var btn = document.getElementById('shareBtn');
+            if (!btn) { return; }
+            btn.addEventListener('click', function () {
+                var name = prompt('Project name to share:', 'crissys-style-tool');
+                if (!name) { return; }
+
+                btn.disabled = true;
+                btn.textContent = 'Publishing...';
+
+                var _shareBase = (window.LiveCSS && window.LiveCSS.env)
+                    ? window.LiveCSS.env.resolve('/vscode-bridge/api/projects.php')
+                    : '/vscode-bridge/api/projects.php';
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', _shareBase + '?action=publish&name=' + encodeURIComponent(name), true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.onload = function () {
+                    btn.disabled = false;
+                    btn.textContent = 'Share Design Link';
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            prompt('Share this link (open on any device on the same network):', res.url);
+                        } else {
+                            alert('Publish failed: ' + (res.error || 'Unknown error'));
+                        }
+                    } catch (e) {
+                        alert('Publish failed: could not parse response');
+                    }
+                };
+                xhr.onerror = function () {
+                    btn.disabled = false;
+                    btn.textContent = 'Share Design Link';
+                    alert('Publish failed: network error');
+                };
+                xhr.send(JSON.stringify({ name: name }));
+            });
+        }());
+
         // Signal app is fully booted -- dismiss the loading overlay
         if (window.LiveCSS && window.LiveCSS.appLoader) {
             window.LiveCSS.appLoader.dismiss();

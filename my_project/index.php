@@ -71,6 +71,7 @@ sort($allPropertyNames);
                     <li class="menu-sep"></li>
                     <li><button id="syncToBridgeBtn">Sync to Bridge</button></li>
                     <li><button id="pullFromVscodeBtn">Pull from VSCode</button></li>
+                    <li><button id="shareBtn">Share Design Link</button></li>
                     <li class="menu-sep"></li>
                     <li><button id="resetBtn">Reset</button></li>
                     <li><button id="resetLayoutBtn">Reset Layout</button></li>
