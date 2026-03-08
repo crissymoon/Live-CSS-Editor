@@ -109,7 +109,7 @@ window.LiveCSS.storage = (function () {
     // Use env-detect helper so the path is correct whether the project is served
     // from the root (PHP built-in: /vscode-bridge/...) or a subdirectory
     // (WASM node server: /my_project/vscode-bridge/...).
-    var _env         = (global.LiveCSS && global.LiveCSS.env) || { resolve: function (p) { return p; } };
+    var _env         = (window.LiveCSS && window.LiveCSS.env) || { resolve: function (p) { return p; } };
     var PROJECTS_API = _env.resolve('/vscode-bridge/api/projects.php');
 
     /**

@@ -235,7 +235,10 @@
                         htmlVal.length + ' html, ' + cssVal.length + ' css, ' + jsVal.length + ' js)');
 
                     var xhr = new XMLHttpRequest();
-                    xhr.open('POST', '/vscode-bridge/api/projects.php?action=sync_to_bridge', true);
+                    var _syncUrl = (window.LiveCSS && window.LiveCSS.env)
+                        ? window.LiveCSS.env.resolve('/vscode-bridge/api/projects.php') + '?action=sync_to_bridge'
+                        : '/vscode-bridge/api/projects.php?action=sync_to_bridge';
+                    xhr.open('POST', _syncUrl, true);
                     xhr.setRequestHeader('Content-Type', 'application/json');
                     xhr.onload = function () {
                         try {
@@ -281,7 +284,10 @@
                     pullBtn.textContent = 'Pulling...';
 
                     var xhr = new XMLHttpRequest();
-                    xhr.open('GET', '/vscode-bridge/api/pull-from-vscode.php?project=' + encodeURIComponent(name), true);
+                    var _pullBase = (window.LiveCSS && window.LiveCSS.env)
+                        ? window.LiveCSS.env.resolve('/vscode-bridge/api/pull-from-vscode.php')
+                        : '/vscode-bridge/api/pull-from-vscode.php';
+                    xhr.open('GET', _pullBase + '?project=' + encodeURIComponent(name), true);
                     xhr.onload = function () {
                         pullBtn.disabled = false;
                         pullBtn.textContent = 'Pull from VSCode';
@@ -410,6 +416,11 @@
         document.getElementById('agentBtn').addEventListener('click', function () {
             if (LiveCSS.agent) { LiveCSS.agent.open(); }
         });
+
+        // Signal app is fully booted -- dismiss the loading overlay
+        if (window.LiveCSS && window.LiveCSS.appLoader) {
+            window.LiveCSS.appLoader.dismiss();
+        }
 
     });
 

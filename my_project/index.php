@@ -50,6 +50,7 @@ sort($allPropertyNames);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="format-detection" content="telephone=no, date=no, email=no, address=no">
     <title>Crissy's Style Tool</title>
+    <link rel="stylesheet" href="css/app-loader.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/wireframe.css">
     <link rel="stylesheet" href="css/agent.css">
@@ -515,6 +516,8 @@ sort($allPropertyNames);
     </style>
 
     <!-- JS modules (load order: utilities first, app last) -->
+    <!-- app-loader injects the loading overlay before anything else renders -->
+    <script src="js/app-loader.js"></script>
     <!-- env-detect must be first: sets LiveCSS.env.basePath and LiveCSS.env.resolve() -->
     <script src="js/env-detect.js"></script>
     <script src="js/cdn-loader.js"></script>
