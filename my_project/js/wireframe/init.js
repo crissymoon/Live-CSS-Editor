@@ -16,6 +16,7 @@ import { render, renderRulers, renderGuides } from './render.js';
 import { onMousemove, onMouseup, setupKeyboard } from './input.js';
 
 export function init() {
+    console.log('[wireframe] init called');
     st.overlay  = document.getElementById('wireframeOverlay');
     st.canvasEl = document.getElementById('wfCanvas');
     st.propsEl  = document.getElementById('wfProps');
@@ -30,20 +31,47 @@ export function init() {
     var loadBtn    = document.getElementById('wfLoadBtn');
     var contextBtn = document.getElementById('wfContextBtn');
 
-    if (!st.overlay || !st.canvasEl || !st.propsEl || !openBtn) return;
+    /* Detect standalone mode before the guard so we can adjust requirements */
+    var _standalone = document.body && document.body.dataset.wfStandalone === '1';
+
+    /* In standalone mode there is no openBtn -- the page IS the wireframe.
+       In embedded mode openBtn must exist or the overlay can never be opened. */
+    if (!st.overlay || !st.canvasEl || !st.propsEl || (!_standalone && !openBtn)) {
+        console.error('[wireframe] init: required DOM element missing', {
+            overlay:    !!st.overlay,
+            canvasEl:   !!st.canvasEl,
+            propsEl:    !!st.propsEl,
+            openBtn:    !!openBtn,
+            standalone: _standalone
+        });
+        return;
+    }
+    console.log('[wireframe] init: elements found, standalone=' + _standalone + ', wiring buttons');
 
     /* Restore last session */
     loadFromStorage();
 
     /* ── Open / close ── */
-    openBtn.addEventListener('click', function () {
+    /* openBtn only exists in embedded (index.php) mode */
+    openBtn && openBtn.addEventListener('click', function () {
         st.overlay.classList.remove('hidden');
         renderRulers();
         render();
     });
 
-    closeBtn.addEventListener('click', function () {
-        st.overlay.classList.add('hidden');
+    /* In standalone mode the overlay is already visible -- render immediately */
+    if (_standalone) {
+        renderRulers();
+        render();
+    }
+
+    closeBtn && closeBtn.addEventListener('click', function () {
+        if (_standalone) {
+            if (window.history.length > 1) { window.history.back(); }
+            else { window.location.href = '../../index.php'; }
+        } else {
+            st.overlay.classList.add('hidden');
+        }
     });
 
     /* Close on overlay background click */
@@ -77,7 +105,7 @@ export function init() {
     }
 
     /* ── Toolbar actions ── */
-    addBtn.addEventListener('click', function () {
+    addBtn && addBtn.addEventListener('click', function () {
         var el = makeEl(null);
         findFreePosition(el);
         st.elements.push(el);
@@ -85,7 +113,7 @@ export function init() {
         render();
     });
 
-    clearBtn.addEventListener('click', function () {
+    clearBtn && clearBtn.addEventListener('click', function () {
         if (st.elements.length === 0 || window.confirm('Clear all elements?')) {
             st.elements = [];
             st.selId    = null;
@@ -93,11 +121,11 @@ export function init() {
         }
     });
 
-    saveBtn.addEventListener('click', function () { saveJSON(saveBtn); });
+    saveBtn && saveBtn.addEventListener('click', function () { saveJSON(saveBtn); });
 
     /* Load JSON -- create a temporary file input at body level so
        programmatic .click() works reliably in Tauri's WebView */
-    loadBtn.addEventListener('click', function () {
+    loadBtn && loadBtn.addEventListener('click', function () {
         var tmp = document.createElement('input');
         tmp.type      = 'file';
         tmp.accept    = '.json,.wf.json';
@@ -110,7 +138,7 @@ export function init() {
         tmp.click();
     });
 
-    contextBtn.addEventListener('click', function () {
+    contextBtn && contextBtn.addEventListener('click', function () {
         var text = buildContext();
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(function () {

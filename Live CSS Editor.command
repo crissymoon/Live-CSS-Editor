@@ -204,24 +204,27 @@ _start_admin() {
     # launch browser
     local IMGUI_RUN="$DIR/imgui-browser/run.sh"
     local PROJECT_DIR="$DIR/my_project"
+    local WASM_SERVER_DIR="$DIR/imgui-browser/php-wasm-project"
     local PROJECT_PORT=8080
-    local PROJECT_URL="http://localhost:${PROJECT_PORT}/"
+    local PROJECT_URL="http://localhost:${PROJECT_PORT}/my_project/index.php"
 
-    # Start PHP built-in dev server for my_project/ if not already listening
+    # Start the Node dev server (php-wasm-project/server.js) if not already running.
+    # It executes PHP files via php-cgi and serves everything under my_project/.
     if ! _port_open "$PROJECT_PORT"; then
-        status_info "Starting PHP dev server on port ${PROJECT_PORT}..."
-        php -S "127.0.0.1:${PROJECT_PORT}" -t "$PROJECT_DIR" >/tmp/php-dev-server.log 2>&1 &
-        local PHP_SRV_PID=$!
+        status_info "Starting Node dev server on port ${PROJECT_PORT}..."
+        node "$WASM_SERVER_DIR/server.js" "$PROJECT_PORT" \
+            >>"$WASM_SERVER_DIR/server.log" 2>&1 &
+        local NODE_SRV_PID=$!
         local _pw=0
-        while (( _pw < 20 )); do
+        while (( _pw < 30 )); do
             _port_open "$PROJECT_PORT" && break
             sleep 0.1; (( _pw++ ))
         done
         _port_open "$PROJECT_PORT" \
-            && status_ok "PHP dev server ready  :${PROJECT_PORT}  (PID $PHP_SRV_PID)" \
-            || status_fail "PHP dev server did not start -- see /tmp/php-dev-server.log"
+            && status_ok "Node dev server ready  :${PROJECT_PORT}  (PID $NODE_SRV_PID)" \
+            || status_fail "Node dev server did not start -- see $WASM_SERVER_DIR/server.log"
     else
-        status_ok "PHP dev server already running  :${PROJECT_PORT}"
+        status_ok "Dev server already running  :${PROJECT_PORT}"
     fi
 
     if [[ -f "$IMGUI_RUN" ]]; then
@@ -274,7 +277,7 @@ _open_full_browser() {
         _port_open 8443 && status_ok "Server ready  :8443" \
                         || status_fail "Server did not start -- see /tmp/live-css-auth.log"
     fi
-    local URL="https://localhost:8443/"
+    local URL="https://localhost:8443/my_project/index.php"
     local IMGUI_RUN="$DIR/imgui-browser/run.sh"
     if [[ -f "$IMGUI_RUN" ]]; then
         status_info "Launching imgui-browser (full toolbar)..."

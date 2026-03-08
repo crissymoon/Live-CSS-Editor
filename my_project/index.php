@@ -75,6 +75,8 @@ sort($allPropertyNames);
                     <li><button id="resetLayoutBtn">Reset Layout</button></li>
                     <li class="menu-sep"></li>
                     <li><button id="propertiesBtn">Properties</button></li>
+                    <li class="menu-sep"></li>
+                    <li><button onclick="window.location.href='js/wireframe/wireframe.php'">Wireframes</button></li>
                 </ul>
             </div>
             <div class="menu-item">
@@ -82,7 +84,7 @@ sort($allPropertyNames);
                 <ul class="menu-dropdown">
                     <li><button id="harmonyBtn">Harmony</button></li>
                     <li><button id="guidesBtn">Guides</button></li>
-                    <li><button id="wireframeBtn">Wireframes</button></li>
+                    <li><button id="wireframeBtn" onclick="window.location.href='js/wireframe/wireframe.php'">Wireframes</button></li>
                     <li><button id="widgetsBtn" class="menu-btn-active">Widgets</button></li>
                 </ul>
             </div>
@@ -349,33 +351,7 @@ sort($allPropertyNames);
     <div class="fuzzy-dropdown hidden" id="fuzzyDropdown"></div>
 
     <!-- Wireframe Tool Modal -->
-    <div class="wf-overlay hidden" id="wireframeOverlay">
-        <div class="wf-modal">
-            <div class="wf-toolbar">
-                <span class="wf-toolbar-title">Wireframes</span>
-                <button class="wf-btn" id="wfAddBtn">+ Add Element</button>
-                <button class="wf-btn" id="wfClearBtn">Clear All</button>
-                <button class="wf-btn" id="wfSaveBtn">Save JSON</button>
-                <button class="wf-btn" id="wfLoadBtn">Load JSON</button>
-                <button class="wf-btn" id="wfContextBtn">Copy Context</button>
-                <input type="file" id="wfFileInput" accept=".json,.wf.json" style="display:none">
-                <button class="wf-btn wf-btn-close" id="wfCloseBtn">Close</button>
-            </div>
-            <div class="wf-body">
-                <div class="wf-canvas-area" id="wfCanvasArea">
-                    <div class="wf-ruler-corner"></div>
-                    <div class="wf-ruler-h" id="wfRulerH"></div>
-                    <div class="wf-ruler-v" id="wfRulerV"></div>
-                    <div id="wfCanvas">
-                        <span class="wf-canvas-info">1200 &times; 900</span>
-                    </div>
-                </div>
-                <div class="wf-props-panel" id="wfProps">
-                    <div class="wf-props-empty">Click an element to select it</div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Wireframe tool lives at js/wireframe/wireframe.php (standalone page) -->
 
     <!-- Floating properties reference tool -->
     <div class="prop-tool hidden" id="propertiesToolPanel">
@@ -539,6 +515,8 @@ sort($allPropertyNames);
     </style>
 
     <!-- JS modules (load order: utilities first, app last) -->
+    <!-- env-detect must be first: sets LiveCSS.env.basePath and LiveCSS.env.resolve() -->
+    <script src="js/env-detect.js"></script>
     <script src="js/cdn-loader.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/storage.js"></script>
@@ -556,7 +534,6 @@ sort($allPropertyNames);
     <script src="js/gutter.js"></script>
     <script src="js/editor-search.js"></script>
     <script src="js/indent-guide.js"></script>
-    <script src="js/wireframe.js" type="module"></script>
     <script src="js/app.js" defer></script>
     <script src="js/agent/agent-core.js"></script>
     <script src="js/agent/agent-ui.js"></script>
@@ -572,30 +549,8 @@ sort($allPropertyNames);
     <!-- VSCode Copilot bridge: two-way sync with MCP server -->
     <script src="vscode-bridge/js/bridge-sync.js"></script>
 
-    <!-- last-resort direct wiring: runs after all scripts so module failures
-         and timing gaps do not leave the wireframe close non-functional.
-         NOTE: bridge-sync.js already wires vscodeBridgeToggle; do NOT
+    <!-- NOTE: bridge-sync.js already wires vscodeBridgeToggle; do NOT
          double-wire it here or BridgeSync.toggle() would fire twice per click. -->
-    <script>
-    (function () {
-        function wireWireframeClose() {
-            var btn     = document.getElementById('wfCloseBtn');
-            var overlay = document.getElementById('wireframeOverlay');
-            if (btn && overlay && !btn._closeBound) {
-                btn._closeBound = true;
-                btn.addEventListener('click', function () {
-                    overlay.classList.add('hidden');
-                });
-            }
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', wireWireframeClose);
-        } else {
-            wireWireframeClose();
-        }
-    }());
-    </script>
 
     <script>
     // Menu bar dropdown toggle

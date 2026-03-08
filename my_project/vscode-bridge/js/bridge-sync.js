@@ -23,7 +23,10 @@
     // -------------------------------------------------------------------------
     // Config
     // -------------------------------------------------------------------------
-    var PROJECTS_API            = '/vscode-bridge/api/projects.php';
+    // Use LiveCSS.env.resolve() so the path is correct regardless of whether
+    // the project is served from / (PHP built-in) or /my_project/ (WASM server).
+    var _env         = (global.LiveCSS && global.LiveCSS.env) || { resolve: function (p) { return p; } };
+    var PROJECTS_API = _env.resolve('/vscode-bridge/api/projects.php');
     var POLL_INTERVAL_MS        = 4000;
     var STORAGE_KEY             = 'bridgeSync_enabled';
     var TOGGLE_BTN_ID           = 'vscodeBridgeToggle';
