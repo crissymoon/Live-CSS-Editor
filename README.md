@@ -1,4 +1,4 @@
-# Live CSS Editor 
+# Live CSS Editor
 
 **Author:** Crissy Deutsch  
 **Company:** XcaliburMoon Web Development  
@@ -44,6 +44,7 @@ live-css/
   imgui-browser/  -- Cross-platform native browser shell (C++ / Dear ImGui) -- packaging target
   server/  -- nginx + PHP-FPM configuration and startup scripts
   db_bridge/  -- Shared SQLite bridge API (PHP + JS client)
+  launcher.json
   make_readme.py
   push.sh
 ```
@@ -75,4 +76,4 @@ Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
 
 ---
 
-*README last generated: 2026-03-07  12:30:47*
+*README last generated: 2026-03-10  00:11:27*
