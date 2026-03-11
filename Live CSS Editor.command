@@ -95,6 +95,75 @@ _push_repo() {
     cd "$prev_dir"; return 0
 }
 
+# ── Page builder helper ───────────────────────────────────────────────────────
+_open_page_builder() {
+    local port=8844
+    local dir="$DIR/page-builder"
+    local logfile="$DIR/.page-builder-server.log"
+    
+    [[ ! -d "$dir" ]] && die "page-builder directory not found at $dir"
+    
+    if ! _port_open 9100; then
+        printf "  ${C_YELLOW}Auth server not running on :9100${R}\n"
+        printf "  ${C_GREY}Starting auth server first...${R}\n"
+        local AUTH_SCRIPT="$DIR/page-builder/pb_admin/start-xcm-auth-only.sh"
+        if [[ -f "$AUTH_SCRIPT" ]]; then
+            bash "$AUTH_SCRIPT" >/tmp/xcm-auth-startup.log 2>&1 &
+            local _pw=0
+            while (( _pw < 60 )); do
+                _port_open 9100 && break
+                sleep 0.2; (( _pw++ ))
+            done
+            if ! _port_open 9100; then
+                printf "  ${C_RED}ERROR: Auth server failed to start${R}\n"
+                printf "  ${C_GREY}Check: tail /tmp/xcm-auth-startup.log${R}\n"
+                printf "  ${C_GREY}Or run: bash $DIR/page-builder/pb_admin/start-xcm-auth-only.sh${R}\n"
+                printf "\n"; read -r "?Press ENTER to return..."; return 1
+            fi
+            status_ok "Auth server ready on :9100"
+        fi
+    fi
+    
+    if lsof -i ":$port" -sTCP:LISTEN &>/dev/null 2>&1; then
+        printf "  ${C_YELLOW}PHP server already running on :%s${R}\n" "$port"
+    else
+        printf "  ${C_GREY}Starting PHP server on localhost:%s ...${R}\n" "$port"
+        php -S "localhost:$port" -t "$dir" >"$logfile" 2>&1 &
+        local pid=$!
+        sleep 0.6
+        if ! kill -0 "$pid" 2>/dev/null; then
+            printf "  ${C_RED}ERROR: PHP server failed to start${R}\n" >&2; return 1
+        fi
+        printf "  ${C_GREEN}PHP server started (PID %s)${R}\n" "$pid"
+    fi
+    
+    local URL="http://localhost:$port/index.php"
+    printf "  ${C_GREY}Opening page builder at: %s${R}\n" "$URL"
+    
+    local IMGUI_RUN="$DIR/imgui-browser/run.sh"
+    if [[ -f "$IMGUI_RUN" ]]; then
+        IMGUI_SERVE_MODE=page_builder bash "$IMGUI_RUN" --url "$URL" --ui-mode full >/tmp/page-builder-browser.log 2>&1 &
+        sleep 0.8
+        printf "  ${C_GREEN}Browser launched${R}\n"
+    elif command -v open &>/dev/null; then
+        open "$URL" 2>/dev/null || printf "  ${C_YELLOW}Visit: %s${R}\n" "$URL"
+    fi
+    printf "\n  ${C_GREY}Page builder running. Press ENTER to return to menu.${R}\n"
+    read -r "?" 2>/dev/null || true
+}
+
+# ── Start auth server only ─────────────────────────────────────────────────────
+_start_auth_only() {
+    local AUTH_SCRIPT="$DIR/page-builder/pb_admin/start-xcm-auth-only.sh"
+    [[ ! -f "$AUTH_SCRIPT" ]] && die "start-xcm-auth-only.sh not found at $AUTH_SCRIPT"
+
+    printf "\n"; step "Starting XCM Auth Server (port 9100)"
+    printf "\n  ${C_GREY}This is the Go authentication backend for the admin panel.${R}\n"
+    printf "  ${C_GREY}Press Ctrl+C to stop and return to menu.${R}\n\n"
+
+    bash "$AUTH_SCRIPT"
+}
+
 # ── Agent-flow helper ──────────────────────────────────────────────────────────
 _open_agent_flow() {
     local port=9090
@@ -382,6 +451,7 @@ except Exception:
     box_item "2" "Full browser"  "Open in a full browser window"
     box_item "3" "Server"        "Start the web server  (nginx + PHP)"
     box_item "4" "Stop"          "Stop the web server"
+    box_item "5" "Page builder"  "Open the page builder staging tool"
     box_empty
     box_mid
     box_section "PUSH"
@@ -398,7 +468,13 @@ except Exception:
     box_item "q" "Quit"          ""
     box_bot
     printf "\n"
-    printf "  ${C_GREY}Choice  [ 1-4 / p / t / a / q ] :${R}  "
+    box_item "s" "Auth server"   "Start xcm_auth (port 9100) standalone"
+    box_empty
+    box_mid
+    box_item "q" "Quit"          ""
+    box_bot
+    printf "\n"
+    printf "  ${C_GREY}Choice  [ 1-5 / p / t / a / s / q ] :${R}  "
     read -r CHOICE
 
     case "$CHOICE" in
@@ -435,6 +511,11 @@ except Exception:
                 fi
             done
             printf "\n"; read -r "?Press ENTER to return..."; ;;
+
+        5)
+            printf "\n"; step "Opening Page Builder..."
+            _open_page_builder
+            ;;
 
         p|P)
             while true; do
@@ -573,6 +654,11 @@ except Exception:
             printf "\n"; step "Opening Agent Flow..."
             _open_agent_flow \
                 || printf "  ${C_RED}ERROR: could not open agent-flow${R}\n" >&2
+            printf "\n"; read -r "?Press ENTER to return..."; ;;
+
+        s|S)
+            printf "\n"; step "Starting Auth Server..."
+            _start_auth_only
             printf "\n"; read -r "?Press ENTER to return..."; ;;
 
         q|Q|"")

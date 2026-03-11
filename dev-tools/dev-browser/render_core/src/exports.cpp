@@ -14,6 +14,12 @@
  *   int       xcm_height(xcm_ctx* ctx)
  *   int       xcm_doc_height(xcm_ctx* ctx)    -- full scrollable height
  *   const char* xcm_metrics_json(xcm_ctx* ctx) -- layout metrics as JSON
+ *   const char* xcm_ansi_frame(xcm_ctx* ctx, int cols, int rows)
+ *   const char* xcm_render_ansi(xcm_ctx* ctx,
+ *                               const char* html, int html_len,
+ *                               const char* css,  int css_len,
+ *                               float scroll_y,
+ *                               int cols, int rows)
  *
  *   -- Memory helpers for JS caller (pass/receive string buffers)--
  *   uint8_t*  xcm_alloc(int n)    -- allocate n bytes in WASM heap
@@ -34,12 +40,14 @@
 #include "style_resolver.h"
 #include "layout.h"
 #include "paint.h"
+#include "xcm_tui.h"
 
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
 #include <string>
 #include <memory>
+#include <algorithm>
 
 #ifdef __EMSCRIPTEN__
   #include <emscripten.h>
@@ -72,6 +80,9 @@ struct xcm_ctx {
 
     // Cached metrics JSON.
     char metrics_json[8192] = {};
+
+    // Cached ANSI frame for terminal rendering.
+    std::string ansi_frame;
 
     void reset() {
         // Soft-reset: rewind bump pointers without freeing slabs.
@@ -181,6 +192,72 @@ XCM_EXPORT const char* xcm_metrics_json(xcm_ctx* ctx) {
 }
 
 // -------------------------------------------------------------------------
+// ANSI terminal rendering.
+// -------------------------------------------------------------------------
+static inline int clampi(int v, int lo, int hi) {
+    return (v < lo) ? lo : ((v > hi) ? hi : v);
+}
+
+static std::string rgba_to_ansi_background(const uint8_t* rgba,
+                                           int src_w,
+                                           int src_h,
+                                           int cols,
+                                           int rows) {
+    if (!rgba || src_w <= 0 || src_h <= 0 || cols <= 0 || rows <= 0) return "";
+
+    std::string out;
+    out.reserve(static_cast<std::size_t>(cols * rows * 14));
+
+    for (int y = 0; y < rows; ++y) {
+        int py = clampi((y * src_h) / rows, 0, src_h - 1);
+        int prev_r = -1, prev_g = -1, prev_b = -1;
+
+        for (int x = 0; x < cols; ++x) {
+            int px = clampi((x * src_w) / cols, 0, src_w - 1);
+            const uint8_t* p = rgba + (py * src_w + px) * 4;
+            int r = p[0], g = p[1], b = p[2];
+
+            if (r != prev_r || g != prev_g || b != prev_b) {
+                char esc[32];
+                std::snprintf(esc, sizeof(esc), "\x1b[48;2;%d;%d;%dm", r, g, b);
+                out.append(esc);
+                prev_r = r;
+                prev_g = g;
+                prev_b = b;
+            }
+            out.push_back(' ');
+        }
+        out.append("\x1b[0m\n");
+    }
+
+    return out;
+}
+
+XCM_EXPORT const char* xcm_ansi_frame(xcm_ctx* ctx, int cols, int rows) {
+    if (!ctx || !ctx->paint_eng) return "";
+
+    ctx->ansi_frame = rgba_to_ansi_background(ctx->paint_eng->pixels(),
+                                              ctx->viewport_w,
+                                              ctx->viewport_h,
+                                              cols,
+                                              rows);
+    return ctx->ansi_frame.c_str();
+}
+
+XCM_EXPORT const char* xcm_render_ansi(xcm_ctx* ctx,
+                                       const char* html,
+                                       int html_len,
+                                       const char* css,
+                                       int css_len,
+                                       float scroll_y,
+                                       int cols,
+                                       int rows) {
+    int rc = xcm_render(ctx, html, html_len, css, css_len, scroll_y);
+    if (rc != 0) return "";
+    return xcm_ansi_frame(ctx, cols, rows);
+}
+
+// -------------------------------------------------------------------------
 // Memory helpers (used by JS to pass strings into WASM heap).
 // -------------------------------------------------------------------------
 XCM_EXPORT uint8_t* xcm_alloc(int n) {
@@ -189,6 +266,57 @@ XCM_EXPORT uint8_t* xcm_alloc(int n) {
 
 XCM_EXPORT void xcm_free(uint8_t* ptr) {
     std::free(ptr);
+}
+
+// -------------------------------------------------------------------------
+// TUI API  --  callable from Python / Node / shell via ctypes or ffi
+// -------------------------------------------------------------------------
+struct xcm_tui_ctx {
+    xcm::TuiRenderer renderer;
+    xcm::TuiFramebuffer fb;
+    std::string serial_out;
+};
+
+XCM_EXPORT xcm_tui_ctx* xcm_tui_create(int mode, int color_mode,
+                                        int edge_pass, int shading_pass,
+                                        int edge_thresh) {
+    auto* t = new xcm_tui_ctx();
+    t->renderer.mode        = static_cast<xcm::TuiMode>(mode);
+    t->renderer.color_mode  = static_cast<xcm::TuiColorMode>(color_mode);
+    t->renderer.edge_pass   = (edge_pass   != 0);
+    t->renderer.shading_pass= (shading_pass != 0);
+    t->renderer.edge_thresh = edge_thresh;
+    return t;
+}
+
+XCM_EXPORT void xcm_tui_destroy(xcm_tui_ctx* t) {
+    delete t;
+}
+
+// Render RGBA framebuffer into a TUI cell grid and return serialized ANSI.
+// xcm_ctx must have been populated by xcm_render() first.
+XCM_EXPORT const char* xcm_tui_render(xcm_tui_ctx* t, xcm_ctx* ctx,
+                                       int cols, int rows) {
+    if (!t || !ctx || !ctx->paint_eng) return "";
+    t->fb.resize(cols, rows);
+    t->renderer.render(ctx->paint_eng->pixels(),
+                       ctx->viewport_w, ctx->viewport_h,
+                       t->fb);
+    t->renderer.serialize(t->fb, t->serial_out, true);
+    return t->serial_out.c_str();
+}
+
+// Render a diff update relative to the previous xcm_tui_render() call.
+XCM_EXPORT const char* xcm_tui_frame_diff(xcm_tui_ctx* t, xcm_ctx* ctx,
+                                           int cols, int rows) {
+    if (!t || !ctx || !ctx->paint_eng) return "";
+    xcm::TuiFramebuffer prev = t->fb;
+    t->fb.resize(cols, rows);
+    t->renderer.render(ctx->paint_eng->pixels(),
+                       ctx->viewport_w, ctx->viewport_h,
+                       t->fb);
+    t->renderer.serialize_diff(prev, t->fb, t->serial_out);
+    return t->serial_out.c_str();
 }
 
 } // extern "C"

@@ -11,8 +11,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/render_core.dir/src/paint.cpp.o.d"
   "CMakeFiles/render_core.dir/src/style_resolver.cpp.o"
   "CMakeFiles/render_core.dir/src/style_resolver.cpp.o.d"
-  "render_core.js"
-  "render_core.pdb"
+  "librender_core.dylib"
+  "librender_core.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

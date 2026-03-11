@@ -35,8 +35,37 @@ else
     fi
 fi
 
-APPS_DIR="$(cd "$ROOT/../dev-tools/dev-browser/apps" && pwd)"
 LIVECSS_ROOT="$(cd "$ROOT/.." && pwd)"
+
+# Serve mode controls which app root and default URL are used.
+# - page_builder: serves imgui-browser/src/apps and opens page-builder URLs.
+# - css_tool: serves dev-tools/dev-browser/apps and opens style-tool URLs.
+SERVE_MODE="${IMGUI_SERVE_MODE:-page_builder}"
+APPS_DIR_OVERRIDE="${IMGUI_APPS_DIR:-}"
+DEFAULT_URL_OVERRIDE="${IMGUI_DEFAULT_URL:-}"
+
+if [[ -n "$APPS_DIR_OVERRIDE" ]]; then
+    APPS_DIR="$APPS_DIR_OVERRIDE"
+else
+    if [[ "$SERVE_MODE" == "css_tool" ]]; then
+        APPS_DIR="$ROOT/../dev-tools/dev-browser/apps"
+    else
+        APPS_DIR="$ROOT/src/apps"
+    fi
+fi
+
+if [[ ! -d "$APPS_DIR" ]]; then
+    echo "[run] ERROR: apps directory not found: $APPS_DIR"
+    exit 1
+fi
+
+if [[ -n "$DEFAULT_URL_OVERRIDE" ]]; then
+    DEFAULT_URL="$DEFAULT_URL_OVERRIDE"
+elif [[ "$SERVE_MODE" == "css_tool" ]]; then
+    DEFAULT_URL="https://localhost:8443/my_project/index.php"
+else
+    DEFAULT_URL="https://localhost:8443/page-builder/composer.php?page=landing"
+fi
 
 # Ensure the nginx HTTPS server on port 8443 is up before launching.
 # nginx + PHP-FPM are managed by brew services (launchd) and should already
@@ -60,6 +89,30 @@ else
     echo "[run] port 8443 already listening"
 fi
 
+# Page-builder mode requires xcm_auth on :9100 for authenticated flows.
+if [[ "$SERVE_MODE" == "page_builder" ]]; then
+    if ! _port_open 9100; then
+        echo "[run] auth server :9100 is offline -- starting xcm_auth first..."
+        AUTH_STARTER="$LIVECSS_ROOT/page-builder/pb_admin/start-xcm-auth-only.sh"
+        if [[ -f "$AUTH_STARTER" ]]; then
+            bash "$AUTH_STARTER" >/tmp/xcm-auth-startup.log 2>&1 &
+            for i in {1..40}; do
+                _port_open 9100 && break
+                sleep 0.2
+            done
+            if _port_open 9100; then
+                echo "[run] xcm_auth ready on :9100"
+            else
+                echo "[run] WARNING: xcm_auth did not come online (see /tmp/xcm-auth-startup.log)"
+            fi
+        else
+            echo "[run] WARNING: auth starter not found at $AUTH_STARTER"
+        fi
+    else
+        echo "[run] auth server already listening on :9100"
+    fi
+fi
+
 # Use --url from caller args if provided; fall back to the page-builder default.
 _has_url=0
 for _a in "$@"; do [[ "$_a" == "--url" ]] && { _has_url=1; break; }; done
@@ -72,7 +125,7 @@ if (( _has_url )); then
         "$@"
 else
     exec "$BIN" \
-        --url "https://localhost:8443/page-builder/pb_admin/dashboard.php" \
+        --url "$DEFAULT_URL" \
         --apps-dir "$APPS_DIR" \
         --php-port 9879 \
         --cmd-port 9878 \

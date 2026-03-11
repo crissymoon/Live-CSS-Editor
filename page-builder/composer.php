@@ -15,6 +15,23 @@
  */
 
 $page = preg_replace('/[^a-z0-9_-]/i', '', $_GET['page'] ?? '');
+
+// Resolve base URL so assets and relative links keep working whether composer
+// is reached as /composer.php or /page-builder/composer.php.
+$docRoot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+$reqUri  = (string)($_SERVER['REQUEST_URI'] ?? '');
+$baseHref = '/';
+if ($docRoot !== '') {
+    $canRoot = is_file($docRoot . '/css/pb-theme.css');
+    $canPB   = is_file($docRoot . '/page-builder/css/pb-theme.css');
+    if ($canPB && preg_match('#^/page-builder(?:/|$)#', $reqUri)) {
+        $baseHref = '/page-builder/';
+    } elseif ($canRoot) {
+        $baseHref = '/';
+    } elseif ($canPB) {
+        $baseHref = '/page-builder/';
+    }
+}
 ?><!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -32,8 +49,10 @@ $page = preg_replace('/[^a-z0-9_-]/i', '', $_GET['page'] ?? '');
     } catch (e) { /* localStorage unavailable */ }
 })();
 </script>
+<base href="<?= htmlspecialchars($baseHref, ENT_QUOTES) ?>">
 <link rel="stylesheet" href="css/pb-theme.css">
 <link rel="stylesheet" href="css/pb-composer.css">
+<link rel="stylesheet" href="css/pb-dnd.css">
 </head>
 <body>
 
@@ -93,30 +112,24 @@ $page = preg_replace('/[^a-z0-9_-]/i', '', $_GET['page'] ?? '');
         </div>
 
         <!-- ========= Center: Canvas ========= -->
-        <div class="pbc-canvas-wrap" id="pbc-canvas-wrap">
+        <div class="pbc-canvas-wrap" id="pbc-canvas-wrap" data-dnd-canvas>
             <?php if (!$page): ?>
             <p class="pbc-canvas-empty" style="color:var(--pb-err)">
                 No page specified. Add <code>?page=my-page-name</code> to this URL.
             </p>
             <?php else: ?>
-            <p class="pbc-canvas-title">
-                sections &mdash; drag to reorder, click <em>edit JSON</em> to view or update a section
+            <p class="pbc-canvas-title" style="font-size:13px;margin:12px 16px 8px;color:var(--pb-text-dim);">
+                sections &mdash; drag to reorder, drop images to add
             </p>
 
             <div id="pbc-canvas-inner">
                 <div class="pbc-canvas-empty">loading page...</div>
             </div>
 
-            <!-- Divider before library reminder -->
-            <div class="pbc-add-bar" style="margin-top:20px;">
-                <div class="pbc-add-bar-line"></div>
-                <span class="pbc-add-bar-label">add from library</span>
-                <div class="pbc-add-bar-line"></div>
+            <!-- Simple image drop hint -->
+            <div class="pbdnd-drop-hint" style="padding:16px;text-align:center;color:var(--pb-text-faint);font-size:12px;margin-top:12px;">
+                Drop images here or drag from library  |  Ctrl+G for grid  |  Ctrl+Shift+S for snap
             </div>
-
-            <p style="font-size:10px;color:var(--pb-text-faint);margin-top:6px;text-align:center;">
-                Click <strong style="color:var(--pb-text-muted)">+ add</strong> on any template in the left panel to append it to this page.
-            </p>
 
             <?php endif; ?>
         </div>
@@ -189,6 +202,8 @@ $page = preg_replace('/[^a-z0-9_-]/i', '', $_GET['page'] ?? '');
 </div><!-- /.pbc-app -->
 
 <script src="js/pb-composer.js"></script>
+<script src="js/pb-dnd.js"></script>
+<script src="js/pb-grid.js"></script>
 <script>
 /* ---- Extra helpers wired to DOM elements not in the module ---- */
 

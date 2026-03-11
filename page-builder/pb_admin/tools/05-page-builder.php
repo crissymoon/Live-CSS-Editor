@@ -9,6 +9,12 @@ $tool_title = 'page builder';
 $tool_icon  = '&#9632;';
 $tool_cols  = 2;  // spans two grid columns for the table
 
+// Derive page-builder root from the admin mount path.
+$pbRoot = rtrim(dirname(ADMIN_URL_PATH), '/');
+if ($pbRoot === '/' || $pbRoot === '\\') {
+    $pbRoot = '';
+}
+
 // Read build log from disk (server-side, no network call needed)
 $buildLogPath = dirname(dirname(__DIR__)) . '/deploy/build-log.json';
 $buildLog     = null;
@@ -38,7 +44,7 @@ if (!file_exists($buildLogPath)) {
 <?php if ($buildLogErr): ?>
     <p style="font-size:11px;color:#5555a0;"><?= htmlspecialchars($buildLogErr) ?></p>
     <div style="margin-top:12px;">
-        <a href="/page-builder/" style="font-size:11px;color:#6366f1;text-decoration:none;letter-spacing:0.06em;">
+        <a href="<?= htmlspecialchars(($pbRoot !== '' ? $pbRoot : '') . '/', ENT_QUOTES) ?>" style="font-size:11px;color:#6366f1;text-decoration:none;letter-spacing:0.06em;">
             open page builder &rsaquo;
         </a>
     </div>
@@ -52,7 +58,7 @@ if (!file_exists($buildLogPath)) {
     $bytesRaw    = (int)($buildLog['total_bytes_raw'] ?? 0);
     $bytesMin    = (int)($buildLog['total_bytes_min'] ?? 0);
     $savedPct    = $buildLog['total_saved_pct'] ?? '0';
-    $deployUrl   = $buildLog['deploy_url'] ?? '/page-builder/deploy/';
+    $deployUrl   = $buildLog['deploy_url'] ?? (($pbRoot !== '' ? $pbRoot : '') . '/deploy/');
     $stagedPages = $buildLog['staged_pages'] ?? [];
     $errors      = $buildLog['errors'] ?? [];
 ?>
@@ -110,7 +116,7 @@ if (!file_exists($buildLogPath)) {
 <?php endif; ?>
 
 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-    <a href="/page-builder/" style="font-size:11px;color:#6366f1;text-decoration:none;letter-spacing:0.06em;padding:5px 12px;border:1px solid rgba(99,102,241,0.3);">
+    <a href="<?= htmlspecialchars(($pbRoot !== '' ? $pbRoot : '') . '/', ENT_QUOTES) ?>" style="font-size:11px;color:#6366f1;text-decoration:none;letter-spacing:0.06em;padding:5px 12px;border:1px solid rgba(99,102,241,0.3);">
         open page builder
     </a>
     <a href="<?= htmlspecialchars($deployUrl, ENT_QUOTES) ?>" target="_blank"
@@ -135,7 +141,7 @@ if (!file_exists($buildLogPath)) {
             if (btn) { btn.textContent = 'refreshing...'; btn.disabled = true; }
             console.log('[pb-tool] refreshing build log');
 
-            fetch('/page-builder/stage.php')
+            fetch('<?= htmlspecialchars(($pbRoot !== '' ? $pbRoot : '') . '/stage.php', ENT_QUOTES) ?>')
                 .then(function (r) {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();

@@ -178,7 +178,7 @@ button.primary:disabled { background: #3d3d5c; cursor: not-allowed; }
 <body>
 
 <h1>Page Speed</h1>
-<p class="sub">Measure real load performance using a headless browser.</p>
+<p class="sub">Measure real load performance using a headless browser. If bridge is offline, use Page Builder Debug from Dev Tools for live staging checks.</p>
 
 <div class="input-row">
   <input type="text" id="url_input" placeholder="https://example.com" value="https://example.com">
@@ -300,7 +300,7 @@ async function measure() {
     setStatus('running', 'Job started: ' + data.job_id.slice(0,8) + '...');
     pollStatus(data.job_id);
   } catch(e) {
-    setStatus('error', 'Could not reach bridge: ' + e.message);
+    setStatus('error', 'Could not reach bridge: ' + e.message + ' | Use Page Builder Debug in Dev Tools.');
     document.getElementById('run_btn').disabled = false;
     stopShotRefresh();
   }

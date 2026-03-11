@@ -1,7 +1,7 @@
 {
 	"InstallScripts" : 
 	[
-		"/Users/mac/Documents/live-css/dev-browser/render_core/build/native/cmake_install.cmake"
+		"/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/native/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

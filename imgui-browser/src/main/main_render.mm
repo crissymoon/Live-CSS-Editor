@@ -41,6 +41,7 @@ void main_render_loop(const Args& args) {
             bool cmd = kio.KeySuper;
 
             if (cmd && !kio.WantTextInput) {
+
                 if (ImGui::IsKeyPressed(ImGuiKey_L, false))
                     g_state.focus_url_next_frame = true;
 

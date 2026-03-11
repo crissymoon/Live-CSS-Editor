@@ -75,6 +75,26 @@ if (file_exists($projectConfigFile)) {
     }
 }
 $projectConfig['slugs'] = is_array($projectConfig['slugs'] ?? null) ? $projectConfig['slugs'] : [];
+
+// Resolve base URL so relative assets/API paths work in both modes:
+// 1) php -S -t page-builder  -> /index.php
+// 2) nginx path mount         -> /page-builder/index.php
+$docRoot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+$reqUri  = (string)($_SERVER['REQUEST_URI'] ?? '');
+$baseHref = '/';
+
+if ($docRoot !== '') {
+    $canRoot = is_file($docRoot . '/css/pb-theme.css');
+    $canPB   = is_file($docRoot . '/page-builder/css/pb-theme.css');
+
+    if ($canPB && preg_match('#^/page-builder(?:/|$)#', $reqUri)) {
+        $baseHref = '/page-builder/';
+    } elseif ($canRoot) {
+        $baseHref = '/';
+    } elseif ($canPB) {
+        $baseHref = '/page-builder/';
+    }
+}
 ?><!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -89,6 +109,7 @@ $projectConfig['slugs'] = is_array($projectConfig['slugs'] ?? null) ? $projectCo
         }catch(e){}
     })();
     </script>
+    <base href="<?= htmlspecialchars($baseHref, ENT_QUOTES) ?>">
     <link rel="stylesheet" href="css/pb-theme.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -521,7 +542,7 @@ $projectConfig['slugs'] = is_array($projectConfig['slugs'] ?? null) ? $projectCo
     <div class="header-actions">
         <button class="btn btn-primary" id="pb-stage-btn" onclick="stageAll()">stage all</button>
         <button class="btn" id="pb-idx-theme-btn" onclick="toggleTheme()">light mode</button>
-        <a href="/pb_admin/dashboard.php" class="back-link">admin dashboard</a>
+        <a href="pb_admin/dashboard.php" class="back-link">admin dashboard</a>
         <a href="../index.php" class="back-link">style tool</a>
     </div>
 </header>

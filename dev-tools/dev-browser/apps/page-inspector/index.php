@@ -99,7 +99,7 @@
 <body>
 
 <h1>Page Inspector</h1>
-<p class="sub">Inspect any page using a headless browser -- screenshot, metadata, links, and images.</p>
+  <p class="sub">Inspect any page using a headless browser -- screenshot, metadata, links, and images. If bridge is offline, use Page Builder Debug from Dev Tools.</p>
 
 <div class="row">
   <input type="text" id="url_input" placeholder="https://example.com" value="https://example.com">
@@ -178,7 +178,7 @@ async function inspect() {
     pollStatus(data.job_id);
     startShotRefresh();
   } catch(e) {
-    setStatus('error', 'Bridge error: ' + e.message);
+    setStatus('error', 'Bridge error: ' + e.message + ' | Use Page Builder Debug in Dev Tools.');
     document.getElementById('run_btn').disabled = false;
   }
 }

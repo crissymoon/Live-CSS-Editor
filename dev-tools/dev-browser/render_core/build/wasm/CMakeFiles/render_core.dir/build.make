@@ -53,10 +53,10 @@ RM = /usr/local/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/mac/Documents/live-css/dev-browser/render_core
+CMAKE_SOURCE_DIR = /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm
+CMAKE_BINARY_DIR = /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm
 
 # Include any dependencies generated for this target.
 include CMakeFiles/render_core.dir/depend.make
@@ -73,88 +73,88 @@ CMakeFiles/render_core.dir/codegen:
 .PHONY : CMakeFiles/render_core.dir/codegen
 
 CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o: CMakeFiles/render_core.dir/flags.make
-CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o: /Users/mac/Documents/live-css/dev-browser/render_core/src/html_tokenizer.cpp
+CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/html_tokenizer.cpp
 CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o: CMakeFiles/render_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o -MF CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o.d -o CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o -c /Users/mac/Documents/live-css/dev-browser/render_core/src/html_tokenizer.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o -MF CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o.d -o CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/html_tokenizer.cpp
 
 CMakeFiles/render_core.dir/src/html_tokenizer.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/render_core.dir/src/html_tokenizer.cpp.i"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-browser/render_core/src/html_tokenizer.cpp > CMakeFiles/render_core.dir/src/html_tokenizer.cpp.i
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/html_tokenizer.cpp > CMakeFiles/render_core.dir/src/html_tokenizer.cpp.i
 
 CMakeFiles/render_core.dir/src/html_tokenizer.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/render_core.dir/src/html_tokenizer.cpp.s"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-browser/render_core/src/html_tokenizer.cpp -o CMakeFiles/render_core.dir/src/html_tokenizer.cpp.s
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/html_tokenizer.cpp -o CMakeFiles/render_core.dir/src/html_tokenizer.cpp.s
 
 CMakeFiles/render_core.dir/src/css_parser.cpp.o: CMakeFiles/render_core.dir/flags.make
-CMakeFiles/render_core.dir/src/css_parser.cpp.o: /Users/mac/Documents/live-css/dev-browser/render_core/src/css_parser.cpp
+CMakeFiles/render_core.dir/src/css_parser.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/css_parser.cpp
 CMakeFiles/render_core.dir/src/css_parser.cpp.o: CMakeFiles/render_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/render_core.dir/src/css_parser.cpp.o"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/css_parser.cpp.o -MF CMakeFiles/render_core.dir/src/css_parser.cpp.o.d -o CMakeFiles/render_core.dir/src/css_parser.cpp.o -c /Users/mac/Documents/live-css/dev-browser/render_core/src/css_parser.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/render_core.dir/src/css_parser.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/css_parser.cpp.o -MF CMakeFiles/render_core.dir/src/css_parser.cpp.o.d -o CMakeFiles/render_core.dir/src/css_parser.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/css_parser.cpp
 
 CMakeFiles/render_core.dir/src/css_parser.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/render_core.dir/src/css_parser.cpp.i"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-browser/render_core/src/css_parser.cpp > CMakeFiles/render_core.dir/src/css_parser.cpp.i
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/css_parser.cpp > CMakeFiles/render_core.dir/src/css_parser.cpp.i
 
 CMakeFiles/render_core.dir/src/css_parser.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/render_core.dir/src/css_parser.cpp.s"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-browser/render_core/src/css_parser.cpp -o CMakeFiles/render_core.dir/src/css_parser.cpp.s
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/css_parser.cpp -o CMakeFiles/render_core.dir/src/css_parser.cpp.s
 
 CMakeFiles/render_core.dir/src/style_resolver.cpp.o: CMakeFiles/render_core.dir/flags.make
-CMakeFiles/render_core.dir/src/style_resolver.cpp.o: /Users/mac/Documents/live-css/dev-browser/render_core/src/style_resolver.cpp
+CMakeFiles/render_core.dir/src/style_resolver.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/style_resolver.cpp
 CMakeFiles/render_core.dir/src/style_resolver.cpp.o: CMakeFiles/render_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/render_core.dir/src/style_resolver.cpp.o"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/style_resolver.cpp.o -MF CMakeFiles/render_core.dir/src/style_resolver.cpp.o.d -o CMakeFiles/render_core.dir/src/style_resolver.cpp.o -c /Users/mac/Documents/live-css/dev-browser/render_core/src/style_resolver.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/render_core.dir/src/style_resolver.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/style_resolver.cpp.o -MF CMakeFiles/render_core.dir/src/style_resolver.cpp.o.d -o CMakeFiles/render_core.dir/src/style_resolver.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/style_resolver.cpp
 
 CMakeFiles/render_core.dir/src/style_resolver.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/render_core.dir/src/style_resolver.cpp.i"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-browser/render_core/src/style_resolver.cpp > CMakeFiles/render_core.dir/src/style_resolver.cpp.i
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/style_resolver.cpp > CMakeFiles/render_core.dir/src/style_resolver.cpp.i
 
 CMakeFiles/render_core.dir/src/style_resolver.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/render_core.dir/src/style_resolver.cpp.s"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-browser/render_core/src/style_resolver.cpp -o CMakeFiles/render_core.dir/src/style_resolver.cpp.s
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/style_resolver.cpp -o CMakeFiles/render_core.dir/src/style_resolver.cpp.s
 
 CMakeFiles/render_core.dir/src/layout.cpp.o: CMakeFiles/render_core.dir/flags.make
-CMakeFiles/render_core.dir/src/layout.cpp.o: /Users/mac/Documents/live-css/dev-browser/render_core/src/layout.cpp
+CMakeFiles/render_core.dir/src/layout.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/layout.cpp
 CMakeFiles/render_core.dir/src/layout.cpp.o: CMakeFiles/render_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/render_core.dir/src/layout.cpp.o"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/layout.cpp.o -MF CMakeFiles/render_core.dir/src/layout.cpp.o.d -o CMakeFiles/render_core.dir/src/layout.cpp.o -c /Users/mac/Documents/live-css/dev-browser/render_core/src/layout.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/render_core.dir/src/layout.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/layout.cpp.o -MF CMakeFiles/render_core.dir/src/layout.cpp.o.d -o CMakeFiles/render_core.dir/src/layout.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/layout.cpp
 
 CMakeFiles/render_core.dir/src/layout.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/render_core.dir/src/layout.cpp.i"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-browser/render_core/src/layout.cpp > CMakeFiles/render_core.dir/src/layout.cpp.i
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/layout.cpp > CMakeFiles/render_core.dir/src/layout.cpp.i
 
 CMakeFiles/render_core.dir/src/layout.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/render_core.dir/src/layout.cpp.s"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-browser/render_core/src/layout.cpp -o CMakeFiles/render_core.dir/src/layout.cpp.s
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/layout.cpp -o CMakeFiles/render_core.dir/src/layout.cpp.s
 
 CMakeFiles/render_core.dir/src/paint.cpp.o: CMakeFiles/render_core.dir/flags.make
-CMakeFiles/render_core.dir/src/paint.cpp.o: /Users/mac/Documents/live-css/dev-browser/render_core/src/paint.cpp
+CMakeFiles/render_core.dir/src/paint.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/paint.cpp
 CMakeFiles/render_core.dir/src/paint.cpp.o: CMakeFiles/render_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/render_core.dir/src/paint.cpp.o"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/paint.cpp.o -MF CMakeFiles/render_core.dir/src/paint.cpp.o.d -o CMakeFiles/render_core.dir/src/paint.cpp.o -c /Users/mac/Documents/live-css/dev-browser/render_core/src/paint.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/render_core.dir/src/paint.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/paint.cpp.o -MF CMakeFiles/render_core.dir/src/paint.cpp.o.d -o CMakeFiles/render_core.dir/src/paint.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/paint.cpp
 
 CMakeFiles/render_core.dir/src/paint.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/render_core.dir/src/paint.cpp.i"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-browser/render_core/src/paint.cpp > CMakeFiles/render_core.dir/src/paint.cpp.i
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/paint.cpp > CMakeFiles/render_core.dir/src/paint.cpp.i
 
 CMakeFiles/render_core.dir/src/paint.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/render_core.dir/src/paint.cpp.s"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-browser/render_core/src/paint.cpp -o CMakeFiles/render_core.dir/src/paint.cpp.s
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/paint.cpp -o CMakeFiles/render_core.dir/src/paint.cpp.s
 
 CMakeFiles/render_core.dir/src/exports.cpp.o: CMakeFiles/render_core.dir/flags.make
-CMakeFiles/render_core.dir/src/exports.cpp.o: /Users/mac/Documents/live-css/dev-browser/render_core/src/exports.cpp
+CMakeFiles/render_core.dir/src/exports.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/exports.cpp
 CMakeFiles/render_core.dir/src/exports.cpp.o: CMakeFiles/render_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/render_core.dir/src/exports.cpp.o"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/exports.cpp.o -MF CMakeFiles/render_core.dir/src/exports.cpp.o.d -o CMakeFiles/render_core.dir/src/exports.cpp.o -c /Users/mac/Documents/live-css/dev-browser/render_core/src/exports.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/render_core.dir/src/exports.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/render_core.dir/src/exports.cpp.o -MF CMakeFiles/render_core.dir/src/exports.cpp.o.d -o CMakeFiles/render_core.dir/src/exports.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/exports.cpp
 
 CMakeFiles/render_core.dir/src/exports.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/render_core.dir/src/exports.cpp.i"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-browser/render_core/src/exports.cpp > CMakeFiles/render_core.dir/src/exports.cpp.i
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/exports.cpp > CMakeFiles/render_core.dir/src/exports.cpp.i
 
 CMakeFiles/render_core.dir/src/exports.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/render_core.dir/src/exports.cpp.s"
-	/opt/emsdk/upstream/emscripten/em++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-browser/render_core/src/exports.cpp -o CMakeFiles/render_core.dir/src/exports.cpp.s
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/exports.cpp -o CMakeFiles/render_core.dir/src/exports.cpp.s
 
 # Object files for target render_core
 render_core_OBJECTS = \
@@ -168,19 +168,19 @@ render_core_OBJECTS = \
 # External object files for target render_core
 render_core_EXTERNAL_OBJECTS =
 
-render_core.js: CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o
-render_core.js: CMakeFiles/render_core.dir/src/css_parser.cpp.o
-render_core.js: CMakeFiles/render_core.dir/src/style_resolver.cpp.o
-render_core.js: CMakeFiles/render_core.dir/src/layout.cpp.o
-render_core.js: CMakeFiles/render_core.dir/src/paint.cpp.o
-render_core.js: CMakeFiles/render_core.dir/src/exports.cpp.o
-render_core.js: CMakeFiles/render_core.dir/build.make
-render_core.js: CMakeFiles/render_core.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable render_core.js"
+librender_core.dylib: CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o
+librender_core.dylib: CMakeFiles/render_core.dir/src/css_parser.cpp.o
+librender_core.dylib: CMakeFiles/render_core.dir/src/style_resolver.cpp.o
+librender_core.dylib: CMakeFiles/render_core.dir/src/layout.cpp.o
+librender_core.dylib: CMakeFiles/render_core.dir/src/paint.cpp.o
+librender_core.dylib: CMakeFiles/render_core.dir/src/exports.cpp.o
+librender_core.dylib: CMakeFiles/render_core.dir/build.make
+librender_core.dylib: CMakeFiles/render_core.dir/link.txt
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX shared library librender_core.dylib"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/render_core.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
-CMakeFiles/render_core.dir/build: render_core.js
+CMakeFiles/render_core.dir/build: librender_core.dylib
 .PHONY : CMakeFiles/render_core.dir/build
 
 CMakeFiles/render_core.dir/clean:
@@ -188,6 +188,6 @@ CMakeFiles/render_core.dir/clean:
 .PHONY : CMakeFiles/render_core.dir/clean
 
 CMakeFiles/render_core.dir/depend:
-	cd /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /Users/mac/Documents/live-css/dev-browser/render_core /Users/mac/Documents/live-css/dev-browser/render_core /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles/render_core.dir/DependInfo.cmake "--color=$(COLOR)"
+	cd /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles/render_core.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/render_core.dir/depend
 

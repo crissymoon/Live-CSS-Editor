@@ -25,4 +25,15 @@ define('DEV_MODE', true);
 // Absolute web path to the pb_admin directory.
 // Used for all Location: redirects so they are never ambiguous relative paths.
 // Change this if you move pb_admin to a different URL prefix.
-define('ADMIN_URL_PATH', '/pb_admin');
+$adminPathEnv = getenv('ADMIN_URL_PATH');
+if (is_string($adminPathEnv) && trim($adminPathEnv) !== '') {
+	define('ADMIN_URL_PATH', rtrim($adminPathEnv, '/'));
+} else {
+	$reqUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+	// Auto-detect common mounts after project reorganization.
+	if (strpos($reqUri, '/page-builder/pb_admin') === 0) {
+		define('ADMIN_URL_PATH', '/page-builder/pb_admin');
+	} else {
+		define('ADMIN_URL_PATH', '/pb_admin');
+	}
+}

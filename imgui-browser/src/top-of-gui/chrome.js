@@ -425,6 +425,29 @@ document.addEventListener('keydown', function (e) {
         // Route through paste_url so we read NSPasteboard directly (bypasses
         // WKWebView's internal clipboard cache).
         xcm('paste_url'); e.preventDefault();
+      } else if (isInput) {
+        // For non-URL chrome inputs (e.g. debug console input), use the
+        // async Clipboard API and inject at caret. This avoids relying on
+        // deprecated execCommand('paste').
+        e.preventDefault();
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          navigator.clipboard.readText().then(function (txt) {
+            var el = document.activeElement;
+            if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+            var start = (typeof el.selectionStart === 'number') ? el.selectionStart : el.value.length;
+            var end   = (typeof el.selectionEnd === 'number')   ? el.selectionEnd   : el.value.length;
+            var val   = el.value || '';
+            el.value = val.slice(0, start) + txt + val.slice(end);
+            var next = start + txt.length;
+            if (el.setSelectionRange) el.setSelectionRange(next, next);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }).catch(function () {
+            // Fallback to native paste path when Clipboard API is unavailable.
+            xcm('paste');
+          });
+        } else {
+          xcm('paste');
+        }
       } else if (!isInput) {
         xcm('paste'); e.preventDefault();
       }
@@ -512,6 +535,10 @@ function drawerAction(action) {
 }
 function openApp(slug) {
   var url = 'http://127.0.0.1:' + _state.phpPort + '/' + slug + '/';
+  if (_state.url) {
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    url += sep + 'target=' + encodeURIComponent(_state.url);
+  }
   closeDrawer();
   setTimeout(function() { xcm('open_url', url); }, 40);
 }

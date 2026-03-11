@@ -57,10 +57,10 @@ RM = /usr/local/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/mac/Documents/live-css/dev-browser/render_core
+CMAKE_SOURCE_DIR = /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/mac/Documents/live-css/dev-browser/render_core/build/native
+CMAKE_BINARY_DIR = /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/native
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mac/Documents/live-css/dev-browser/render_core/build/native/CMakeFiles /Users/mac/Documents/live-css/dev-browser/render_core/build/native//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/native/CMakeFiles /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/native//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mac/Documents/live-css/dev-browser/render_core/build/native/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/native/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -142,6 +142,45 @@ xcm_render_test/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/build
 .PHONY : xcm_render_test/fast
 
+#=============================================================================
+# Target rules for targets named xcm_tui
+
+# Build rule for target.
+xcm_tui: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 xcm_tui
+.PHONY : xcm_tui
+
+# fast build rule for target.
+xcm_tui/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/build
+.PHONY : xcm_tui/fast
+
+#=============================================================================
+# Target rules for targets named xcm_tui_shell
+
+# Build rule for target.
+xcm_tui_shell: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 xcm_tui_shell
+.PHONY : xcm_tui_shell
+
+# fast build rule for target.
+xcm_tui_shell/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/build
+.PHONY : xcm_tui_shell/fast
+
+#=============================================================================
+# Target rules for targets named xcm_sdl_preview
+
+# Build rule for target.
+xcm_sdl_preview: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 xcm_sdl_preview
+.PHONY : xcm_sdl_preview
+
+# fast build rule for target.
+xcm_sdl_preview/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/build
+.PHONY : xcm_sdl_preview/fast
+
 src/css_parser.o: src/css_parser.cpp.o
 .PHONY : src/css_parser.o
 
@@ -149,6 +188,9 @@ src/css_parser.o: src/css_parser.cpp.o
 src/css_parser.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/css_parser.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/css_parser.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/css_parser.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/css_parser.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/css_parser.cpp.o
 .PHONY : src/css_parser.cpp.o
 
 src/css_parser.i: src/css_parser.cpp.i
@@ -158,6 +200,9 @@ src/css_parser.i: src/css_parser.cpp.i
 src/css_parser.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/css_parser.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/css_parser.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/css_parser.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/css_parser.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/css_parser.cpp.i
 .PHONY : src/css_parser.cpp.i
 
 src/css_parser.s: src/css_parser.cpp.s
@@ -167,6 +212,9 @@ src/css_parser.s: src/css_parser.cpp.s
 src/css_parser.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/css_parser.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/css_parser.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/css_parser.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/css_parser.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/css_parser.cpp.s
 .PHONY : src/css_parser.cpp.s
 
 src/exports.o: src/exports.cpp.o
@@ -203,6 +251,9 @@ src/html_tokenizer.o: src/html_tokenizer.cpp.o
 src/html_tokenizer.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/html_tokenizer.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/html_tokenizer.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/html_tokenizer.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/html_tokenizer.cpp.o
 .PHONY : src/html_tokenizer.cpp.o
 
 src/html_tokenizer.i: src/html_tokenizer.cpp.i
@@ -212,6 +263,9 @@ src/html_tokenizer.i: src/html_tokenizer.cpp.i
 src/html_tokenizer.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/html_tokenizer.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/html_tokenizer.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/html_tokenizer.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/html_tokenizer.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/html_tokenizer.cpp.i
 .PHONY : src/html_tokenizer.cpp.i
 
 src/html_tokenizer.s: src/html_tokenizer.cpp.s
@@ -221,6 +275,9 @@ src/html_tokenizer.s: src/html_tokenizer.cpp.s
 src/html_tokenizer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/html_tokenizer.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/html_tokenizer.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/html_tokenizer.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/html_tokenizer.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/html_tokenizer.cpp.s
 .PHONY : src/html_tokenizer.cpp.s
 
 src/layout.o: src/layout.cpp.o
@@ -230,6 +287,9 @@ src/layout.o: src/layout.cpp.o
 src/layout.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/layout.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/layout.cpp.o
 .PHONY : src/layout.cpp.o
 
 src/layout.i: src/layout.cpp.i
@@ -239,6 +299,9 @@ src/layout.i: src/layout.cpp.i
 src/layout.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/layout.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/layout.cpp.i
 .PHONY : src/layout.cpp.i
 
 src/layout.s: src/layout.cpp.s
@@ -248,6 +311,9 @@ src/layout.s: src/layout.cpp.s
 src/layout.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/layout.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/layout.cpp.s
 .PHONY : src/layout.cpp.s
 
 src/paint.o: src/paint.cpp.o
@@ -257,6 +323,9 @@ src/paint.o: src/paint.cpp.o
 src/paint.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/paint.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/paint.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/paint.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/paint.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.o
 .PHONY : src/paint.cpp.o
 
 src/paint.i: src/paint.cpp.i
@@ -266,6 +335,9 @@ src/paint.i: src/paint.cpp.i
 src/paint.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/paint.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/paint.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/paint.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/paint.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.i
 .PHONY : src/paint.cpp.i
 
 src/paint.s: src/paint.cpp.s
@@ -275,6 +347,9 @@ src/paint.s: src/paint.cpp.s
 src/paint.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/paint.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/paint.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/paint.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/paint.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.s
 .PHONY : src/paint.cpp.s
 
 src/style_resolver.o: src/style_resolver.cpp.o
@@ -284,6 +359,9 @@ src/style_resolver.o: src/style_resolver.cpp.o
 src/style_resolver.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/style_resolver.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/style_resolver.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/style_resolver.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/style_resolver.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/style_resolver.cpp.o
 .PHONY : src/style_resolver.cpp.o
 
 src/style_resolver.i: src/style_resolver.cpp.i
@@ -293,6 +371,9 @@ src/style_resolver.i: src/style_resolver.cpp.i
 src/style_resolver.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/style_resolver.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/style_resolver.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/style_resolver.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/style_resolver.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/style_resolver.cpp.i
 .PHONY : src/style_resolver.cpp.i
 
 src/style_resolver.s: src/style_resolver.cpp.s
@@ -302,7 +383,115 @@ src/style_resolver.s: src/style_resolver.cpp.s
 src/style_resolver.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/style_resolver.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/style_resolver.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/style_resolver.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/style_resolver.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/style_resolver.cpp.s
 .PHONY : src/style_resolver.cpp.s
+
+src/xcm_sdl_preview.o: src/xcm_sdl_preview.cpp.o
+.PHONY : src/xcm_sdl_preview.o
+
+# target to build an object file
+src/xcm_sdl_preview.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o
+.PHONY : src/xcm_sdl_preview.cpp.o
+
+src/xcm_sdl_preview.i: src/xcm_sdl_preview.cpp.i
+.PHONY : src/xcm_sdl_preview.i
+
+# target to preprocess a source file
+src/xcm_sdl_preview.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.i
+.PHONY : src/xcm_sdl_preview.cpp.i
+
+src/xcm_sdl_preview.s: src/xcm_sdl_preview.cpp.s
+.PHONY : src/xcm_sdl_preview.s
+
+# target to generate assembly for a file
+src/xcm_sdl_preview.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.s
+.PHONY : src/xcm_sdl_preview.cpp.s
+
+src/xcm_tui.o: src/xcm_tui.cpp.o
+.PHONY : src/xcm_tui.o
+
+# target to build an object file
+src/xcm_tui.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_tui.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_tui.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_tui.cpp.o
+.PHONY : src/xcm_tui.cpp.o
+
+src/xcm_tui.i: src/xcm_tui.cpp.i
+.PHONY : src/xcm_tui.i
+
+# target to preprocess a source file
+src/xcm_tui.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_tui.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_tui.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_tui.cpp.i
+.PHONY : src/xcm_tui.cpp.i
+
+src/xcm_tui.s: src/xcm_tui.cpp.s
+.PHONY : src/xcm_tui.s
+
+# target to generate assembly for a file
+src/xcm_tui.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_tui.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_tui.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_tui.cpp.s
+.PHONY : src/xcm_tui.cpp.s
+
+src/xcm_tui_shell.o: src/xcm_tui_shell.cpp.o
+.PHONY : src/xcm_tui_shell.o
+
+# target to build an object file
+src/xcm_tui_shell.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_tui_shell.cpp.o
+.PHONY : src/xcm_tui_shell.cpp.o
+
+src/xcm_tui_shell.i: src/xcm_tui_shell.cpp.i
+.PHONY : src/xcm_tui_shell.i
+
+# target to preprocess a source file
+src/xcm_tui_shell.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_tui_shell.cpp.i
+.PHONY : src/xcm_tui_shell.cpp.i
+
+src/xcm_tui_shell.s: src/xcm_tui_shell.cpp.s
+.PHONY : src/xcm_tui_shell.s
+
+# target to generate assembly for a file
+src/xcm_tui_shell.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_tui_shell.cpp.s
+.PHONY : src/xcm_tui_shell.cpp.s
+
+src/xcm_tuiapp.o: src/xcm_tuiapp.cpp.o
+.PHONY : src/xcm_tuiapp.o
+
+# target to build an object file
+src/xcm_tuiapp.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_tuiapp.cpp.o
+.PHONY : src/xcm_tuiapp.cpp.o
+
+src/xcm_tuiapp.i: src/xcm_tuiapp.cpp.i
+.PHONY : src/xcm_tuiapp.i
+
+# target to preprocess a source file
+src/xcm_tuiapp.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_tuiapp.cpp.i
+.PHONY : src/xcm_tuiapp.cpp.i
+
+src/xcm_tuiapp.s: src/xcm_tuiapp.cpp.s
+.PHONY : src/xcm_tuiapp.s
+
+# target to generate assembly for a file
+src/xcm_tuiapp.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_tuiapp.cpp.s
+.PHONY : src/xcm_tuiapp.cpp.s
 
 # Help Target
 help:
@@ -314,6 +503,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... render_core"
 	@echo "... xcm_render_test"
+	@echo "... xcm_sdl_preview"
+	@echo "... xcm_tui"
+	@echo "... xcm_tui_shell"
 	@echo "... src/css_parser.o"
 	@echo "... src/css_parser.i"
 	@echo "... src/css_parser.s"
@@ -332,6 +524,18 @@ help:
 	@echo "... src/style_resolver.o"
 	@echo "... src/style_resolver.i"
 	@echo "... src/style_resolver.s"
+	@echo "... src/xcm_sdl_preview.o"
+	@echo "... src/xcm_sdl_preview.i"
+	@echo "... src/xcm_sdl_preview.s"
+	@echo "... src/xcm_tui.o"
+	@echo "... src/xcm_tui.i"
+	@echo "... src/xcm_tui.s"
+	@echo "... src/xcm_tui_shell.o"
+	@echo "... src/xcm_tui_shell.i"
+	@echo "... src/xcm_tui_shell.s"
+	@echo "... src/xcm_tuiapp.o"
+	@echo "... src/xcm_tuiapp.i"
+	@echo "... src/xcm_tuiapp.s"
 .PHONY : help
 
 

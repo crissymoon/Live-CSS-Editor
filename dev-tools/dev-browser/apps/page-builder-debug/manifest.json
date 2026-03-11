@@ -1,0 +1,6 @@
+{
+  "name": "Page Builder Debug",
+  "slug": "page-builder-debug",
+  "version": "1.0.0",
+  "description": "Debug dashboard for page-builder staging and auth checks"
+}

@@ -12,6 +12,37 @@ set(SOURCES
     src/layout.cpp
     src/paint.cpp
     src/exports.cpp
+    src/xcm_tui.cpp
+)
+
+# TUI-only sources (no exports.cpp -- standalone binary only)
+set(TUI_SOURCES
+    src/html_tokenizer.cpp
+    src/css_parser.cpp
+    src/style_resolver.cpp
+    src/layout.cpp
+    src/paint.cpp
+    src/xcm_tui.cpp
+    src/xcm_tuiapp.cpp
+)
+
+set(TUI_SHELL_SOURCES
+    src/html_tokenizer.cpp
+    src/css_parser.cpp
+    src/style_resolver.cpp
+    src/layout.cpp
+    src/paint.cpp
+    src/xcm_tui.cpp
+    src/xcm_tui_shell.cpp
+)
+
+set(SDL_PREVIEW_SOURCES
+    src/html_tokenizer.cpp
+    src/css_parser.cpp
+    src/style_resolver.cpp
+    src/layout.cpp
+    src/paint.cpp
+    src/xcm_sdl_preview.cpp
 )
 
 # -------------------------------------------------------------------------
@@ -31,8 +62,14 @@ if(EMSCRIPTEN)
         "_xcm_height"
         "_xcm_doc_height"
         "_xcm_metrics_json"
+        "_xcm_ansi_frame"
+        "_xcm_render_ansi"
         "_xcm_alloc"
         "_xcm_free"
+        "_xcm_tui_create"
+        "_xcm_tui_destroy"
+        "_xcm_tui_render"
+        "_xcm_tui_frame"
     )
     string(JOIN "," EXP_FUNCS_STR ${EXPORTED_FUNCTIONS})
 
@@ -95,11 +132,74 @@ else()
         )
     endif()
 
-    # Also build a CLI test tool.
+    # CLI render smoke-test binary.
     add_executable(xcm_render_test src/exports.cpp ${SOURCES})
     target_compile_definitions(xcm_render_test PRIVATE XCM_CLI_TEST=1)
     target_compile_options(xcm_render_test PRIVATE -O2 -g)
     target_include_directories(xcm_render_test PRIVATE src)
+
+    # xcm_tui  --  standalone TUI browser binary
+    add_executable(xcm_tui ${TUI_SOURCES})
+    target_compile_options(xcm_tui PRIVATE -O2 -g)
+    target_include_directories(xcm_tui PRIVATE src)
+
+    # xcm_tui_shell  --  interactive REPL shell for TUI rendering tests
+    add_executable(xcm_tui_shell ${TUI_SHELL_SOURCES})
+    target_compile_options(xcm_tui_shell PRIVATE -O2 -g)
+    target_include_directories(xcm_tui_shell PRIVATE src)
+
+    # xcm_sdl_preview  --  optional SDL desktop preview app
+    option(XCM_ENABLE_SDL_PREVIEW "Build SDL2 preview app" ON)
+    if(XCM_ENABLE_SDL_PREVIEW)
+        set(XCM_SDL_READY OFF)
+
+        find_package(SDL2 QUIET CONFIG)
+        if(SDL2_FOUND)
+            set(XCM_SDL_READY ON)
+            add_executable(xcm_sdl_preview ${SDL_PREVIEW_SOURCES})
+            target_compile_options(xcm_sdl_preview PRIVATE -O2 -g)
+            target_include_directories(xcm_sdl_preview PRIVATE src)
+            if(TARGET SDL2::SDL2)
+                target_link_libraries(xcm_sdl_preview PRIVATE SDL2::SDL2)
+            elseif(TARGET SDL2::SDL2-static)
+                target_link_libraries(xcm_sdl_preview PRIVATE SDL2::SDL2-static)
+            endif()
+
+            # Optional text rendering for command UI labels.
+            find_package(SDL2_ttf QUIET CONFIG)
+            if(SDL2_ttf_FOUND)
+                if(TARGET SDL2_ttf::SDL2_ttf)
+                    target_link_libraries(xcm_sdl_preview PRIVATE SDL2_ttf::SDL2_ttf)
+                    target_compile_definitions(xcm_sdl_preview PRIVATE XCM_HAS_SDL_TTF=1)
+                endif()
+            endif()
+        else()
+            find_package(PkgConfig QUIET)
+            if(PkgConfig_FOUND)
+                pkg_check_modules(SDL2_PC QUIET sdl2)
+                if(SDL2_PC_FOUND)
+                    set(XCM_SDL_READY ON)
+                    add_executable(xcm_sdl_preview ${SDL_PREVIEW_SOURCES})
+                    target_compile_options(xcm_sdl_preview PRIVATE -O2 -g)
+                    target_include_directories(xcm_sdl_preview PRIVATE src ${SDL2_PC_INCLUDE_DIRS})
+                    target_link_directories(xcm_sdl_preview PRIVATE ${SDL2_PC_LIBRARY_DIRS})
+                    target_link_libraries(xcm_sdl_preview PRIVATE ${SDL2_PC_LIBRARIES})
+
+                    pkg_check_modules(SDL2_TTF_PC QUIET SDL2_ttf)
+                    if(SDL2_TTF_PC_FOUND)
+                        target_include_directories(xcm_sdl_preview PRIVATE ${SDL2_TTF_PC_INCLUDE_DIRS})
+                        target_link_directories(xcm_sdl_preview PRIVATE ${SDL2_TTF_PC_LIBRARY_DIRS})
+                        target_link_libraries(xcm_sdl_preview PRIVATE ${SDL2_TTF_PC_LIBRARIES})
+                        target_compile_definitions(xcm_sdl_preview PRIVATE XCM_HAS_SDL_TTF=1)
+                    endif()
+                endif()
+            endif()
+        endif()
+
+        if(NOT XCM_SDL_READY)
+            message(WARNING "SDL2 not found. xcm_sdl_preview target is skipped. Install SDL2 and reconfigure.")
+        endif()
+    endif()
 endif()
 
 target_include_directories(render_core PRIVATE src)

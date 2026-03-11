@@ -7,9 +7,11 @@ set(CMAKE_DEPENDS_GENERATOR "Unix Makefiles")
 # The top level Makefile was generated from the following files:
 set(CMAKE_MAKEFILE_DEPENDS
   "CMakeCache.txt"
-  "/Users/mac/Documents/live-css/dev-browser/render_core/CMakeLists.txt"
+  "/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/CMakeLists.txt"
   "CMakeFiles/4.0.3/CMakeCXXCompiler.cmake"
   "CMakeFiles/4.0.3/CMakeSystem.cmake"
+  "/usr/local/lib/cmake/SDL2/sdl2-config-version.cmake"
+  "/usr/local/lib/cmake/SDL2/sdl2-config.cmake"
   "/usr/local/share/cmake/Modules/CMakeCXXInformation.cmake"
   "/usr/local/share/cmake/Modules/CMakeCommonLanguageInclude.cmake"
   "/usr/local/share/cmake/Modules/CMakeGenericSystem.cmake"
@@ -21,6 +23,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/usr/local/share/cmake/Modules/Compiler/CMakeCommonCompilerMacros.cmake"
   "/usr/local/share/cmake/Modules/Compiler/Clang.cmake"
   "/usr/local/share/cmake/Modules/Compiler/GNU.cmake"
+  "/usr/local/share/cmake/Modules/FeatureSummary.cmake"
   "/usr/local/share/cmake/Modules/Internal/CMakeCXXLinkerInformation.cmake"
   "/usr/local/share/cmake/Modules/Internal/CMakeCommonLinkerInformation.cmake"
   "/usr/local/share/cmake/Modules/Linker/AppleClang-CXX.cmake"
@@ -50,4 +53,7 @@ set(CMAKE_MAKEFILE_PRODUCTS
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/render_core.dir/DependInfo.cmake"
   "CMakeFiles/xcm_render_test.dir/DependInfo.cmake"
+  "CMakeFiles/xcm_tui.dir/DependInfo.cmake"
+  "CMakeFiles/xcm_tui_shell.dir/DependInfo.cmake"
+  "CMakeFiles/xcm_sdl_preview.dir/DependInfo.cmake"
   )

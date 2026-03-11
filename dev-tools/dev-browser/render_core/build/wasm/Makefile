@@ -57,10 +57,10 @@ RM = /usr/local/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/mac/Documents/live-css/dev-browser/render_core
+CMAKE_SOURCE_DIR = /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm
+CMAKE_BINARY_DIR = /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mac/Documents/live-css/dev-browser/render_core/build/wasm/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build/wasm/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -129,12 +129,26 @@ render_core/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/build
 .PHONY : render_core/fast
 
+#=============================================================================
+# Target rules for targets named xcm_render_test
+
+# Build rule for target.
+xcm_render_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 xcm_render_test
+.PHONY : xcm_render_test
+
+# fast build rule for target.
+xcm_render_test/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/build
+.PHONY : xcm_render_test/fast
+
 src/css_parser.o: src/css_parser.cpp.o
 .PHONY : src/css_parser.o
 
 # target to build an object file
 src/css_parser.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/css_parser.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/css_parser.cpp.o
 .PHONY : src/css_parser.cpp.o
 
 src/css_parser.i: src/css_parser.cpp.i
@@ -143,6 +157,7 @@ src/css_parser.i: src/css_parser.cpp.i
 # target to preprocess a source file
 src/css_parser.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/css_parser.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/css_parser.cpp.i
 .PHONY : src/css_parser.cpp.i
 
 src/css_parser.s: src/css_parser.cpp.s
@@ -151,6 +166,7 @@ src/css_parser.s: src/css_parser.cpp.s
 # target to generate assembly for a file
 src/css_parser.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/css_parser.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/css_parser.cpp.s
 .PHONY : src/css_parser.cpp.s
 
 src/exports.o: src/exports.cpp.o
@@ -159,6 +175,7 @@ src/exports.o: src/exports.cpp.o
 # target to build an object file
 src/exports.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/exports.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/exports.cpp.o
 .PHONY : src/exports.cpp.o
 
 src/exports.i: src/exports.cpp.i
@@ -167,6 +184,7 @@ src/exports.i: src/exports.cpp.i
 # target to preprocess a source file
 src/exports.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/exports.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/exports.cpp.i
 .PHONY : src/exports.cpp.i
 
 src/exports.s: src/exports.cpp.s
@@ -175,6 +193,7 @@ src/exports.s: src/exports.cpp.s
 # target to generate assembly for a file
 src/exports.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/exports.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/exports.cpp.s
 .PHONY : src/exports.cpp.s
 
 src/html_tokenizer.o: src/html_tokenizer.cpp.o
@@ -183,6 +202,7 @@ src/html_tokenizer.o: src/html_tokenizer.cpp.o
 # target to build an object file
 src/html_tokenizer.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/html_tokenizer.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/html_tokenizer.cpp.o
 .PHONY : src/html_tokenizer.cpp.o
 
 src/html_tokenizer.i: src/html_tokenizer.cpp.i
@@ -191,6 +211,7 @@ src/html_tokenizer.i: src/html_tokenizer.cpp.i
 # target to preprocess a source file
 src/html_tokenizer.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/html_tokenizer.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/html_tokenizer.cpp.i
 .PHONY : src/html_tokenizer.cpp.i
 
 src/html_tokenizer.s: src/html_tokenizer.cpp.s
@@ -199,6 +220,7 @@ src/html_tokenizer.s: src/html_tokenizer.cpp.s
 # target to generate assembly for a file
 src/html_tokenizer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/html_tokenizer.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/html_tokenizer.cpp.s
 .PHONY : src/html_tokenizer.cpp.s
 
 src/layout.o: src/layout.cpp.o
@@ -207,6 +229,7 @@ src/layout.o: src/layout.cpp.o
 # target to build an object file
 src/layout.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/layout.cpp.o
 .PHONY : src/layout.cpp.o
 
 src/layout.i: src/layout.cpp.i
@@ -215,6 +238,7 @@ src/layout.i: src/layout.cpp.i
 # target to preprocess a source file
 src/layout.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/layout.cpp.i
 .PHONY : src/layout.cpp.i
 
 src/layout.s: src/layout.cpp.s
@@ -223,6 +247,7 @@ src/layout.s: src/layout.cpp.s
 # target to generate assembly for a file
 src/layout.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/layout.cpp.s
 .PHONY : src/layout.cpp.s
 
 src/paint.o: src/paint.cpp.o
@@ -231,6 +256,7 @@ src/paint.o: src/paint.cpp.o
 # target to build an object file
 src/paint.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/paint.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/paint.cpp.o
 .PHONY : src/paint.cpp.o
 
 src/paint.i: src/paint.cpp.i
@@ -239,6 +265,7 @@ src/paint.i: src/paint.cpp.i
 # target to preprocess a source file
 src/paint.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/paint.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/paint.cpp.i
 .PHONY : src/paint.cpp.i
 
 src/paint.s: src/paint.cpp.s
@@ -247,6 +274,7 @@ src/paint.s: src/paint.cpp.s
 # target to generate assembly for a file
 src/paint.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/paint.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/paint.cpp.s
 .PHONY : src/paint.cpp.s
 
 src/style_resolver.o: src/style_resolver.cpp.o
@@ -255,6 +283,7 @@ src/style_resolver.o: src/style_resolver.cpp.o
 # target to build an object file
 src/style_resolver.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/style_resolver.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/style_resolver.cpp.o
 .PHONY : src/style_resolver.cpp.o
 
 src/style_resolver.i: src/style_resolver.cpp.i
@@ -263,6 +292,7 @@ src/style_resolver.i: src/style_resolver.cpp.i
 # target to preprocess a source file
 src/style_resolver.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/style_resolver.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/style_resolver.cpp.i
 .PHONY : src/style_resolver.cpp.i
 
 src/style_resolver.s: src/style_resolver.cpp.s
@@ -271,6 +301,7 @@ src/style_resolver.s: src/style_resolver.cpp.s
 # target to generate assembly for a file
 src/style_resolver.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/style_resolver.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/style_resolver.cpp.s
 .PHONY : src/style_resolver.cpp.s
 
 # Help Target
@@ -282,6 +313,7 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... render_core"
+	@echo "... xcm_render_test"
 	@echo "... src/css_parser.o"
 	@echo "... src/css_parser.i"
 	@echo "... src/css_parser.s"

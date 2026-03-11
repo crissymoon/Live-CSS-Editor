@@ -1,0 +1,253 @@
+/**
+ * pb-dnd.css
+ * Styles for drag-and-drop and grid snapping in page builder.
+ * Image containers, resize handles, grid guides, and feedback states.
+ */
+
+/* ========== Image containers (DND) ===================================== */
+.pbdnd-image-container {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(100, 200, 255, 0.3);
+    border-radius: 4px;
+    cursor: grab;
+    transition: border-color 0.15s ease;
+    user-select: none;
+    overflow: hidden;
+}
+
+.pbdnd-image-container:hover {
+    border-color: rgba(100, 200, 255, 0.7);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.pbdnd-image-container.dragging {
+    opacity: 0.6;
+    border-color: rgba(100, 200, 255, 0.9);
+    box-shadow: 0 0 12px rgba(100, 200, 255, 0.4);
+}
+
+.pbdnd-image-container.repositioning {
+    border-color: rgba(100, 200, 255, 0.9);
+    box-shadow: 0 2px 16px rgba(100, 200, 255, 0.5);
+}
+
+.pbdnd-image-container.resizing {
+    border-color: rgba(100, 200, 255, 0.9);
+    box-shadow: 0 2px 16px rgba(100, 200, 255, 0.5);
+}
+
+/* Image element itself */
+.pbdnd-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* ========== Resize & delete handles ===================================== */
+.pbdnd-handles {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: none;
+    gap: 4px;
+    pointer-events: all;
+}
+
+.pbdnd-image-container:hover .pbdnd-handles {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 4px;
+}
+
+/* Resize handle (bottom-right corner) */
+.pbdnd-handle {
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, transparent 0%, rgba(100, 200, 255, 0.8) 100%);
+    border-radius: 0 0 4px 0;
+    cursor: nwse-resize;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+}
+
+.pbdnd-handle:hover {
+    opacity: 1;
+    background: linear-gradient(135deg, transparent 0%, rgba(100, 200, 255, 1) 100%);
+}
+
+/* Delete button */
+.pbdnd-delete {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: rgba(255, 80, 80, 0.8);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: all 0.15s ease;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pbdnd-delete:hover {
+    opacity: 1;
+    background: rgba(255, 80, 80, 1);
+    box-shadow: 0 2px 8px rgba(255, 80, 80, 0.4);
+}
+
+/* ========== Canvas state (DND active) ================================== */
+#pbc-canvas-wrap.dnd-active {
+    background: linear-gradient(
+        135deg,
+        rgba(100, 200, 255, 0.02) 0%,
+        rgba(100, 200, 255, 0.04) 100%
+    );
+    border: 2px dashed rgba(100, 200, 255, 0.4);
+}
+
+/* Drop zone highlight */
+.pbdnd-drop-zone {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(100, 200, 255, 0.08);
+    border: 2px dashed rgba(100, 200, 255, 0.6);
+    pointer-events: none;
+    z-index: 1;
+    border-radius: 4px;
+    animation: pbdnd-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pbdnd-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.8; }
+}
+
+/* ========== Grid overlay ============================================== */
+.pbgrid-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Grid guides (alignment feedback) */
+.pbgrid-guides {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.pbgrid-guide-v {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px solid rgba(100, 200, 255, 0.8);
+    animation: pbgrid-flash 0.3s ease;
+}
+
+.pbgrid-guide-h {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1px solid rgba(100, 200, 255, 0.8);
+    animation: pbgrid-flash 0.3s ease;
+}
+
+@keyframes pbgrid-flash {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* ========== Canvas wrapper enhancements ================================ */
+[data-dnd-canvas] {
+    position: relative;
+    min-height: 400px;
+    background: var(--pb-bg-2);
+    border: 1px solid var(--pb-border);
+    border-radius: 4px;
+    overflow: auto;
+}
+
+/* Smooth transitions for positioning */
+.pbdnd-image-container {
+    transition: left 0.08s ease, top 0.08s ease;
+}
+
+.pbdnd-image-container.repositioning {
+    transition: none; /* No transition while dragging */
+}
+
+/* ========== Responsive adjustments ===================================== */
+@media (max-width: 1024px) {
+    .pbdnd-image-container {
+        border-width: 2px;
+    }
+    
+    .pbdnd-handle {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .pbdnd-delete {
+        width: 26px;
+        height: 26px;
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    [data-dnd-canvas] {
+        min-height: 300px;
+    }
+    
+    .pbdnd-image-container {
+        border-width: 3px;
+    }
+    
+    .pbdnd-handle {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .pbdnd-delete {
+        width: 28px;
+        height: 28px;
+        font-size: 18px;
+    }
+}
+
+/* Accessibility: focus states */
+.pbdnd-delete:focus {
+    outline: 2px solid rgba(100, 200, 255, 0.8);
+    outline-offset: 2px;
+}
+
+/* Touch support */
+@supports (touch-action: manipulation) {
+    .pbdnd-image-container {
+        touch-action: manipulation;
+    }
+}

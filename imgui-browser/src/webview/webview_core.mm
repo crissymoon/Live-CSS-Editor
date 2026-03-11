@@ -243,6 +243,11 @@ void webview_show(void* handle) {
     WVHandle* h = (WVHandle*)handle;
     h->wv.hidden = NO;
     xcm_shell_set_webview(h->wv, h->tab_id);
+    // Keep the active WKWebView in the responder chain so Cmd shortcuts
+    // (copy/cut/paste/select-all) target page inputs consistently.
+    if (s_window) {
+        [s_window makeFirstResponder:h->wv];
+    }
 }
 
 void webview_hide(void* handle) {
