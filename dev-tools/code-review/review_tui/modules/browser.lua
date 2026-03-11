@@ -20,6 +20,9 @@ local max_scroll= 0
 local hover_idx = nil
 local visible   = true
 local top_y     = 0  -- set by draw (menubar_h + toolbar_h)
+local viewport_h = 0 -- set by draw (rows area under root bar)
+local kb_focus  = false
+local kb_idx    = 1
 
 -- on_select(path) callback when user picks a directory
 local _on_select = nil
@@ -52,6 +55,38 @@ end
 
 function M.width()
     return visible and W_PANEL or 0
+end
+
+local function clamp_kb_idx()
+    if #entries <= 0 then
+        kb_idx = 1
+        return
+    end
+    if kb_idx < 1 then kb_idx = 1 end
+    if kb_idx > #entries then kb_idx = #entries end
+end
+
+local function ensure_kb_visible()
+    if #entries <= 0 then return end
+    local y0 = (kb_idx - 1) * ITEM_H
+    local y1 = y0 + ITEM_H
+    local view_h = math.max(ITEM_H, viewport_h)
+    local top = scroll_y
+    local bot = scroll_y + view_h
+    if y0 < top then
+        scroll_y = y0
+    elseif y1 > bot then
+        scroll_y = y1 - view_h
+    end
+    if scroll_y < 0 then scroll_y = 0 end
+    if scroll_y > max_scroll then scroll_y = max_scroll end
+end
+
+local function find_idx_by_path(path)
+    for i, e in ipairs(entries) do
+        if e.path == path then return i end
+    end
+    return nil
 end
 
 -- Build a flat entry list for directory at `path` at given depth.
@@ -96,6 +131,7 @@ function M.set_root(path)
     entries   = {}
     scroll_y  = 0
     M.refresh()
+    kb_idx = 1
 end
 
 function M.go_up()
@@ -113,6 +149,7 @@ function M.refresh()
     if root_open then
         build_entries(root_path, 0, entries)
     end
+    clamp_kb_idx()
 end
 
 M.refresh()
@@ -155,7 +192,7 @@ function M.draw(x, y, h, font)
     top_y = y
 
     local total_h    = #entries * ITEM_H
-    local viewport_h = h - ITEM_H - 4   -- subtract root label bar + small bottom padding
+    viewport_h = h - ITEM_H - 4   -- subtract root label bar + small bottom padding
     max_scroll = math.max(0, total_h - viewport_h)
     scroll_y   = math.max(0, math.min(scroll_y, max_scroll))
 
@@ -199,6 +236,11 @@ function M.draw(x, y, h, font)
             -- hover detection
             local hov = (mx >= x and mx < x + W_PANEL and my >= item_y and my < item_y + ITEM_H)
             if hov then hover_idx = i end
+
+            if kb_focus and i == kb_idx then
+                love.graphics.setColor(C.accent[1], C.accent[2], C.accent[3], 0.28)
+                love.graphics.rectangle("fill", x, item_y, W_PANEL, ITEM_H)
+            end
 
             if hov then
                 love.graphics.setColor(C.hover)
@@ -309,15 +351,97 @@ function M.mousepressed(mx, my, btn)
         if not hover_idx then return false end
         local e = entries[hover_idx]
         if not e then return false end
+        kb_idx = hover_idx
 
         if e.is_dir then
             e.open = not e.open
             refresh_open_dirs()
+            local ni = find_idx_by_path(e.path)
+            if ni then kb_idx = ni end
             if _on_select then _on_select(e.path) end
         elseif _on_edit then
             -- single-click on file opens it in the editor
             _on_edit(e.path)
+            kb_focus = false
         end
+        return true
+    end
+
+    return false
+end
+
+function M.set_keyboard_focus(v)
+    kb_focus = not not v
+    if kb_focus then
+        clamp_kb_idx()
+        ensure_kb_visible()
+    end
+end
+
+function M.has_keyboard_focus()
+    return kb_focus
+end
+
+function M.keypressed(key)
+    if not visible or not kb_focus then return false end
+    if key == "escape" then
+        kb_focus = false
+        return true
+    end
+
+    if key == "up" then
+        kb_idx = kb_idx - 1
+        clamp_kb_idx()
+        ensure_kb_visible()
+        return true
+    elseif key == "down" then
+        kb_idx = kb_idx + 1
+        clamp_kb_idx()
+        ensure_kb_visible()
+        return true
+    elseif key == "left" then
+        local e = entries[kb_idx]
+        if e and e.is_dir and e.open then
+            e.open = false
+            local p = e.path
+            refresh_open_dirs()
+            local ni = find_idx_by_path(p)
+            if ni then kb_idx = ni end
+        else
+            M.go_up()
+        end
+        clamp_kb_idx()
+        ensure_kb_visible()
+        return true
+    elseif key == "right" then
+        local e = entries[kb_idx]
+        if e and e.is_dir then
+            if not e.open then
+                e.open = true
+                refresh_open_dirs()
+                local ni = find_idx_by_path(e.path)
+                if ni then kb_idx = ni end
+            end
+            if _on_select then _on_select(e.path) end
+        end
+        clamp_kb_idx()
+        ensure_kb_visible()
+        return true
+    elseif key == "return" or key == "kpenter" then
+        local e = entries[kb_idx]
+        if not e then return true end
+        if e.is_dir then
+            e.open = not e.open
+            refresh_open_dirs()
+            local ni = find_idx_by_path(e.path)
+            if ni then kb_idx = ni end
+            if _on_select then _on_select(e.path) end
+        elseif _on_edit then
+            _on_edit(e.path)
+            kb_focus = false
+        end
+        clamp_kb_idx()
+        ensure_kb_visible()
         return true
     end
 

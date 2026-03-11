@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-bridge.py  –  Code Review TUI dispatcher
+bridge.py  -  Code Review TUI dispatcher
 Located at:  dev-tools/code-review/bridge.py
 
 Usage:
@@ -79,7 +79,7 @@ def write_report(scan_dir: str, scanner_label: str, lines: list[str]) -> str:
     path = os.path.join(REPORTS_DIR, f"report_{name}_{ts}.md")
 
     with open(path, "w") as f:
-        f.write(f"# Code Review Report — {scanner_label}\n\n")
+        f.write(f"# Code Review Report - {scanner_label}\n\n")
         f.write(f"**Directory:** `{scan_dir}`  \n")
         f.write(f"**Generated:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n\n")
         f.write("---\n\n")
@@ -90,9 +90,9 @@ def write_report(scan_dir: str, scanner_label: str, lines: list[str]) -> str:
     return path
 
 
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 # Scanner dispatcher functions
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 
 def scan_security(scan_dir: str) -> list[str]:
     out_line(f"[ Security Scan ]  {scan_dir}")
@@ -148,16 +148,16 @@ def run_all(scan_dir: str) -> list[str]:
     ]
     for label, fn in sections:
         out_line("")
-        out_line(f"━━━ {label} ━━━")
+        out_line(f"=== {label} ===")
         section_lines = fn(scan_dir)
         all_lines += [f"", f"## {label}", ""] + section_lines
 
     return all_lines
 
 
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 # Entry point
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 
 COMMANDS = {
     "security_scan": (scan_security,    "Security Scan"),

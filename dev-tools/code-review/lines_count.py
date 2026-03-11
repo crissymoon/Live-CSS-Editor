@@ -169,7 +169,7 @@ def main():
 
     print(f"Scanning : {os.path.abspath(root_dir)}")
     print(f"Threshold: {threshold} lines")
-    print(f"{'─' * 60}")
+    print(f"{'-' * 60}")
 
     results = scan(root_dir, threshold)
 
@@ -182,12 +182,12 @@ def main():
     col_width       = max(max_lines_width, 5)
 
     print(f"{'Lines':>{col_width}}  File")
-    print(f"{'─' * col_width}  {'─' * 50}")
+    print(f"{'-' * col_width}  {'-' * 50}")
 
     for line_count, rel_path in results:
         print(f"{line_count:>{col_width}}  {rel_path}")
 
-    print(f"{'─' * 60}")
+    print(f"{'-' * 60}")
     print(f"Total files over {threshold} lines: {len(results)}")
 
 

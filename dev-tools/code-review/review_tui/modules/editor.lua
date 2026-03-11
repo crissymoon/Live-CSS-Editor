@@ -18,15 +18,25 @@
 
 local M = {}
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- Constants
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 local CHAR_H    = 16
 local _last_h   = 480   -- cache of last draw height for use in textinput
 local GUTTER    = 50    -- line-number column width
 local TAB_H     = 26    -- tab bar height
+local FOOTER_H  = 20    -- editor footer/status strip
+local TOP_PAD   = 4     -- top inset inside editor viewport
+local BOTTOM_PAD= 12    -- bottom breathing room above footer
+local OVER_ROWS = 2     -- allow scrolling past EOF a little
 local CTX_W     = 178
 local CTX_ITEM_H= 22
+
+-- drag-to-select state
+local _drag        = false
+local _drag_anchor = nil   -- { line, col }
+local _drag_ctx    = nil   -- { px, py, pw, ph }
+local _request_browser_focus = false
 
 local CTX_ITEMS = {
     { label = "Select All",  hint = "Ctrl+A" },
@@ -35,9 +45,9 @@ local CTX_ITEMS = {
     { label = "Paste",       hint = "Ctrl+V" },
 }
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- Tab state
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 M.tabs    = {}   -- array of tab objects (see new_tab)
 M.cur_idx = 0    -- 1..#tabs; 0 means no tab focused (should not occur when tabs exist)
 
@@ -61,9 +71,15 @@ function M.active_tab()
     return M.tabs[M.cur_idx]
 end
 
--- ─────────────────────────────────────────────
+function M.consume_browser_focus_request()
+    local v = _request_browser_focus
+    _request_browser_focus = false
+    return v
+end
+
+-- ---------------------------------------------
 -- UTF-8 safety (copied pattern from reference)
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 local function _seq_len(b)
     if b < 0x80 then return 1
     elseif b < 0xC0 then return nil
@@ -99,10 +115,10 @@ local function _utf8_safe(s)
     return table.concat(out)
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- Simple syntax highlighter
 -- Returns list of { text, col_key } tokens
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 local KEYWORDS = {
     lua     = { "and","break","do","else","elseif","end","false","for","function","goto","if",
                 "in","local","nil","not","or","repeat","return","then","true","until","while" },
@@ -182,20 +198,28 @@ local function tokenize_line(line, ext)
             i = j
 
         else
-            -- single char punctuation / space
-            local char = line:sub(i, i)
-            local col  = "dim"
-            if char:match("[(){}%[%]<>]") then col = "lavender" end
-            out[#out+1] = { text = char, col = col }
-            i = i + 1
+            -- single char or multi-byte UTF-8 sequence
+            local b = line:byte(i)
+            local slen = _seq_len(b)
+            if slen and slen > 1 and i + slen - 1 <= n and _valid_seq(line, i, slen) then
+                -- full multi-byte UTF-8 char (keep it intact so the font can render it)
+                out[#out+1] = { text = line:sub(i, i + slen - 1), col = "dim" }
+                i = i + slen
+            else
+                local char = line:sub(i, i)
+                local col  = "dim"
+                if char:match("[(){}%[%]<>]") then col = "lavender" end
+                out[#out+1] = { text = char, col = col }
+                i = i + 1
+            end
         end
     end
     return out
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- File I/O
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 function M.open_file(path)
     -- already open? switch to it
     for i, t in ipairs(M.tabs) do
@@ -235,9 +259,9 @@ local function close_tab(idx)
     end
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- Selection helpers
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 local function sel_norm(t)
     if not t.sel then return nil end
     local s, e = t.sel.s, t.sel.e
@@ -274,9 +298,9 @@ local function delete_sel(t)
     t.modified    = true
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- Cursor helpers
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 local function clamp_col(t)
     local max_col = #t.lines[t.cursor.line] + 1
     if t.cursor.col > max_col then t.cursor.col = max_col end
@@ -284,7 +308,8 @@ local function clamp_col(t)
 end
 
 local function visible_lines(h)
-    return math.floor((h - TAB_H) / CHAR_H)
+    local inner_h = h - TAB_H - FOOTER_H - TOP_PAD - BOTTOM_PAD
+    return math.max(1, math.floor(inner_h / CHAR_H))
 end
 
 local function ensure_scroll(t, h)
@@ -327,9 +352,9 @@ local function paste_into(t, clip, h)
     ensure_scroll(t, h)
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- DRAW
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 
 -- tab button geometry cache: { { x, w, close_x } ... }
 local _tab_geom = {}
@@ -383,8 +408,8 @@ function M.draw(x, y, w, h)
 
     -- ---- editor area ----
     local ey    = y + TAB_H
-    local eh    = h - TAB_H
-    local vis   = math.floor(eh / CHAR_H)
+    local eh    = h - TAB_H - FOOTER_H
+    local vis   = visible_lines(h)
     local ext   = ext_of(t and t.filepath or "")
 
     love.graphics.setColor(C.bg)
@@ -392,15 +417,18 @@ function M.draw(x, y, w, h)
 
     if not t then return end
 
-    -- clamp scroll
-    local max_scr = math.max(0, #t.lines - vis)
+    -- clamp scroll (allow slight overscroll below EOF for breathing room)
+    local max_scr = math.max(0, #t.lines - vis + OVER_ROWS)
     if t.scroll > max_scr then t.scroll = max_scr end
 
-    love.graphics.setScissor(x, ey, w, eh)
+    -- strict content rect: draw only full rows between top and bottom padding
+    local scissor_y = ey + TOP_PAD
+    local scissor_h = vis * CHAR_H
+    love.graphics.setScissor(x, scissor_y, w, scissor_h)
     love.graphics.setFont(font_sm)
 
-    local draw_y = ey + 4
-    for li = t.scroll + 1, math.min(t.scroll + vis + 1, #t.lines) do
+    local draw_y = ey + TOP_PAD
+    for li = t.scroll + 1, math.min(t.scroll + vis, #t.lines) do
         local line   = t.lines[li] or ""
         local is_cur = (li == t.cursor.line)
 
@@ -417,7 +445,7 @@ function M.draw(x, y, w, h)
             local px_e = (li == el) and col_px(line, ec)
                          or (x + GUTTER + font_sm:getWidth(_utf8_safe(line)) + font_sm:getWidth(" "))
             if px_e > px_s then
-                love.graphics.setColor(0.33, 0.0, 0.8, 0.3)
+                love.graphics.setColor(0.72, 0.55, 1.0, 0.55)
                 fill_rect(px_s, draw_y - 2, px_e - px_s, CHAR_H + 2)
             end
         end
@@ -462,15 +490,15 @@ function M.draw(x, y, w, h)
 
     -- footer bar: filename + position
     love.graphics.setColor(C.menu_bg)
-    fill_rect(x, y + h - 20, w, 20)
+    fill_rect(x, y + h - FOOTER_H, w, FOOTER_H)
     love.graphics.setColor(C.border)
-    love.graphics.line(x, y + h - 20, x + w, y + h - 20)
+    love.graphics.line(x, y + h - FOOTER_H, x + w, y + h - FOOTER_H)
     love.graphics.setFont(font_sm)
     love.graphics.setColor(C.dim)
     local pos = "Ln " .. t.cursor.line .. "  Col " .. t.cursor.col
              .. "  |  " .. (ext ~= "" and ext:upper() or "TXT")
              .. "  |  " .. t.filepath
-    love.graphics.print(pos, x + 8, y + h - 16)
+    love.graphics.print(pos, x + 8, y + h - FOOTER_H + 4)
 
     -- context menu
     if t._ctx then
@@ -499,9 +527,9 @@ function M.draw(x, y, w, h)
     end
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- Shift-selection helpers
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- Called before a movement when shift is held: anchors sel.s at current cursor
 local function sel_start(t)
     if not t.sel then
@@ -523,9 +551,9 @@ local function sel_finish(t, shift)
     end
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- KEYPRESSED
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 function M.keypressed(key, h)
     if not M.has_tabs() then return false end
     local t    = M.active_tab()
@@ -540,13 +568,22 @@ function M.keypressed(key, h)
     -- close context menu on any key
     if t._ctx then t._ctx = nil end
 
-    -- Cmd+Left / Cmd+Right: switch tabs
+    -- Cmd+Left / Cmd+Right: switch tabs; Cmd+T: new empty tab
     if cmd and not love.keyboard.isDown("lctrl","rctrl") then
         if key == "left" then
-            if M.cur_idx > 1 then M.cur_idx = M.cur_idx - 1 end
+            if M.cur_idx > 1 then
+                M.cur_idx = M.cur_idx - 1
+            else
+                _request_browser_focus = true
+            end
             return true
         elseif key == "right" then
             if M.cur_idx < #M.tabs then M.cur_idx = M.cur_idx + 1 end
+            return true
+        elseif key == "t" then
+            local tab = new_tab("untitled", { "" })
+            M.tabs[#M.tabs + 1] = tab
+            M.cur_idx = #M.tabs
             return true
         end
     end
@@ -582,6 +619,46 @@ function M.keypressed(key, h)
 
     elseif key == "v" and ctrl then
         paste_into(t, love.system.getClipboardText(), h); return true
+
+    -- Cmd+Shift+I/J/K/L: turbo movement (8-line vertical, word-jump horizontal)
+    elseif key == "i" and cmd and shift then
+        t.cursor.line = math.max(1, t.cursor.line - 8)
+        clamp_col(t); ensure_scroll(t, h); return true
+
+    elseif key == "k" and cmd and shift then
+        t.cursor.line = math.min(#t.lines, t.cursor.line + 8)
+        clamp_col(t); ensure_scroll(t, h); return true
+
+    elseif key == "j" and cmd and shift then
+        local line = t.lines[t.cursor.line]
+        local col  = t.cursor.col - 1
+        if col < 1 then
+            if t.cursor.line > 1 then
+                t.cursor.line = t.cursor.line - 1
+                t.cursor.col  = #t.lines[t.cursor.line] + 1
+            end
+        else
+            while col >= 1 and line:sub(col, col):match("%s") do col = col - 1 end
+            while col >= 1 and not line:sub(col, col):match("%s") do col = col - 1 end
+            t.cursor.col = col + 1
+        end
+        ensure_scroll(t, h); return true
+
+    elseif key == "l" and cmd and shift then
+        local line = t.lines[t.cursor.line]
+        local len  = #line
+        local col  = t.cursor.col
+        if col > len then
+            if t.cursor.line < #t.lines then
+                t.cursor.line = t.cursor.line + 1
+                t.cursor.col  = 1
+            end
+        else
+            while col <= len and not line:sub(col, col):match("%s") do col = col + 1 end
+            while col <= len and line:sub(col, col):match("%s") do col = col + 1 end
+            t.cursor.col = col
+        end
+        ensure_scroll(t, h); return true
 
     elseif key == "return" or key == "kpenter" then
         if t.sel then delete_sel(t) end
@@ -635,19 +712,26 @@ function M.keypressed(key, h)
         t.modified   = true; return true
 
     elseif key == "up" then
-        -- shift = turbo: jump 8 lines; ctrl = jump 8 lines; plain = 1 line
-        local step = (shift or ctrl) and 8 or 1
+        -- ctrl = jump 8 lines; shift = extend selection; plain = 1 line
+        local step = ctrl and 8 or 1
+        if shift then sel_start(t) end
         t.cursor.line = math.max(1, t.cursor.line - step)
-        clamp_col(t); ensure_scroll(t, h); return true
+        clamp_col(t)
+        sel_finish(t, shift)
+        ensure_scroll(t, h); return true
 
     elseif key == "down" then
-        local step = (shift or ctrl) and 8 or 1
+        local step = ctrl and 8 or 1
+        if shift then sel_start(t) end
         t.cursor.line = math.min(#t.lines, t.cursor.line + step)
-        clamp_col(t); ensure_scroll(t, h); return true
+        clamp_col(t)
+        sel_finish(t, shift)
+        ensure_scroll(t, h); return true
 
     elseif key == "left" then
-        -- shift or ctrl = word jump left
-        if shift or ctrl then
+        -- ctrl = word jump; shift = extend selection; ctrl+shift = word jump with selection
+        if shift then sel_start(t) end
+        if ctrl then
             local line = t.lines[t.cursor.line]
             local col  = t.cursor.col - 1
             if col < 1 then
@@ -668,11 +752,13 @@ function M.keypressed(key, h)
                 t.cursor.col  = #t.lines[t.cursor.line] + 1
             end
         end
+        sel_finish(t, shift)
         ensure_scroll(t, h); return true
 
     elseif key == "right" then
-        -- shift or ctrl = word jump right
-        if shift or ctrl then
+        -- ctrl = word jump; shift = extend selection; ctrl+shift = word jump with selection
+        if shift then sel_start(t) end
+        if ctrl then
             local line = t.lines[t.cursor.line]
             local len  = #line
             local col  = t.cursor.col
@@ -694,27 +780,32 @@ function M.keypressed(key, h)
                 t.cursor.col  = 1
             end
         end
+        sel_finish(t, shift)
         ensure_scroll(t, h); return true
 
     elseif key == "home" then
-        -- shift = jump to very first line; plain = smart home
-        if shift then
+        -- shift = smart home with selection; ctrl = jump to first line
+        if shift then sel_start(t) end
+        if ctrl then
             t.cursor.line = 1
             t.cursor.col  = 1
         else
             local indent_end = (t.lines[t.cursor.line]:match("^%s*()") or 1)
             t.cursor.col = (t.cursor.col == indent_end) and 1 or indent_end
         end
+        sel_finish(t, shift)
         ensure_scroll(t, h); return true
 
     elseif key == "end" then
-        -- shift = jump to very last line; plain = end of current line
-        if shift then
+        -- shift = end of line with selection; ctrl = jump to last line
+        if shift then sel_start(t) end
+        if ctrl then
             t.cursor.line = #t.lines
             t.cursor.col  = #t.lines[#t.lines] + 1
         else
             t.cursor.col = #t.lines[t.cursor.line] + 1
         end
+        sel_finish(t, shift)
         ensure_scroll(t, h); return true
 
     elseif key == "pageup" then
@@ -731,9 +822,9 @@ function M.keypressed(key, h)
     return false
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 -- TEXTINPUT
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 function M.textinput(char)
     if not M.has_tabs() then return false end
     local t = M.active_tab()
@@ -747,9 +838,40 @@ function M.textinput(char)
     return true
 end
 
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
+-- Mouse position helpers
+-- ---------------------------------------------
+local function _pos_from_mouse(mx, my, t, px, py)
+    local ey = py + TAB_H
+    if my < ey then return nil, nil end
+    local row = t.scroll + 1 + math.floor((my - ey - TOP_PAD) / CHAR_H)
+    row = math.max(1, math.min(#t.lines, row))
+    local line  = t.lines[row] or ""
+    local safe  = _utf8_safe(line)
+    local rel_x = mx - (px + GUTTER)
+    local best  = #safe + 1
+    if rel_x > 0 then
+        local acc = 0
+        local ci  = 1
+        while ci <= #safe do
+            local b   = safe:byte(ci)
+            local len = _seq_len(b) or 1
+            if ci + len - 1 > #safe then break end
+            local ch = safe:sub(ci, ci + len - 1)
+            local cw = font_sm:getWidth(ch)
+            if rel_x < acc + cw / 2 then best = ci; break end
+            acc = acc + cw
+            ci  = ci + len
+        end
+    else
+        best = 1
+    end
+    return row, best
+end
+
+-- ---------------------------------------------
 -- MOUSE
--- ─────────────────────────────────────────────
+-- ---------------------------------------------
 function M.mousepressed(mx, my, btn, px, py, pw, ph)
     -- px,py,pw,ph = editor panel position/size from main
     if not M.has_tabs() then return false end
@@ -780,7 +902,7 @@ function M.mousepressed(mx, my, btn, px, py, pw, ph)
     local ey = py + TAB_H
 
     -- outside editor area
-    if my < ey or my >= py + ph - 20 then return false end
+    if my < ey or my >= py + ph - FOOTER_H then return false end
 
     -- right-click: context menu
     if btn == 2 then
@@ -815,39 +937,47 @@ function M.mousepressed(mx, my, btn, px, py, pw, ph)
             -- fall through to cursor placement
         end
 
-        -- map click to line
-        local clicked_line = t.scroll + 1 + math.floor((my - ey - 4) / CHAR_H)
-        clicked_line = math.max(1, math.min(#t.lines, clicked_line))
-        t.cursor.line = clicked_line
-
-        -- map click to column
-        local line    = t.lines[clicked_line] or ""
-        local safe    = _utf8_safe(line)
-        local rel_x   = mx - (px + GUTTER)
-        if rel_x <= 0 then
-            t.cursor.col = 1
-        else
-            local best = #safe + 1
-            local acc  = 0
-            local ci   = 1
-            while ci <= #safe do
-                local b   = safe:byte(ci)
-                local len = _seq_len(b) or 1
-                if ci + len - 1 > #safe then break end
-                local ch = safe:sub(ci, ci + len - 1)
-                local cw = font_sm:getWidth(ch)
-                if rel_x < acc + cw / 2 then best = ci; break end
-                acc = acc + cw
-                ci  = ci + len
-            end
-            t.cursor.col = best
+        -- map click to line and column
+        local row, col = _pos_from_mouse(mx, my, t, px, py)
+        if row then
+            t.cursor.line = row
+            t.cursor.col  = col
         end
-        t.sel = nil
+        t.sel          = nil
         clamp_col(t)
         ensure_scroll(t, ph)
+        -- begin drag-to-select
+        _drag        = true
+        _drag_anchor = { line = t.cursor.line, col = t.cursor.col }
+        _drag_ctx    = { px = px, py = py, pw = pw, ph = ph }
         return true
     end
 
+    return false
+end
+
+function M.mousemoved(mx, my)
+    if not _drag or not _drag_anchor then return false end
+    local t = M.active_tab()
+    if not t or not _drag_ctx then return false end
+    local row, col = _pos_from_mouse(mx, my, t, _drag_ctx.px, _drag_ctx.py)
+    if not row then return false end
+    t.cursor.line = row
+    t.cursor.col  = col
+    clamp_col(t)
+    t.sel = {
+        s = { line = _drag_anchor.line, col = _drag_anchor.col },
+        e = { line = t.cursor.line,     col = t.cursor.col },
+    }
+    return true
+end
+
+function M.mousereleased(mx, my, btn)
+    if btn == 1 then
+        _drag        = false
+        _drag_anchor = nil
+        _drag_ctx    = nil
+    end
     return false
 end
 
@@ -856,7 +986,7 @@ function M.wheelmoved(wy, px, py, pw, ph)
     local t   = M.active_tab()
     if not t  then return false end
     local vis = visible_lines(ph)
-    local max_scr = math.max(0, #t.lines - vis)
+    local max_scr = math.max(0, #t.lines - vis + OVER_ROWS)
     t.scroll  = math.max(0, math.min(max_scr, t.scroll - wy * 3))
     return true
 end

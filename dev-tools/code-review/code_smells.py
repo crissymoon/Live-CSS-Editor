@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-code_smells.py  –  Code Smell Detector
+code_smells.py  -  Code Smell Detector
 Scans .py, .php, .js, .ts, .c, .h files.
 
 Usage:
     python3 code_smells.py <directory>
 
 Detected smells:
-  • Long parameter lists   (> 5 params in function signature)
-  • Deep nesting           (> 4 levels of indent)
-  • Duplicate code blocks  (>= 6 identical consecutive lines appear 2+ times)
-  • Primitive obsession    (> 4 primitive params in one function)
-  • Dead imports           (imported name never used in rest of file)
-  • Long methods           (function body > 60 lines)
-  • Magic numbers          (bare numeric literals in code, not in declarations)
-  • Empty catch blocks     (catch/except with only pass or comment)
+  * Long parameter lists   (> 5 params in function signature)
+  * Deep nesting           (> 4 levels of indent)
+  * Duplicate code blocks  (>= 6 identical consecutive lines appear 2+ times)
+  * Primitive obsession    (> 4 primitive params in one function)
+  * Dead imports           (imported name never used in rest of file)
+  * Long methods           (function body > 60 lines)
+  * Magic numbers          (bare numeric literals in code, not in declarations)
+  * Empty catch blocks     (catch/except with only pass or comment)
 """
 
 import sys
@@ -41,9 +41,9 @@ def add(path: str, line: int, kind: str, msg: str, severity: str = "MEDIUM") -> 
     print(f"[{severity}] {rel}:{line}  [{kind}]  {msg}")
 
 
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 # Smell detectors
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 
 # Regex patterns
 PAT_PY_DEF   = re.compile(r"^\s*def\s+\w+\s*\(([^)]*)\)")
@@ -100,7 +100,7 @@ def check_params_and_nesting(path: str, lines: list[str]) -> None:
             add(path, i, "DEEP_NESTING",
                 f"Nesting depth ~{indent_level} (max {MAX_NESTING})", "HIGH")
 
-        # Long method tracking (Python only – indentation-based)
+        # Long method tracking (Python only - indentation-based)
         if ext == ".py":
             if PAT_PY_DEF.match(raw):
                 if func_start is not None and func_line_count > MAX_METHOD_LINES:
@@ -192,7 +192,7 @@ def check_dead_imports(path: str, lines: list[str]) -> None:
     for i, raw in enumerate(lines, 1):
         m = PAT_IMPORT_PY.match(raw.strip())
         if m:
-            # from X import Y, Z  → Y and Z
+            # from X import Y, Z  -> Y and Z
             if raw.strip().startswith("from"):
                 rest = re.search(r"import\s+(.+)", raw)
                 if rest:
@@ -226,15 +226,15 @@ def check_duplicate_blocks(path: str, lines: list[str]) -> None:
         if block in seen:
             first_line = seen[block]
             add(path, i + 1, "DUPLICATE_CODE",
-                f"Block of {DUP_BLOCK_SIZE} lines duplicates lines {first_line}–{first_line + DUP_BLOCK_SIZE - 1}",
+                f"Block of {DUP_BLOCK_SIZE} lines duplicates lines {first_line}-{first_line + DUP_BLOCK_SIZE - 1}",
                 "MEDIUM")
         else:
             seen[block] = i + 1
 
 
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 # File scanner
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 
 SKIP_DIRS = {".git", "__pycache__", "node_modules", "vendor", ".venv",
              "venv", "env", "dist", "build", ".tox", "eggs"}
@@ -263,9 +263,9 @@ def scan_dir(root: str) -> None:
                 scan_file(os.path.join(dirpath, fname))
 
 
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 # Main
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 
 def main() -> None:
     if len(sys.argv) < 2:

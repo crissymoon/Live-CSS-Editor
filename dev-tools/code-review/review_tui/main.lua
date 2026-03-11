@@ -85,6 +85,16 @@ local function load_fonts()
         "/System/Library/Fonts/SFNSText.ttf",
     }
 
+    -- Broad-coverage fallback fonts for Unicode glyphs the primary may lack
+    local fallback_candidates = {
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/Apple Symbols.ttf",
+        "/System/Library/Fonts/LastResort.otf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/unifont/unifont.ttf",
+    }
+
     local function try_font(paths, size)
         for _, p in ipairs(paths) do
             local ok, f = pcall(love.graphics.newFont, p, size)
@@ -93,9 +103,24 @@ local function load_fonts()
         return love.graphics.newFont(size)
     end
 
+    local function add_fallbacks(primary, size)
+        local fbs = {}
+        for _, p in ipairs(fallback_candidates) do
+            local ok, f = pcall(love.graphics.newFont, p, size)
+            if ok and f then fbs[#fbs + 1] = f end
+        end
+        if #fbs > 0 then
+            primary:setFallbacks(unpack(fbs))
+        end
+    end
+
     font_sm = try_font(mono_candidates, 11)
     font_md = try_font(mono_candidates, 13)
     font_ui = try_font(ui_candidates,   13)
+
+    add_fallbacks(font_sm, 11)
+    add_fallbacks(font_md, 13)
+    add_fallbacks(font_ui, 13)
 end
 
 --------------------------------------------------------------------
@@ -110,6 +135,7 @@ local last_report  = nil
 local path_editing = false
 local path_buf     = scan_path
 local about_open   = false
+local browser_nav_focus = true
 
 -- text selection in results panel
 local sel_anchor   = nil   -- line index where drag started
@@ -266,8 +292,11 @@ function love.load()
         end,
         function(path)
             Editor.open_file(path)
+            browser_nav_focus = false
+            Browser.set_keyboard_focus(false)
         end
     )
+    Browser.set_keyboard_focus(true)
     CHAR_H = font_sm:getHeight()
 
     add_line("Code Review TUI  - Live CSS Editor Suite", "head")
@@ -610,12 +639,31 @@ end
 -- Input
 --------------------------------------------------------------------
 function love.keypressed(key)
+    if not path_editing and (browser_nav_focus or not Editor.has_tabs()) then
+        if not browser_nav_focus then
+            browser_nav_focus = true
+            Browser.set_keyboard_focus(true)
+        end
+        if Browser.keypressed(key) then return end
+        if key == "escape" then
+            browser_nav_focus = false
+            Browser.set_keyboard_focus(false)
+            return
+        end
+    end
+
     -- Route to editor when tabs are open
-    if Editor.has_tabs() and not path_editing then
+    if Editor.has_tabs() and not path_editing and not browser_nav_focus then
         if key == "escape" and Editor.active_tab() and not Editor.active_tab()._ctx then
             -- escape with no ctx: let editor clear selection; if nothing more, close top tab
         end
-        if Editor.keypressed(key, content_h()) then return end
+        if Editor.keypressed(key, content_h()) then
+            if Editor.consume_browser_focus_request() then
+                browser_nav_focus = true
+                Browser.set_keyboard_focus(true)
+            end
+            return
+        end
     end
 
     -- Cmd/Ctrl+C  copy selection
@@ -655,6 +703,11 @@ function love.textinput(t)
 end
 
 function love.mousepressed(mx, my, btn)
+    if browser_nav_focus and mx >= content_x() then
+        browser_nav_focus = false
+        Browser.set_keyboard_focus(false)
+    end
+
     -- Close context menu on any click
     if ctx_menu.open then
         if btn == 1 then
@@ -744,18 +797,27 @@ function love.mousepressed(mx, my, btn)
     end
 
     -- Browser
-    if Browser.mousepressed(mx, my, btn) then return end
+    if Browser.mousepressed(mx, my, btn) then
+        browser_nav_focus = true
+        Browser.set_keyboard_focus(true)
+        return
+    end
 end
 
 function love.mousereleased(mx, my, btn)
     if btn == 1 then
         sel_dragging = false
     end
+    Editor.mousereleased(mx, my, btn)
 end
 
 function love.mousemoved(mx, my, dx, dy)
     Menu.mousemoved(mx, my, MENUBAR_H)
-    -- extend selection while dragging
+    -- extend drag selection in editor
+    if Editor.has_tabs() then
+        Editor.mousemoved(mx, my)
+    end
+    -- extend selection while dragging in results panel
     if sel_dragging and in_results(mx, my) then
         sel_cur = line_idx_at(my)
     end
