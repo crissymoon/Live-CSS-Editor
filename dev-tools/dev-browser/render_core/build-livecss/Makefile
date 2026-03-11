@@ -156,6 +156,32 @@ xcm_tui/fast:
 .PHONY : xcm_tui/fast
 
 #=============================================================================
+# Target rules for targets named xcm_http_fetch
+
+# Build rule for target.
+xcm_http_fetch: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 xcm_http_fetch
+.PHONY : xcm_http_fetch
+
+# fast build rule for target.
+xcm_http_fetch/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_http_fetch.dir/build.make CMakeFiles/xcm_http_fetch.dir/build
+.PHONY : xcm_http_fetch/fast
+
+#=============================================================================
+# Target rules for targets named xcm_input_dump
+
+# Build rule for target.
+xcm_input_dump: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 xcm_input_dump
+.PHONY : xcm_input_dump
+
+# fast build rule for target.
+xcm_input_dump/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_input_dump.dir/build.make CMakeFiles/xcm_input_dump.dir/build
+.PHONY : xcm_input_dump/fast
+
+#=============================================================================
 # Target rules for targets named xcm_tui_shell
 
 # Build rule for target.
@@ -181,6 +207,19 @@ xcm_sdl_preview/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/build
 .PHONY : xcm_sdl_preview/fast
 
+#=============================================================================
+# Target rules for targets named xcm_glfw_preview
+
+# Build rule for target.
+xcm_glfw_preview: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 xcm_glfw_preview
+.PHONY : xcm_glfw_preview
+
+# fast build rule for target.
+xcm_glfw_preview/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/build
+.PHONY : xcm_glfw_preview/fast
+
 src/css_parser.o: src/css_parser.cpp.o
 .PHONY : src/css_parser.o
 
@@ -191,6 +230,7 @@ src/css_parser.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/css_parser.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/css_parser.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/css_parser.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/css_parser.cpp.o
 .PHONY : src/css_parser.cpp.o
 
 src/css_parser.i: src/css_parser.cpp.i
@@ -203,6 +243,7 @@ src/css_parser.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/css_parser.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/css_parser.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/css_parser.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/css_parser.cpp.i
 .PHONY : src/css_parser.cpp.i
 
 src/css_parser.s: src/css_parser.cpp.s
@@ -215,6 +256,7 @@ src/css_parser.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/css_parser.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/css_parser.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/css_parser.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/css_parser.cpp.s
 .PHONY : src/css_parser.cpp.s
 
 src/exports.o: src/exports.cpp.o
@@ -254,6 +296,7 @@ src/html_tokenizer.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/html_tokenizer.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/html_tokenizer.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/html_tokenizer.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/html_tokenizer.cpp.o
 .PHONY : src/html_tokenizer.cpp.o
 
 src/html_tokenizer.i: src/html_tokenizer.cpp.i
@@ -266,6 +309,7 @@ src/html_tokenizer.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/html_tokenizer.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/html_tokenizer.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/html_tokenizer.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/html_tokenizer.cpp.i
 .PHONY : src/html_tokenizer.cpp.i
 
 src/html_tokenizer.s: src/html_tokenizer.cpp.s
@@ -278,6 +322,7 @@ src/html_tokenizer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/html_tokenizer.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/html_tokenizer.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/html_tokenizer.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/html_tokenizer.cpp.s
 .PHONY : src/html_tokenizer.cpp.s
 
 src/layout.o: src/layout.cpp.o
@@ -290,6 +335,7 @@ src/layout.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/layout.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/layout.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/layout.cpp.o
 .PHONY : src/layout.cpp.o
 
 src/layout.i: src/layout.cpp.i
@@ -302,6 +348,7 @@ src/layout.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/layout.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/layout.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/layout.cpp.i
 .PHONY : src/layout.cpp.i
 
 src/layout.s: src/layout.cpp.s
@@ -314,6 +361,7 @@ src/layout.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/layout.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/layout.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/layout.cpp.s
 .PHONY : src/layout.cpp.s
 
 src/paint.o: src/paint.cpp.o
@@ -326,6 +374,7 @@ src/paint.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/paint.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/paint.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/paint.cpp.o
 .PHONY : src/paint.cpp.o
 
 src/paint.i: src/paint.cpp.i
@@ -338,6 +387,7 @@ src/paint.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/paint.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/paint.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/paint.cpp.i
 .PHONY : src/paint.cpp.i
 
 src/paint.s: src/paint.cpp.s
@@ -350,6 +400,7 @@ src/paint.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/paint.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/paint.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/paint.cpp.s
 .PHONY : src/paint.cpp.s
 
 src/style_resolver.o: src/style_resolver.cpp.o
@@ -362,6 +413,7 @@ src/style_resolver.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/style_resolver.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/style_resolver.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/style_resolver.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/style_resolver.cpp.o
 .PHONY : src/style_resolver.cpp.o
 
 src/style_resolver.i: src/style_resolver.cpp.i
@@ -374,6 +426,7 @@ src/style_resolver.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/style_resolver.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/style_resolver.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/style_resolver.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/style_resolver.cpp.i
 .PHONY : src/style_resolver.cpp.i
 
 src/style_resolver.s: src/style_resolver.cpp.s
@@ -386,7 +439,212 @@ src/style_resolver.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/style_resolver.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/style_resolver.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/style_resolver.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/style_resolver.cpp.s
 .PHONY : src/style_resolver.cpp.s
+
+src/xcm_glfw_preview.o: src/xcm_glfw_preview.cpp.o
+.PHONY : src/xcm_glfw_preview.o
+
+# target to build an object file
+src/xcm_glfw_preview.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_glfw_preview.cpp.o
+.PHONY : src/xcm_glfw_preview.cpp.o
+
+src/xcm_glfw_preview.i: src/xcm_glfw_preview.cpp.i
+.PHONY : src/xcm_glfw_preview.i
+
+# target to preprocess a source file
+src/xcm_glfw_preview.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_glfw_preview.cpp.i
+.PHONY : src/xcm_glfw_preview.cpp.i
+
+src/xcm_glfw_preview.s: src/xcm_glfw_preview.cpp.s
+.PHONY : src/xcm_glfw_preview.s
+
+# target to generate assembly for a file
+src/xcm_glfw_preview.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_glfw_preview.cpp.s
+.PHONY : src/xcm_glfw_preview.cpp.s
+
+src/xcm_gpu_config.o: src/xcm_gpu_config.cpp.o
+.PHONY : src/xcm_gpu_config.o
+
+# target to build an object file
+src/xcm_gpu_config.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_gpu_config.cpp.o
+.PHONY : src/xcm_gpu_config.cpp.o
+
+src/xcm_gpu_config.i: src/xcm_gpu_config.cpp.i
+.PHONY : src/xcm_gpu_config.i
+
+# target to preprocess a source file
+src/xcm_gpu_config.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_gpu_config.cpp.i
+.PHONY : src/xcm_gpu_config.cpp.i
+
+src/xcm_gpu_config.s: src/xcm_gpu_config.cpp.s
+.PHONY : src/xcm_gpu_config.s
+
+# target to generate assembly for a file
+src/xcm_gpu_config.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_gpu_config.cpp.s
+.PHONY : src/xcm_gpu_config.cpp.s
+
+src/xcm_http_fetch.o: src/xcm_http_fetch.cpp.o
+.PHONY : src/xcm_http_fetch.o
+
+# target to build an object file
+src/xcm_http_fetch.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_http_fetch.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_http_fetch.dir/build.make CMakeFiles/xcm_http_fetch.dir/src/xcm_http_fetch.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o
+.PHONY : src/xcm_http_fetch.cpp.o
+
+src/xcm_http_fetch.i: src/xcm_http_fetch.cpp.i
+.PHONY : src/xcm_http_fetch.i
+
+# target to preprocess a source file
+src/xcm_http_fetch.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_http_fetch.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_http_fetch.dir/build.make CMakeFiles/xcm_http_fetch.dir/src/xcm_http_fetch.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.i
+.PHONY : src/xcm_http_fetch.cpp.i
+
+src/xcm_http_fetch.s: src/xcm_http_fetch.cpp.s
+.PHONY : src/xcm_http_fetch.s
+
+# target to generate assembly for a file
+src/xcm_http_fetch.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_http_fetch.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_http_fetch.dir/build.make CMakeFiles/xcm_http_fetch.dir/src/xcm_http_fetch.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.s
+.PHONY : src/xcm_http_fetch.cpp.s
+
+src/xcm_http_fetch_cli.o: src/xcm_http_fetch_cli.cpp.o
+.PHONY : src/xcm_http_fetch_cli.o
+
+# target to build an object file
+src/xcm_http_fetch_cli.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_http_fetch.dir/build.make CMakeFiles/xcm_http_fetch.dir/src/xcm_http_fetch_cli.cpp.o
+.PHONY : src/xcm_http_fetch_cli.cpp.o
+
+src/xcm_http_fetch_cli.i: src/xcm_http_fetch_cli.cpp.i
+.PHONY : src/xcm_http_fetch_cli.i
+
+# target to preprocess a source file
+src/xcm_http_fetch_cli.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_http_fetch.dir/build.make CMakeFiles/xcm_http_fetch.dir/src/xcm_http_fetch_cli.cpp.i
+.PHONY : src/xcm_http_fetch_cli.cpp.i
+
+src/xcm_http_fetch_cli.s: src/xcm_http_fetch_cli.cpp.s
+.PHONY : src/xcm_http_fetch_cli.s
+
+# target to generate assembly for a file
+src/xcm_http_fetch_cli.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_http_fetch.dir/build.make CMakeFiles/xcm_http_fetch.dir/src/xcm_http_fetch_cli.cpp.s
+.PHONY : src/xcm_http_fetch_cli.cpp.s
+
+src/xcm_input_capture.o: src/xcm_input_capture.cpp.o
+.PHONY : src/xcm_input_capture.o
+
+# target to build an object file
+src/xcm_input_capture.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_input_capture.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_input_capture.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_input_capture.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_input_capture.cpp.o
+.PHONY : src/xcm_input_capture.cpp.o
+
+src/xcm_input_capture.i: src/xcm_input_capture.cpp.i
+.PHONY : src/xcm_input_capture.i
+
+# target to preprocess a source file
+src/xcm_input_capture.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_input_capture.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_input_capture.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_input_capture.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_input_capture.cpp.i
+.PHONY : src/xcm_input_capture.cpp.i
+
+src/xcm_input_capture.s: src/xcm_input_capture.cpp.s
+.PHONY : src/xcm_input_capture.s
+
+# target to generate assembly for a file
+src/xcm_input_capture.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_input_capture.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_input_capture.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_input_capture.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_input_capture.cpp.s
+.PHONY : src/xcm_input_capture.cpp.s
+
+src/xcm_input_dump_cli.o: src/xcm_input_dump_cli.cpp.o
+.PHONY : src/xcm_input_dump_cli.o
+
+# target to build an object file
+src/xcm_input_dump_cli.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_input_dump.dir/build.make CMakeFiles/xcm_input_dump.dir/src/xcm_input_dump_cli.cpp.o
+.PHONY : src/xcm_input_dump_cli.cpp.o
+
+src/xcm_input_dump_cli.i: src/xcm_input_dump_cli.cpp.i
+.PHONY : src/xcm_input_dump_cli.i
+
+# target to preprocess a source file
+src/xcm_input_dump_cli.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_input_dump.dir/build.make CMakeFiles/xcm_input_dump.dir/src/xcm_input_dump_cli.cpp.i
+.PHONY : src/xcm_input_dump_cli.cpp.i
+
+src/xcm_input_dump_cli.s: src/xcm_input_dump_cli.cpp.s
+.PHONY : src/xcm_input_dump_cli.s
+
+# target to generate assembly for a file
+src/xcm_input_dump_cli.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_input_dump.dir/build.make CMakeFiles/xcm_input_dump.dir/src/xcm_input_dump_cli.cpp.s
+.PHONY : src/xcm_input_dump_cli.cpp.s
+
+src/xcm_rgba_raster.o: src/xcm_rgba_raster.cpp.o
+.PHONY : src/xcm_rgba_raster.o
+
+# target to build an object file
+src/xcm_rgba_raster.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_rgba_raster.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_rgba_raster.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_rgba_raster.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_rgba_raster.cpp.o
+.PHONY : src/xcm_rgba_raster.cpp.o
+
+src/xcm_rgba_raster.i: src/xcm_rgba_raster.cpp.i
+.PHONY : src/xcm_rgba_raster.i
+
+# target to preprocess a source file
+src/xcm_rgba_raster.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_rgba_raster.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_rgba_raster.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_rgba_raster.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_rgba_raster.cpp.i
+.PHONY : src/xcm_rgba_raster.cpp.i
+
+src/xcm_rgba_raster.s: src/xcm_rgba_raster.cpp.s
+.PHONY : src/xcm_rgba_raster.s
+
+# target to generate assembly for a file
+src/xcm_rgba_raster.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/render_core.dir/build.make CMakeFiles/render_core.dir/src/xcm_rgba_raster.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_render_test.dir/build.make CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui.dir/build.make CMakeFiles/xcm_tui.dir/src/xcm_rgba_raster.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_tui_shell.dir/build.make CMakeFiles/xcm_tui_shell.dir/src/xcm_rgba_raster.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_sdl_preview.dir/build.make CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/xcm_glfw_preview.dir/build.make CMakeFiles/xcm_glfw_preview.dir/src/xcm_rgba_raster.cpp.s
+.PHONY : src/xcm_rgba_raster.cpp.s
 
 src/xcm_sdl_preview.o: src/xcm_sdl_preview.cpp.o
 .PHONY : src/xcm_sdl_preview.o
@@ -502,6 +760,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... render_core"
+	@echo "... xcm_glfw_preview"
+	@echo "... xcm_http_fetch"
+	@echo "... xcm_input_dump"
 	@echo "... xcm_render_test"
 	@echo "... xcm_sdl_preview"
 	@echo "... xcm_tui"
@@ -524,6 +785,27 @@ help:
 	@echo "... src/style_resolver.o"
 	@echo "... src/style_resolver.i"
 	@echo "... src/style_resolver.s"
+	@echo "... src/xcm_glfw_preview.o"
+	@echo "... src/xcm_glfw_preview.i"
+	@echo "... src/xcm_glfw_preview.s"
+	@echo "... src/xcm_gpu_config.o"
+	@echo "... src/xcm_gpu_config.i"
+	@echo "... src/xcm_gpu_config.s"
+	@echo "... src/xcm_http_fetch.o"
+	@echo "... src/xcm_http_fetch.i"
+	@echo "... src/xcm_http_fetch.s"
+	@echo "... src/xcm_http_fetch_cli.o"
+	@echo "... src/xcm_http_fetch_cli.i"
+	@echo "... src/xcm_http_fetch_cli.s"
+	@echo "... src/xcm_input_capture.o"
+	@echo "... src/xcm_input_capture.i"
+	@echo "... src/xcm_input_capture.s"
+	@echo "... src/xcm_input_dump_cli.o"
+	@echo "... src/xcm_input_dump_cli.i"
+	@echo "... src/xcm_input_dump_cli.s"
+	@echo "... src/xcm_rgba_raster.o"
+	@echo "... src/xcm_rgba_raster.i"
+	@echo "... src/xcm_rgba_raster.s"
 	@echo "... src/xcm_sdl_preview.o"
 	@echo "... src/xcm_sdl_preview.i"
 	@echo "... src/xcm_sdl_preview.s"

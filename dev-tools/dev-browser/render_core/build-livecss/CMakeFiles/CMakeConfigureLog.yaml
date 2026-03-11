@@ -255,3 +255,43 @@ events:
       LTO support using: LLVM version 14.0.0, (clang-1400.0.29.202) (static support for 29, runtime is 29)
       TAPI support using: Apple TAPI version 14.0.0 (tapi-1400.0.11)
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/local/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/usr/local/share/cmake/Modules/CheckCXXSourceCompiles.cmake:58 (cmake_check_source_compiles)"
+      - "/usr/local/share/cmake/Modules/FindThreads.cmake:99 (check_cxx_source_compiles)"
+      - "/usr/local/share/cmake/Modules/FindThreads.cmake:163 (_threads_check_libc)"
+      - "/usr/local/share/cmake/Modules/CMakeFindDependencyMacro.cmake:78 (find_package)"
+      - "/usr/local/lib/cmake/glfw3/glfw3Config.cmake:2 (find_dependency)"
+      - "CMakeLists.txt:261 (find_package)"
+    directories:
+      source: "/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/CMakeScratch/TryCompile-xwAPNM"
+      binary: "/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/CMakeScratch/TryCompile-xwAPNM"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: ""
+      CMAKE_OSX_ARCHITECTURES: ""
+      CMAKE_OSX_DEPLOYMENT_TARGET: "12.0"
+      CMAKE_OSX_SYSROOT: ""
+    buildResult:
+      variable: "CMAKE_HAVE_LIBC_PTHREAD"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/CMakeScratch/TryCompile-xwAPNM'
+        
+        Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /Applications/Xcode.app/Contents/Developer/usr/bin/make -f Makefile cmTC_4ad97/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_4ad97.dir/build.make CMakeFiles/cmTC_4ad97.dir/build
+        Building CXX object CMakeFiles/cmTC_4ad97.dir/src.cxx.o
+        /Library/Developer/CommandLineTools/usr/bin/c++ -DCMAKE_HAVE_LIBC_PTHREAD  -std=gnu++17 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -mmacosx-version-min=12.0 -MD -MT CMakeFiles/cmTC_4ad97.dir/src.cxx.o -MF CMakeFiles/cmTC_4ad97.dir/src.cxx.o.d -o CMakeFiles/cmTC_4ad97.dir/src.cxx.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/CMakeScratch/TryCompile-xwAPNM/src.cxx
+        Linking CXX executable cmTC_4ad97
+        /usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4ad97.dir/link.txt --verbose=1
+        /Library/Developer/CommandLineTools/usr/bin/c++  -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -mmacosx-version-min=12.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_4ad97.dir/src.cxx.o -o cmTC_4ad97
+        
+      exitCode: 0
+...

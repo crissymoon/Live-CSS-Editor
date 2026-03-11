@@ -156,10 +156,38 @@ CMakeFiles/xcm_render_test.dir/src/paint.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/xcm_render_test.dir/src/paint.cpp.s"
 	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/paint.cpp -o CMakeFiles/xcm_render_test.dir/src/paint.cpp.s
 
+CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o: CMakeFiles/xcm_render_test.dir/flags.make
+CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_rgba_raster.cpp
+CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o: CMakeFiles/xcm_render_test.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o -MF CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o.d -o CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_rgba_raster.cpp
+
+CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.i"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_rgba_raster.cpp > CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.i
+
+CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.s"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_rgba_raster.cpp -o CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.s
+
+CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o: CMakeFiles/xcm_render_test.dir/flags.make
+CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_input_capture.cpp
+CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o: CMakeFiles/xcm_render_test.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o -MF CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o.d -o CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_input_capture.cpp
+
+CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.i"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_input_capture.cpp > CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.i
+
+CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.s"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_input_capture.cpp -o CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.s
+
 CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o: CMakeFiles/xcm_render_test.dir/flags.make
 CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_tui.cpp
 CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o: CMakeFiles/xcm_render_test.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o"
 	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o -MF CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o.d -o CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_tui.cpp
 
 CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.i: cmake_force
@@ -178,6 +206,8 @@ xcm_render_test_OBJECTS = \
 "CMakeFiles/xcm_render_test.dir/src/style_resolver.cpp.o" \
 "CMakeFiles/xcm_render_test.dir/src/layout.cpp.o" \
 "CMakeFiles/xcm_render_test.dir/src/paint.cpp.o" \
+"CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o" \
+"CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o" \
 "CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o"
 
 # External object files for target xcm_render_test
@@ -189,10 +219,12 @@ xcm_render_test: CMakeFiles/xcm_render_test.dir/src/css_parser.cpp.o
 xcm_render_test: CMakeFiles/xcm_render_test.dir/src/style_resolver.cpp.o
 xcm_render_test: CMakeFiles/xcm_render_test.dir/src/layout.cpp.o
 xcm_render_test: CMakeFiles/xcm_render_test.dir/src/paint.cpp.o
+xcm_render_test: CMakeFiles/xcm_render_test.dir/src/xcm_rgba_raster.cpp.o
+xcm_render_test: CMakeFiles/xcm_render_test.dir/src/xcm_input_capture.cpp.o
 xcm_render_test: CMakeFiles/xcm_render_test.dir/src/xcm_tui.cpp.o
 xcm_render_test: CMakeFiles/xcm_render_test.dir/build.make
 xcm_render_test: CMakeFiles/xcm_render_test.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Linking CXX executable xcm_render_test"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Linking CXX executable xcm_render_test"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/xcm_render_test.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

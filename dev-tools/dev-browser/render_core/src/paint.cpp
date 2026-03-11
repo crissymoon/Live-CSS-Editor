@@ -4,6 +4,7 @@
 
 #include "paint.h"
 #include "font_metrics.h"
+#include "xcm_rgba_raster.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -123,16 +124,7 @@ PaintEngine::PaintEngine(int width, int height)
 }
 
 void PaintEngine::clear(Color c) {
-    // Pack RGBA into a single uint32_t (little-endian: byte 0 = R).
-    // std::fill on a uint32_t view lets the compiler emit SIMD stores
-    // (16-byte SSE2 / 128-bit WASM SIMD) instead of byte-by-byte writes.
-    // For white (0xFF,0xFF,0xFF,0xFF) this is ~4x faster than the loop.
-    const uint32_t packed = static_cast<uint32_t>(c.r)
-                          | (static_cast<uint32_t>(c.g) << 8)
-                          | (static_cast<uint32_t>(c.b) << 16)
-                          | (static_cast<uint32_t>(c.a) << 24);
-    uint32_t* dst = reinterpret_cast<uint32_t*>(pixels_.data());
-    std::fill(dst, dst + w_ * h_, packed);
+    simd::rgba_clear(pixels_.data(), w_, h_, w_ * 4, c.r, c.g, c.b, c.a);
 }
 
 // -------------------------------------------------------------------------
@@ -182,30 +174,38 @@ void PaintEngine::fill_rect(float fx, float fy, float fw, float fh, Color c, flo
     // autovectorize to 4-pixel-wide WASM SIMD stores.  Background fill is the
     // hottest paint operation so this has the largest impact on frame rate.
     if (a >= 0.9999f) {
-        const uint32_t packed = static_cast<uint32_t>(c.r)
-                              | (static_cast<uint32_t>(c.g) << 8)
-                              | (static_cast<uint32_t>(c.b) << 16)
-                              | (static_cast<uint32_t>(c.a) << 24);
-        uint32_t* base = reinterpret_cast<uint32_t*>(pixels_.data());
-        for (int y = y0; y < y1; ++y) {
-            uint32_t* row = base + y * w_;
-            std::fill(row + x0, row + x1, packed);
-        }
+        simd::rgba_fill_rect_opaque(
+            pixels_.data(),
+            w_,
+            h_,
+            w_ * 4,
+            x0,
+            y0,
+            x1 - x0,
+            y1 - y0,
+            c.r,
+            c.g,
+            c.b,
+            c.a);
         return;
     }
 
-    // Alpha-blend path for semi-transparent fills.
-    float oma = 1.f - a;
-    for (int y = y0; y < y1; ++y) {
-        uint8_t* row = pixels_.data() + y * w_ * 4;
-        for (int x = x0; x < x1; ++x) {
-            uint8_t* p = row + x * 4;
-            p[0] = static_cast<uint8_t>(c.r * a + p[0] * oma);
-            p[1] = static_cast<uint8_t>(c.g * a + p[1] * oma);
-            p[2] = static_cast<uint8_t>(c.b * a + p[2] * oma);
-            p[3] = static_cast<uint8_t>(std::min(255.f, p[3] + a * 255.f));
-        }
-    }
+    const uint8_t alpha_u8 = static_cast<uint8_t>(std::clamp(a * 255.f, 0.f, 255.f));
+    simd::rgba_fill_rect_alpha(
+        pixels_.data(),
+        w_,
+        h_,
+        w_ * 4,
+        x0,
+        y0,
+        x1 - x0,
+        y1 - y0,
+        c.r,
+        c.g,
+        c.b,
+        alpha_u8);
+    return;
+
 }
 
 // -------------------------------------------------------------------------

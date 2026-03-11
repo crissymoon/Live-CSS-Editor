@@ -1,7 +1,10 @@
 /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/render_core.dir
 /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/xcm_render_test.dir
 /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/xcm_tui.dir
+/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/xcm_http_fetch.dir
+/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/xcm_input_dump.dir
 /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/xcm_tui_shell.dir
 /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/xcm_sdl_preview.dir
+/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/xcm_glfw_preview.dir
 /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/edit_cache.dir
 /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles/rebuild_cache.dir

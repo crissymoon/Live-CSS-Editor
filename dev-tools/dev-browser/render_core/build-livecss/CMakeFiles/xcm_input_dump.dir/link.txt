@@ -1,0 +1,1 @@
+/Library/Developer/CommandLineTools/usr/bin/c++  -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -mmacosx-version-min=12.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/xcm_input_dump.dir/src/xcm_input_dump_cli.cpp.o -o xcm_input_dump

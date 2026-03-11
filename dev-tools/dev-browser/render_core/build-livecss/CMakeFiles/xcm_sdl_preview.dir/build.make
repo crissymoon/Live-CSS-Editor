@@ -142,10 +142,52 @@ CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.s"
 	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/paint.cpp -o CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.s
 
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o: CMakeFiles/xcm_sdl_preview.dir/flags.make
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_rgba_raster.cpp
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o: CMakeFiles/xcm_sdl_preview.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o -MF CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o.d -o CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_rgba_raster.cpp
+
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.i"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_rgba_raster.cpp > CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.i
+
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.s"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_rgba_raster.cpp -o CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.s
+
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o: CMakeFiles/xcm_sdl_preview.dir/flags.make
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_input_capture.cpp
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o: CMakeFiles/xcm_sdl_preview.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o -MF CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o.d -o CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_input_capture.cpp
+
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.i"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_input_capture.cpp > CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.i
+
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.s"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_input_capture.cpp -o CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.s
+
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o: CMakeFiles/xcm_sdl_preview.dir/flags.make
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_http_fetch.cpp
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o: CMakeFiles/xcm_sdl_preview.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o -MF CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o.d -o CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_http_fetch.cpp
+
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.i"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_http_fetch.cpp > CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.i
+
+CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.s"
+	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_http_fetch.cpp -o CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.s
+
 CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o: CMakeFiles/xcm_sdl_preview.dir/flags.make
 CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o: /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_sdl_preview.cpp
 CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o: CMakeFiles/xcm_sdl_preview.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o"
 	/Library/Developer/CommandLineTools/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o -MF CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o.d -o CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o -c /Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/src/xcm_sdl_preview.cpp
 
 CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.i: cmake_force
@@ -163,6 +205,9 @@ xcm_sdl_preview_OBJECTS = \
 "CMakeFiles/xcm_sdl_preview.dir/src/style_resolver.cpp.o" \
 "CMakeFiles/xcm_sdl_preview.dir/src/layout.cpp.o" \
 "CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.o" \
+"CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o" \
+"CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o" \
+"CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o" \
 "CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o"
 
 # External object files for target xcm_sdl_preview
@@ -173,12 +218,16 @@ xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/src/css_parser.cpp.o
 xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/src/style_resolver.cpp.o
 xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/src/layout.cpp.o
 xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/src/paint.cpp.o
+xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/src/xcm_rgba_raster.cpp.o
+xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/src/xcm_input_capture.cpp.o
+xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/src/xcm_http_fetch.cpp.o
 xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/src/xcm_sdl_preview.cpp.o
 xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/build.make
 xcm_sdl_preview: /usr/local/Cellar/sdl2/2.32.8/lib/libSDL2.dylib
 xcm_sdl_preview: /usr/local/Cellar/sdl2_ttf/2.24.0/lib/libSDL2_ttf.dylib
+xcm_sdl_preview: /usr/local/Cellar/sdl2_image/2.8.8/lib/libSDL2_image.dylib
 xcm_sdl_preview: CMakeFiles/xcm_sdl_preview.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable xcm_sdl_preview"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/mac/Documents/live-css/dev-tools/dev-browser/render_core/build-livecss/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Linking CXX executable xcm_sdl_preview"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/xcm_sdl_preview.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
