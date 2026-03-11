@@ -184,3 +184,24 @@ The model weights are not in git. To restore on a new machine:
 3. Verify: `ls model/spam_injection_model/final/model.safetensors`
 
 Or point `GUARD_MODEL_DIR` to wherever you store the weights.
+
+---
+
+## Native MCP one-file binary
+
+This project now includes a native MCP stdio server entrypoint at
+`mcp_guard_server.py` and a one-file build script:
+
+```bash
+cd dev-tools/agent-flow/prompt_inj_guard
+chmod +x build_onefile_mcp.sh
+./build_onefile_mcp.sh
+```
+
+Binary output:
+
+```bash
+dist/prompt-inj-guard-mcp
+```
+
+Integration details and MCP config examples are in `MCP_NATIVE_USAGE.md`.

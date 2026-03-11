@@ -235,7 +235,7 @@ def suggest_injection_patterns(ngrams, db, top_n=10):
         suggestions.append({
             'id':          new_id,
             'pattern':     pat,
-            'flags':       'IGNORECASE',
+            'flags':       'i',
             'weight':      1,
             'description': f'auto-learned from {count} feedback correction(s): "{" ".join(gram)}"',
             'source':      'learned',
@@ -257,7 +257,7 @@ def suggest_spam_patterns(ngrams, db, top_n=10):
         suggestions.append({
             'id':          new_id,
             'pattern':     pat,
-            'flags':       'IGNORECASE',
+            'flags':       'i',
             'weight':      1,
             'description': f'auto-learned from {count} feedback correction(s): "{" ".join(gram)}"',
             'source':      'learned',
@@ -283,7 +283,7 @@ def suggest_allowlist_patterns(fp_texts, db, top_n=20):
         suggestions.append({
             'id':          new_id,
             'pattern':     pat,
-            'flags':       'IGNORECASE | MULTILINE',
+            'flags':       'i',
             'weight':      1,
             'description': f'auto-learned allowlist from FP: "{text[:60]}"',
             'source':      'learned',

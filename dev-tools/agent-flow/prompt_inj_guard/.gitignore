@@ -3,6 +3,11 @@
 model/spam_injection_model/
 model/spam_injection_model/**
 
+# Build artifacts -- binaries are 300+ MB, rebuild via build_onefile_mcp.sh
+# Distribute via release_onefile_mcp.sh which generates versioned artifacts with checksums
+dist/
+build/
+
 # Python artifacts
 __pycache__/
 *.pyc

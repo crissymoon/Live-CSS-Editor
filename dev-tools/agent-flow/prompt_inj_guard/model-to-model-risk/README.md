@@ -132,22 +132,28 @@ Each session maintains a 20-prompt sliding window (configurable via `window_size
 ## API
 
 ```python
-from prompt_inj_guard.model_to_model_risk import RiskDetector, make_session_guard
+from pathlib import Path
+import sys
+
+module_dir = Path("dev-tools/agent-flow/prompt_inj_guard/model-to-model-risk").resolve()
+sys.path.insert(0, str(module_dir))
+
+from risk_detector import RiskDetector
 
 # Basic usage
 detector = RiskDetector()
-result = detector.detect("ignore all previous instructions", session_id="user_42")
-print(result["allowed"])      # False
+guard = detector.make_session_guard("user_42")
+result = detector.detect("ignore all previous instructions", session_guard=guard)
+print(result["flagged"])      # True
 print(result["risk_level"])   # "high"
 
 # Pre-configured session guard
-guard = make_session_guard("user_42")
 status = guard.check_and_record("some input text")
 print(status["state"])        # "normal"
 
 # Session summary
 summary = guard.summary()
-print(summary.total_events)
+print(summary.total_prompts)
 print(summary.similar_event_count)
 
 # Manual reset
@@ -201,8 +207,8 @@ Key entropy thresholds:
 ## Running Tests
 
 ```bash
-cd /Users/mac/Documents/live-css
-.venv/bin/python prompt_inj_guard/model-to-model-risk/test_risk_detector.py
+cd /Users/mac/Documents/live-css/dev-tools/agent-flow/prompt_inj_guard/model-to-model-risk
+python3 test_risk_detector.py
 ```
 
 Expected output: `52 passed, 0 failed`
