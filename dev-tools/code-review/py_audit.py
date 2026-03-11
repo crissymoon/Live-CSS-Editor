@@ -32,12 +32,14 @@ import traceback
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+from scan_config import merge_skip_dir_names, merge_skip_file_names, merge_skip_relative_paths, should_skip_relative_path
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
 # Directories to skip entirely (matched at any depth by folder name).
-SKIP_DIRS = {
+BASE_SKIP_DIRS = {
     ".venv",
     "venv",
     "__pycache__",
@@ -54,7 +56,7 @@ SKIP_DIRS = {
 }
 
 # Files to skip entirely (by basename).
-SKIP_FILES = {
+BASE_SKIP_FILES = {
     "py_audit.py",  # skip this script itself
 }
 
@@ -389,17 +391,23 @@ def scan_file(path: Path, root: Path) -> List[Dict]:
 
 def walk_python_files(root: Path) -> List[Path]:
     results = []
+    skip_dir_names = merge_skip_dir_names(BASE_SKIP_DIRS)
+    skip_relative_paths = merge_skip_relative_paths()
+    skip_file_names = merge_skip_file_names(BASE_SKIP_FILES)
     try:
         for dirpath, dirnames, filenames in os.walk(root):
+            dirpath_path = Path(dirpath)
             # Prune skipped directories in place so os.walk does not descend
             dirnames[:] = [
                 d for d in dirnames
-                if d not in SKIP_DIRS and not d.startswith(".")
+                if d not in skip_dir_names
+                and not d.startswith(".")
+                and not should_skip_relative_path(dirpath_path / d, root, skip_relative_paths)
             ]
             for fname in filenames:
                 if not fname.endswith(".py"):
                     continue
-                if fname in SKIP_FILES:
+                if fname in skip_file_names:
                     continue
                 results.append(Path(dirpath) / fname)
     except Exception as exc:
@@ -518,7 +526,7 @@ def main() -> int:
     use_color = not args.no_color and sys.stdout.isatty()
 
     print(f"[py_audit] scanning {root}")
-    print(f"[py_audit] skipping dirs: {', '.join(sorted(SKIP_DIRS))}")
+    print(f"[py_audit] skipping dirs: {', '.join(sorted(merge_skip_dir_names(BASE_SKIP_DIRS)))}")
 
     try:
         py_files = walk_python_files(root)

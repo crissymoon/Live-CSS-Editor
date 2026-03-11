@@ -12,7 +12,9 @@ Commands:
     lines_count     run lines_count.py
     py_audit        run py_audit.py
     code_smells     run code_smells.py
-    run_all         run all five in sequence
+    orphaned_code   run code_smells.py filtered to orphaned code
+    c_memory_safety run code_smells.py filtered to C memory safety
+    run_all         run all seven in sequence
 
 Output protocol (read by modules/bridge.lua):
     LINE:<text>     display a result line
@@ -135,6 +137,22 @@ def scan_code_smells(scan_dir: str) -> list[str]:
     return report_lines
 
 
+def scan_orphaned_code(scan_dir: str) -> list[str]:
+    out_line(f"[ Orphaned Code ]  {scan_dir}")
+    script = os.path.join(HERE, "code_smells.py")
+    report_lines: list[str] = []
+    run_scanner([script, scan_dir, "--only-kind", "ORPHANED_CODE"], scan_dir, report_lines)
+    return report_lines
+
+
+def scan_c_memory_safety(scan_dir: str) -> list[str]:
+    out_line(f"[ C Memory Safety ]  {scan_dir}")
+    script = os.path.join(HERE, "code_smells.py")
+    report_lines: list[str] = []
+    run_scanner([script, scan_dir, "--only-kind", "C_MEMORY_UNSAFE"], scan_dir, report_lines)
+    return report_lines
+
+
 def run_all(scan_dir: str) -> list[str]:
     out_line(f"[ Run All Scans ]  {scan_dir}")
     all_lines: list[str] = []
@@ -145,6 +163,8 @@ def run_all(scan_dir: str) -> list[str]:
         ("Line Count",      scan_lines_count),
         ("Py Audit",        scan_py_audit),
         ("Code Smells",     scan_code_smells),
+        ("Orphaned Code",   scan_orphaned_code),
+        ("C Memory Safety", scan_c_memory_safety),
     ]
     for label, fn in sections:
         out_line("")
@@ -165,6 +185,8 @@ COMMANDS = {
     "lines_count":   (scan_lines_count, "Line Count"),
     "py_audit":      (scan_py_audit,    "Py Audit"),
     "code_smells":   (scan_code_smells, "Code Smells"),
+    "orphaned_code": (scan_orphaned_code, "Orphaned Code"),
+    "c_memory_safety": (scan_c_memory_safety, "C Memory Safety"),
     "run_all":       (run_all,          "Full Report"),
 }
 

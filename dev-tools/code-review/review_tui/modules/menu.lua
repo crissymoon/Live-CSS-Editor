@@ -35,6 +35,8 @@ function M.init(actions, colours)
                 { label = "Line Count",     action = actions.scan_lines },
                 { label = "Py Audit",       action = actions.scan_py_audit },
                 { label = "Code Smells",    action = actions.scan_smells },
+                { label = "Orphaned Code",  action = actions.scan_orphans },
+                { label = "C Memory Safety", action = actions.scan_c_memsafe },
                 { separator = true },
                 { label = "Run All >",    action = actions.scan_all },
             },
@@ -43,6 +45,7 @@ function M.init(actions, colours)
             label = "View",
             items = {
                 { label = "Toggle Browser",      action = actions.toggle_browser },
+                { label = "Toggle Terminal",     action = actions.toggle_terminal },
                 { label = "Scroll to Bottom",    action = actions.scroll_bottom },
                 { label = "Clear Results",       action = actions.clear_results },
             },

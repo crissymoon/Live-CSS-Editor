@@ -126,7 +126,20 @@ end
 --------------------------------------------------------------------
 -- State
 --------------------------------------------------------------------
-local scan_path    = os.getenv("HOME") or "/"
+local function load_default_scan_path()
+    local base = os.getenv("CODE_REVIEW_DIR") or "."
+    local script = base .. "/scan_config.py"
+    local cmd = "python3 " .. shell_escape(script) .. " default-scan-path 2>/dev/null"
+    local pipe = io.popen(cmd, "r")
+    if pipe then
+        local line = pipe:read("*l")
+        pipe:close()
+        if line and line ~= "" then return line end
+    end
+    return base .. "/../.."
+end
+
+local scan_path    = load_default_scan_path()
 local status       = "READY"   -- READY | RUNNING | DONE | ERROR
 local results      = {}        -- {text, kind}  kind: result|error|report|dim|head|sep
 local scroll_y     = 0
@@ -159,6 +172,7 @@ local Bridge  = require "modules.bridge"
 local Menu    = require "modules.menu"
 local Browser = require "modules.browser"
 local Editor  = require "modules.editor"
+local Terminal = require "modules.terminal"
 
 --------------------------------------------------------------------
 -- Results helpers
@@ -259,7 +273,10 @@ actions.scan_god_funcs = function() run_scan("god_funcs",     "God Functions") e
 actions.scan_lines     = function() run_scan("lines_count",   "Line Count")    end
 actions.scan_py_audit  = function() run_scan("py_audit",      "Py Audit")      end
 actions.scan_smells    = function() run_scan("code_smells",   "Code Smells")   end
+actions.scan_orphans   = function() run_scan("orphaned_code", "Orphaned Code") end
+actions.scan_c_memsafe = function() run_scan("c_memory_safety", "C Memory Safety") end
 actions.scan_all       = function() run_scan("run_all",       "Run All Scans") end
+actions.toggle_terminal = function() Terminal.toggle() end
 
 actions.toggle_browser = function() Browser.toggle() end
 actions.scroll_bottom  = function() scroll_y = 1e9 end
@@ -289,6 +306,7 @@ function love.load()
         function(path)
             scan_path = path
             Browser.set_root(path)
+            Terminal.set_default_cwd(path)
         end,
         function(path)
             Editor.open_file(path)
@@ -296,11 +314,14 @@ function love.load()
             Browser.set_keyboard_focus(false)
         end
     )
+    Terminal.init(C, scan_path)
+    Browser.set_root(scan_path)
     Browser.set_keyboard_focus(true)
     CHAR_H = font_sm:getHeight()
 
     add_line("Code Review TUI  - Live CSS Editor Suite", "head")
     add_line("Select a directory in the browser or type a path above, then choose a scan.", "dim")
+    add_line("Startup path and skipped folders come from dev-tools/code-review/scan_config.json.", "dim")
     add_line("", "sep")
 end
 
@@ -395,6 +416,9 @@ local function draw_toolbar()
         { label="Lines",     action=actions.scan_lines     },
         { label="Py Audit",  action=actions.scan_py_audit  },
         { label="Smells",    action=actions.scan_smells    },
+        { label="Orphans",   action=actions.scan_orphans   },
+        { label="C Safe",    action=actions.scan_c_memsafe },
+        { label="Terminal",  action=actions.toggle_terminal },
         { label="> All",     action=actions.scan_all, accent=true },
     }
     local btn_h  = 20
@@ -572,7 +596,7 @@ local function draw_about()
     text_at(mx + 20, my + 50, "Part of the Live CSS Editor Suite.")
     text_at(mx + 20, my + 70, "Built with Love2D + Lua + Python.")
     gc("dim")
-    text_at(mx + 20, my + 100, "Scanners: security_ck / god_funcs / lines_count / py_audit / code_smells")
+    text_at(mx + 20, my + 100, "Scanners: security_ck / god_funcs / lines_count / py_audit / code_smells / orphaned_code / c_memory_safety")
     text_at(mx + 20, my + 118, "Reports written to:  dev-tools/code-review/reports/")
     gc("violet")
     local cls = "[ Close ]"
@@ -594,7 +618,9 @@ function love.draw()
 
     -- Main panels
     draw_toolbar()
-    if Editor.has_tabs() then
+    if Terminal.is_visible() then
+        Terminal.draw(content_x(), content_y(), content_w(), content_h(), font_sm)
+    elseif Editor.has_tabs() then
         Editor.draw(content_x(), content_y(), content_w(), content_h())
     else
         draw_results()
@@ -639,6 +665,22 @@ end
 -- Input
 --------------------------------------------------------------------
 function love.keypressed(key)
+    local cmd = love.keyboard.isDown("lgui", "rgui")
+    local ctrl = love.keyboard.isDown("lctrl", "rctrl") or cmd
+
+    if Terminal.is_visible() then
+        if Terminal.keypressed(key, content_h(), font_sm) then
+            return
+        end
+    end
+
+    if not path_editing and key == "p" and ctrl then
+        browser_nav_focus = true
+        Browser.set_keyboard_focus(true)
+        if Browser.open_finder then Browser.open_finder() end
+        return
+    end
+
     if not path_editing and (browser_nav_focus or not Editor.has_tabs()) then
         if not browser_nav_focus then
             browser_nav_focus = true
@@ -677,7 +719,11 @@ function love.keypressed(key)
     end
     if path_editing then
         if key == "return" or key == "escape" then
-            if key == "return" then scan_path = path_buf end
+            if key == "return" then
+                scan_path = path_buf
+                Browser.set_root(scan_path)
+                Terminal.set_default_cwd(scan_path)
+            end
             path_editing = false
         elseif key == "backspace" then
             path_buf = path_buf:sub(1, -2)
@@ -694,6 +740,14 @@ function love.keypressed(key)
 end
 
 function love.textinput(t)
+    if Terminal.is_visible() and Terminal.textinput(t) then
+        return
+    end
+
+    if browser_nav_focus and not path_editing and Browser.textinput and Browser.textinput(t) then
+        return
+    end
+
     if Editor.has_tabs() and not path_editing then
         if Editor.textinput(t) then return end
     end
@@ -703,6 +757,12 @@ function love.textinput(t)
 end
 
 function love.mousepressed(mx, my, btn)
+    if Terminal.is_visible() then
+        if Terminal.mousepressed(mx, my, btn, content_x(), content_y(), content_w(), content_h()) then
+            return
+        end
+    end
+
     if browser_nav_focus and mx >= content_x() then
         browser_nav_focus = false
         Browser.set_keyboard_focus(false)
@@ -825,6 +885,9 @@ end
 
 function love.wheelmoved(wx, wy)
     local mx, my = love.mouse.getPosition()
+    if Terminal.is_visible() and mx >= content_x() and my >= content_y() and my < H - SUMMARY_H then
+        if Terminal.wheelmoved(wy) then return end
+    end
     if Browser.wheelmoved(wx, wy, mx, my) then return end
     -- Route to editor if open
     if Editor.has_tabs() and mx >= content_x() then
@@ -839,4 +902,10 @@ end
 
 function love.resize(w, h)
     W, H = w, h
+end
+
+function love.quit()
+    if Terminal and Terminal.save then
+        Terminal.save()
+    end
 end

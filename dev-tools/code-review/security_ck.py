@@ -23,12 +23,14 @@ import argparse
 import traceback
 from pathlib import Path
 
+from scan_config import merge_skip_dir_names, merge_skip_file_names, merge_skip_relative_paths, should_skip_relative_path
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
 # Directory names to skip entirely (matched at any depth).
-SKIP_DIRS = {
+BASE_SKIP_DIRS = {
     ".git",
     ".venv",
     "venv",
@@ -44,7 +46,7 @@ SKIP_DIRS = {
 
 # Specific relative sub-paths to skip (relative to the root scan dir).
 # E.g. "src-tauri/target" skips only that subtree.
-SKIP_REL_PATHS = {
+BASE_SKIP_REL_PATHS = {
     "src-tauri/target",
     "src-tauri/www",
     "db-browser/build",
@@ -66,7 +68,7 @@ SCAN_FILENAMES = {
 }
 
 # Filenames to always skip regardless of extension.
-SKIP_FILENAMES = {
+BASE_SKIP_FILENAMES = {
     "package-lock.json",
     "composer.lock",
     "yarn.lock",
@@ -244,15 +246,12 @@ def should_skip_dir(dir_path: Path, root: Path) -> bool:
     """Return True if this directory should be excluded from the scan."""
     try:
         name = dir_path.name
-        if name in SKIP_DIRS:
+        skip_dir_names = merge_skip_dir_names(BASE_SKIP_DIRS)
+        skip_relative_paths = merge_skip_relative_paths(BASE_SKIP_REL_PATHS)
+        if name in skip_dir_names:
             return True
-        rel = dir_path.relative_to(root).as_posix()
-        if rel in SKIP_REL_PATHS:
+        if should_skip_relative_path(dir_path, root, skip_relative_paths):
             return True
-        # Also match partial prefix (e.g. "src-tauri/target" blocks sub-items)
-        for skip_rel in SKIP_REL_PATHS:
-            if rel.startswith(skip_rel + "/") or rel == skip_rel:
-                return True
     except Exception as exc:
         print(f"[security_ck] WARNING: could not evaluate dir skip for {dir_path}: {exc}",
               file=sys.stderr, flush=True)
@@ -262,7 +261,7 @@ def should_skip_dir(dir_path: Path, root: Path) -> bool:
 def should_scan_file(file_path: Path) -> bool:
     """Return True if this file should be scanned."""
     try:
-        if file_path.name in SKIP_FILENAMES:
+        if file_path.name in merge_skip_file_names(BASE_SKIP_FILENAMES):
             return False
         if file_path.name in SCAN_FILENAMES:
             return True

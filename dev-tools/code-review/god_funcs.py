@@ -23,15 +23,17 @@ import json
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
 
+from scan_config import merge_skip_dir_names, merge_skip_file_names, merge_skip_relative_paths, should_skip_relative_path
+
 # Directories to skip
 # Note: db-broswer is checked seperately - there is a smoke fiolder in it - ck w/this: /Users/mac/Documents/live-css/dev-tools/db-browser/smoke/analyze/run_analysis.sh
-SKIP_DIRS = {
+BASE_SKIP_DIRS = {
     'dev-browser', 'node_modules', 'vendor', 'build', '.git', '__pycache__',
     '.venv', 'venv', 'env', 'WidevineCdm', 'widevine', 'legacy', 'smoke', 'email_smoke', 'db-browser', 'test', 'tests', 'docs', 'examples', 'scripts', 'multi_test', 'zyx_planning_and_visuals'
 }
 
 # Individual files to skip (basenames)
-SKIP_FILES = {
+BASE_SKIP_FILES = {
     'god_funcs.py', 'test_risk_detector.py', 'lines_count.py', 'lines_count_test.py', 'complexity_count.py', 'complexity_count_test.py', 'nesting_count.py', 'nesting_count_test.py', 'params_count.py', 'params_count_test.py', 'run_god_scan.sh', 'test_risk_detector.py', 'test_god_funcs.py', 'god_funcs_test.py', 'test_accuracy.py', 'accuracy_test.py'
 }
 
@@ -92,12 +94,20 @@ class GodFunctionScanner:
     
     def _get_files(self):
         """Yield all scannable files in the project."""
+        skip_dir_names = merge_skip_dir_names(BASE_SKIP_DIRS)
+        skip_relative_paths = merge_skip_relative_paths()
+        skip_file_names = merge_skip_file_names(BASE_SKIP_FILES)
         for root, dirs, files in os.walk(self.root):
+            root_path = Path(root)
             # Filter out skip directories
-            dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+            dirs[:] = [
+                d for d in dirs
+                if d not in skip_dir_names
+                and not should_skip_relative_path(root_path / d, self.root, skip_relative_paths)
+            ]
 
             for fname in files:
-                if fname in SKIP_FILES:
+                if fname in skip_file_names:
                     continue
                 fpath = Path(root) / fname
                 if fpath.suffix.lower() in SCAN_EXTENSIONS:

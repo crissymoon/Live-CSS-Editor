@@ -12,9 +12,15 @@ local INDENT_W  = 14
 local ICON_DIR  = "+ "
 local ICON_DIR_O= "- "
 local ICON_FILE = "  "
+local ICON_RECENT = "R "
 local SCROLL_SPEED = 40
+local RECENT_MAX = 6
+local FINDER_H = 22
 
-local entries   = {}      -- {name, path, is_dir, depth, open}
+local entries   = {}      -- tree entries only
+local display_entries = {} -- recents + tree entries
+local recent_paths = {}
+local finder = { active = false, query = "" }
 local scroll_y  = 0
 local max_scroll= 0
 local hover_idx = nil
@@ -35,10 +41,133 @@ local BCTX_ITEMS  = { "Edit file", "Copy path", "Set as scan path" }
 local BCTX_W      = 160
 local BCTX_ITEM_H = 22
 
+local function fuzzy_match(text, query)
+    local t = (text or ""):lower()
+    local q = (query or ""):lower()
+    if q == "" then return true end
+    local qi = 1
+    for i = 1, #t do
+        if t:sub(i, i) == q:sub(qi, qi) then
+            qi = qi + 1
+            if qi > #q then return true end
+        end
+    end
+    return false
+end
+
+local function get_visible_entries()
+    if not finder.active or finder.query == "" then
+        return display_entries
+    end
+
+    local out = {}
+    for _, e in ipairs(display_entries) do
+        local hay = (e.is_recent and e.path) or (e.name .. " " .. e.path)
+        if fuzzy_match(hay, finder.query) then
+            out[#out + 1] = e
+        end
+    end
+    return out
+end
+
+local function draw_fuzzy_text(x, y, text, query, base_col, hit_col)
+    local s = tostring(text or "")
+    local q = (query or ""):lower()
+    local qi = 1
+    local cx = x
+
+    for i = 1, #s do
+        local ch = s:sub(i, i)
+        local is_hit = false
+        if q ~= "" and qi <= #q and ch:lower() == q:sub(qi, qi) then
+            is_hit = true
+            qi = qi + 1
+        end
+
+        if is_hit then
+            love.graphics.setColor(hit_col)
+        else
+            love.graphics.setColor(base_col)
+        end
+        love.graphics.print(ch, cx, y)
+        cx = cx + font_sm:getWidth(ch)
+    end
+end
+
+local function normalize_path(path)
+    local p = tostring(path or "")
+    p = p:gsub("%s+$", "")
+    if p ~= "/" then
+        p = p:gsub("/+$", "")
+    end
+    if p == "" then p = "/" end
+    return p
+end
+
+local function recents_file_path()
+    local base = os.getenv("CODE_REVIEW_DIR") or "."
+    return base .. "/.browser_recent_paths"
+end
+
+local function load_recent_paths()
+    recent_paths = {}
+    local fh = io.open(recents_file_path(), "r")
+    if not fh then return end
+    for line in fh:lines() do
+        local p = normalize_path(line)
+        if p ~= "" then
+            recent_paths[#recent_paths + 1] = p
+            if #recent_paths >= RECENT_MAX then break end
+        end
+    end
+    fh:close()
+end
+
+local function save_recent_paths()
+    local fh = io.open(recents_file_path(), "w")
+    if not fh then return end
+    for _, p in ipairs(recent_paths) do
+        fh:write(p, "\n")
+    end
+    fh:close()
+end
+
+local function add_recent_path(path)
+    local p = normalize_path(path)
+    if p == "" then return end
+    local keep = { p }
+    for _, existing in ipairs(recent_paths) do
+        if existing ~= p and #keep < RECENT_MAX then
+            keep[#keep + 1] = existing
+        end
+    end
+    recent_paths = keep
+    save_recent_paths()
+end
+
+local function rebuild_display_entries()
+    display_entries = {}
+    for _, p in ipairs(recent_paths) do
+        display_entries[#display_entries + 1] = {
+            name = p,
+            path = p,
+            is_dir = true,
+            depth = 0,
+            open = false,
+            is_recent = true,
+        }
+    end
+    for _, e in ipairs(entries) do
+        display_entries[#display_entries + 1] = e
+    end
+end
+
 function M.init(colours, on_select, on_edit)
     C          = colours
     _on_select = on_select
     _on_edit   = on_edit
+    load_recent_paths()
+    rebuild_display_entries()
 end
 
 function M.set_visible(v)
@@ -57,17 +186,27 @@ function M.width()
     return visible and W_PANEL or 0
 end
 
+function M.open_finder()
+    finder.active = true
+    finder.query = ""
+    kb_focus = true
+    kb_idx = 1
+    clamp_kb_idx()
+end
+
 local function clamp_kb_idx()
-    if #entries <= 0 then
+    local visible_entries = get_visible_entries()
+    if #visible_entries <= 0 then
         kb_idx = 1
         return
     end
     if kb_idx < 1 then kb_idx = 1 end
-    if kb_idx > #entries then kb_idx = #entries end
+    if kb_idx > #visible_entries then kb_idx = #visible_entries end
 end
 
 local function ensure_kb_visible()
-    if #entries <= 0 then return end
+    local visible_entries = get_visible_entries()
+    if #visible_entries <= 0 then return end
     local y0 = (kb_idx - 1) * ITEM_H
     local y1 = y0 + ITEM_H
     local view_h = math.max(ITEM_H, viewport_h)
@@ -83,7 +222,7 @@ local function ensure_kb_visible()
 end
 
 local function find_idx_by_path(path)
-    for i, e in ipairs(entries) do
+    for i, e in ipairs(display_entries) do
         if e.path == path then return i end
     end
     return nil
@@ -122,12 +261,13 @@ local function build_entries(path, depth, out)
     end
 end
 
--- Initial root: home directory
-local root_path = os.getenv("HOME") or "/"
+-- Initial root: code-review directory until main.lua applies configured path
+local root_path = os.getenv("CODE_REVIEW_DIR") or "."
 local root_open = true
 
 function M.set_root(path)
-    root_path = path
+    root_path = normalize_path(path)
+    add_recent_path(root_path)
     entries   = {}
     scroll_y  = 0
     M.refresh()
@@ -149,6 +289,7 @@ function M.refresh()
     if root_open then
         build_entries(root_path, 0, entries)
     end
+    rebuild_display_entries()
     clamp_kb_idx()
 end
 
@@ -185,14 +326,22 @@ local function refresh_open_dirs()
     end
     recurse(root_path, 0)
     entries = new
+    rebuild_display_entries()
 end
 
 function M.draw(x, y, h, font)
     if not visible then return end
     top_y = y
 
-    local total_h    = #entries * ITEM_H
-    viewport_h = h - ITEM_H - 4   -- subtract root label bar + small bottom padding
+    local visible_entries = get_visible_entries()
+    local list_top = y + ITEM_H
+
+    if finder.active then
+        list_top = list_top + FINDER_H
+    end
+
+    local total_h    = #visible_entries * ITEM_H
+    viewport_h = h - (list_top - y) - 4
     max_scroll = math.max(0, total_h - viewport_h)
     scroll_y   = math.max(0, math.min(scroll_y, max_scroll))
 
@@ -223,16 +372,27 @@ function M.draw(x, y, h, font)
     love.graphics.setColor(up_hov and C.text_bright or C.lavender)
     love.graphics.print(up_label, x + W_PANEL - up_w - 2, y + 3)
 
-    love.graphics.setScissor(x, y + ITEM_H, W_PANEL, h - ITEM_H)
+    if finder.active then
+        local fy = y + ITEM_H
+        love.graphics.setColor(C.menu_bg)
+        love.graphics.rectangle("fill", x, fy, W_PANEL, FINDER_H)
+        love.graphics.setColor(C.border)
+        love.graphics.rectangle("line", x, fy, W_PANEL, FINDER_H)
+        love.graphics.setColor(C.text_bright)
+        local q = finder.query ~= "" and finder.query or ""
+        love.graphics.print("Find: " .. q .. ((math.floor(love.timer.getTime() * 2) % 2 == 0) and "|" or ""), x + 6, fy + 3)
+    end
 
-    local iy = y + ITEM_H - scroll_y
+    love.graphics.setScissor(x, list_top, W_PANEL, h - (list_top - y))
+
+    local iy = list_top - scroll_y
     hover_idx = nil
     local mx, my = love.mouse.getPosition()
 
-    for i, e in ipairs(entries) do
+    for i, e in ipairs(visible_entries) do
         local item_y = iy + (i - 1) * ITEM_H
 
-        if item_y + ITEM_H >= y + ITEM_H and item_y < y + h then
+        if item_y + ITEM_H >= list_top and item_y < y + h then
             -- hover detection
             local hov = (mx >= x and mx < x + W_PANEL and my >= item_y and my < item_y + ITEM_H)
             if hov then hover_idx = i end
@@ -248,15 +408,40 @@ function M.draw(x, y, h, font)
             end
 
             local indent = x + 6 + e.depth * INDENT_W
-            if e.is_dir then
+            if e.is_recent then
+                love.graphics.setColor(C.violet)
+                love.graphics.print(ICON_RECENT, indent, item_y + 3)
+                draw_fuzzy_text(
+                    indent + font:getWidth(ICON_RECENT),
+                    item_y + 3,
+                    e.name,
+                    finder.active and finder.query or "",
+                    C.text,
+                    C.text_bright
+                )
+            elseif e.is_dir then
                 love.graphics.setColor(e.open and C.violet or C.lavender)
                 local icon = e.open and ICON_DIR_O or ICON_DIR
                 love.graphics.print(icon, indent, item_y + 3)
-                love.graphics.setColor(C.text)
-                love.graphics.print(e.name, indent + font:getWidth(icon), item_y + 3)
+                draw_fuzzy_text(
+                    indent + font:getWidth(icon),
+                    item_y + 3,
+                    e.name,
+                    finder.active and finder.query or "",
+                    C.text,
+                    C.text_bright
+                )
             else
                 love.graphics.setColor(C.dim)
-                love.graphics.print(ICON_FILE .. e.name, indent, item_y + 3)
+                love.graphics.print(ICON_FILE, indent, item_y + 3)
+                draw_fuzzy_text(
+                    indent + font:getWidth(ICON_FILE),
+                    item_y + 3,
+                    e.name,
+                    finder.active and finder.query or "",
+                    C.dim,
+                    C.text_bright
+                )
             end
         end
     end
@@ -265,7 +450,7 @@ function M.draw(x, y, h, font)
 
     -- context menu over browser panel
     if bctx then
-        local e    = entries[bctx.entry_idx]
+        local e    = get_visible_entries()[bctx.entry_idx]
         local cmx  = math.min(bctx.x, x + W_PANEL - BCTX_W - 4)
         local cmy  = math.min(bctx.y, y + h - #BCTX_ITEMS * BCTX_ITEM_H - 6)
         local mh   = #BCTX_ITEMS * BCTX_ITEM_H + 6
@@ -325,8 +510,13 @@ function M.mousepressed(mx, my, btn)
             return true
         end
 
+        if finder.active and my >= top_y + ITEM_H and my < top_y + ITEM_H + FINDER_H then
+            return true
+        end
+
         if bctx then
-            local e   = entries[bctx.entry_idx]
+            local visible_entries = get_visible_entries()
+            local e   = visible_entries[bctx.entry_idx]
             local cmx = math.min(bctx.x, W_PANEL - BCTX_W - 4)
             local cmy = bctx.y
             if mx >= cmx and mx < cmx + BCTX_W then
@@ -349,11 +539,15 @@ function M.mousepressed(mx, my, btn)
         end
 
         if not hover_idx then return false end
-        local e = entries[hover_idx]
+        local visible_entries = get_visible_entries()
+        local e = visible_entries[hover_idx]
         if not e then return false end
         kb_idx = hover_idx
 
-        if e.is_dir then
+        if e.is_recent then
+            M.set_root(e.path)
+            if _on_select then _on_select(e.path) end
+        elseif e.is_dir then
             e.open = not e.open
             refresh_open_dirs()
             local ni = find_idx_by_path(e.path)
@@ -384,8 +578,42 @@ end
 
 function M.keypressed(key)
     if not visible or not kb_focus then return false end
+
+    if key == "p" and love.keyboard.isDown("lctrl", "rctrl", "lgui", "rgui") then
+        M.open_finder()
+        return true
+    end
+
+    if key == "/" then
+        finder.active = true
+        finder.query = ""
+        kb_idx = 1
+        clamp_kb_idx()
+        return true
+    end
+
+    if finder.active then
+        if key == "backspace" then
+            finder.query = finder.query:sub(1, -2)
+            kb_idx = 1
+            clamp_kb_idx()
+            return true
+        elseif key == "escape" then
+            if finder.query ~= "" then
+                finder.query = ""
+                kb_idx = 1
+                clamp_kb_idx()
+                return true
+            end
+            finder.active = false
+            return true
+        end
+    end
+
     if key == "escape" then
         kb_focus = false
+        finder.active = false
+        finder.query = ""
         return true
     end
 
@@ -400,7 +628,14 @@ function M.keypressed(key)
         ensure_kb_visible()
         return true
     elseif key == "left" then
-        local e = entries[kb_idx]
+        local visible_entries = get_visible_entries()
+        local e = visible_entries[kb_idx]
+        if e and e.is_recent then
+            M.go_up()
+            clamp_kb_idx()
+            ensure_kb_visible()
+            return true
+        end
         if e and e.is_dir and e.open then
             e.open = false
             local p = e.path
@@ -414,9 +649,13 @@ function M.keypressed(key)
         ensure_kb_visible()
         return true
     elseif key == "right" then
-        local e = entries[kb_idx]
+        local visible_entries = get_visible_entries()
+        local e = visible_entries[kb_idx]
         if e and e.is_dir then
-            if not e.open then
+            if e.is_recent then
+                M.set_root(e.path)
+                if _on_select then _on_select(e.path) end
+            elseif not e.open then
                 e.open = true
                 refresh_open_dirs()
                 local ni = find_idx_by_path(e.path)
@@ -428,9 +667,13 @@ function M.keypressed(key)
         ensure_kb_visible()
         return true
     elseif key == "return" or key == "kpenter" then
-        local e = entries[kb_idx]
+        local visible_entries = get_visible_entries()
+        local e = visible_entries[kb_idx]
         if not e then return true end
-        if e.is_dir then
+        if e.is_recent then
+            M.set_root(e.path)
+            if _on_select then _on_select(e.path) end
+        elseif e.is_dir then
             e.open = not e.open
             refresh_open_dirs()
             local ni = find_idx_by_path(e.path)
@@ -446,6 +689,15 @@ function M.keypressed(key)
     end
 
     return false
+end
+
+function M.textinput(t)
+    if not visible or not kb_focus or not finder.active then return false end
+    if not t or t == "" then return false end
+    finder.query = finder.query .. t
+    kb_idx = 1
+    clamp_kb_idx()
+    return true
 end
 
 return M

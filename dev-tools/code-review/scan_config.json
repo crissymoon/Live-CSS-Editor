@@ -1,0 +1,28 @@
+{
+  "default_scan_path": "../..",
+  "skip_dir_names": [
+    ".git",
+    ".venv",
+    "venv",
+    "env",
+    "__pycache__",
+    "node_modules",
+    "vendor",
+    "dist",
+    "build",
+    "target",
+    "coverage",
+    "reports",
+    ".idea",
+    ".vscode"
+  ],
+  "skip_relative_paths": [
+    "dev-tools/code-review/reports"
+  ],
+  "skip_file_names": [
+    "package-lock.json",
+    "composer.lock",
+    "yarn.lock",
+    "Cargo.lock"
+  ]
+}

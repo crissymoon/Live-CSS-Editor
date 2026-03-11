@@ -28,8 +28,9 @@ fi
 mkdir -p "$DIR/reports"
 
 # -- Launch ------------------------------------------------------------------
+DEFAULT_SCAN_DIR="$(python3 "$DIR/scan_config.py" default-scan-path 2>/dev/null || (cd "$DIR/../.." && pwd))"
 echo "Starting Code Review TUI..."
-echo "  Scan dir default: $HOME"
+echo "  Scan dir default: $DEFAULT_SCAN_DIR"
 echo "  Reports dir:      $DIR/reports"
 echo ""
 

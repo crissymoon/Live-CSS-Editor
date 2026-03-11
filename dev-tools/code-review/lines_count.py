@@ -13,26 +13,13 @@ Usage:
 
 import os
 import sys
+from pathlib import Path
+
+from scan_config import merge_skip_dir_names, merge_skip_relative_paths, should_skip_relative_path
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-
-# Add any folder names or relative paths here to exclude them from the scan.
-# Folder names are matched against every directory encountered anywhere in the
-# tree (e.g. "vendor" blocks ALL vendor folders, not just the top-level one).
-# Relative paths (with a forward slash) are matched against the path relative
-# to the root dir (e.g. "src-tauri/www" blocks that specific subtree only).
-#
-# Examples:
-#   "src-tauri"            -- skip any folder named src-tauri at any depth
-#   "src-tauri/www"        -- skip only that specific subtree
-#   "style-sheets/themes"  -- skip only that specific subtree
-USER_BLOCKED_FOLDERS = [
-    "src-tauri",
-    "src-tauri/www",
-    "style-sheets",
-]
 
 # File extensions treated as code files worth counting.
 CODE_EXTENSIONS = {
@@ -67,7 +54,7 @@ SKIP_EXTENSIONS = {
 }
 
 # Directory names to skip entirely.
-SKIP_DIRS = {
+BASE_SKIP_DIRS = {
     ".git", ".svn", ".hg",
     "node_modules", "vendor", "__pycache__", ".cache",
     ".venv", "venv", "env",
@@ -80,34 +67,7 @@ SKIP_DIRS = {
 
 
 def should_skip_dir(name):
-    return name in SKIP_DIRS or name.startswith(".")
-
-
-def is_user_blocked(dirpath, root_dir):
-    """
-    Return True if dirpath matches any entry in USER_BLOCKED_FOLDERS.
-    Entries without a slash are matched against the directory's base name
-    (blocks that name everywhere in the tree).
-    Entries with a slash are matched against the path relative to root_dir
-    (blocks only that specific subtree).
-    """
-    if not USER_BLOCKED_FOLDERS:
-        return False
-    rel = os.path.relpath(dirpath, root_dir).replace(os.sep, "/")
-    base = os.path.basename(dirpath)
-    for entry in USER_BLOCKED_FOLDERS:
-        entry = entry.strip().strip("/")
-        if not entry:
-            continue
-        if "/" in entry:
-            # Relative-path match: exact subtree or any path starting with it.
-            if rel == entry or rel.startswith(entry + "/"):
-                return True
-        else:
-            # Name match: block this folder name anywhere in the tree.
-            if base == entry:
-                return True
-    return False
+    return name.startswith(".")
 
 
 def count_lines(filepath):
@@ -126,13 +86,16 @@ def scan(root_dir, threshold):
     (line_count, relative_path) tuples for files over threshold.
     """
     results = []
+    skip_dir_names = merge_skip_dir_names(BASE_SKIP_DIRS)
+    skip_relative_paths = merge_skip_relative_paths()
 
     for dirpath, dirnames, filenames in os.walk(root_dir):
         # Prune directories in-place so os.walk does not descend into them.
         dirnames[:] = [
             d for d in dirnames
-            if not should_skip_dir(d)
-            and not is_user_blocked(os.path.join(dirpath, d), root_dir)
+            if d not in skip_dir_names
+            and not should_skip_dir(d)
+            and not should_skip_relative_path(Path(dirpath) / d, Path(root_dir), skip_relative_paths)
         ]
 
         for filename in filenames:

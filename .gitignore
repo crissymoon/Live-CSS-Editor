@@ -108,3 +108,8 @@ style-sheets/TESTING_DIR_4_LRN.TXT
 prompt_inj_guard/model/spam_injection_model/
 prompt_inj_guard/model/spam_injection_model/**
 xcm_auth/dev-credentials.json
+
+# code-review generated reports and local UI state
+dev-tools/code-review/reports/
+dev-tools/code-review/.browser_recent_paths
+dev-tools/code-review/.terminal_state.lua
