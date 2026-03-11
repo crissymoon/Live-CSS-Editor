@@ -50,6 +50,9 @@ Run:
 
 ```bash
 ./build-livecss/xcm_sdl_preview path/to/page.html path/to/page.css path/to/page.js --watch
+./build-livecss/xcm_sdl_preview ./simple.html --renderer=hardware
+./build-livecss/xcm_sdl_preview ./simple.html --renderer=software
+./build-livecss/xcm_sdl_preview ./simple.html --renderer=software --surface-upload
 ./build-livecss/xcm_glfw_preview path/to/page.html path/to/page.css path/to/page.js --watch --gpu=opengl
 ./build-livecss/xcm_http_fetch http://example.com/
 ./build-livecss/xcm_input_dump /tmp/xcm_sdl_input.bin
@@ -59,6 +62,11 @@ SDL preview browser behavior:
 
 - By default, browser preview opens in an in-app SDL preview window (own window).
 - Use `--external-browser` if you explicitly want to launch the system browser.
+- Renderer selection is available: `--renderer=auto|hardware|software`.
+- Short aliases are available: `--hardware-render` and `--software-render`.
+- Texture upload selection is available: `--surface-upload` or `--streaming-upload`.
+- Linked CSS (`<link rel="stylesheet">`) and linked JS (`<script src>`) are now loaded in the preview ingestion path.
+- Image overlays are composited directly into the software RGBA frame so preview windows share the same image output.
 
 ## Windows Notes
 

@@ -489,6 +489,13 @@ void PaintEngine::paint_box(LayoutBox* box, float ox, float oy, float parent_opa
         } else {
             fill_rect(bx, by, bw, bh, cs->background_color, opacity);
         }
+    } else if (cs && cs->background_image && cs->background_image[0] != '\0'
+               && cs->background_color.a == 0 && bw > 1 && bh > 1) {
+        // The element has a background-image that the software renderer cannot
+        // display.  Paint a dark neutral placeholder so that white/light text
+        // remains readable instead of being invisible on the default white canvas.
+        Color placeholder{28, 32, 48, 255};
+        fill_rect(bx, by, bw, bh, placeholder, opacity);
     }
 
     // Borders.
@@ -530,9 +537,24 @@ void PaintEngine::paint_box(LayoutBox* box, float ox, float oy, float parent_opa
             draw_text(bx, by, draw_start, draw_len, cs, opacity);
     }
 
-    // Paint children recursively.
+    // Paint children recursively with a simple z-index ordering pass.
+    // This keeps DOM order for equal z-index values.
     float scroll_dx = 0, scroll_dy = 0; // per-box scroll NYI
-    for (auto* ch : box->children) {
+    std::vector<LayoutBox*> ordered;
+    ordered.reserve(box->children.size());
+    for (auto* ch : box->children) ordered.push_back(ch);
+    std::stable_sort(ordered.begin(), ordered.end(), [](LayoutBox* a, LayoutBox* b) {
+        const ComputedStyle* ca = (a && a->node && a->node->computed_style)
+            ? static_cast<const ComputedStyle*>(a->node->computed_style)
+            : nullptr;
+        const ComputedStyle* cb = (b && b->node && b->node->computed_style)
+            ? static_cast<const ComputedStyle*>(b->node->computed_style)
+            : nullptr;
+        int za = ca ? ca->z_index : 0;
+        int zb = cb ? cb->z_index : 0;
+        return za < zb;
+    });
+    for (auto* ch : ordered) {
         paint_box(ch, ox + scroll_dx, oy + scroll_dy, opacity);
     }
 

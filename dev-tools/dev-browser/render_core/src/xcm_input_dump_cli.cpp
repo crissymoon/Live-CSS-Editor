@@ -1,5 +1,6 @@
 #include "xcm_input_capture.h"
 
+#include <cstdlib>
 #include <cstdint>
 #include <fstream>
 #include <iostream>

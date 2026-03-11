@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Simple SDL Preview Interaction Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #101820;
+      color: #f3f7fb;
+      font-family: sans-serif;
+      font-size: 18px;
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      background: #182633;
+      border: 1px solid #37536c;
+      border-radius: 14px;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 42px;
+      color: #ff8a3d;
+      margin-bottom: 12px;
+    }
+
+    .intro {
+      margin-bottom: 18px;
+      color: #bfd0e0;
+    }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding: 10px;
+      border: 1px solid #37536c;
+      border-radius: 10px;
+      background: #1b2a3c;
+    }
+
+    nav a {
+      color: #4fd1c5;
+      font-size: 16px;
+      padding: 8px 16px;
+      background: #213347;
+      border-radius: 6px;
+    }
+
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      flex: 1 1 280px;
+      padding: 16px;
+      border: 1px solid #37536c;
+      border-radius: 10px;
+      background: #152231;
+    }
+
+    .card h2 {
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+
+    .label {
+      display: block;
+      margin-bottom: 8px;
+      color: #bfd0e0;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 16px;
+      background: #0f1b28;
+      color: #e0ecf6;
+      border: 1px solid #37536c;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    button {
+      padding: 10px 28px;
+      font-size: 16px;
+      background: #ff8a3d;
+      color: #101820;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+
+    .event-pad {
+      min-height: 180px;
+      padding: 14px;
+      border: 2px dashed #4fd1c5;
+      border-radius: 10px;
+      background: #102030;
+      color: #d9e6f2;
+    }
+
+    .event-pad p + p {
+      margin-top: 10px;
+    }
+
+    .scroll-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .row {
+      padding: 14px 16px;
+      border: 1px solid #31485f;
+      border-radius: 10px;
+      background: #102030;
+    }
+
+    .row strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #ffd2a9;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: #bfd0e0;
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>XCM SDL Preview Test</h1>
+    <p class="intro">
+      This page is intentionally tall so detached-preview scrolling, keypresses, text input, and mouse movement are easy to verify.
+    </p>
+
+    <nav>
+      <a>Home</a>
+      <a>Preview</a>
+      <a>Inputs</a>
+      <a>Events</a>
+      <a>Scroll</a>
+    </nav>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Input Field</h2>
+        <label class="label" for="demo-input">Type Test</label>
+        <input id="demo-input" type="text" placeholder="Type here to test text input capture" />
+        <button>Submit</button>
+      </section>
+
+      <section class="card">
+        <h2>Mouse + Key Block</h2>
+        <div class="event-pad">
+          <p>Move the mouse across this block, click inside it, then press keys.</p>
+          <p>The SDL preview now captures wheel, keydown, keyup, text input, and mouse motion from the detached preview window.</p>
+          <p>Use the command palette input log command if you want to dump the recorded events.</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="scroll-stack">
+      <div class="row"><strong>Scroll Row 01</strong>Top of the long content section.</div>
+      <div class="row"><strong>Scroll Row 02</strong>Use the mouse wheel over the preview window.</div>
+      <div class="row"><strong>Scroll Row 03</strong>Arrow up and down keys should also move the page.</div>
+      <div class="row"><strong>Scroll Row 04</strong>This section makes the document clearly taller than the viewport.</div>
+      <div class="row"><strong>Scroll Row 05</strong>Keep scrolling to verify the repaint path stays stable.</div>
+      <div class="row"><strong>Scroll Row 06</strong>The preview window remains a separate native window.</div>
+      <div class="row"><strong>Scroll Row 07</strong>No hardcoded source-directory path is used here.</div>
+      <div class="row"><strong>Scroll Row 08</strong>Input capture is still available through the SDL preview palette.</div>
+      <div class="row"><strong>Scroll Row 09</strong>Mouse motion events should register over this content too.</div>
+      <div class="row"><strong>Scroll Row 10</strong>Typing is captured even when the command palette is closed.</div>
+      <div class="row"><strong>Scroll Row 11</strong>This helps verify preview-window text routing.</div>
+      <div class="row"><strong>Scroll Row 12</strong>The content should stay visible as you keep scrolling.</div>
+      <div class="row"><strong>Scroll Row 13</strong>Use this to sanity-check repaint and compositing together.</div>
+      <div class="row"><strong>Scroll Row 14</strong>Large blocks also make viewport scaling easier to spot.</div>
+      <div class="row"><strong>Scroll Row 15</strong>The event block above gives you a target for motion tests.</div>
+      <div class="row"><strong>Scroll Row 16</strong>Continue down to confirm max scroll and clamp behavior.</div>
+      <div class="row"><strong>Scroll Row 17</strong>This row is near the lower half of the sample page.</div>
+      <div class="row"><strong>Scroll Row 18</strong>The final rows ensure the document height exceeds the viewport.</div>
+      <div class="row"><strong>Scroll Row 19</strong>Preview and control windows should stay in sync.</div>
+      <div class="row"><strong>Scroll Row 20</strong>Bottom of the interaction test page.</div>
+    </div>
+
+    <p class="footer-note">
+      If you want a file dump of the captured input stream, use the inputlog palette command after testing.
+    </p>
+  </div>
+</body>
+</html>

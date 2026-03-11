@@ -88,6 +88,21 @@ Color parse_color(const std::string& raw) {
             return {hex2(h[0],h[1]), hex2(h[2],h[3]), hex2(h[4],h[5]), hex2(h[6],h[7])};
         }
     }
+    // Gradient and CSS function values are NOT colors -- return transparent so
+    // the caller can tell the value wasn't a recognisable color.  parse_color is
+    // only meant to handle color keywords, hex, rgb()/rgba()/hsl()/hsla().
+    if (lv.rfind("linear-gradient(", 0) == 0 ||
+        lv.rfind("radial-gradient(", 0) == 0 ||
+        lv.rfind("conic-gradient(", 0) == 0 ||
+        lv.rfind("var(", 0) == 0 ||
+        lv.rfind("calc(", 0) == 0 ||
+        lv.rfind("env(", 0) == 0 ||
+        lv.rfind("min(", 0) == 0 ||
+        lv.rfind("max(", 0) == 0 ||
+        lv.rfind("clamp(", 0) == 0) {
+        return Color::transparent();
+    }
+
     // rgb(...) / rgba(...)
     if (lv.substr(0,4) == "rgb(" || lv.substr(0,5) == "rgba(") {
         auto s1 = lv.find('(');
@@ -461,12 +476,65 @@ static bool selector_matches(const Node* node, const std::string& selector) {
 }
 
 // =========================================================================
+// CSS var() resolution -- extract fallback value from var(--name, fallback).
+// Returns the resolved plain value, or empty string if no fallback.
+// =========================================================================
+static std::string resolve_css_var(const std::string& value) {
+    // Quick check: does the value contain var(?
+    if (value.find("var(") == std::string::npos) return value;
+
+    std::string result;
+    result.reserve(value.size());
+    std::size_t pos = 0;
+
+    while (pos < value.size()) {
+        std::size_t vp = value.find("var(", pos);
+        if (vp == std::string::npos) {
+            result.append(value, pos, value.size() - pos);
+            break;
+        }
+        result.append(value, pos, vp - pos);
+        // Find matching close paren, respecting nesting.
+        std::size_t start = vp + 4;
+        int depth = 1;
+        std::size_t end = start;
+        while (end < value.size() && depth > 0) {
+            if (value[end] == '(') ++depth;
+            else if (value[end] == ')') { --depth; if (depth == 0) break; }
+            ++end;
+        }
+        // Contents between var( and )
+        std::string inner = value.substr(start, end - start);
+        // Find fallback after the first comma (skip custom property name).
+        std::size_t comma = inner.find(',');
+        if (comma != std::string::npos) {
+            std::string fb = inner.substr(comma + 1);
+            // Trim whitespace.
+            while (!fb.empty() && std::isspace(static_cast<unsigned char>(fb.front()))) fb.erase(fb.begin());
+            while (!fb.empty() && std::isspace(static_cast<unsigned char>(fb.back()))) fb.pop_back();
+            // Recursively resolve nested var() in the fallback.
+            result.append(resolve_css_var(fb));
+        }
+        // If no fallback, the var() resolves to nothing (empty) which leaves
+        // the property at its inherited/default value.
+        pos = (end < value.size()) ? end + 1 : value.size();
+    }
+    return result;
+}
+
+// =========================================================================
 // Apply declarations to a ComputedStyle.
 // =========================================================================
 static void apply_decl(ComputedStyle& cs, const CssDecl& d, Arena& arena,
                        float vw, float vh) {
     const std::string& p = d.property;
-    const std::string& v = d.value;
+    // Skip custom properties (--*) -- they are only consumed via var().
+    if (p.size() >= 2 && p[0] == '-' && p[1] == '-') return;
+    // Resolve any var() references in the value.
+    std::string resolved_v = resolve_css_var(d.value);
+    // If the entire value collapsed to empty (var with no fallback), skip.
+    if (resolved_v.empty() && !d.value.empty()) return;
+    const std::string& v = resolved_v;
 
     if (p == "display") {
         if (v == "block")        cs.display = Display::BLOCK;
@@ -517,8 +585,15 @@ static void apply_decl(ComputedStyle& cs, const CssDecl& d, Arena& arena,
     else if (p == "padding-right")   { cs.padding[1] = parse_length(v); }
     else if (p == "padding-bottom")  { cs.padding[2] = parse_length(v); }
     else if (p == "padding-left")    { cs.padding[3] = parse_length(v); }
-    else if (p == "color") { cs.color = parse_color(v); }
-    else if (p == "background-color") { cs.background_color = parse_color(v); }
+    else if (p == "color") {
+        Color c = parse_color(v);
+        // Only apply if we got a real color (not transparent from unresolved var()).
+        if (c.a > 0) cs.color = c;
+    }
+    else if (p == "background-color") {
+        Color c = parse_color(v);
+        cs.background_color = c;
+    }
     else if (p == "background") {
         // Check if it contains url(...) for background-image.
         auto up = v.find("url(");
@@ -531,19 +606,26 @@ static void apply_decl(ComputedStyle& cs, const CssDecl& d, Arena& arena,
                 cs.background_image = arena.strdup(url.c_str(), url.size());
             }
         }
-        // Try to extract a color from the background shorthand.
-        // Remove url(...) part and parse remainder as color.
-        auto bg_no_url = v;
-        if (up != std::string::npos) {
-            auto ue2 = v.find(')', up);
-            if (ue2 != std::string::npos) bg_no_url = v.substr(0, up) + v.substr(ue2+1);
-        }
-        // Trim and try color parse.
-        while (!bg_no_url.empty() && std::isspace(static_cast<unsigned char>(bg_no_url.front()))) bg_no_url.erase(bg_no_url.begin());
-        while (!bg_no_url.empty() && std::isspace(static_cast<unsigned char>(bg_no_url.back()))) bg_no_url.pop_back();
-        if (!bg_no_url.empty()) {
-            Color tc = parse_color(bg_no_url);
-            if (tc.a > 0 || bg_no_url == "transparent") cs.background_color = tc;
+        // Skip gradient functions -- they cannot be rasterized by the
+        // software paint engine and parse_color would misinterpret them.
+        std::string lval;
+        for (char c : v) lval += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        bool is_gradient = lval.find("gradient(") != std::string::npos;
+        if (!is_gradient) {
+            // Try to extract a color from the background shorthand.
+            // Remove url(...) part and parse remainder as color.
+            auto bg_no_url = v;
+            if (up != std::string::npos) {
+                auto ue2 = v.find(')', up);
+                if (ue2 != std::string::npos) bg_no_url = v.substr(0, up) + v.substr(ue2+1);
+            }
+            // Trim and try color parse.
+            while (!bg_no_url.empty() && std::isspace(static_cast<unsigned char>(bg_no_url.front()))) bg_no_url.erase(bg_no_url.begin());
+            while (!bg_no_url.empty() && std::isspace(static_cast<unsigned char>(bg_no_url.back()))) bg_no_url.pop_back();
+            if (!bg_no_url.empty()) {
+                Color tc = parse_color(bg_no_url);
+                if (tc.a > 0 || bg_no_url == "transparent") cs.background_color = tc;
+            }
         }
     } else if (p == "background-image") {
         if (v != "none") {

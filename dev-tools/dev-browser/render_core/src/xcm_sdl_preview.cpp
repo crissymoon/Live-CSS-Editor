@@ -49,12 +49,15 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -64,6 +67,58 @@
 #endif
 
 namespace {
+
+bool g_debug_enabled = true;
+std::string g_debug_log_path = "/tmp/xcm_sdl_preview_debug.log";
+FILE* g_debug_file = nullptr;
+std::string g_workspace_root;
+std::vector<std::string> g_asset_failures;
+
+void debug_close() {
+    if (g_debug_file) {
+        std::fclose(g_debug_file);
+        g_debug_file = nullptr;
+    }
+}
+
+bool debug_open(const std::string& path) {
+    debug_close();
+    g_debug_log_path = path;
+    g_debug_file = std::fopen(g_debug_log_path.c_str(), "wb");
+    return g_debug_file != nullptr;
+}
+
+void debug_logf(const char* fmt, ...) {
+    if (!g_debug_enabled || !g_debug_file) return;
+    std::va_list ap;
+    va_start(ap, fmt);
+    std::vfprintf(g_debug_file, fmt, ap);
+    va_end(ap);
+    std::fputc('\n', g_debug_file);
+    std::fflush(g_debug_file);
+}
+
+void record_asset_failure(const std::string& kind,
+                          const std::string& ref,
+                          const std::string& resolved,
+                          const std::string& reason) {
+    std::string line = kind + ": ";
+    line += ref.empty() ? "<empty>" : ref;
+    if (!resolved.empty() && resolved != ref) {
+        line += " -> ";
+        line += resolved;
+    }
+    if (!reason.empty()) {
+        line += " (";
+        line += reason;
+        line += ")";
+    }
+    g_asset_failures.push_back(line);
+    if (g_asset_failures.size() > 12) {
+        g_asset_failures.erase(g_asset_failures.begin(), g_asset_failures.begin() + 4);
+    }
+    debug_logf("asset_failure %s", line.c_str());
+}
 
 struct FileStamp {
     bool valid = false;
@@ -91,14 +146,39 @@ bool is_http_url(const std::string& s) {
     return s.rfind("http://", 0) == 0;
 }
 
+bool is_https_url(const std::string& s) {
+    return s.rfind("https://", 0) == 0;
+}
+
+bool is_web_url(const std::string& s) {
+    return is_http_url(s) || is_https_url(s);
+}
+
 std::string load_text_source(const std::string& src) {
     if (src.empty()) return "";
+    if (is_https_url(src)) {
+        debug_logf("load_text_source https unsupported: %s", src.c_str());
+        record_asset_failure("source", src, src, "https unsupported by low-level fetcher");
+        return "";
+    }
     if (is_http_url(src)) {
+        debug_logf("load_text_source http start: %s", src.c_str());
         xcm::HttpResponse r = xcm::http_fetch_get(src, 5000);
-        if (!r.ok) return "";
+        if (!r.ok) {
+            debug_logf("load_text_source http fail: %s status=%d err=%s", src.c_str(), r.status_code, r.error.c_str());
+            record_asset_failure("source", src, src, r.error.empty() ? "http fetch failed" : r.error);
+            return "";
+        }
+        debug_logf("load_text_source http ok: %s bytes=%zu status=%d", src.c_str(), r.body.size(), r.status_code);
         return r.body;
     }
-    return read_file(src);
+    std::string out = read_file(src);
+    if (out.empty()) {
+        debug_logf("load_text_source file fail/empty: %s", src.c_str());
+        record_asset_failure("source", src, src, "file missing or empty");
+    }
+    else debug_logf("load_text_source file ok: %s bytes=%zu", src.c_str(), out.size());
+    return out;
 }
 
 bool file_exists(const std::string& path) {
@@ -221,6 +301,7 @@ std::vector<std::string> extract_linked_stylesheet_hrefs(const std::string& html
         }
         pos = gt + 1;
     }
+    debug_logf("extract_linked_stylesheet_hrefs count=%zu", out.size());
     return out;
 }
 
@@ -238,7 +319,40 @@ std::vector<std::string> extract_script_srcs(const std::string& html) {
         if (!src.empty()) out.push_back(src);
         pos = gt + 1;
     }
+    debug_logf("extract_script_srcs count=%zu", out.size());
     return out;
+}
+
+std::size_t count_tag_occurrences(const std::string& html, const std::string& tag_name) {
+    if (tag_name.empty()) return 0;
+    std::size_t count = 0;
+    std::string lower = lower_copy(html);
+    std::string needle = "<" + lower_copy(tag_name);
+    std::size_t pos = 0;
+    while (true) {
+        std::size_t p = lower.find(needle, pos);
+        if (p == std::string::npos) break;
+        ++count;
+        pos = p + needle.size();
+    }
+    return count;
+}
+
+std::size_t count_visible_text_chars(const std::string& html) {
+    bool in_tag = false;
+    std::size_t n = 0;
+    for (char ch : html) {
+        if (ch == '<') {
+            in_tag = true;
+            continue;
+        }
+        if (ch == '>') {
+            in_tag = false;
+            continue;
+        }
+        if (!in_tag && !std::isspace(static_cast<unsigned char>(ch))) ++n;
+    }
+    return n;
 }
 
 std::string strip_img_tags(const std::string& html) {
@@ -279,13 +393,37 @@ std::string dirname_copy(const std::string& path) {
     return path.substr(0, p);
 }
 
+std::string url_origin(const std::string& url) {
+    if (url.rfind("http://", 0) != 0) return "";
+    std::size_t start = 7;
+    std::size_t slash = url.find('/', start);
+    if (slash == std::string::npos) return url;
+    return url.substr(0, slash);
+}
+
+std::string url_dirname(const std::string& url) {
+    if (url.rfind("http://", 0) != 0) return dirname_copy(url);
+    std::size_t slash = url.find_last_of('/');
+    if (slash == std::string::npos || slash < 7) return url + "/";
+    return url.substr(0, slash + 1);
+}
+
 std::string resolve_asset_path(const std::string& url, const std::string& html_path) {
     if (url.empty()) return "";
     if (url.rfind("http://", 0) == 0 || url.rfind("https://", 0) == 0 || url.rfind("data:", 0) == 0) {
-        return "";
+        return url;
     }
 
-    const std::string workspace_root = "/Users/mac/Documents/live-css";
+    if (is_http_url(html_path)) {
+        if (!url.empty() && url[0] == '/') {
+            std::string origin = url_origin(html_path);
+            if (origin.empty()) return "";
+            return origin + url;
+        }
+        return url_dirname(html_path) + url;
+    }
+
+    const std::string workspace_root = g_workspace_root.empty() ? std::string(".") : g_workspace_root;
     if (url[0] == '/') {
         std::string candidate = workspace_root + url;
         if (file_exists(candidate)) return candidate;
@@ -303,9 +441,12 @@ std::string resolve_asset_path(const std::string& url, const std::string& html_p
     return base + "/" + url;
 }
 
+std::string path_to_file_url(std::string path);
+
 std::string rewrite_bridge_urls_for_file_preview(std::string s) {
-    const std::string bridge_root = "file:///Users/mac/Documents/live-css/my_project/vscode-bridge/";
-    const std::string project_root = "file:///Users/mac/Documents/live-css/my_project/";
+    if (g_workspace_root.empty()) return s;
+    const std::string bridge_root = path_to_file_url(g_workspace_root + "/my_project/vscode-bridge/");
+    const std::string project_root = path_to_file_url(g_workspace_root + "/my_project/");
     replace_all_inplace(s, "/vscode-bridge/", bridge_root);
     replace_all_inplace(s, "/my_project/vscode-bridge/", bridge_root);
     replace_all_inplace(s, "/my_project/", project_root);
@@ -349,6 +490,36 @@ std::string rewrite_css_urls_for_file_preview(const std::string& css, const std:
 }
 
 #ifdef XCM_HAS_SDL_IMAGE
+SDL_Surface* load_image_surface(const std::string& resolved) {
+    if (resolved.empty()) return nullptr;
+    if (is_https_url(resolved)) {
+        record_asset_failure("image", resolved, resolved, "https unsupported by low-level fetcher");
+        return nullptr;
+    }
+    if (is_http_url(resolved)) {
+        xcm::HttpResponse r = xcm::http_fetch_get(resolved, 5000);
+        if (!r.ok || r.body.empty()) {
+            record_asset_failure("image", resolved, resolved, r.error.empty() ? "http fetch failed" : r.error);
+            return nullptr;
+        }
+        SDL_RWops* rw = SDL_RWFromConstMem(r.body.data(), static_cast<int>(r.body.size()));
+        if (!rw) {
+            record_asset_failure("image", resolved, resolved, "SDL_RWFromConstMem failed");
+            return nullptr;
+        }
+        SDL_Surface* surf = IMG_Load_RW(rw, 1);
+        if (!surf) {
+            record_asset_failure("image", resolved, resolved, IMG_GetError());
+        }
+        return surf;
+    }
+    SDL_Surface* surf = IMG_Load(resolved.c_str());
+    if (!surf) {
+        record_asset_failure("image", resolved, resolved, IMG_GetError());
+    }
+    return surf;
+}
+
 void blend_surface_into_rgba(std::vector<uint8_t>& rgba, int dst_w, int dst_h,
                              const SDL_Surface* surf, const ImageOverlay& ov,
                              float scroll_y) {
@@ -457,6 +628,34 @@ const char* SAMPLE_HTML =
     "<div class='card'><div class='k'>TARGET</div><div class='v'>FUTURE APP SHELL</div></div>"
     "</div></body></html>";
 
+std::string detect_workspace_root() {
+    const char* env_root = std::getenv("XCM_WORKSPACE_ROOT");
+    if (env_root && *env_root) {
+        return std::string(env_root);
+    }
+
+    std::error_code ec;
+    std::filesystem::path cur = std::filesystem::current_path(ec);
+    if (ec) return "";
+
+    auto looks_like_root = [](const std::filesystem::path& p) -> bool {
+        std::error_code iec;
+        return std::filesystem::exists(p / "my_project" / "vscode-bridge" / "projects", iec) ||
+               std::filesystem::exists(p / "dev-tools" / "dev-browser", iec) ||
+               std::filesystem::exists(p / "launcher.json", iec);
+    };
+
+    std::filesystem::path p = cur;
+    for (int i = 0; i < 12; ++i) {
+        if (looks_like_root(p)) return p.string();
+        if (!p.has_parent_path()) break;
+        std::filesystem::path next = p.parent_path();
+        if (next == p) break;
+        p = next;
+    }
+    return cur.string();
+}
+
 bool render_page(int w, int h,
                  const std::string& html,
                  const std::string& css,
@@ -492,6 +691,43 @@ bool render_page(int w, int h,
         collect_image_overlays(root, *overlays);
     }
 
+    // Diagnostic: walk the layout tree and log stats.
+    {
+        struct TreeStats {
+            int total_boxes = 0;
+            int text_boxes = 0;
+            int bg_color_boxes = 0;
+            int bg_image_boxes = 0;
+            float first_text_x = 0, first_text_y = 0;
+            float root_w = 0, root_h = 0;
+        };
+        TreeStats ts;
+        if (root) {
+            ts.root_w = root->width;
+            ts.root_h = root->height;
+        }
+        std::function<void(xcm::LayoutBox*, int)> walk = [&](xcm::LayoutBox* b, int depth) {
+            if (!b) return;
+            ++ts.total_boxes;
+            const xcm::ComputedStyle* bcs = b->node && b->node->computed_style
+                ? static_cast<const xcm::ComputedStyle*>(b->node->computed_style)
+                : nullptr;
+            if (b->node && b->node->kind == xcm::NodeKind::TEXT && b->node->text) {
+                ++ts.text_boxes;
+                if (ts.text_boxes == 1) {
+                    ts.first_text_x = b->x; ts.first_text_y = b->y;
+                }
+            }
+            if (bcs && bcs->background_color.a > 0) ++ts.bg_color_boxes;
+            if (bcs && bcs->background_image && bcs->background_image[0]) ++ts.bg_image_boxes;
+            for (auto* ch : b->children) walk(ch, depth + 1);
+        };
+        walk(root, 0);
+        debug_logf("layout_tree boxes=%d text=%d bg_color=%d bg_image=%d root=%.0fx%.0f first_text=%.0f,%.0f",
+                   ts.total_boxes, ts.text_boxes, ts.bg_color_boxes, ts.bg_image_boxes,
+                   ts.root_w, ts.root_h, ts.first_text_x, ts.first_text_y);
+    }
+
     xcm::PaintEngine paint(w, h);
     paint.set_scroll(scroll_y);
     paint.paint(root);
@@ -502,6 +738,88 @@ bool render_page(int w, int h,
     return true;
 }
 
+bool frame_is_mostly_white(const std::vector<uint8_t>& rgba) {
+    if (rgba.size() < 4) return true;
+    std::size_t px = rgba.size() / 4;
+    if (px == 0) return true;
+
+    const std::size_t step = std::max<std::size_t>(1, px / 12000);
+    std::size_t sampled = 0;
+    std::size_t white_like = 0;
+    for (std::size_t i = 0; i < px; i += step) {
+        std::size_t o = i * 4;
+        if (o + 3 >= rgba.size()) break;
+        const uint8_t r = rgba[o + 0];
+        const uint8_t g = rgba[o + 1];
+        const uint8_t b = rgba[o + 2];
+        if (r >= 248 && g >= 248 && b >= 248) ++white_like;
+        ++sampled;
+    }
+    if (sampled == 0) return true;
+    return (static_cast<double>(white_like) / static_cast<double>(sampled)) > 0.995;
+}
+
+struct FrameContentStats {
+    bool has_non_white = false;
+    int min_x = 0;
+    int min_y = 0;
+    int max_x = 0;
+    int max_y = 0;
+    std::size_t non_white_count = 0;
+};
+
+FrameContentStats analyze_frame_content(const std::vector<uint8_t>& rgba, int w, int h) {
+    FrameContentStats stats;
+    if (w <= 0 || h <= 0 || rgba.size() < static_cast<std::size_t>(w * h * 4)) return stats;
+
+    stats.min_x = w;
+    stats.min_y = h;
+    stats.max_x = -1;
+    stats.max_y = -1;
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            std::size_t o = static_cast<std::size_t>((y * w + x) * 4);
+            const uint8_t r = rgba[o + 0];
+            const uint8_t g = rgba[o + 1];
+            const uint8_t b = rgba[o + 2];
+            if (r >= 248 && g >= 248 && b >= 248) continue;
+            stats.has_non_white = true;
+            ++stats.non_white_count;
+            stats.min_x = std::min(stats.min_x, x);
+            stats.min_y = std::min(stats.min_y, y);
+            stats.max_x = std::max(stats.max_x, x);
+            stats.max_y = std::max(stats.max_y, y);
+        }
+    }
+
+    if (!stats.has_non_white) {
+        stats.min_x = stats.min_y = stats.max_x = stats.max_y = 0;
+    }
+    return stats;
+}
+
+enum class RendererMode {
+    Auto,
+    Hardware,
+    Software,
+};
+
+RendererMode parse_renderer_mode(const std::string& s) {
+    std::string v = lower_copy(trim_copy(s));
+    if (v == "hardware" || v == "gpu") return RendererMode::Hardware;
+    if (v == "software" || v == "cpu") return RendererMode::Software;
+    return RendererMode::Auto;
+}
+
+const char* renderer_mode_name(RendererMode m) {
+    switch (m) {
+        case RendererMode::Hardware: return "hardware";
+        case RendererMode::Software: return "software";
+        default: return "auto";
+    }
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -510,16 +828,39 @@ int main(int argc, char** argv) {
     std::string js_file;
     bool watch = false;
     bool allow_external_browser_open = false;
+    std::string debug_log_path = "/tmp/xcm_sdl_preview_debug.log";
     bool using_default_bridge_files = false;
+    RendererMode renderer_mode = RendererMode::Auto;
+    bool use_surface_upload = true;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--watch") watch = true;
         else if (a == "--external-browser") allow_external_browser_open = true;
+        else if (a == "--hardware-render") renderer_mode = RendererMode::Hardware;
+        else if (a == "--software-render") renderer_mode = RendererMode::Software;
+        else if (a.rfind("--renderer=", 0) == 0) renderer_mode = parse_renderer_mode(a.substr(11));
+        else if (a == "--surface-upload") use_surface_upload = true;
+        else if (a == "--streaming-upload") use_surface_upload = false;
+        else if (a == "--no-debug-log") g_debug_enabled = false;
+        else if (a.rfind("--debug-log=", 0) == 0) debug_log_path = a.substr(12);
         else if (html_file.empty()) html_file = a;
         else if (css_file.empty()) css_file = a;
         else if (js_file.empty()) js_file = a;
     }
+
+    if (g_debug_enabled) {
+        if (!debug_open(debug_log_path)) {
+            g_debug_enabled = false;
+        } else {
+            debug_logf("xcm_sdl_preview start argc=%d", argc);
+        }
+    }
+
+    g_workspace_root = detect_workspace_root();
+    debug_logf("workspace_root=%s", g_workspace_root.c_str());
+    debug_logf("renderer_mode=%s", renderer_mode_name(renderer_mode));
+    debug_logf("texture_upload=%s", use_surface_upload ? "surface" : "streaming");
 
     // If no file args are provided, point SDL preview at the VSCode bridge editor files.
     // This makes xcm_sdl_preview immediately show the same content as html-editor/css-editor.
@@ -527,9 +868,9 @@ int main(int argc, char** argv) {
         const char* env_html = std::getenv("XCM_DEFAULT_HTML");
         const char* env_css = std::getenv("XCM_DEFAULT_CSS");
         const char* env_js = std::getenv("XCM_DEFAULT_JS");
-        const std::string fallback_html = "/Users/mac/Documents/live-css/my_project/vscode-bridge/projects/html-editor.html";
-        const std::string fallback_css  = "/Users/mac/Documents/live-css/my_project/vscode-bridge/projects/css-editor.css";
-        const std::string fallback_js   = "/Users/mac/Documents/live-css/my_project/vscode-bridge/projects/js-editor.js";
+        const std::string fallback_html = g_workspace_root + "/my_project/vscode-bridge/projects/html-editor.html";
+        const std::string fallback_css  = g_workspace_root + "/my_project/vscode-bridge/projects/css-editor.css";
+        const std::string fallback_js   = g_workspace_root + "/my_project/vscode-bridge/projects/js-editor.js";
 
         html_file = (env_html && *env_html) ? std::string(env_html) : fallback_html;
         css_file  = (env_css && *env_css)   ? std::string(env_css)  : fallback_css;
@@ -584,7 +925,46 @@ int main(int argc, char** argv) {
     const Uint32 main_window_id = SDL_GetWindowID(win);
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // nearest -- keeps text edges consistent
-    SDL_Renderer* ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    auto create_renderer_for_window = [&](SDL_Window* target, const char* tag) -> SDL_Renderer* {
+        auto try_create = [&](Uint32 flags) -> SDL_Renderer* {
+            SDL_Renderer* r = SDL_CreateRenderer(target, -1, flags);
+            if (r) {
+                SDL_RendererInfo ri{};
+                if (SDL_GetRendererInfo(r, &ri) == 0) {
+                    debug_logf("renderer %s ok flags=%u backend=%s", tag, flags, ri.name ? ri.name : "?");
+                } else {
+                    debug_logf("renderer %s ok flags=%u backend=?", tag, flags);
+                }
+            } else {
+                debug_logf("renderer %s fail flags=%u err=%s", tag, flags, SDL_GetError());
+            }
+            return r;
+        };
+
+        if (renderer_mode == RendererMode::Software) {
+            SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+            return try_create(SDL_RENDERER_SOFTWARE);
+        }
+        if (renderer_mode == RendererMode::Hardware) {
+            SDL_SetHint(SDL_HINT_RENDER_DRIVER, "metal");
+            SDL_Renderer* r = try_create(SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+            if (!r) {
+                SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+                r = try_create(SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+            }
+            return r;
+        }
+
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "");
+        SDL_Renderer* r = try_create(SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        if (!r) {
+            SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+            r = try_create(SDL_RENDERER_SOFTWARE);
+        }
+        return r;
+    };
+
+    SDL_Renderer* ren = create_renderer_for_window(win, "main");
     if (!ren) {
         std::fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
         SDL_DestroyWindow(win);
@@ -603,19 +983,62 @@ int main(int argc, char** argv) {
     int tex_w = content_w;
     int tex_h = win_h;
 
-    SDL_Texture* tex = SDL_CreateTexture(
-        ren,
-        SDL_PIXELFORMAT_RGBA32,
-        SDL_TEXTUREACCESS_STREAMING,
-        tex_w,
-        tex_h
-    );
+    auto create_streaming_texture = [&](SDL_Renderer* target_ren, int w, int h, const char* tag) -> SDL_Texture* {
+        SDL_Texture* t = SDL_CreateTexture(
+            target_ren,
+            SDL_PIXELFORMAT_RGBA32,
+            SDL_TEXTUREACCESS_STREAMING,
+            std::max(64, w),
+            std::max(64, h)
+        );
+        if (!t) {
+            debug_logf("create_streaming_texture %s failed: %s", tag, SDL_GetError());
+            return nullptr;
+        }
+        SDL_SetTextureBlendMode(t, SDL_BLENDMODE_NONE);
+        return t;
+    };
+
+    auto replace_texture_from_rgba = [&](SDL_Renderer* target_ren,
+                                         SDL_Texture*& target_tex,
+                                         int w,
+                                         int h,
+                                         const std::vector<uint8_t>& rgba,
+                                         const char* tag) -> bool {
+        if (w <= 0 || h <= 0 || rgba.size() < static_cast<std::size_t>(w * h * 4)) return false;
+        SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormatFrom(
+            const_cast<uint8_t*>(rgba.data()),
+            w,
+            h,
+            32,
+            w * 4,
+            SDL_PIXELFORMAT_RGBA32
+        );
+        if (!surf) {
+            debug_logf("replace_texture_from_rgba %s surface failed: %s", tag, SDL_GetError());
+            return false;
+        }
+        SDL_Texture* next = SDL_CreateTextureFromSurface(target_ren, surf);
+        SDL_FreeSurface(surf);
+        if (!next) {
+            debug_logf("replace_texture_from_rgba %s texture failed: %s", tag, SDL_GetError());
+            return false;
+        }
+        SDL_SetTextureBlendMode(next, SDL_BLENDMODE_NONE);
+        if (target_tex) SDL_DestroyTexture(target_tex);
+        target_tex = next;
+        return true;
+    };
+
+    SDL_Texture* tex = use_surface_upload ? nullptr : create_streaming_texture(ren, tex_w, tex_h, "main");
     if (!tex) {
-        std::fprintf(stderr, "SDL_CreateTexture failed: %s\n", SDL_GetError());
-        SDL_DestroyRenderer(ren);
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        return 1;
+        if (!use_surface_upload) {
+            std::fprintf(stderr, "SDL_CreateTexture failed: %s\n", SDL_GetError());
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return 1;
+        }
     }
 
     SDL_Window* preview_win = nullptr;
@@ -653,33 +1076,76 @@ int main(int argc, char** argv) {
         );
         if (!preview_win) return false;
 
-        preview_ren = SDL_CreateRenderer(preview_win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        preview_ren = create_renderer_for_window(preview_win, "preview");
         if (!preview_ren) {
             destroy_preview_window();
+            debug_logf("ensure_preview_window renderer create failed: %s", SDL_GetError());
             return false;
         }
 
         preview_tex_w = tex_w;
         preview_tex_h = tex_h;
-        preview_tex = SDL_CreateTexture(
-            preview_ren,
-            SDL_PIXELFORMAT_RGBA32,
-            SDL_TEXTUREACCESS_STREAMING,
-            std::max(64, preview_tex_w),
-            std::max(64, preview_tex_h)
-        );
-        if (!preview_tex) {
+        preview_tex = use_surface_upload ? nullptr : create_streaming_texture(preview_ren, preview_tex_w, preview_tex_h, "preview");
+        if (!preview_tex && !use_surface_upload) {
             destroy_preview_window();
+            debug_logf("ensure_preview_window texture create failed: %s", SDL_GetError());
             return false;
         }
+        debug_logf("ensure_preview_window created win=%dx%d tex=%dx%d", preview_win_w, preview_win_h, preview_tex_w, preview_tex_h);
         return true;
     };
+
+    if (!ensure_preview_window()) {
+        debug_logf("startup preview window creation failed");
+    }
 
     std::string html = html_file.empty() ? std::string(SAMPLE_HTML) : load_text_source(html_file);
     std::string css = css_file.empty() ? std::string() : load_text_source(css_file);
     std::string js = js_file.empty() ? std::string() : load_text_source(js_file);
     std::string linked_css;
     std::string linked_js;
+    bool logged_js_runtime_warning = false;
+    debug_logf("startup sources html=%zu css=%zu js=%zu", html.size(), css.size(), js.size());
+
+    auto refresh_linked_assets = [&]() {
+        std::size_t css_ok = 0;
+        std::size_t css_fail = 0;
+        std::size_t js_ok = 0;
+        std::size_t js_fail = 0;
+        linked_css.clear();
+        for (const auto& href : extract_linked_stylesheet_hrefs(html)) {
+            std::string src = href;
+            if (!is_http_url(src) && !html_file.empty()) src = resolve_asset_path(href, html_file);
+            std::string t = load_text_source(src);
+            if (!t.empty()) {
+                linked_css += t;
+                linked_css.push_back('\n');
+                ++css_ok;
+            } else {
+                ++css_fail;
+                record_asset_failure("linked-css", href, src, "load failed");
+                debug_logf("linked css fail: href=%s resolved=%s", href.c_str(), src.c_str());
+            }
+        }
+        linked_js.clear();
+        for (const auto& s : extract_script_srcs(html)) {
+            std::string src = s;
+            if (!is_http_url(src) && !html_file.empty()) src = resolve_asset_path(s, html_file);
+            std::string t = load_text_source(src);
+            if (!t.empty()) {
+                linked_js += t;
+                linked_js.push_back('\n');
+                ++js_ok;
+            } else {
+                ++js_fail;
+                record_asset_failure("linked-js", s, src, "load failed");
+                debug_logf("linked js fail: src=%s resolved=%s", s.c_str(), src.c_str());
+            }
+        }
+        debug_logf("refresh_linked_assets css_ok=%zu css_fail=%zu js_ok=%zu js_fail=%zu linked_css=%zu linked_js=%zu",
+                   css_ok, css_fail, js_ok, js_fail, linked_css.size(), linked_js.size());
+    };
+    refresh_linked_assets();
 
     if (html.empty()) {
         std::fprintf(stderr, "Failed to load HTML input.\n");
@@ -703,13 +1169,6 @@ int main(int argc, char** argv) {
     std::vector<ImageOverlay> image_overlays;
 
 #ifdef XCM_HAS_SDL_IMAGE
-    std::unordered_map<std::string, SDL_Texture*> image_cache;
-    auto release_image_cache = [&]() {
-        for (auto& kv : image_cache) {
-            if (kv.second) SDL_DestroyTexture(kv.second);
-        }
-        image_cache.clear();
-    };
 #endif
 
     std::string preview_css_overlay;
@@ -740,6 +1199,13 @@ int main(int argc, char** argv) {
     std::string palette_input;
     std::string status = "Ready";
     if (using_default_bridge_files) status = "Bridge mode (raw CSS)";
+    bool show_diagnostics = true;
+    int last_overlays = 0;
+    int last_doc_h = 0;
+    std::size_t last_text_chars = 0;
+    std::size_t last_img_tags = 0;
+    std::size_t last_script_tags = 0;
+    std::size_t last_asset_failures = 0;
     bool dragging_scroll = false;
     int drag_scroll_offset = 0;
     bool panel_dirty = true;
@@ -815,7 +1281,7 @@ int main(int argc, char** argv) {
         const int bw  = PANEL_W - 16;
         const int gap = 4;
         const int header_h = 38;
-        const int footer_h = 96;
+        const int footer_h = 126;
         const int avail = std::max(198, win_h - header_h - footer_h);
         struct Row { const char* a; const char* b; };
         static const Row rows[] = {
@@ -885,6 +1351,14 @@ int main(int argc, char** argv) {
         return x >= r.x && y >= r.y && x < (r.x + r.w) && y < (r.y + r.h);
     };
 
+    auto preview_window_id = [&]() -> Uint32 {
+        return preview_win ? SDL_GetWindowID(preview_win) : 0;
+    };
+
+    auto is_preview_window_event = [&](Uint32 window_id) -> bool {
+        return preview_win && window_id == preview_window_id();
+    };
+
     auto input_hit_region = [&](int x, int y) -> uint8_t {
         SDL_Rect track{win_w - 10, 4, 6, win_h - 8};
         if (point_in(x, y, track)) return 3;
@@ -893,32 +1367,67 @@ int main(int argc, char** argv) {
         return 0;
     };
 
-    auto capture_mouse = [&](xcm::InputKind kind, int x, int y, int dx, int dy, int button) {
+    auto map_window_point = [&](Uint32 window_id, int raw_x, int raw_y, int& mapped_x, int& mapped_y, uint8_t& hit_region) {
+        if (window_id == main_window_id) {
+            mapped_x = raw_x;
+            mapped_y = raw_y;
+            hit_region = input_hit_region(raw_x, raw_y);
+            return true;
+        }
+        if (is_preview_window_event(window_id)) {
+            int pw = 0;
+            int ph = 0;
+            SDL_GetWindowSize(preview_win, &pw, &ph);
+            const float sx = (pw > 0) ? static_cast<float>(tex_w) / static_cast<float>(pw) : 1.f;
+            const float sy = (ph > 0) ? static_cast<float>(tex_h) / static_cast<float>(ph) : 1.f;
+            mapped_x = std::clamp(static_cast<int>(std::floor(static_cast<float>(raw_x) * sx)), 0, std::max(0, tex_w - 1));
+            mapped_y = std::clamp(static_cast<int>(std::floor(static_cast<float>(raw_y) * sy)), 0, std::max(0, tex_h - 1));
+            hit_region = 1;
+            return true;
+        }
+        return false;
+    };
+
+    auto capture_mouse = [&](Uint32 window_id,
+                             xcm::InputKind kind,
+                             int raw_x,
+                             int raw_y,
+                             int dx,
+                             int dy,
+                             int button) {
+        int mapped_x = raw_x;
+        int mapped_y = raw_y;
+        uint8_t hit_region = 0;
+        if (!map_window_point(window_id, raw_x, raw_y, mapped_x, mapped_y, hit_region)) return;
         xcm::InputEvent e;
         e.kind = kind;
         e.timestamp_ms = SDL_GetTicks64();
-        e.x = x;
-        e.y = y;
+        e.x = mapped_x;
+        e.y = mapped_y;
         e.dx = dx;
         e.dy = dy;
         e.button = button;
-        e.hit_region = input_hit_region(x, y);
+        e.hit_region = hit_region;
         e.modifiers = static_cast<uint16_t>(SDL_GetModState());
         input_capture.push(e);
     };
 
-    auto capture_wheel = [&](int x, int y) {
-        int mx = 0;
-        int my = 0;
-        SDL_GetMouseState(&mx, &my);
+    auto capture_wheel = [&](Uint32 window_id, int wheel_x, int wheel_y) {
+        int raw_x = 0;
+        int raw_y = 0;
+        SDL_GetMouseState(&raw_x, &raw_y);
+        int mapped_x = raw_x;
+        int mapped_y = raw_y;
+        uint8_t hit_region = 0;
+        if (!map_window_point(window_id, raw_x, raw_y, mapped_x, mapped_y, hit_region)) return;
         xcm::InputEvent e;
         e.kind = xcm::InputKind::MouseWheel;
         e.timestamp_ms = SDL_GetTicks64();
-        e.x = mx;
-        e.y = my;
-        e.wheel_x = x;
-        e.wheel_y = y;
-        e.hit_region = input_hit_region(mx, my);
+        e.x = mapped_x;
+        e.y = mapped_y;
+        e.wheel_x = wheel_x;
+        e.wheel_y = wheel_y;
+        e.hit_region = hit_region;
         e.modifiers = static_cast<uint16_t>(SDL_GetModState());
         input_capture.push(e);
     };
@@ -931,6 +1440,13 @@ int main(int argc, char** argv) {
         e.modifiers = static_cast<uint16_t>(SDL_GetModState());
         input_capture.push(e);
     };
+
+    auto clamp_scroll = [&]() {
+        const float max_scroll = std::max(0.f, static_cast<float>(doc_h - tex_h));
+        scroll_y = std::clamp(scroll_y, 0.f, max_scroll);
+    };
+
+    SDL_StartTextInput();
 
     auto write_browser_preview = [&]() -> bool {
         if (html.empty()) return false;
@@ -996,26 +1512,8 @@ int main(int argc, char** argv) {
         if (!js_file.empty()) {
             js = load_text_source(js_file);
         }
-        linked_css.clear();
-        for (const auto& href : extract_linked_stylesheet_hrefs(html)) {
-            std::string src = href;
-            if (!is_http_url(src) && !html_file.empty()) src = resolve_asset_path(href, html_file);
-            std::string t = load_text_source(src);
-            if (!t.empty()) {
-                linked_css += t;
-                linked_css.push_back('\n');
-            }
-        }
-        linked_js.clear();
-        for (const auto& s : extract_script_srcs(html)) {
-            std::string src = s;
-            if (!is_http_url(src) && !html_file.empty()) src = resolve_asset_path(s, html_file);
-            std::string t = load_text_source(src);
-            if (!t.empty()) {
-                linked_js += t;
-                linked_js.push_back('\n');
-            }
-        }
+        refresh_linked_assets();
+        debug_logf("do_reload html=%zu css=%zu js=%zu linked_css=%zu linked_js=%zu", html.size(), css.size(), js.size(), linked_css.size(), linked_js.size());
         write_browser_preview();
         dirty = true;
     };
@@ -1026,26 +1524,8 @@ int main(int argc, char** argv) {
         html = std::move(re);
         html_file = p;
         html_stamp = get_stamp(html_file);
-        linked_css.clear();
-        for (const auto& href : extract_linked_stylesheet_hrefs(html)) {
-            std::string src = href;
-            if (!is_http_url(src)) src = resolve_asset_path(href, html_file);
-            std::string t = load_text_source(src);
-            if (!t.empty()) {
-                linked_css += t;
-                linked_css.push_back('\n');
-            }
-        }
-        linked_js.clear();
-        for (const auto& s : extract_script_srcs(html)) {
-            std::string src = s;
-            if (!is_http_url(src)) src = resolve_asset_path(s, html_file);
-            std::string t = load_text_source(src);
-            if (!t.empty()) {
-                linked_js += t;
-                linked_js.push_back('\n');
-            }
-        }
+        refresh_linked_assets();
+        debug_logf("load_html_file ok: %s html=%zu linked_css=%zu linked_js=%zu", p.c_str(), html.size(), linked_css.size(), linked_js.size());
         dirty = true;
         return true;
     };
@@ -1056,6 +1536,7 @@ int main(int argc, char** argv) {
         css = std::move(re);
         css_file = p;
         css_stamp = get_stamp(css_file);
+        debug_logf("load_css_file ok: %s css=%zu", p.c_str(), css.size());
         dirty = true;
         return true;
     };
@@ -1066,6 +1547,7 @@ int main(int argc, char** argv) {
         js = std::move(re);
         js_file = p;
         js_stamp = get_stamp(js_file);
+        debug_logf("load_js_file ok: %s js=%zu", p.c_str(), js.size());
         dirty = true;
         return true;
     };
@@ -1080,7 +1562,39 @@ int main(int argc, char** argv) {
         std::string cmd = lower_copy(parts[0]);
 
         if (cmd == "help") {
-            status = "Commands: open/html/css/js/browser/reload/watch/cssmode/zoom/inputlog/inputbin/inputclear/quit";
+            status = "Commands: open/html/css/js/browser/reload/watch/cssmode/zoom/diag/diagshow/diaghide/assetclear/inputlog/inputbin/inputclear/quit";
+            return;
+        }
+        if (cmd == "assetclear") {
+            g_asset_failures.clear();
+            last_asset_failures = 0;
+            status = "Asset failures cleared";
+            return;
+        }
+        if (cmd == "diagshow") {
+            show_diagnostics = true;
+            status = "Diagnostics visible";
+            return;
+        }
+        if (cmd == "diaghide") {
+            show_diagnostics = false;
+            status = "Diagnostics hidden";
+            return;
+        }
+        if (cmd == "diag") {
+            const std::size_t text_chars = count_visible_text_chars(html);
+            const std::size_t img_tags = count_tag_occurrences(html, "img");
+            const std::size_t script_tags = count_tag_occurrences(html, "script");
+            status = "diag html=" + std::to_string(html.size()) +
+                     " css=" + std::to_string(css.size()) +
+                     " js=" + std::to_string(js.size()) +
+                     " lcss=" + std::to_string(linked_css.size()) +
+                     " ljs=" + std::to_string(linked_js.size()) +
+                     " txt=" + std::to_string(text_chars) +
+                     " imgs=" + std::to_string(img_tags) +
+                     " scripts=" + std::to_string(script_tags) +
+                     " overlays=" + std::to_string(image_overlays.size());
+            debug_logf("diag status: %s", status.c_str());
             return;
         }
         if (cmd == "inputclear") {
@@ -1265,16 +1779,20 @@ int main(int argc, char** argv) {
                 status = "Resized";
                 set_title();
             } else if (ev.type == SDL_MOUSEWHEEL) {
-                if (ev.wheel.windowID != main_window_id) continue;
-                capture_wheel(ev.wheel.x, ev.wheel.y);
+                if (ev.wheel.windowID != main_window_id && !is_preview_window_event(ev.wheel.windowID)) continue;
+                capture_wheel(ev.wheel.windowID, ev.wheel.x, ev.wheel.y);
                 scroll_y -= static_cast<float>(ev.wheel.y * 48);
-                scroll_y = std::max(0.f, scroll_y);
+                clamp_scroll();
                 dirty = true;
             } else if (ev.type == SDL_MOUSEBUTTONDOWN && ev.button.button == SDL_BUTTON_LEFT) {
-                if (ev.button.windowID != main_window_id) continue;
+                if (ev.button.windowID != main_window_id && !is_preview_window_event(ev.button.windowID)) continue;
                 int mx = ev.button.x;
                 int my = ev.button.y;
-                capture_mouse(xcm::InputKind::MouseDown, mx, my, 0, 0, ev.button.button);
+                capture_mouse(ev.button.windowID, xcm::InputKind::MouseDown, mx, my, 0, 0, ev.button.button);
+
+                if (is_preview_window_event(ev.button.windowID)) {
+                    continue;
+                }
 
                 // Scrollbar track is at the far right edge of the window
                 float max_scroll = std::max(0.f, static_cast<float>(doc_h - tex_h));
@@ -1297,6 +1815,7 @@ int main(int argc, char** argv) {
                         float t = static_cast<float>(my - track.y - thumb_h / 2) / static_cast<float>(std::max(1, track.h - thumb_h));
                         t = std::clamp(t, 0.0f, 1.0f);
                         scroll_y = t * max_scroll;
+                        clamp_scroll();
                         dirty = true;
                     }
                     continue;
@@ -1400,12 +1919,15 @@ int main(int argc, char** argv) {
                     }
                 }
             } else if (ev.type == SDL_MOUSEBUTTONUP && ev.button.button == SDL_BUTTON_LEFT) {
-                if (ev.button.windowID != main_window_id) continue;
-                capture_mouse(xcm::InputKind::MouseUp, ev.button.x, ev.button.y, 0, 0, ev.button.button);
+                if (ev.button.windowID != main_window_id && !is_preview_window_event(ev.button.windowID)) continue;
+                capture_mouse(ev.button.windowID, xcm::InputKind::MouseUp, ev.button.x, ev.button.y, 0, 0, ev.button.button);
                 dragging_scroll = false;
             } else if (ev.type == SDL_MOUSEMOTION) {
-                if (ev.motion.windowID != main_window_id) continue;
-                capture_mouse(xcm::InputKind::MouseMove, ev.motion.x, ev.motion.y, ev.motion.xrel, ev.motion.yrel, 0);
+                if (ev.motion.windowID != main_window_id && !is_preview_window_event(ev.motion.windowID)) continue;
+                capture_mouse(ev.motion.windowID, xcm::InputKind::MouseMove, ev.motion.x, ev.motion.y, ev.motion.xrel, ev.motion.yrel, 0);
+                if (is_preview_window_event(ev.motion.windowID)) {
+                    continue;
+                }
                 if (dragging_scroll) {
                     float max_scroll = std::max(0.f, static_cast<float>(doc_h - tex_h));
                     if (max_scroll > 0.0f) {
@@ -1416,11 +1938,12 @@ int main(int argc, char** argv) {
                         float t = static_cast<float>(thumb_top - track.y) / static_cast<float>(std::max(1, track.h - thumb_h));
                         t = std::clamp(t, 0.0f, 1.0f);
                         scroll_y = t * max_scroll;
+                        clamp_scroll();
                         dirty = true;
                     }
                 }
             } else if (ev.type == SDL_TEXTINPUT) {
-                if (ev.text.windowID != main_window_id) continue;
+                if (ev.text.windowID != main_window_id && !is_preview_window_event(ev.text.windowID)) continue;
                 xcm::InputEvent ie;
                 ie.kind = xcm::InputKind::TextInput;
                 ie.timestamp_ms = SDL_GetTicks64();
@@ -1431,7 +1954,7 @@ int main(int argc, char** argv) {
                     set_title();
                 }
             } else if (ev.type == SDL_KEYDOWN) {
-                if (ev.key.windowID != main_window_id) continue;
+                if (ev.key.windowID != main_window_id && !is_preview_window_event(ev.key.windowID)) continue;
                 SDL_Keycode k = ev.key.keysym.sym;
                 capture_key(xcm::InputKind::KeyDown, k);
 
@@ -1440,7 +1963,7 @@ int main(int argc, char** argv) {
                         palette_mode = false;
                         palette_prompt.clear();
                         palette_input.clear();
-                        SDL_StopTextInput();
+                        SDL_StartTextInput();
                         status = "Canceled";
                         set_title();
                     } else if (k == SDLK_BACKSPACE) {
@@ -1452,7 +1975,7 @@ int main(int argc, char** argv) {
                         palette_mode = false;
                         palette_prompt.clear();
                         palette_input.clear();
-                        SDL_StopTextInput();
+                        SDL_StartTextInput();
                         if (prompt == "html") {
                             if (cmd.empty()) { status = "Canceled"; }
                             else if (!load_html_file(cmd)) { status = "Failed: " + cmd; }
@@ -1542,15 +2065,21 @@ int main(int argc, char** argv) {
                     watch = !watch;
                     status = std::string("Watch ") + (watch ? "on" : "off");
                     set_title();
+                } else if (k == SDLK_F1) {
+                    show_diagnostics = !show_diagnostics;
+                    status = std::string("Diagnostics ") + (show_diagnostics ? "visible" : "hidden");
+                    set_title();
                 } else if (k == SDLK_DOWN) {
                     scroll_y += 48.f;
+                    clamp_scroll();
                     dirty = true;
                 } else if (k == SDLK_UP) {
-                    scroll_y = std::max(0.f, scroll_y - 48.f);
+                    scroll_y -= 48.f;
+                    clamp_scroll();
                     dirty = true;
                 }
             } else if (ev.type == SDL_KEYUP) {
-                if (ev.key.windowID != main_window_id) continue;
+                if (ev.key.windowID != main_window_id && !is_preview_window_event(ev.key.windowID)) continue;
                 capture_key(xcm::InputKind::KeyUp, ev.key.keysym.sym);
             }
         }
@@ -1561,26 +2090,7 @@ int main(int argc, char** argv) {
                 std::string re = load_text_source(html_file);
                 if (!re.empty()) {
                     html = std::move(re);
-                    linked_css.clear();
-                    for (const auto& href : extract_linked_stylesheet_hrefs(html)) {
-                        std::string src = href;
-                        if (!is_http_url(src)) src = resolve_asset_path(href, html_file);
-                        std::string t = load_text_source(src);
-                        if (!t.empty()) {
-                            linked_css += t;
-                            linked_css.push_back('\n');
-                        }
-                    }
-                    linked_js.clear();
-                    for (const auto& s : extract_script_srcs(html)) {
-                        std::string src = s;
-                        if (!is_http_url(src)) src = resolve_asset_path(s, html_file);
-                        std::string t = load_text_source(src);
-                        if (!t.empty()) {
-                            linked_js += t;
-                            linked_js.push_back('\n');
-                        }
-                    }
+                    refresh_linked_assets();
                     changed_any = true;
                 }
             }
@@ -1607,12 +2117,14 @@ int main(int argc, char** argv) {
             if (render_w != tex_w || render_h != tex_h) {
                 tex_w = render_w;
                 tex_h = render_h;
-                SDL_DestroyTexture(tex);
-                tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, tex_w, tex_h);
-                if (!tex) {
-                    std::fprintf(stderr, "SDL_CreateTexture failed: %s\n", SDL_GetError());
-                    running = false;
-                    break;
+                if (!use_surface_upload) {
+                    SDL_DestroyTexture(tex);
+                    tex = create_streaming_texture(ren, tex_w, tex_h, "main");
+                    if (!tex) {
+                        std::fprintf(stderr, "SDL_CreateTexture failed: %s\n", SDL_GetError());
+                        running = false;
+                        break;
+                    }
                 }
             }
 
@@ -1627,6 +2139,32 @@ int main(int argc, char** argv) {
                 css_for_render += preview_css_overlay;
             }
             if (render_page(tex_w, tex_h, html_for_render, css_for_render, scroll_y, frame, doc_h, &image_overlays)) {
+                const std::size_t text_chars = count_visible_text_chars(html_for_render);
+                const std::size_t img_tags = count_tag_occurrences(html_for_render, "img");
+                const std::size_t script_tags = count_tag_occurrences(html_for_render, "script");
+                last_overlays = static_cast<int>(image_overlays.size());
+                last_doc_h = doc_h;
+                last_text_chars = text_chars;
+                last_img_tags = img_tags;
+                last_script_tags = script_tags;
+                last_asset_failures = g_asset_failures.size();
+                const FrameContentStats frame_stats = analyze_frame_content(frame, tex_w, tex_h);
+                if (frame_is_mostly_white(frame) && (text_chars > 0 || img_tags > 0)) {
+                    record_asset_failure("render", "frame", "", "frame mostly white with non-empty content");
+                }
+                debug_logf("render_page ok tex=%dx%d doc_h=%d overlays=%zu html=%zu css=%zu text_chars=%zu img_tags=%zu script_tags=%zu",
+                           tex_w, tex_h, doc_h, image_overlays.size(), html_for_render.size(), css_for_render.size(), text_chars, img_tags, script_tags);
+                debug_logf("frame_content non_white=%zu has=%d bounds=%d,%d..%d,%d",
+                           frame_stats.non_white_count,
+                           frame_stats.has_non_white ? 1 : 0,
+                           frame_stats.min_x,
+                           frame_stats.min_y,
+                           frame_stats.max_x,
+                           frame_stats.max_y);
+                if (!logged_js_runtime_warning && (js.size() + linked_js.size()) > 0) {
+                    debug_logf("JS_RUNTIME_NOTE software renderer does not execute JS; dynamic DOM text/images may not appear in software output");
+                    logged_js_runtime_warning = true;
+                }
                 float max_scroll = std::max(0.f, static_cast<float>(doc_h - tex_h));
                 if (scroll_y > max_scroll) {
                     scroll_y = max_scroll;
@@ -1636,11 +2174,14 @@ int main(int argc, char** argv) {
 #ifdef XCM_HAS_SDL_IMAGE
                 if (sdl_image_ready) {
                     for (const auto& ov : image_overlays) {
-                        if (!ov.is_background || ov.w < 2.f || ov.h < 2.f || ov.url.empty()) continue;
-                        std::string full_path = resolve_asset_path(ov.url, html_file);
-                        if (full_path.empty()) continue;
-                        SDL_Surface* surf = IMG_Load(full_path.c_str());
-                        if (!surf) continue;
+                        if (ov.is_background || ov.w < 2.f || ov.h < 2.f || ov.url.empty()) continue;
+                        std::string resolved = resolve_asset_path(ov.url, html_file);
+                        if (resolved.empty()) continue;
+                        SDL_Surface* surf = load_image_surface(resolved);
+                        if (!surf) {
+                            debug_logf("image load fail: %s", resolved.c_str());
+                            continue;
+                        }
                         SDL_Surface* rgba_surf = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA32, 0);
                         SDL_FreeSurface(surf);
                         if (!rgba_surf) continue;
@@ -1650,27 +2191,36 @@ int main(int argc, char** argv) {
                 }
 #endif
 
-                SDL_UpdateTexture(tex, nullptr, frame.data(), tex_w * 4);
+                if (use_surface_upload) {
+                    if (!replace_texture_from_rgba(ren, tex, tex_w, tex_h, frame, "main")) {
+                        running = false;
+                        break;
+                    }
+                } else {
+                    SDL_UpdateTexture(tex, nullptr, frame.data(), tex_w * 4);
+                }
 
                 if (preview_win && preview_ren) {
                     if (!preview_tex || preview_tex_w != tex_w || preview_tex_h != tex_h) {
-                        if (preview_tex) SDL_DestroyTexture(preview_tex);
                         preview_tex_w = tex_w;
                         preview_tex_h = tex_h;
-                        preview_tex = SDL_CreateTexture(
-                            preview_ren,
-                            SDL_PIXELFORMAT_RGBA32,
-                            SDL_TEXTUREACCESS_STREAMING,
-                            std::max(64, preview_tex_w),
-                            std::max(64, preview_tex_h)
-                        );
+                        if (!use_surface_upload) {
+                            if (preview_tex) SDL_DestroyTexture(preview_tex);
+                            preview_tex = create_streaming_texture(preview_ren, preview_tex_w, preview_tex_h, "preview");
+                        }
                     }
-                    if (preview_tex) {
+                    if (use_surface_upload) {
+                        if (!replace_texture_from_rgba(preview_ren, preview_tex, tex_w, tex_h, frame, "preview")) {
+                            running = false;
+                            break;
+                        }
+                    } else if (preview_tex) {
                         SDL_UpdateTexture(preview_tex, nullptr, frame.data(), tex_w * 4);
                     }
                 }
             } else {
                 status = "Render failed (parse/layout)";
+                debug_logf("render_page failed html=%zu css=%zu", html_for_render.size(), css_for_render.size());
                 set_title();
             }
             dirty = false;
@@ -1681,46 +2231,6 @@ int main(int argc, char** argv) {
         SDL_RenderClear(ren);
         SDL_Rect content_dst{0, 0, content_w, win_h};
         SDL_RenderCopy(ren, tex, nullptr, &content_dst);
-
-#ifdef XCM_HAS_SDL_IMAGE
-        if (sdl_image_ready && !image_overlays.empty()) {
-            const float sx = static_cast<float>(content_w) / static_cast<float>(std::max(1, tex_w));
-            const float sy = static_cast<float>(win_h) / static_cast<float>(std::max(1, tex_h));
-            const SDL_Rect content_clip{0, 0, content_w, win_h};
-            SDL_RenderSetClipRect(ren, &content_clip);
-
-            for (const auto& ov : image_overlays) {
-                if (ov.is_background || ov.w < 2.f || ov.h < 2.f || ov.url.empty()) continue;
-
-                std::string full_path = resolve_asset_path(ov.url, html_file);
-                if (full_path.empty()) continue;
-
-                SDL_Texture* itex = nullptr;
-                auto it = image_cache.find(full_path);
-                if (it != image_cache.end()) {
-                    itex = it->second;
-                } else {
-                    SDL_Surface* surf = IMG_Load(full_path.c_str());
-                    if (surf) {
-                        itex = SDL_CreateTextureFromSurface(ren, surf);
-                        SDL_FreeSurface(surf);
-                    }
-                    image_cache[full_path] = itex;
-                }
-
-                if (!itex) continue;
-
-                int dx = static_cast<int>(std::round(ov.x * sx));
-                int dy = static_cast<int>(std::round((ov.y - scroll_y) * sy));
-                int dw = std::max(1, static_cast<int>(std::round(ov.w * sx)));
-                int dh = std::max(1, static_cast<int>(std::round(ov.h * sy)));
-                SDL_Rect dst{dx, dy, dw, dh};
-                SDL_RenderCopy(ren, itex, nullptr, &dst);
-            }
-
-            SDL_RenderSetClipRect(ren, nullptr);
-        }
-#endif
 
         if (panel_dirty) rebuild_panel();
 
@@ -1743,8 +2253,9 @@ int main(int argc, char** argv) {
 
         // 3. Footer status block
         {
-            const int fy = win_h - 92;
-            pc_fill({content_w + 1, fy, PANEL_W - 2, 91}, {10, 16, 28, 255});
+            const int footer_h = show_diagnostics ? 198 : 91;
+            const int fy = win_h - footer_h;
+            pc_fill({content_w + 1, fy, PANEL_W - 2, footer_h - 1}, {10, 16, 28, 255});
             const std::string i1 = "Zoom: " + std::to_string(static_cast<int>(std::round(zoom * 100.f))) + "%";
             const std::string i2 =
                 "Watch:" + std::string(watch ? "on" : "off") +
@@ -1754,6 +2265,24 @@ int main(int argc, char** argv) {
             pc_text(content_w + 8, fy +  4, i1,     {160, 200, 235, 255});
             pc_text(content_w + 8, fy + 24, i2,     {160, 200, 235, 255});
             pc_text(content_w + 8, fy + 46, status, {255, 210, 130, 255});
+            if (show_diagnostics) {
+                const std::string d1 = "doc=" + std::to_string(last_doc_h) +
+                                       " ov=" + std::to_string(last_overlays) +
+                                       " txt=" + std::to_string(last_text_chars);
+                const std::string d2 = "img=" + std::to_string(last_img_tags) +
+                                       " script=" + std::to_string(last_script_tags) +
+                                       " fail=" + std::to_string(last_asset_failures);
+                pc_text(content_w + 8, fy + 64, d1, {140, 188, 220, 255});
+                pc_text(content_w + 8, fy + 80, d2, {140, 188, 220, 255});
+
+                const int fail_lines = std::min<int>(4, static_cast<int>(g_asset_failures.size()));
+                for (int i = 0; i < fail_lines; ++i) {
+                    const std::string& line = g_asset_failures[g_asset_failures.size() - fail_lines + i];
+                    std::string clipped = line;
+                    if (clipped.size() > 45) clipped = clipped.substr(0, 45) + "...";
+                    pc_text(content_w + 8, fy + 98 + i * 16, clipped, {245, 150, 150, 255});
+                }
+            }
         }
 
         // 4. Input bar when palette mode is active
@@ -1802,13 +2331,14 @@ int main(int argc, char** argv) {
     if (TTF_WasInit()) TTF_Quit();
 #endif
 #ifdef XCM_HAS_SDL_IMAGE
-    release_image_cache();
     IMG_Quit();
 #endif
     destroy_preview_window();
     SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
+    debug_logf("xcm_sdl_preview shutdown");
+    debug_close();
     SDL_Quit();
     return 0;
 }
