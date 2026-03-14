@@ -21,6 +21,9 @@ bash imgui-browser/run.sh
 
 # Push to GitHub (auto-updates this README first)
 bash push.sh
+
+# Windows GitHub CLI push flow
+powershell -ExecutionPolicy Bypass -File .\push-win.ps1
 ```
 
 ## Directory Map
@@ -44,8 +47,10 @@ live-css/
   imgui-browser/  -- Cross-platform native browser shell (C++ / Dear ImGui) -- packaging target
   server/  -- nginx + PHP-FPM configuration and startup scripts
   db_bridge/  -- Shared SQLite bridge API (PHP + JS client)
+  crissys-notes.md
   launcher.json
   make_readme.py
+  push-win.ps1
   push.sh
 ```
 
@@ -76,4 +81,4 @@ Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
 
 ---
 
-*README last generated: 2026-03-10  00:11:27*
+*README last generated: 2026-03-14  15:50:36*

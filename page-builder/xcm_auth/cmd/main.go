@@ -31,8 +31,12 @@ func main() {
 	switch cfg.DB.Driver {
 	case "sqlite", "sqlite3", "":
 		store, dbErr = db.OpenSQLite(cfg.DB.DSN)
+	case "mysql":
+		store, dbErr = db.OpenMySQL(cfg.DB.DSN)
+	case "postgres", "postgresql":
+		store, dbErr = db.OpenPostgres(cfg.DB.DSN)
 	default:
-		log.Fatalf("[main] unsupported DB_DRIVER %q - only 'sqlite' is built in; add a driver in db/", cfg.DB.Driver)
+		log.Fatalf("[main] unsupported DB_DRIVER %q - supported: sqlite, mysql, postgres", cfg.DB.Driver)
 	}
 	if dbErr != nil {
 		log.Fatalf("[main] open DB (%s): %v", cfg.DB.Driver, dbErr)

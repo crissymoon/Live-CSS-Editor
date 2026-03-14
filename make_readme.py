@@ -50,6 +50,9 @@ bash imgui-browser/run.sh
 
 # Push to GitHub (auto-updates this README first)
 bash push.sh
+
+# Windows GitHub CLI push flow
+powershell -ExecutionPolicy Bypass -File .\\push-win.ps1
 ```
 """
 
@@ -142,7 +145,7 @@ def build_file_tree():
     root_files = sorted([
         f for f in os.listdir(ROOT)
         if os.path.isfile(os.path.join(ROOT, f))
-        and f.endswith(('.php', '.sh', '.py', '.md', '.json', '.txt'))
+        and f.endswith(('.php', '.sh', '.py', '.ps1', '.cmd', '.md', '.json', '.txt'))
         and not f.startswith('.')
     ])
     notable = [f for f in root_files if f not in ('README.md',)][:6]

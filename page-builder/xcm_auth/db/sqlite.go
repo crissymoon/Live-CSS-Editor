@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"xcaliburmoon.net/xcm_auth/models"
@@ -19,7 +20,82 @@ const timeLayout = time.RFC3339
 
 // SQLiteStore implements Store against a SQLite database file.
 type SQLiteStore struct {
-	db *sql.DB
+	db      *rebindDB
+	dialect string
+}
+
+type placeholderStyle int
+
+const (
+	placeholderQuestion placeholderStyle = iota
+	placeholderDollar
+)
+
+type rebindDB struct {
+	raw   *sql.DB
+	style placeholderStyle
+}
+
+func (r *rebindDB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return r.raw.ExecContext(ctx, rebindPlaceholders(query, r.style), args...)
+}
+
+func (r *rebindDB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return r.raw.QueryContext(ctx, rebindPlaceholders(query, r.style), args...)
+}
+
+func (r *rebindDB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return r.raw.QueryRowContext(ctx, rebindPlaceholders(query, r.style), args...)
+}
+
+func (r *rebindDB) Close() error {
+	return r.raw.Close()
+}
+
+func (r *rebindDB) Ping() error {
+	return r.raw.Ping()
+}
+
+func (r *rebindDB) SetMaxOpenConns(n int) {
+	r.raw.SetMaxOpenConns(n)
+}
+
+func rebindPlaceholders(query string, style placeholderStyle) string {
+	if style != placeholderDollar || !strings.Contains(query, "?") {
+		return query
+	}
+	var b strings.Builder
+	b.Grow(len(query) + 8)
+	i := 1
+	for _, ch := range query {
+		if ch == '?' {
+			b.WriteString(fmt.Sprintf("$%d", i))
+			i++
+			continue
+		}
+		b.WriteRune(ch)
+	}
+	return b.String()
+}
+
+func splitSQLStatements(schema string) []string {
+	parts := strings.Split(schema, ";")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		stmt := strings.TrimSpace(p)
+		if stmt == "" {
+			continue
+		}
+		out = append(out, stmt)
+	}
+	return out
+}
+
+func placeholderStyleForDialect(dialect string) placeholderStyle {
+	if dialect == "postgres" {
+		return placeholderDollar
+	}
+	return placeholderQuestion
 }
 
 // OpenSQLite opens (or creates) a SQLite database at the given DSN path and
@@ -33,12 +109,13 @@ func OpenSQLite(dsn string) (*SQLiteStore, error) {
 		return nil, fmt.Errorf("[db/sqlite] open %q: %w", dsn, err)
 	}
 	// SQLite works best with a single writer; allow multiple readers.
-	sqlDB.SetMaxOpenConns(1)
-	if err := sqlDB.Ping(); err != nil {
+	rdb := &rebindDB{raw: sqlDB, style: placeholderStyleForDialect("sqlite")}
+	rdb.SetMaxOpenConns(1)
+	if err := rdb.Ping(); err != nil {
 		return nil, fmt.Errorf("[db/sqlite] ping: %w", err)
 	}
 	log.Printf("[db/sqlite] opened database at %q", dsn)
-	return &SQLiteStore{db: sqlDB}, nil
+	return &SQLiteStore{db: rdb, dialect: "sqlite"}, nil
 }
 
 // Close closes the underlying database connection.
@@ -48,11 +125,13 @@ func (s *SQLiteStore) Close() error {
 
 // Migrate runs all schema creation statements. Safe to call on every startup.
 func (s *SQLiteStore) Migrate(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, sqliteSchema)
-	if err != nil {
-		return fmt.Errorf("[db/sqlite] migrate: %w", err)
+	schema := schemaForDialect(s.dialect)
+	for _, stmt := range splitSQLStatements(schema) {
+		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("[db/%s] migrate: %w", s.dialect, err)
+		}
 	}
-	log.Println("[db/sqlite] migration complete")
+	log.Printf("[db/%s] migration complete", s.dialect)
 	return nil
 }
 
@@ -91,16 +170,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 
 func (s *SQLiteStore) CreateUser(ctx context.Context, u *models.User) (int64, error) {
 	now := encodeTime(time.Now().UTC())
-	res, err := s.db.ExecContext(ctx, createUserSQL,
+	id, err := s.insertID(ctx, createUserSQL,
 		u.Username, u.Email, u.PasswordHash, orDefault(u.Role, models.RoleUser),
 		boolInt(u.IsActive), boolInt(u.IsVerified), now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("[db/sqlite] CreateUser %q: %w", u.Email, err)
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("[db/sqlite] CreateUser LastInsertId: %w", err)
 	}
 	return id, nil
 }
@@ -220,7 +295,7 @@ func scanUserRow(rows *sql.Rows) (*models.User, error) {
 // ── Sessions ──────────────────────────────────────────────────────────────────
 
 func (s *SQLiteStore) CreateSession(ctx context.Context, sess *models.Session) (int64, error) {
-	res, err := s.db.ExecContext(ctx,
+	id, err := s.insertID(ctx,
 		`INSERT INTO sessions (user_id, refresh_token_hash, device_id, ip_address, user_agent, created_at, expires_at, last_used_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		sess.UserID, sess.RefreshTokenHash, sess.DeviceID,
@@ -230,7 +305,7 @@ func (s *SQLiteStore) CreateSession(ctx context.Context, sess *models.Session) (
 	if err != nil {
 		return 0, fmt.Errorf("[db/sqlite] CreateSession: %w", err)
 	}
-	return res.LastInsertId()
+	return id, nil
 }
 
 func (s *SQLiteStore) GetSessionByID(ctx context.Context, id int64) (*models.Session, error) {
@@ -322,7 +397,7 @@ func scanSessionRow(rows *sql.Rows, sess *models.Session) error {
 
 func (s *SQLiteStore) CreateDevice(ctx context.Context, d *models.Device) (int64, error) {
 	now := encodeTime(time.Now().UTC())
-	res, err := s.db.ExecContext(ctx,
+	id, err := s.insertID(ctx,
 		`INSERT INTO devices (user_id, fingerprint, user_agent, ip_address, name, trusted, first_seen_at, last_seen_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		d.UserID, d.Fingerprint, d.UserAgent, d.IPAddress, d.Name, boolInt(d.Trusted), now, now,
@@ -330,7 +405,7 @@ func (s *SQLiteStore) CreateDevice(ctx context.Context, d *models.Device) (int64
 	if err != nil {
 		return 0, fmt.Errorf("[db/sqlite] CreateDevice: %w", err)
 	}
-	return res.LastInsertId()
+	return id, nil
 }
 
 func (s *SQLiteStore) GetDeviceByID(ctx context.Context, id int64) (*models.Device, error) {
@@ -405,7 +480,7 @@ func scanDeviceRow(rows *sql.Rows, d *models.Device) error {
 // ── 2FA codes ─────────────────────────────────────────────────────────────────
 
 func (s *SQLiteStore) Create2FACode(ctx context.Context, c *models.TwoFACode) (int64, error) {
-	res, err := s.db.ExecContext(ctx,
+	id, err := s.insertID(ctx,
 		`INSERT INTO twofa_codes (user_id, code_hash, purpose, expires_at, used, attempts, created_at)
 		 VALUES (?, ?, ?, ?, 0, 0, ?)`,
 		c.UserID, c.CodeHash, string(c.Purpose), encodeTime(c.ExpiresAt), encodeTime(time.Now().UTC()),
@@ -413,7 +488,7 @@ func (s *SQLiteStore) Create2FACode(ctx context.Context, c *models.TwoFACode) (i
 	if err != nil {
 		return 0, fmt.Errorf("[db/sqlite] Create2FACode: %w", err)
 	}
-	return res.LastInsertId()
+	return id, nil
 }
 
 func (s *SQLiteStore) GetActive2FACode(ctx context.Context, userID int64, purpose models.TwoFAPurpose) (*models.TwoFACode, error) {
@@ -467,14 +542,19 @@ func (s *SQLiteStore) DeleteExpired2FACodes(ctx context.Context) error {
 
 func (s *SQLiteStore) UpsertIPRecord(ctx context.Context, ip string) (*models.IPRecord, error) {
 	now := encodeTime(time.Now().UTC())
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO ip_records (ip_address, request_count, first_seen_at, last_seen_at)
+	query := `INSERT INTO ip_records (ip_address, request_count, first_seen_at, last_seen_at)
 		 VALUES (?, 1, ?, ?)
 		 ON CONFLICT(ip_address) DO UPDATE SET
-		     request_count = request_count + 1,
-		     last_seen_at  = excluded.last_seen_at`,
-		ip, now, now,
-	)
+		     request_count = ip_records.request_count + 1,
+		     last_seen_at  = EXCLUDED.last_seen_at`
+	if s.dialect == "mysql" {
+		query = `INSERT INTO ip_records (ip_address, request_count, first_seen_at, last_seen_at)
+			VALUES (?, 1, ?, ?)
+			ON DUPLICATE KEY UPDATE
+				request_count = request_count + 1,
+				last_seen_at = VALUES(last_seen_at)`
+	}
+	_, err := s.db.ExecContext(ctx, query, ip, now, now)
 	if err != nil {
 		return nil, fmt.Errorf("[db/sqlite] UpsertIPRecord %q: %w", ip, err)
 	}
@@ -544,12 +624,16 @@ func (s *SQLiteStore) GetRateLimit(ctx context.Context, key, action string) (*mo
 }
 
 func (s *SQLiteStore) UpsertRateLimit(ctx context.Context, key, action string, windowStart time.Time) (*models.RateLimit, error) {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO rate_limits (key_field, action, attempts, window_start, blocked_until)
+	query := `INSERT INTO rate_limits (key_field, action, attempts, window_start, blocked_until)
 		 VALUES (?, ?, 0, ?, '0001-01-01T00:00:00Z')
-		 ON CONFLICT(key_field, action) DO NOTHING`,
-		key, action, encodeTime(windowStart),
-	)
+		 ON CONFLICT(key_field, action) DO NOTHING`
+	if s.dialect == "mysql" {
+		query = `INSERT INTO rate_limits (key_field, action, attempts, window_start, blocked_until)
+			VALUES (?, ?, 0, ?, '0001-01-01T00:00:00Z')
+			ON DUPLICATE KEY UPDATE
+				id = id`
+	}
+	_, err := s.db.ExecContext(ctx, query, key, action, encodeTime(windowStart))
 	if err != nil {
 		return nil, fmt.Errorf("[db/sqlite] UpsertRateLimit: %w", err)
 	}
@@ -654,4 +738,21 @@ func wrapErr(prefix string, err error) error {
 		return nil
 	}
 	return fmt.Errorf("%s: %w", prefix, err)
+}
+
+func (s *SQLiteStore) insertID(ctx context.Context, query string, args ...any) (int64, error) {
+	if s.dialect == "postgres" {
+		q := strings.TrimSpace(query)
+		q = strings.TrimSuffix(q, ";") + " RETURNING id"
+		var id int64
+		if err := s.db.QueryRowContext(ctx, q, args...).Scan(&id); err != nil {
+			return 0, err
+		}
+		return id, nil
+	}
+	res, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
