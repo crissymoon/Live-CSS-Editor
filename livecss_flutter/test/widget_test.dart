@@ -1,30 +1,67 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:livecss_app/main.dart';
+import 'package:livecss_app/src/services/totp_code_service.dart';
+import 'package:livecss_app/src/models/totp_account.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const LiveCSSApp());
+  group('TotpCodeService', () {
+    late TotpCodeService service;
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    setUp(() {
+      service = TotpCodeService();
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('generates a 6-digit code for SHA1', () {
+      final account = const TotpAccount(
+        id: '1',
+        issuer: 'Test Issuer',
+        label: 'test@example.com',
+        secret: 'JBSWY3DPEHPK3PXP',
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+      );
+      final code = service.codeFor(account, now: DateTime.utc(2024, 1, 1));
+      expect(code.length, 6);
+      expect(RegExp(r'^\d{6}$').hasMatch(code), isTrue);
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('generates a 6-digit code for SHA256', () {
+      final account = const TotpAccount(
+        id: '2',
+        issuer: 'Test Issuer',
+        label: 'test@example.com',
+        secret: 'JBSWY3DPEHPK3PXP',
+        algorithm: 'SHA256',
+      );
+      final code = service.codeFor(account, now: DateTime.utc(2024, 1, 1));
+      expect(code.length, 6);
+      expect(RegExp(r'^\d{6}$').hasMatch(code), isTrue);
+    });
+
+    test('generates a 6-digit code for SHA512', () {
+      final account = const TotpAccount(
+        id: '3',
+        issuer: 'Test Issuer',
+        label: 'test@example.com',
+        secret: 'JBSWY3DPEHPK3PXP',
+        algorithm: 'SHA512',
+      );
+      final code = service.codeFor(account, now: DateTime.utc(2024, 1, 1));
+      expect(code.length, 6);
+      expect(RegExp(r'^\d{6}$').hasMatch(code), isTrue);
+    });
+
+    test('unknown algorithm defaults to SHA1', () {
+      final account = const TotpAccount(
+        id: '4',
+        issuer: 'Test Issuer',
+        label: 'test@example.com',
+        secret: 'JBSWY3DPEHPK3PXP',
+        algorithm: 'UNKNOWN',
+      );
+      final code = service.codeFor(account, now: DateTime.utc(2024, 1, 1));
+      expect(code.length, 6);
+    });
   });
 }
