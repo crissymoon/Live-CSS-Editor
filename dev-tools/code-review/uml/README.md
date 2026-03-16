@@ -61,7 +61,38 @@ julia render/render_diagram.jl \
 
 # Emit Scene JSON only (no render) for debugging
 julia render/render_diagram.jl --input examples/auth_service_class.json --dry-run
+
+# Force Python bindings backend (uses bindings/python)
+julia render/render_diagram.jl --input examples/auth_service_class.json --backend python
+
+# Auto backend (default): native first, Python fallback if native load fails
+julia render/render_diagram.jl --input examples/auth_service_class.json --backend auto
 ```
+
+The Python backend calls `bindings/python/src/xcm_render_core` and renders
+Scene JSON via `xcm_render_scene_json`, then writes `.ppm` (or `.png` when Pillow is available).
+
+## Browser Viewer CLI
+
+The UML folder includes a dedicated CLI that renders JSON, emits a responsive
+browser viewer HTML, and opens it automatically.
+
+```powershell
+# from code-review/uml
+python uml_cli.py examples/xcm_styles_usage_sequence.json
+
+# windows convenience launcher
+uml.cmd examples/xcm_styles_integration_class.json
+
+# disable auto-open
+python uml_cli.py examples/auth_service_class.json --no-open
+```
+
+Generated artifacts:
+
+- `<name>.ppm` (renderer output)
+- `<name>.scene.json` (scene command output)
+- `<name>.viewer.html` (responsive browser viewer)
 
 ## PPM to PNG
 

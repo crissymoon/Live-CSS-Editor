@@ -36,6 +36,23 @@ $env:TWOFA_ENABLED="false"
 & "C:\Program Files\Go\bin\go.exe" run ./cmd
 ```
 
+## Local Email 2FA Smoke
+
+For a full local email-based 2FA check, use the smoke runner in [smoke/README.md](smoke/README.md):
+
+```powershell
+Set-Location page-builder/xcm_auth
+./smoke/smoke_email_2fa.ps1
+```
+
+It starts or reuses the local inbox capture service, runs xcm_auth with SMTP pointed at that inbox, performs login, captures the emailed code, verifies 2FA, and then shuts down any temporary processes it started.
+
+After smoke runs, you can clear runtime state without removing users:
+
+```powershell
+./smoke/reset_dev_state.ps1
+```
+
 ## Database Configuration
 
 Select backend with DB_DRIVER and DB_DSN.

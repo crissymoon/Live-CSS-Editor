@@ -68,6 +68,7 @@ struct Args
     width    :: Union{Int, Nothing}
     height   :: Union{Int, Nothing}
     lib      :: Union{String, Nothing}
+    backend  :: String
     dry_run  :: Bool
 end
 
@@ -77,6 +78,7 @@ function parse_args(argv) :: Args
     width   = nothing
     height  = nothing
     lib     = nothing
+    backend = "auto"
     dry_run = false
 
     i = 1
@@ -91,6 +93,7 @@ function parse_args(argv) :: Args
         elseif arg == "--width"  ;  width   = parse(Int, next_val(arg)); i += 2
         elseif arg == "--height" ;  height  = parse(Int, next_val(arg)); i += 2
         elseif arg == "--lib"    ;  lib     = next_val(arg); i += 2
+        elseif arg == "--backend";  backend = lowercase(next_val(arg)); i += 2
         elseif arg == "--dry-run";  dry_run = true; i += 1
         else
             @warn "Unknown argument: $arg"
@@ -98,7 +101,11 @@ function parse_args(argv) :: Args
         end
     end
 
-    return Args(input, output, width, height, lib, dry_run)
+    if !(backend in ("auto", "native", "python"))
+        error("--backend must be one of: auto, native, python")
+    end
+
+    return Args(input, output, width, height, lib, backend, dry_run)
 end
 
 # ---------------------------------------------------------------------------
@@ -152,6 +159,40 @@ function default_output(input_path::String) :: String
     return joinpath(out_dir, base * ".ppm")
 end
 
+function python_executable() :: String
+    env_py = get(ENV, "XCM_PYTHON", "")
+    if !isempty(env_py)
+        return env_py
+    end
+    if Sys.iswindows()
+        return "c:/Users/criss/Desktop/render_eng/.venv/Scripts/python.exe"
+    end
+    return "python3"
+end
+
+function render_with_python(scene_json::String, out_path::String, w::Int, h::Int, lib::Union{String, Nothing})::Bool
+    py = python_executable()
+    helper = joinpath(RENDER_DIR, "python_scene_render.py")
+    isfile(helper) || error("Python helper not found: $helper")
+
+    mktemp() do tmp_path, io
+        write(io, scene_json)
+        close(io)
+        cmd = String[py, helper, "--scene", tmp_path, "--output", out_path, "--width", string(w), "--height", string(h)]
+        if lib !== nothing
+            push!(cmd, "--lib")
+            push!(cmd, lib)
+        end
+        try
+            run(Cmd(cmd))
+            return true
+        catch e
+            @warn "Python fallback renderer failed" exception=(e, catch_backtrace())
+            return false
+        end
+    end
+end
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -170,6 +211,7 @@ Options:
   --width  <n>       Override viewport width
   --height <n>       Override viewport height
   --lib    <path>    Path to render_core .dll/.dylib/.so
+    --backend <mode>   auto | native | python (default: auto)
   --dry-run          Print Scene JSON to stdout instead of rendering
   --setup            Install Julia dependencies (run once)
 
@@ -186,7 +228,7 @@ Examples:
     isfile(args.input) || error("Input file not found: $(args.input)")
 
     # Parse UML JSON
-    uml = JSON.parsefile(args.input)
+    uml = JSON.parsefile(args.input; dicttype=Dict{String, Any})
 
     # Apply CLI viewport overrides
     if args.width !== nothing || args.height !== nothing
@@ -206,33 +248,57 @@ Examples:
         return
     end
 
-    # Render via xcm render_core
+    # Render via xcm render_core (native) with python fallback.
     @info "Rendering..."
-    ctx = XcmBinding.create(
-        get(get(uml, "viewport", Dict()), "width",  1200),
-        get(get(uml, "viewport", Dict()), "height",  800);
-        lib_path = args.lib
-    )
+    out_path = args.output !== nothing ? args.output : default_output(args.input)
+    mkpath(dirname(abspath(out_path)))
 
-    try
-        ok, err_msg = XcmBinding.render_scene_json!(ctx, scene_json)
-        if !ok
-            error("xcm_render_scene_json failed: $err_msg")
+    # Use the viewport that SceneBuilder actually emitted, not the raw input dict.
+    # SceneBuilder auto-sizes (e.g. sequence diagrams compute width from participant count)
+    # so re-reading the input dict here would give stale/wrong dimensions.
+    _scene_data = JSON.parse(scene_json; dicttype=Dict{String,Any})
+    _scene_vp   = get(_scene_data, "viewport", Dict{String,Any}())
+    vpw = Int(get(_scene_vp, "width",  get(get(uml, "viewport", Dict()), "width",  1200)))
+    vph = Int(get(_scene_vp, "height", get(get(uml, "viewport", Dict()), "height",  800)))
+
+    if args.backend in ("native", "auto")
+        try
+            ctx = XcmBinding.create(vpw, vph; lib_path = args.lib)
+            try
+                ok, err_msg = XcmBinding.render_scene_json!(ctx, scene_json)
+                if !ok
+                    error("xcm_render_scene_json failed: $err_msg")
+                end
+
+                w    = XcmBinding.get_width(ctx)
+                h    = XcmBinding.get_height(ctx)
+                rgba = XcmBinding.get_pixels(ctx)
+
+                save_image(out_path, w, h, rgba)
+                @info "Wrote $w x $h image -> $out_path"
+                println("Rendered: $out_path")
+                return
+            finally
+                XcmBinding.destroy!(ctx)
+            end
+        catch e
+            if args.backend == "native"
+                rethrow(e)
+            end
+            @warn "Native render failed, trying Python bindings fallback" exception=(e, catch_backtrace())
         end
-
-        w    = XcmBinding.get_width(ctx)
-        h    = XcmBinding.get_height(ctx)
-        rgba = XcmBinding.get_pixels(ctx)
-
-        out_path = args.output !== nothing ? args.output : default_output(args.input)
-        mkpath(dirname(abspath(out_path)))
-        save_image(out_path, w, h, rgba)
-
-        @info "Wrote $w x $h image -> $out_path"
-        println("Rendered: $out_path")
-    finally
-        XcmBinding.destroy!(ctx)
     end
+
+    if args.backend in ("python", "auto")
+        ok = render_with_python(scene_json, out_path, vpw, vph, args.lib)
+        if ok
+            @info "Wrote image via Python backend -> $out_path"
+            println("Rendered: $out_path")
+            return
+        end
+    end
+
+    error("Unable to render diagram with available backends. Try setting XCM_LIB_PATH to render_core.")
 end
 
 main()

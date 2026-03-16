@@ -79,8 +79,15 @@ func (m *Mailer) buildRaw(msg Message) []byte {
 	return []byte(strings.Join(headers, "\r\n") + "\r\n\r\n" + msg.Body)
 }
 
+func (m *Mailer) envelopeFrom() string {
+	if m.cfg.From != "" {
+		return m.cfg.From
+	}
+	return m.cfg.User
+}
+
 func (m *Mailer) auth() smtp.Auth {
-	if m.cfg.User == "" {
+	if m.cfg.User == "" || m.cfg.Pass == "" {
 		return nil
 	}
 	host, _, _ := net.SplitHostPort(fmt.Sprintf("%s:%d", m.cfg.Host, m.cfg.Port))
@@ -113,7 +120,7 @@ func (m *Mailer) sendTLS(addr string, raw []byte, to string) error {
 			return fmt.Errorf("sendTLS: auth: %w", err)
 		}
 	}
-	from := m.cfg.User
+	from := m.envelopeFrom()
 	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("sendTLS: MAIL FROM: %w", err)
 	}
@@ -133,7 +140,7 @@ func (m *Mailer) sendTLS(addr string, raw []byte, to string) error {
 
 func (m *Mailer) sendPlain(addr string, raw []byte, to string) error {
 	a := m.auth()
-	return smtp.SendMail(addr, a, m.cfg.User, []string{to}, raw)
+	return smtp.SendMail(addr, a, m.envelopeFrom(), []string{to}, raw)
 }
 
 // ── Convenience wrappers ──────────────────────────────────────────────────────

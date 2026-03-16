@@ -38,6 +38,21 @@
       "label": "DB Browser",
       "description": "Browse and query your project databases",
       "script": "__project__/dev-tools/db-browser/quick-launch.sh"
+    },
+    {
+      "label": "Auth: Smoke Email 2FA",
+      "description": "Run end-to-end email 2FA smoke test against xcm_auth (happy path + negative checks)",
+      "script": "__project__/page-builder/xcm_auth/smoke/smoke_email_2fa.ps1"
+    },
+    {
+      "label": "Auth: Reset Dev State",
+      "description": "Clear smoke-created runtime rows from xcm_auth_dev.db without removing users",
+      "script": "__project__/page-builder/xcm_auth/smoke/reset_dev_state.ps1"
+    },
+    {
+      "label": "Email Inbox Viewer",
+      "description": "Open the local email inbox browser (requires inbox service on port 8025)",
+      "script": "__project__/dev-tools/email_smoke/inbox_viewer.html"
     }
   ]
 }

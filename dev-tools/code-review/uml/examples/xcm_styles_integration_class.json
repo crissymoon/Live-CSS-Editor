@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "type": "class_diagram",
+  "title": "xcm-styles -- Integration Map",
+  "viewport": { "width": 1500, "height": 900 },
+  "classes": [
+    {
+      "id": "styles_assets",
+      "name": "xcm-styles/assets",
+      "stereotype": "entity",
+      "attributes": [
+        { "name": "css/xcm-styles.css", "type": "stylesheet", "visibility": "private" },
+        { "name": "fonts/*.ttf|woff2", "type": "font assets", "visibility": "private" },
+        { "name": "tokens/*.json", "type": "design tokens", "visibility": "private" }
+      ],
+      "methods": []
+    },
+    {
+      "id": "licenses",
+      "name": "licenses/assets.license.json",
+      "stereotype": "entity",
+      "attributes": [
+        { "name": "path", "type": "string", "visibility": "private" },
+        { "name": "approved", "type": "bool", "visibility": "private" },
+        { "name": "license", "type": "string", "visibility": "private" }
+      ],
+      "methods": []
+    },
+    {
+      "id": "build_cdn",
+      "name": "build_cdn.py",
+      "stereotype": "service",
+      "attributes": [],
+      "methods": [
+        { "name": "build(output_dir)", "return_type": "int", "visibility": "public" },
+        { "name": "_load_licenses()", "return_type": "dict", "visibility": "private" },
+        { "name": "_hash_name(rel, sha256)", "return_type": "str", "visibility": "private" }
+      ]
+    },
+    {
+      "id": "manifest",
+      "name": "cdn-dist/manifest.json",
+      "stereotype": "entity",
+      "attributes": [
+        { "name": "assets[rel].path", "type": "v1/<hashed file>", "visibility": "private" },
+        { "name": "assets[rel].sha256", "type": "hex", "visibility": "private" },
+        { "name": "assets[rel].encodings.gzip", "type": "path", "visibility": "private" }
+      ],
+      "methods": []
+    },
+    {
+      "id": "serve_cdn",
+      "name": "serve_cdn.py",
+      "stereotype": "service",
+      "attributes": [],
+      "methods": [
+        { "name": "main(host, port, dir)", "return_type": "int", "visibility": "public" },
+        { "name": "CdnHandler.send_head()", "return_type": "io", "visibility": "public" },
+        { "name": "CdnHandler.end_headers()", "return_type": "void", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "repo_service",
+      "name": "RepoCommandService",
+      "stereotype": "service",
+      "attributes": [],
+      "methods": [
+        { "name": "build_styles_cdn(output_dir)", "return_type": "int", "visibility": "public" },
+        { "name": "serve_styles_cdn(output_dir, host, port, open_browser)", "return_type": "int", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "styles_cmds",
+      "name": "styles_cmds.json",
+      "stereotype": "boundary",
+      "attributes": [
+        { "name": "styles-cdn-build", "type": "CLI command", "visibility": "private" },
+        { "name": "styles-cdn-serve", "type": "CLI command", "visibility": "private" }
+      ],
+      "methods": []
+    },
+    {
+      "id": "browser",
+      "name": "Browser App",
+      "stereotype": "boundary",
+      "attributes": [
+        { "name": "<link href=\"xcm-styles/assets/css/xcm-styles.css\">", "type": "HTML include", "visibility": "private" }
+      ],
+      "methods": [
+        { "name": "GET /manifest.json", "return_type": "json", "visibility": "public" },
+        { "name": "GET /v1/*.(css|ttf|woff2)", "return_type": "bytes", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "ts_bindings",
+      "name": "TypeScript Bindings",
+      "stereotype": "service",
+      "attributes": [],
+      "methods": [
+        { "name": "registerStylesCdnFontsWithWasm(module, manifestUrl, fonts)", "return_type": "Promise<report>", "visibility": "public" },
+        { "name": "buildResponsiveTypographyCss(overrides)", "return_type": "string", "visibility": "public" },
+        { "name": "inferResponsiveTypography(viewportWidthPx, overrides)", "return_type": "tokens", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "wasm_api",
+      "name": "WASM Renderer C API",
+      "stereotype": "interface",
+      "attributes": [],
+      "methods": [
+        { "name": "xcm_load_font_memory(ctx, bytes, family, weight)", "return_type": "int", "visibility": "public" },
+        { "name": "xcm_render_scene_json(ctx, scene_json)", "return_type": "int", "visibility": "public" }
+      ]
+    }
+  ],
+  "relationships": [
+    { "from": "styles_cmds", "to": "repo_service", "type": "dependency", "label": "dispatches to" },
+    { "from": "repo_service", "to": "build_cdn", "type": "dependency", "label": "runs" },
+    { "from": "repo_service", "to": "serve_cdn", "type": "dependency", "label": "runs" },
+    { "from": "build_cdn", "to": "styles_assets", "type": "dependency", "label": "reads assets" },
+    { "from": "build_cdn", "to": "licenses", "type": "dependency", "label": "validates approval" },
+    { "from": "build_cdn", "to": "manifest", "type": "composition", "label": "generates" },
+    { "from": "serve_cdn", "to": "manifest", "type": "dependency", "label": "serves" },
+    { "from": "browser", "to": "serve_cdn", "type": "dependency", "label": "HTTP requests" },
+    { "from": "browser", "to": "ts_bindings", "type": "dependency", "label": "calls helper APIs" },
+    { "from": "ts_bindings", "to": "manifest", "type": "dependency", "label": "reads font asset mapping" },
+    { "from": "ts_bindings", "to": "wasm_api", "type": "dependency", "label": "loads fonts / renders" }
+  ]
+}

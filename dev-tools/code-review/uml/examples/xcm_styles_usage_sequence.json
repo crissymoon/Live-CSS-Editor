@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "type": "sequence_diagram",
+  "title": "xcm-styles -- Usage and API Link Flow",
+  "viewport": { "width": 1520, "height": 960 },
+  "participants": [
+    { "id": "dev", "name": "Developer", "type": "actor" },
+    { "id": "cli", "name": "xcm_cli.py", "type": "boundary" },
+    { "id": "repo", "name": "RepoCommandService", "type": "control" },
+    { "id": "build", "name": "build_cdn.py", "type": "control" },
+    { "id": "licenses", "name": "assets.license.json", "type": "entity" },
+    { "id": "dist", "name": "xcm-styles/cdn-dist", "type": "database" },
+    { "id": "serve", "name": "serve_cdn.py", "type": "boundary" },
+    { "id": "web", "name": "Browser App", "type": "boundary" },
+    { "id": "ts", "name": "TypeScript Binding API", "type": "control" },
+    { "id": "wasm", "name": "WASM Renderer API", "type": "component" }
+  ],
+  "messages": [
+    { "from": "dev", "to": "cli", "label": "styles-cdn-build --output-dir xcm-styles/cdn-dist", "type": "sync" },
+    { "from": "cli", "to": "repo", "label": "build_styles_cdn(output_dir)", "type": "sync" },
+    { "from": "repo", "to": "build", "label": "python xcm-styles/tools/build_cdn.py", "type": "sync" },
+    { "from": "build", "to": "licenses", "label": "_load_licenses()", "type": "sync" },
+    { "from": "licenses", "to": "build", "label": "approved metadata", "type": "return" },
+    { "from": "build", "to": "dist", "label": "write v1/<hashed assets> + manifest.json + .gz", "type": "sync" },
+    { "from": "dist", "to": "build", "label": "published assets", "type": "return" },
+    { "from": "build", "to": "repo", "label": "exit 0", "type": "return" },
+    { "from": "repo", "to": "cli", "label": "build done", "type": "return" },
+
+    { "from": "dev", "to": "cli", "label": "styles-cdn-serve --host 127.0.0.1 --port 8090", "type": "sync" },
+    { "from": "cli", "to": "repo", "label": "serve_styles_cdn(output_dir, host, port)", "type": "sync" },
+    { "from": "repo", "to": "serve", "label": "python xcm-styles/tools/serve_cdn.py", "type": "sync" },
+
+    { "from": "web", "to": "serve", "label": "GET /v1/css/xcm-styles.<hash>.css", "type": "sync" },
+    { "from": "serve", "to": "web", "label": "CSS + Cache-Control immutable", "type": "return" },
+    { "from": "web", "to": "serve", "label": "GET /manifest.json", "type": "sync" },
+    { "from": "serve", "to": "web", "label": "manifest asset map", "type": "return" },
+
+    { "from": "web", "to": "ts", "label": "registerStylesCdnFontsWithWasm(module, manifestUrl, fonts)", "type": "sync" },
+    { "from": "ts", "to": "serve", "label": "fetch font bytes by manifest path", "type": "sync" },
+    { "from": "serve", "to": "ts", "label": "font bytes", "type": "return" },
+    { "from": "ts", "to": "wasm", "label": "xcm_load_font_memory(...) per font", "type": "sync" },
+    { "from": "wasm", "to": "ts", "label": "load result", "type": "return" },
+    { "from": "web", "to": "ts", "label": "buildResponsiveTypographyCss()", "type": "sync" },
+    { "from": "ts", "to": "web", "label": "CSS variables + utility classes", "type": "return" },
+    { "from": "web", "to": "ts", "label": "inferResponsiveTypography(window.innerWidth)", "type": "sync" },
+    { "from": "ts", "to": "web", "label": "body/title/space tokens", "type": "return" },
+    { "from": "web", "to": "wasm", "label": "xcm_render_scene_json(scene)", "type": "sync" },
+    { "from": "wasm", "to": "web", "label": "RGBA frame", "type": "return" }
+  ]
+}

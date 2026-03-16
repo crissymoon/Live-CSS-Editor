@@ -42,7 +42,19 @@ j_rect(x,y,w,h,color)     = """{"op":"rect","x":$x,"y":$y,"w":$w,"h":$h,"color":
 j_outline(x,y,w,h,lw,col) = """{"op":"outline","x":$x,"y":$y,"w":$w,"h":$h,"lineWidth":$lw,"color":"$col"}"""
 j_line(x0,y0,x1,y1,lw,col)= """{"op":"line","x0":$x0,"y0":$y0,"x1":$x1,"y1":$y1,"lineWidth":$lw,"color":"$col"}"""
 
-function j_text(x, y, txt, sz, color, weight=400, family="sans-serif")
+# Primary font family — matches the system font registered in python_scene_render.py.
+# Falls back to renderer FONT5x7 if no font is registered.
+const UI_FONT = "Segoe UI"
+
+# Font sizes chosen for clean stb_truetype rendering without hinting.
+# Below ~18 px, TrueType outlines produce visibly rough letterforms; 18–24 px
+# is the practical floor for comfortable on-screen display.
+const SZ_TITLE = 32   # diagram title  (header bar)
+const SZ_NAME  = 24   # class / participant names  (bold)
+const SZ_BODY  = 18   # attributes, methods, messages
+const SZ_META  = 14   # small labels, footer text
+
+function j_text(x, y, txt, sz, color, weight=400, family=UI_FONT)
     safe = replace(string(txt), "\\" => "\\\\", "\"" => "\\\"")
     """{"op":"text","x":$x,"y":$y,"fontSize":$sz,"text":"$safe","color":"$color","fontFamily":"$family","fontWeight":$weight}"""
 end
@@ -117,12 +129,12 @@ end
 # Class diagram
 # ---------------------------------------------------------------------------
 
-const CLS_W       = 214   # box width
-const CLS_HDR_H   = 36   # header zone height
-const CLS_ROW_H   = 19   # height per attribute / method row
-const CLS_PAD     = 6    # inner vertical padding
-const CLS_SEP     = 4    # pixel gap between attr section and method section
-const CLS_MARGIN  = 44   # gap between boxes
+const CLS_W       = 340   # box width
+const CLS_HDR_H   = 76   # header zone height  (fits SZ_NAME(24) + SZ_BODY(18) + padding)
+const CLS_ROW_H   = 32   # height per attribute / method row (fits SZ_BODY(18) + leading)
+const CLS_PAD     = 18   # inner vertical padding
+const CLS_SEP     = 10   # pixel gap between attr section and method section
+const CLS_MARGIN  = 64   # gap between boxes
 const N_COLS      = 3    # max classes per row
 
 function _str(d::Dict, key, default="") :: String
@@ -166,10 +178,10 @@ function draw_class!(cmds, x, y, cls)
     push!(cmds, j_line(x, y+CLS_HDR_H, x+CLS_W, y+CLS_HDR_H, 1, BORDER_HI))
 
     if !isempty(ster)
-        push!(cmds, j_text(x + 8, y + 4,  "«$ster»", 9,  TEXT_DIM))
-        push!(cmds, j_text(x + 8, y + 17, name,       13, TEXT_BRIGHT, 700))
+        push!(cmds, j_text(x + 12, y + 8,  "«$ster»", SZ_BODY, TEXT_DIM))
+        push!(cmds, j_text(x + 12, y + 34, name,       SZ_NAME, TEXT_BRIGHT, 700))
     else
-        push!(cmds, j_text(x + 8, y + 11, name, 13, TEXT_BRIGHT, 700))
+        push!(cmds, j_text(x + 12, y + 26, name, SZ_NAME, TEXT_BRIGHT, 700))
     end
 
     cy = y + CLS_HDR_H + CLS_PAD
@@ -179,7 +191,7 @@ function draw_class!(cmds, x, y, cls)
         atype = _str(attr, "type")
         avis  = _str(attr, "visibility", "private")
         label = "$(visibility_sym(avis)) $aname$(isempty(atype) ? "" : ": $atype")"
-        push!(cmds, j_text(x + 7, cy, label, 10, CYAN))
+        push!(cmds, j_text(x + 12, cy, label, SZ_BODY, CYAN))
         cy += CLS_ROW_H
     end
 
@@ -193,7 +205,7 @@ function draw_class!(cmds, x, y, cls)
         mret  = _str(meth, "return_type", "void")
         mvis  = _str(meth, "visibility",  "public")
         label = "$(visibility_sym(mvis)) $mname: $mret"
-        push!(cmds, j_text(x + 7, cy, label, 10, GREEN))
+        push!(cmds, j_text(x + 12, cy, label, SZ_BODY, GREEN))
         cy += CLS_ROW_H
     end
 
@@ -211,9 +223,9 @@ function build_class_diagram(uml::Dict) :: String
     cmds = String[]
 
     push!(cmds, j_clear(BG))
-    push!(cmds, j_rect(0, 0, vp_w, 38, HEADER_BG))
-    push!(cmds, j_text(14, 10, title, 16, LAVENDER, 700))
-    push!(cmds, j_line(0, 38, vp_w, 38, 1, BORDER_HI))
+    push!(cmds, j_rect(0, 0, vp_w, 64, HEADER_BG))
+    push!(cmds, j_text(16, 16, title, SZ_TITLE, LAVENDER, 700))
+    push!(cmds, j_line(0, 64, vp_w, 64, 1, BORDER_HI))
 
     # ---- Layout: place classes in a grid, record box positions ----
     positions = Dict{String, @NamedTuple{x::Int, y::Int, w::Int, h::Int}}()
@@ -227,11 +239,17 @@ function build_class_diagram(uml::Dict) :: String
     end
 
     row_y = Vector{Int}(undef, n_rows)
-    acc   = 58
+    acc   = 84   # 64 px header + 20 px gap
     for r in 1:n_rows
         row_y[r] = acc
         acc      += row_h[r] + CLS_MARGIN
     end
+
+    # Auto-size viewport: width = N_COLS columns + margins; height = all rows + footer
+    computed_vp_w = 20 + N_COLS * (CLS_W + CLS_MARGIN) + 20
+    vp_w = max(vp_w, computed_vp_w)
+    computed_vp_h = acc + 34   # acc already accounts for last row + CLS_MARGIN; add footer
+    vp_h = max(vp_h, computed_vp_h)
 
     for (i, cls) in enumerate(classes)
         col = (i-1) % N_COLS
@@ -268,7 +286,7 @@ function build_class_diagram(uml::Dict) :: String
             push!(cmds, j_line(lx+20,       my, lx+20, my+24,    1, LINE_ASSOC))
             push!(cmds, j_line(lx+20,       my+24, pf.x+CLS_W, my+24, 1, LINE_ASSOC))
             arrow_left!(cmds, pf.x+CLS_W, my+24, 7, 1, LINE_ASSOC)
-            !isempty(label) && push!(cmds, j_text(lx+22, my+4, label, 10, TEXT_DIM))
+            !isempty(label) && push!(cmds, j_text(lx+22, my+4, label, SZ_META, TEXT_DIM))
             continue
         end
 
@@ -304,15 +322,15 @@ function build_class_diagram(uml::Dict) :: String
 
         if !isempty(label)
             mx = (x0 + x1) ÷ 2
-            my = (y0 + y1) ÷ 2 - 13
-            push!(cmds, j_text(mx, my, label, 10, TEXT_DIM))
+            my = (y0 + y1) ÷ 2 - 16
+            push!(cmds, j_text(mx, my, label, SZ_META, TEXT_DIM))
         end
     end
 
     # ---- Footer ----
-    push!(cmds, j_line(0, vp_h - 22, vp_w, vp_h - 22, 1, BORDER))
-    push!(cmds, j_text(8, vp_h - 16,
-                       "Generated by UML Renderer  --  Code Review TUI", 9, TEXT_DIM))
+    push!(cmds, j_line(0, vp_h - 26, vp_w, vp_h - 26, 1, BORDER))
+    push!(cmds, j_text(10, vp_h - 14,
+                       "Generated by UML Renderer  --  Code Review TUI", SZ_META, TEXT_DIM))
 
     return _scene_wrap(cmds, vp_w, vp_h)
 end
@@ -321,12 +339,12 @@ end
 # Sequence diagram
 # ---------------------------------------------------------------------------
 
-const SEQ_TITLE_H   = 34
-const SEQ_PART_H    = 40    # participant box height
-const SEQ_PART_W    = 120   # participant box width
-const SEQ_LANE_W    = 160   # centre-to-centre distance between lanes
-const SEQ_MSG_STEP  = 50    # vertical gap between message arrows
-const SEQ_ARROW_SZ  = 8
+const SEQ_TITLE_H   = 64
+const SEQ_PART_H    = 78    # participant box height  (fits SZ_NAME(24) with padding)
+const SEQ_PART_W    = 210   # participant box width
+const SEQ_LANE_W    = 280   # centre-to-centre distance between lanes
+const SEQ_MSG_STEP  = 90    # vertical gap between message arrows
+const SEQ_ARROW_SZ  = 12
 
 function participant_border_color(ptype)
     ptype == "actor"    ? VIOLET  :
@@ -353,7 +371,7 @@ function build_sequence_diagram(uml::Dict) :: String
 
     push!(cmds, j_clear(BG))
     push!(cmds, j_rect(0, 0, vp_w, SEQ_TITLE_H, HEADER_BG))
-    push!(cmds, j_text(14, 9, title, 16, LAVENDER, 700))
+    push!(cmds, j_text(16, 16, title, SZ_TITLE, LAVENDER, 700))
     push!(cmds, j_line(0, SEQ_TITLE_H, vp_w, SEQ_TITLE_H, 1, BORDER_HI))
 
     # Lane centre X positions (evenly distributed across viewport width)
@@ -377,8 +395,8 @@ function build_sequence_diagram(uml::Dict) :: String
         bcol  = participant_border_color(ptype)
 
         push!(cmds, j_rect(bx, part_top_y, SEQ_PART_W, SEQ_PART_H, BOX_BG))
-        push!(cmds, j_outline(bx, part_top_y, SEQ_PART_W, SEQ_PART_H, 1, bcol))
-        push!(cmds, j_text(bx + 8, part_top_y + 13, name, 11, TEXT_BRIGHT, 600))
+        push!(cmds, j_outline(bx, part_top_y, SEQ_PART_W, SEQ_PART_H, 2, bcol))
+        push!(cmds, j_text(bx + 12, part_top_y + 27, name, SZ_NAME, TEXT_BRIGHT, 700))
 
         dashes_v(cmds, cx, lifeline_start_y, lifeline_end_y, 1, 9, 5, bcol)
     end
@@ -404,10 +422,10 @@ function build_sequence_diagram(uml::Dict) :: String
         if fi == ti
             loop_x = fx + SEQ_PART_W ÷ 2 + 4
             push!(cmds, j_line(fx, my,     loop_x+16, my,      1, lcolor))
-            push!(cmds, j_line(loop_x+16, my,     loop_x+16, my+20, 1, lcolor))
-            push!(cmds, j_line(loop_x+16, my+20,  fx,         my+20, 1, lcolor))
-            arrow_left!(cmds, fx, my+20, SEQ_ARROW_SZ, 1, lcolor)
-            !isempty(label) && push!(cmds, j_text(loop_x+18, my+3, label, 10, TEXT))
+            push!(cmds, j_line(loop_x+16, my,     loop_x+16, my+34, 1, lcolor))
+            push!(cmds, j_line(loop_x+16, my+34,  fx,         my+34, 1, lcolor))
+            arrow_left!(cmds, fx, my+34, SEQ_ARROW_SZ, 1, lcolor)
+            !isempty(label) && push!(cmds, j_text(loop_x+18, my+6, label, SZ_BODY, TEXT))
             continue
         end
 
@@ -424,8 +442,8 @@ function build_sequence_diagram(uml::Dict) :: String
         end
 
         if !isempty(label)
-            lx = (fx + tx) ÷ 2 - min(length(label) * 3, 60)
-            push!(cmds, j_text(lx, my - 13, label, 10, TEXT))
+            lx = (fx + tx) ÷ 2 - min(length(label) * 7, 110)
+            push!(cmds, j_text(lx, my - 22, label, SZ_BODY, TEXT))
         end
     end
 
@@ -438,13 +456,13 @@ function build_sequence_diagram(uml::Dict) :: String
         bcol  = participant_border_color(ptype)
         by    = lifeline_end_y
         push!(cmds, j_rect(bx, by, SEQ_PART_W, SEQ_PART_H, BOX_BG))
-        push!(cmds, j_outline(bx, by, SEQ_PART_W, SEQ_PART_H, 1, bcol))
-        push!(cmds, j_text(bx + 8, by + 13, name, 11, TEXT_BRIGHT, 600))
+        push!(cmds, j_outline(bx, by, SEQ_PART_W, SEQ_PART_H, 2, bcol))
+        push!(cmds, j_text(bx + 12, by + 27, name, SZ_NAME, TEXT_BRIGHT, 700))
     end
 
-    push!(cmds, j_line(0, vp_h - 22, vp_w, vp_h - 22, 1, BORDER))
-    push!(cmds, j_text(8, vp_h - 16,
-                       "Generated by UML Renderer  --  Code Review TUI", 9, TEXT_DIM))
+    push!(cmds, j_line(0, vp_h - 26, vp_w, vp_h - 26, 1, BORDER))
+    push!(cmds, j_text(10, vp_h - 14,
+                       "Generated by UML Renderer  --  Code Review TUI", SZ_META, TEXT_DIM))
 
     return _scene_wrap(cmds, vp_w, vp_h)
 end
