@@ -3,9 +3,13 @@
 
 local M = {}
 
+local WP     = require "modules.winpipe"
+local IS_WIN = love.system.getOS() == "Windows"
 local C = nil
 local visible = false
-local default_cwd = os.getenv("HOME") or "/"
+local default_cwd = IS_WIN
+    and (os.getenv("USERPROFILE") or os.getenv("HOME") or "C:\\")
+    or  (os.getenv("HOME") or "/")
 
 local tabs = {}
 local cur_idx = 1
@@ -27,7 +31,12 @@ local function state_path()
 end
 
 local function shell_escape(s)
-    return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+    local str = tostring(s or "")
+    if IS_WIN then
+        return '"' .. str:gsub('"', '\\"') .. '"'
+    else
+        return "'" .. str:gsub("'", "'\\''" ) .. "'"
+    end
 end
 
 local function trim(s)
@@ -37,13 +46,24 @@ end
 local function normalize_dir(path)
     local p = trim(path)
     if p == "" then return default_cwd end
-    if p == "~" then return os.getenv("HOME") or default_cwd end
-    if p:sub(1, 1) ~= "/" then
-        p = default_cwd:gsub("/+$", "") .. "/" .. p
+    if IS_WIN then
+        p = p:gsub("/", "\\")
+        -- relative: not a drive letter path and not UNC
+        if not p:match("^%a:\\\\") and not p:match("^\\\\\\\\") then
+            p = default_cwd:gsub("\\\\+$", "") .. "\\" .. p
+        end
+        p = p:gsub("\\\\+$", "")
+        if p == "" then p = "C:\\" end
+        return p
+    else
+        if p == "~" then return os.getenv("HOME") or default_cwd end
+        if p:sub(1, 1) ~= "/" then
+            p = default_cwd:gsub("/+$", "") .. "/" .. p
+        end
+        p = p:gsub("/+$", "")
+        if p == "" then p = "/" end
+        return p
     end
-    p = p:gsub("/+$", "")
-    if p == "" then p = "/" end
-    return p
 end
 
 local function new_tab(cwd)
@@ -154,18 +174,22 @@ local function load_state()
 end
 
 local function resolve_cd(base, arg)
-    local home = os.getenv("HOME") or base
     local target = trim(arg)
-    if target == "" or target == "~" then
-        return home
+    if IS_WIN then
+        if target == "" then return base end
+        target = target:gsub("/", "\\")
+        -- absolute: starts with drive letter or UNC
+        if target:match("^%a:\\\\") or target:match("^\\\\\\\\") then
+            return target
+        end
+        return base:gsub("\\\\+$", "") .. "\\" .. target
+    else
+        local home = os.getenv("HOME") or base
+        if target == "" or target == "~" then return home end
+        if target:sub(1, 1) == "/" then return target end
+        if target:sub(1, 2) == "~/" then return home .. "/" .. target:sub(3) end
+        return base:gsub("/+$", "") .. "/" .. target
     end
-    if target:sub(1, 1) == "/" then
-        return target
-    end
-    if target:sub(1, 2) == "~/" then
-        return home .. "/" .. target:sub(3)
-    end
-    return base:gsub("/+$", "") .. "/" .. target
 end
 
 local function run_command(t, command, h, font)
@@ -179,8 +203,14 @@ local function run_command(t, command, h, font)
     local cd_target = cmd:match("^cd%s*(.*)$")
     if cd_target ~= nil then
         local target = resolve_cd(t.cwd, cd_target)
-        local ok = os.execute("[ -d " .. shell_escape(target) .. " ]")
-        if ok == true or ok == 0 then
+        local dir_ok
+        if IS_WIN then
+            dir_ok = WP.is_dir(target)
+        else
+            local rc = os.execute("[ -d " .. shell_escape(target) .. " ]")
+            dir_ok = (rc == 0 or rc == true)
+        end
+        if dir_ok then
             t.cwd = target
         else
             add_line(t, "cd: no such directory: " .. target)
@@ -190,21 +220,20 @@ local function run_command(t, command, h, font)
         return
     end
 
-    local shell_cmd = "cd " .. shell_escape(t.cwd) .. " && " .. cmd .. " 2>&1"
-    local p = io.popen(shell_cmd, "r")
-    if not p then
-        add_line(t, "command failed to start")
-        set_scroll_bottom(t, h, font)
-        save_state()
-        return
+    local shell_cmd
+    if IS_WIN then
+        -- PowerShell: change to cwd (single-quoted, ' escaped as '') then run cmd
+        local safe_cwd = t.cwd:gsub("'", "''")
+        shell_cmd = "powershell -NoProfile -NonInteractive -Command "
+                 .. '"Set-Location \'' .. safe_cwd .. "\'; " .. cmd:gsub('"', '\\"') .. '"'
+    else
+        shell_cmd = "cd " .. shell_escape(t.cwd) .. " && " .. cmd .. " 2>&1"
     end
-
     local has_output = false
-    for line in p:lines() do
+    for line in WP.lines_live(shell_cmd) or (function() return nil end) do
         add_line(t, line)
         has_output = true
     end
-    p:close()
     if not has_output then add_line(t, "") end
 
     set_scroll_bottom(t, h, font)

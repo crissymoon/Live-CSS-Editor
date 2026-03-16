@@ -64,6 +64,11 @@ class GodFunctionScanner:
                 'by_language': {}
             }
         }
+
+    def _warn_scan_error(self, file_path: Path, exc: Exception, lang: str) -> None:
+        """Emit a scan warning without aborting the whole run."""
+        rel = str(file_path.relative_to(self.root))
+        print(f"[WARN] Failed to scan {lang} file {rel}: {exc}", file=sys.stderr)
     
     def scan(self) -> Dict[str, Any]:
         """Scan the entire project for god functions."""
@@ -176,8 +181,8 @@ class GodFunctionScanner:
                 
                 self._check_god_function(file_path, func_name, lines,
                                          complexity, nesting, params, 'C')
-        except Exception:
-            pass
+        except Exception as exc:
+            self._warn_scan_error(file_path, exc, 'C')
     
     def _extract_c_functions(self, content: str) -> List[Tuple[str, str]]:
         """Extract function name and body from C code."""
@@ -248,8 +253,8 @@ class GodFunctionScanner:
                 
                 self._check_god_function(file_path, func_name, lines,
                                          complexity, nesting, params, 'PHP')
-        except Exception:
-            pass
+        except Exception as exc:
+            self._warn_scan_error(file_path, exc, 'PHP')
     
     def _extract_php_functions(self, content: str) -> List[Tuple[str, str]]:
         """Extract function/method definitions from PHP code."""
@@ -318,8 +323,8 @@ class GodFunctionScanner:
                 
                 self._check_god_function(file_path, func_name, lines,
                                          complexity, nesting, params, 'Python')
-        except Exception:
-            pass
+        except Exception as exc:
+            self._warn_scan_error(file_path, exc, 'Python')
     
     def _extract_python_functions(self, content: str) -> List[Tuple[str, str]]:
         """Extract function definitions from Python code."""
@@ -430,8 +435,8 @@ class GodFunctionScanner:
                 
                 self._check_god_function(file_path, func_name, lines,
                                          complexity, nesting, params, 'JavaScript')
-        except Exception:
-            pass
+        except Exception as exc:
+            self._warn_scan_error(file_path, exc, 'JavaScript')
     
     def _extract_js_functions(self, content: str) -> List[Tuple[str, str]]:
         """Extract function definitions from JavaScript code."""

@@ -8,11 +8,33 @@ local M = {}
 M.streaming   = false
 M.last_report = nil   -- path of most recently written report
 
-local _pipe   = nil
+local _thread    = nil
+local _chan      = nil
+local _job_id    = 0
 local _on_line   = nil   -- callback(text, kind)
 local _on_done   = nil   -- callback(report_path_or_nil)
 
 local BRIDGE_PY = nil   -- set by M.init()
+
+local WORKER_SRC = [[
+local cmd, chan_name = ...
+local chan = love.thread.getChannel(chan_name)
+
+-- Use winpipe so the Python subprocess never spawns a visible console window.
+local WP   = require "modules.winpipe"
+local iter = WP.lines_live(cmd)
+if not iter then
+    chan:push("ERROR:Failed to start scanner process")
+    chan:push("DONE")
+    return
+end
+
+for line in iter do
+    chan:push(line)
+end
+
+chan:push("DONE")
+]]
 
 function M.init(bridge_py_path)
     BRIDGE_PY = bridge_py_path
@@ -29,12 +51,19 @@ function M.start(args, on_line, on_done)
         return
     end
 
-    local cmd = "python3 " .. shell_escape(BRIDGE_PY)
+    local cmd = PYTHON_CMD .. " " .. shell_escape(BRIDGE_PY)
     for _, a in ipairs(args) do
         cmd = cmd .. " " .. shell_escape(a)
     end
 
-    _pipe    = io.popen(cmd .. " 2>&1", "r")
+    _job_id = _job_id + 1
+    local chan_name = "code_review_bridge_" .. tostring(_job_id)
+    _chan = love.thread.getChannel(chan_name)
+    _chan:clear()
+
+    _thread = love.thread.newThread(WORKER_SRC)
+    _thread:start(cmd, chan_name)
+
     _on_line = on_line
     _on_done = on_done
     M.streaming   = true
@@ -43,47 +72,51 @@ end
 
 -- Call from love.update every frame to drain the pipe.
 function M.poll()
-    if not _pipe then return end
+    if not _chan then return end
 
-    -- Read as many lines as are available without blocking.
-    -- io.popen is blocking so we use file:read("*l") inside pcall;
-    -- when the process ends read returns nil.
-    local line = _pipe:read("*l")
-    if line == nil then
-        -- Process finished.
-        pcall(function() _pipe:close() end)
-        _pipe       = nil
-        M.streaming = false
-        if _on_done then
-            local cb = _on_done
-            _on_done = nil
-            cb(M.last_report)
+    local processed = 0
+    local max_per_frame = 200
+    while processed < max_per_frame do
+        local line = _chan:pop()
+        if not line then break end
+        processed = processed + 1
+
+        if line:sub(1, 5) == "LINE:" then
+            if _on_line then _on_line(line:sub(6), "result") end
+        elseif line:sub(1, 6) == "ERROR:" then
+            if _on_line then _on_line(line:sub(7), "error") end
+        elseif line:sub(1, 7) == "REPORT:" then
+            M.last_report = line:sub(8)
+            if _on_line then _on_line("Report saved: " .. M.last_report, "report") end
+        elseif line == "DONE" then
+            _chan = nil
+            _thread = nil
+            M.streaming = false
+            if _on_done then
+                local cb = _on_done
+                _on_done = nil
+                cb(M.last_report)
+            end
+            return
+        else
+            -- pass-through raw lines (e.g. tracebacks)
+            if _on_line then _on_line(line, "dim") end
         end
-        return
-    end
-
-    if line:sub(1, 5) == "LINE:" then
-        if _on_line then _on_line(line:sub(6), "result") end
-    elseif line:sub(1, 6) == "ERROR:" then
-        if _on_line then _on_line(line:sub(7), "error") end
-    elseif line:sub(1, 7) == "REPORT:" then
-        M.last_report = line:sub(8)
-        if _on_line then _on_line("Report saved: " .. M.last_report, "report") end
-    elseif line == "DONE" then
-        -- will be handled on next nil read; nothing to do here
-    else
-        -- pass-through raw lines (e.g. tracebacks)
-        if _on_line then _on_line(line, "dim") end
     end
 end
 
 function M.abort()
-    if _pipe then
-        pcall(function() _pipe:close() end)
-        _pipe       = nil
-        M.streaming = false
-        _on_done    = nil
+    _chan = nil
+    _thread = nil
+    M.streaming = false
+    _on_done = nil
+end
+
+function M.queue_depth()
+    if _chan then
+        return _chan:getCount() or 0
     end
+    return 0
 end
 
 return M

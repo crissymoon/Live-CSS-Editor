@@ -5,15 +5,29 @@
 -- Globals used by modules
 --------------------------------------------------------------------
 W, H = 1060, 720   -- updated each frame
+local _dpi = 1     -- physical-to-logical scale; set in love.load and love.resize
 MENUBAR_H  = 24
 TOOLBAR_H  = 96
 SUMMARY_H  = 32
 CHAR_H     = 16
 TABS_H     = 26
 
--- Shell escape a single argument safely
+-- Platform detection (available before love.load)
+IS_WINDOWS = love.system.getOS() == "Windows"
+
+-- Python command: honour env override set by run.ps1, then fall back per OS
+PYTHON_CMD = os.getenv("CODE_REVIEW_PYTHON")
+          or (IS_WINDOWS and "py -3" or "python3")
+
+-- Shell escape a single argument safely (OS-aware)
 function shell_escape(s)
-    return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+    local str = tostring(s)
+    if IS_WINDOWS then
+        -- cmd.exe: wrap in double quotes, escape embedded double quotes
+        return '"' .. str:gsub('"', '\\"') .. '"'
+    else
+        return "'" .. str:gsub("'", "'\\''" ) .. "'"
+    end
 end
 
 --------------------------------------------------------------------
@@ -75,18 +89,27 @@ font_sm, font_md, font_ui = nil, nil, nil
 
 local function load_fonts()
     local mono_candidates = {
+        "C:/Windows/Fonts/CascadiaMono.ttf",
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/lucon.ttf",
         "/System/Library/Fonts/Menlo.ttc",
         "/Library/Fonts/JetBrainsMono-Regular.ttf",
         "/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Regular.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
     }
     local ui_candidates = {
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/arial.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
         "/System/Library/Fonts/SFNSText.ttf",
     }
 
     -- Broad-coverage fallback fonts for Unicode glyphs the primary may lack
     local fallback_candidates = {
+        "C:/Windows/Fonts/seguisym.ttf",
+        "C:/Windows/Fonts/seguiemj.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/arial.ttf",
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
         "/System/Library/Fonts/Apple Symbols.ttf",
@@ -124,16 +147,20 @@ local function load_fonts()
 end
 
 --------------------------------------------------------------------
+-- Subprocess helper (no-window on Windows)
+--------------------------------------------------------------------
+local WP = require "modules.winpipe"
+
+--------------------------------------------------------------------
 -- State
 --------------------------------------------------------------------
 local function load_default_scan_path()
-    local base = os.getenv("CODE_REVIEW_DIR") or "."
+    local base   = os.getenv("CODE_REVIEW_DIR") or "."
     local script = base .. "/scan_config.py"
-    local cmd = "python3 " .. shell_escape(script) .. " default-scan-path 2>/dev/null"
-    local pipe = io.popen(cmd, "r")
-    if pipe then
-        local line = pipe:read("*l")
-        pipe:close()
+    local cmd    = PYTHON_CMD .. " " .. shell_escape(script) .. " default-scan-path"
+    local iter   = WP.lines_live(cmd)
+    if iter then
+        local line = iter()  -- read first line; ignore rest
         if line and line ~= "" then return line end
     end
     return base .. "/../.."
@@ -142,6 +169,7 @@ end
 local scan_path    = load_default_scan_path()
 local status       = "READY"   -- READY | RUNNING | DONE | ERROR
 local results      = {}        -- {text, kind}  kind: result|error|report|dim|head|sep
+local MAX_RESULT_LINES = 5000
 local scroll_y     = 0
 local max_scroll   = 0
 local last_report  = nil
@@ -164,6 +192,13 @@ local CTX_ITEMS    = {
 }
 
 local counts = { critical=0, high=0, medium=0, low=0, info=0 }
+local perf = {
+    fps = 0,
+    frame_ms = 0,
+    worst_ms = 0,
+    scan_start = nil,
+    last_scan_s = 0,
+}
 
 --------------------------------------------------------------------
 -- Modules
@@ -179,6 +214,10 @@ local Terminal = require "modules.terminal"
 --------------------------------------------------------------------
 local function add_line(text, kind)
     results[#results+1] = { text = text or "", kind = kind or "result" }
+    if #results > MAX_RESULT_LINES then
+        local drop = #results - MAX_RESULT_LINES
+        for _ = 1, drop do table.remove(results, 1) end
+    end
     -- auto-scroll
     scroll_y = 1e9  -- clamped in draw
 end
@@ -239,6 +278,7 @@ local function run_scan(cmd_name, label)
     add_line("", "sep")
     add_line("---- " .. label .. " ----  " .. scan_path, "head")
     status = "RUNNING"
+    perf.scan_start = love.timer.getTime()
     reset_counts()
     Bridge.start({cmd_name, scan_path},
         function(text, kind)
@@ -248,6 +288,10 @@ local function run_scan(cmd_name, label)
         function(report)
             last_report = report
             status = "DONE"
+            if perf.scan_start then
+                perf.last_scan_s = love.timer.getTime() - perf.scan_start
+                perf.scan_start = nil
+            end
             add_line("", "sep")
             add_line("Finished.  " .. (report and ("Report: " .. report) or "No report written."), "report")
         end
@@ -261,7 +305,12 @@ end
 
 actions.open_reports = function()
     local dir = os.getenv("CODE_REVIEW_DIR") or "."
-    os.execute("open \"" .. dir .. "/reports\" 2>/dev/null || xdg-open \"" .. dir .. "/reports\" 2>/dev/null &")
+    if IS_WINDOWS then
+        local wdir = (dir .. "\\reports"):gsub("/", "\\")
+        os.execute('explorer "' .. wdir .. '"')
+    else
+        os.execute("open \"" .. dir .. "/reports\" 2>/dev/null || xdg-open \"" .. dir .. "/reports\" 2>/dev/null &")
+    end
 end
 
 actions.quit = function()
@@ -300,6 +349,17 @@ function love.load()
 
     load_fonts()
 
+    -- DPI normalisation: keep mouse event coordinates in logical pixels
+    -- (guards against SDL2 reporting physical pixels on high-DPI Windows displays)
+    _dpi = (love.window.getDPIScale and love.window.getDPIScale()) or 1
+    if _dpi ~= 1 then
+        local _orig_get = love.mouse.getPosition
+        love.mouse.getPosition = function()
+            local x, y = _orig_get()
+            return x / _dpi, y / _dpi
+        end
+    end
+
     Bridge.init(bridge_path())
     Menu.init(actions, C)
     Browser.init(C,
@@ -331,6 +391,16 @@ end
 function love.update(dt)
     W = love.graphics.getWidth()
     H = love.graphics.getHeight()
+
+    local ms = dt * 1000
+    if perf.frame_ms == 0 then
+        perf.frame_ms = ms
+    else
+        perf.frame_ms = perf.frame_ms * 0.9 + ms * 0.1
+    end
+    perf.fps = dt > 0 and (1 / dt) or 0
+    perf.worst_ms = math.max(ms, perf.worst_ms * 0.98)
+
     Bridge.poll()
 end
 
@@ -475,21 +545,24 @@ local function draw_results()
     love.graphics.setScissor(rx, ry, rw, rh)
     love.graphics.setFont(font_sm)
 
-    local iy = ry + 6 - scroll_y
-    for i, r in ipairs(results) do
-        if iy + RESULT_LINE_H >= ry and iy < ry + rh then
-            -- highlight selected lines
-            if sel_lo and i >= sel_lo and i <= sel_hi then
-                love.graphics.setColor(0.33, 0.0, 0.8, 0.28)
-                fill_rect(rx, iy, rw - 8, RESULT_LINE_H)
-            end
-            love.graphics.setColor(kind_colour(r.kind))
-            if r.kind == "sep" then
-                love.graphics.setColor(C.dark)
-                love.graphics.line(rx + 8, iy + RESULT_LINE_H/2, rx + rw - 8, iy + RESULT_LINE_H/2)
-            else
-                text_at(rx + 10, iy, r.text)
-            end
+    local first_idx = math.max(1, math.floor(scroll_y / RESULT_LINE_H) + 1)
+    local visible_count = math.ceil(rh / RESULT_LINE_H) + 2
+    local last_idx = math.min(#results, first_idx + visible_count)
+
+    local iy = ry + 6 - scroll_y + (first_idx - 1) * RESULT_LINE_H
+    for i = first_idx, last_idx do
+        local r = results[i]
+        -- highlight selected lines
+        if sel_lo and i >= sel_lo and i <= sel_hi then
+            love.graphics.setColor(0.33, 0.0, 0.8, 0.28)
+            fill_rect(rx, iy, rw - 8, RESULT_LINE_H)
+        end
+        love.graphics.setColor(kind_colour(r.kind))
+        if r.kind == "sep" then
+            love.graphics.setColor(C.dark)
+            love.graphics.line(rx + 8, iy + RESULT_LINE_H/2, rx + rw - 8, iy + RESULT_LINE_H/2)
+        else
+            text_at(rx + 10, iy, r.text)
         end
         iy = iy + RESULT_LINE_H
     end
@@ -567,12 +640,27 @@ local function draw_summary()
         px = px + pw + 8
     end
 
-    -- Last report on the right
+    local qd = Bridge.queue_depth and Bridge.queue_depth() or 0
+    local perf_text = string.format("fps:%3d  frame:%4.1fms  q:%d", math.floor(perf.fps + 0.5), perf.frame_ms, qd)
+    if status == "RUNNING" and perf.scan_start then
+        perf_text = perf_text .. string.format("  scan:%0.1fs", love.timer.getTime() - perf.scan_start)
+    elseif perf.last_scan_s > 0 then
+        perf_text = perf_text .. string.format("  last:%0.1fs", perf.last_scan_s)
+    end
+
+    gc("dim")
+    love.graphics.setFont(font_sm)
+    local perf_w = font_sm:getWidth(perf_text)
+    local perf_x = W - perf_w - 12
+    text_at(perf_x, sy + 9, perf_text)
+
+    -- Last report left of perf diagnostics
     if last_report then
         gc("dim")
         local rtext = "Report: " .. last_report
         love.graphics.setFont(font_sm)
-        text_at(W - font_sm:getWidth(rtext) - 12, sy + 9, rtext)
+        local max_w = math.max(0, perf_x - px - 16)
+        text_at(px, sy + 9, trunc_str(rtext, max_w, font_sm))
     end
 end
 
@@ -757,6 +845,7 @@ function love.textinput(t)
 end
 
 function love.mousepressed(mx, my, btn)
+    if _dpi ~= 1 then mx = mx / _dpi; my = my / _dpi end
     if Terminal.is_visible() then
         if Terminal.mousepressed(mx, my, btn, content_x(), content_y(), content_w(), content_h()) then
             return
@@ -865,6 +954,7 @@ function love.mousepressed(mx, my, btn)
 end
 
 function love.mousereleased(mx, my, btn)
+    if _dpi ~= 1 then mx = mx / _dpi; my = my / _dpi end
     if btn == 1 then
         sel_dragging = false
     end
@@ -872,6 +962,7 @@ function love.mousereleased(mx, my, btn)
 end
 
 function love.mousemoved(mx, my, dx, dy)
+    if _dpi ~= 1 then mx = mx / _dpi; my = my / _dpi end
     Menu.mousemoved(mx, my, MENUBAR_H)
     -- extend drag selection in editor
     if Editor.has_tabs() then
@@ -902,6 +993,7 @@ end
 
 function love.resize(w, h)
     W, H = w, h
+    _dpi = (love.window.getDPIScale and love.window.getDPIScale()) or 1
 end
 
 function love.quit()

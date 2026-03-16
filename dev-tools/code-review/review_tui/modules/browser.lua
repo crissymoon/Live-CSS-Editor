@@ -4,6 +4,8 @@
 
 local M = {}
 
+local WP     = require "modules.winpipe"
+local IS_WIN = love.system.getOS() == "Windows"
 local C = nil
 
 local W_PANEL   = 240
@@ -97,10 +99,13 @@ end
 local function normalize_path(path)
     local p = tostring(path or "")
     p = p:gsub("%s+$", "")
-    if p ~= "/" then
-        p = p:gsub("/+$", "")
+    if IS_WIN then
+        p = p:gsub("[/\\]+$", "")
+        if p == "" then p = "C:\\" end
+    else
+        if p ~= "/" then p = p:gsub("/+$", "") end
+        if p == "" then p = "/" end
     end
-    if p == "" then p = "/" end
     return p
 end
 
@@ -231,13 +236,25 @@ end
 -- Build a flat entry list for directory at `path` at given depth.
 -- Only expands dirs that are marked open.
 local function build_entries(path, depth, out)
-    local handle = io.popen("ls -1p \"" .. path:gsub('"', '\\"') .. "\" 2>/dev/null")
-    if not handle then return end
     local names = {}
-    for name in handle:lines() do
-        names[#names+1] = name
+    if IS_WIN then
+        local safe = path:gsub('"', '')
+        -- directories first (append "/" to match ls -1p convention used below)
+        for name in WP.lines('cmd /C "chcp 65001 >nul 2>&1 & dir /B /AD "' .. safe .. '" 2>nul"') do
+            if name ~= "" and name:sub(1,1) ~= "." then
+                names[#names+1] = name .. "/"
+            end
+        end
+        for name in WP.lines('cmd /C "dir /B /A-D "' .. safe .. '" 2>nul"') do
+            if name ~= "" and name:sub(1,1) ~= "." then
+                names[#names+1] = name
+            end
+        end
+    else
+        for name in WP.lines("ls -1p \"" .. path:gsub('"', '\\"') .. "\" 2>/dev/null") do
+            names[#names+1] = name
+        end
     end
-    handle:close()
 
     table.sort(names, function(a, b)
         local ad = a:sub(-1) == "/"
@@ -251,7 +268,8 @@ local function build_entries(path, depth, out)
         local name   = is_dir and raw:sub(1, -2) or raw
         -- skip hidden
         if name:sub(1,1) ~= "." then
-            local full = path:gsub("/?$", "/") .. name
+            local sep = IS_WIN and "\\" or "/"
+            local full = path:gsub("[/\\]?$", sep) .. name
             local entry = { name=name, path=full, is_dir=is_dir, depth=depth, open=false }
             out[#out+1] = entry
             if is_dir and entry.open then
@@ -275,12 +293,23 @@ function M.set_root(path)
 end
 
 function M.go_up()
-    -- strip trailing slash then take the parent segment
-    local parent = root_path:gsub("/?$", ""):match("^(.*)/[^/]+$")
-    if parent and parent ~= "" then
-        M.set_root(parent)
+    if IS_WIN then
+        local parent = root_path:gsub("[/\\]+$", ""):match("^(.*)[/\\][^/\\]+$")
+        if parent and parent ~= "" then
+            M.set_root(parent)
+        else
+            -- already at drive root: stay put
+            local drive = root_path:match("^(%a:\\)")
+            if drive then M.set_root(drive) end
+        end
     else
-        M.set_root("/")
+        -- strip trailing slash then take the parent segment
+        local parent = root_path:gsub("/?$", ""):match("^(.*)/[^/]+$")
+        if parent and parent ~= "" then
+            M.set_root(parent)
+        else
+            M.set_root("/")
+        end
     end
 end
 
@@ -298,11 +327,20 @@ M.refresh()
 local function refresh_open_dirs()
     local new = {}
     local function recurse(path, depth)
-        local handle = io.popen("ls -1p \"" .. path:gsub('"', '\\"') .. "\" 2>/dev/null")
-        if not handle then return end
         local names = {}
-        for name in handle:lines() do names[#names+1] = name end
-        handle:close()
+        if IS_WIN then
+            local safe = path:gsub('"', '')
+            for name in WP.lines('cmd /C "chcp 65001 >nul 2>&1 & dir /B /AD "' .. safe .. '" 2>nul"') do
+                if name ~= "" and name:sub(1,1) ~= "." then names[#names+1] = name .. "/" end
+            end
+            for name in WP.lines('cmd /C "dir /B /A-D "' .. safe .. '" 2>nul"') do
+                if name ~= "" and name:sub(1,1) ~= "." then names[#names+1] = name end
+            end
+        else
+            for name in WP.lines("ls -1p \"" .. path:gsub('"', '\\"') .. "\" 2>/dev/null") do
+                names[#names+1] = name
+            end
+        end
         table.sort(names, function(a,b)
             local ad = a:sub(-1)=="/" local bd=b:sub(-1)=="/"
             if ad~=bd then return ad end
@@ -312,7 +350,8 @@ local function refresh_open_dirs()
             local is_dir = raw:sub(-1)=="/"
             local name   = is_dir and raw:sub(1,-2) or raw
             if name:sub(1,1)~="." then
-                local full = path:gsub("/?$","/")..name
+                local sep = IS_WIN and "\\" or "/"
+                local full = path:gsub("[/\\]?$", sep)..name
                 -- preserve open state
                 local prev_open = false
                 for _, e in ipairs(entries) do
@@ -357,7 +396,9 @@ function M.draw(x, y, h, font)
     love.graphics.rectangle("fill", x, y, W_PANEL, ITEM_H)
     love.graphics.setColor(C.text_bright)
     love.graphics.setFont(font)
-    local rname = root_path:match("([^/]+)$") or root_path
+    local rname = IS_WIN
+        and (root_path:match("([^/\\]+)[/\\]?$") or root_path)
+        or  (root_path:match("([^/]+)$") or root_path)
     love.graphics.print("~ " .. rname, x + 6, y + 3)
     -- "up" button on the right of the root bar
     local up_label = "^ up"
