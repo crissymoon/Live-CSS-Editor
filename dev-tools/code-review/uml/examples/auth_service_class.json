@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "type": "class_diagram",
+  "title": "Auth Service -- Domain Model",
+  "viewport": { "width": 1240, "height": 720 },
+  "classes": [
+    {
+      "id": "user",
+      "name": "User",
+      "stereotype": "entity",
+      "attributes": [
+        { "name": "id",           "type": "UUID",     "visibility": "private" },
+        { "name": "email",        "type": "string",   "visibility": "private" },
+        { "name": "password_hash","type": "string",   "visibility": "private" },
+        { "name": "created_at",   "type": "datetime", "visibility": "private" }
+      ],
+      "methods": [
+        { "name": "verify_password(raw)",  "return_type": "bool",    "visibility": "public" },
+        { "name": "is_active()",           "return_type": "bool",    "visibility": "public" }
+      ]
+    },
+    {
+      "id": "session",
+      "name": "Session",
+      "stereotype": "entity",
+      "attributes": [
+        { "name": "token",      "type": "string",   "visibility": "private" },
+        { "name": "user_id",    "type": "UUID",     "visibility": "private" },
+        { "name": "expires_at", "type": "datetime", "visibility": "private" },
+        { "name": "revoked",    "type": "bool",     "visibility": "private" }
+      ],
+      "methods": [
+        { "name": "is_valid()",    "return_type": "bool", "visibility": "public" },
+        { "name": "revoke()",      "return_type": "void", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "role",
+      "name": "Role",
+      "stereotype": "entity",
+      "attributes": [
+        { "name": "id",   "type": "int",    "visibility": "private" },
+        { "name": "name", "type": "string", "visibility": "private" }
+      ],
+      "methods": []
+    },
+    {
+      "id": "auth_service",
+      "name": "AuthService",
+      "stereotype": "service",
+      "attributes": [],
+      "methods": [
+        { "name": "login(email, password)",  "return_type": "Session", "visibility": "public" },
+        { "name": "logout(token)",           "return_type": "void",    "visibility": "public" },
+        { "name": "validate_token(token)",   "return_type": "User",    "visibility": "public" },
+        { "name": "assign_role(user, role)", "return_type": "void",    "visibility": "public" }
+      ]
+    },
+    {
+      "id": "user_repo",
+      "name": "UserRepository",
+      "stereotype": "repository",
+      "attributes": [],
+      "methods": [
+        { "name": "find_by_email(email)", "return_type": "User",  "visibility": "public" },
+        { "name": "find_by_id(id)",       "return_type": "User",  "visibility": "public" },
+        { "name": "save(user)",           "return_type": "void",  "visibility": "public" }
+      ]
+    },
+    {
+      "id": "session_repo",
+      "name": "SessionRepository",
+      "stereotype": "repository",
+      "attributes": [],
+      "methods": [
+        { "name": "find(token)",      "return_type": "Session", "visibility": "public" },
+        { "name": "save(session)",    "return_type": "void",    "visibility": "public" },
+        { "name": "expire_all(uid)",  "return_type": "void",    "visibility": "public" }
+      ]
+    }
+  ],
+  "relationships": [
+    { "from": "auth_service", "to": "user_repo",     "type": "dependency",  "label": "uses" },
+    { "from": "auth_service", "to": "session_repo",  "type": "dependency",  "label": "uses" },
+    { "from": "user",         "to": "session",        "type": "association", "label": "owns" },
+    { "from": "user",         "to": "role",           "type": "association", "label": "has" },
+    { "from": "user_repo",    "to": "user",           "type": "dependency",  "label": "persists" },
+    { "from": "session_repo", "to": "session",        "type": "dependency",  "label": "persists" }
+  ]
+}

@@ -113,3 +113,21 @@ xcm_auth/dev-credentials.json
 dev-tools/code-review/reports/
 dev-tools/code-review/.browser_recent_paths
 dev-tools/code-review/.terminal_state.lua
+
+# code-review distributable build outputs (binaries, archives, icon intermediates)
+# build.log and build.fingerprint.* are excluded too -- they are machine-local
+dev-tools/code-review/build/win/
+dev-tools/code-review/build/mac/
+dev-tools/code-review/build/linux/
+dev-tools/code-review/build/*.love
+dev-tools/code-review/build/*.ico
+dev-tools/code-review/build/*.icns
+dev-tools/code-review/build/icon.iconset/
+dev-tools/code-review/build/build.fingerprint.*
+dev-tools/code-review/build/build.log
+
+# UML renderer generated images (PPM/PNG) and Julia manifest (machine-local)
+dev-tools/code-review/uml/out/*.ppm
+dev-tools/code-review/uml/out/*.png
+dev-tools/code-review/uml/out/*.pnm
+dev-tools/code-review/uml/render/Manifest.toml

@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Class Diagram",
+  "description": "UML class diagram definition consumed by the Julia UML renderer.",
+  "type": "object",
+  "required": ["version", "type", "classes"],
+  "properties": {
+    "version":  { "type": "integer", "const": 1 },
+    "type":     { "type": "string",  "const": "class_diagram" },
+    "title":    { "type": "string" },
+    "viewport": {
+      "type": "object",
+      "properties": {
+        "width":  { "type": "integer", "minimum": 400 },
+        "height": { "type": "integer", "minimum": 300 }
+      }
+    },
+    "classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id":         { "type": "string", "description": "Unique identifier used in relationships" },
+          "name":       { "type": "string" },
+          "stereotype": {
+            "type": "string",
+            "description": "e.g. entity, service, repository, interface, abstract"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name":       { "type": "string" },
+                "type":       { "type": "string" },
+                "visibility": {
+                  "type": "string",
+                  "enum": ["public", "private", "protected", "package"],
+                  "default": "private"
+                }
+              }
+            }
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name":        { "type": "string", "description": "Include parens and params, e.g. login(email, pw)" },
+                "return_type": { "type": "string", "default": "void" },
+                "visibility":  {
+                  "type": "string",
+                  "enum": ["public", "private", "protected", "package"],
+                  "default": "public"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "type"],
+        "properties": {
+          "from":  { "type": "string", "description": "Class id" },
+          "to":    { "type": "string", "description": "Class id" },
+          "type":  {
+            "type": "string",
+            "enum": [
+              "association",
+              "aggregation",
+              "composition",
+              "inheritance",
+              "extends",
+              "implementation",
+              "implements",
+              "dependency"
+            ]
+          },
+          "label": { "type": "string" }
+        }
+      }
+    }
+  }
+}

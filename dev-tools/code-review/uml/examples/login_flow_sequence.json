@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "sequence_diagram",
+  "title": "Login Flow -- JWT Token Issuance",
+  "viewport": { "width": 1100, "height": 680 },
+  "participants": [
+    { "id": "client",   "name": "Client",       "type": "actor"     },
+    { "id": "gateway",  "name": "API Gateway",  "type": "boundary"  },
+    { "id": "auth",     "name": "AuthService",  "type": "control"   },
+    { "id": "user_repo","name": "UserRepo",     "type": "component" },
+    { "id": "db",       "name": "Database",     "type": "database"  }
+  ],
+  "messages": [
+    { "from": "client",    "to": "gateway",   "label": "POST /auth/login {email, password}", "type": "sync" },
+    { "from": "gateway",   "to": "auth",      "label": "login(email, password)",             "type": "sync" },
+    { "from": "auth",      "to": "user_repo", "label": "find_by_email(email)",               "type": "sync" },
+    { "from": "user_repo", "to": "db",        "label": "SELECT * FROM users WHERE email=?",  "type": "sync" },
+    { "from": "db",        "to": "user_repo", "label": "user_record",                        "type": "return" },
+    { "from": "user_repo", "to": "auth",      "label": "User",                               "type": "return" },
+    { "from": "auth",      "to": "auth",      "label": "verify_password(hash)",              "type": "sync" },
+    { "from": "auth",      "to": "db",        "label": "INSERT INTO sessions ...",           "type": "sync" },
+    { "from": "db",        "to": "auth",      "label": "ok",                                 "type": "return" },
+    { "from": "auth",      "to": "gateway",   "label": "Session {jwt_token}",                "type": "return" },
+    { "from": "gateway",   "to": "client",    "label": "200 OK {token, expires_at}",         "type": "return" }
+  ]
+}

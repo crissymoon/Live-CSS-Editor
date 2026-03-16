@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sequence Diagram",
+  "description": "UML sequence diagram definition consumed by the Julia UML renderer.",
+  "type": "object",
+  "required": ["version", "type", "participants", "messages"],
+  "properties": {
+    "version":  { "type": "integer", "const": 1 },
+    "type":     { "type": "string",  "const": "sequence_diagram" },
+    "title":    { "type": "string" },
+    "viewport": {
+      "type": "object",
+      "properties": {
+        "width":  { "type": "integer", "minimum": 400 },
+        "height": { "type": "integer", "minimum": 300 }
+      }
+    },
+    "participants": {
+      "type": "array",
+      "description": "Ordered left-to-right. Lifelines are drawn in this order.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id":   { "type": "string" },
+          "name": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["actor", "component", "boundary", "control", "entity", "database"],
+            "default": "component",
+            "description": "Affects the box border colour only"
+          }
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "description": "Rendered top-to-bottom in array order.",
+      "items": {
+        "type": "object",
+        "required": ["from", "to"],
+        "properties": {
+          "from":  { "type": "string", "description": "Participant id" },
+          "to":    { "type": "string", "description": "Participant id" },
+          "label": { "type": "string" },
+          "type":  {
+            "type": "string",
+            "enum": ["sync", "async", "return", "create", "destroy"],
+            "default": "sync",
+            "description": "sync/async = solid arrow; return = dashed arrow"
+          }
+        }
+      }
+    }
+  }
+}
