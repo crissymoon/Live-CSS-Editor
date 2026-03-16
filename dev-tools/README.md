@@ -2,6 +2,14 @@
 
 Collection of local developer utilities for the Live CSS Editor project.
 
+## What This Is For
+
+This repo is meant to help get apps started and built quickly.
+The tools here support rapid prototyping, inspiration work, and reusable local workflows inside a codebase that is intentionally still growing.
+
+Some auth or database values referenced by utilities in this workspace are for local dev preview and starter flows only, not production secrets.
+Sensitive assets are expected to stay outside the repo root and be linked in locally when needed.
+
 ## Contents
 
 | Directory | Description |

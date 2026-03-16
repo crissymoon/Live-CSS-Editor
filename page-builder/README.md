@@ -2,6 +2,14 @@
 
 JSON-driven page composition tool, admin panel, and Go authentication server.
 
+## What This Is For
+
+This page builder is part of a rapid-start workspace meant to turn ideas into working apps quickly.
+It is designed as both a practical builder and a source of inspiration for new projects, with features that can be extended as the repo grows.
+
+The bundled auth/database pieces are intended for local dev preview and starter workflows.
+Production secrets and sensitive assets should stay outside the repo root and be linked in locally when needed.
+
 ## Contents
 
 | Path | Description |

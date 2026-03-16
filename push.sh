@@ -88,6 +88,14 @@ if [ -f make_readme.py ]; then
     python3 make_readme.py
 fi
 
+# Generate reports before staging
+if [ -f dev-tools/zyx_planning_and_visuals/make_report.py ]; then
+    echo "--- Generating workspace reports..."
+    if ! python3 dev-tools/zyx_planning_and_visuals/make_report.py; then
+        echo "WARNING: report generation failed; continuing push flow." >&2
+    fi
+fi
+
 # Stage all files
 echo "--- Running: git add ."
 add_out="$(git add . 2>&1)"

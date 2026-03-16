@@ -7,6 +7,38 @@ $RepoUrl = "https://github.com/crissymoon/Live-CSS-Editor.git"
 
 Set-Location $PSScriptRoot
 
+function Invoke-PythonScript {
+    param(
+        [Parameter(Mandatory = $true)][string]$ScriptPath,
+        [string[]]$Arguments = @(),
+        [switch]$AllowFailure
+    )
+
+    if (-not (Test-Path $ScriptPath)) {
+        Write-Host "--- Skipping missing script: $ScriptPath"
+        return $false
+    }
+
+    if (Get-Command py -ErrorAction SilentlyContinue) {
+        & py -3 $ScriptPath @Arguments | Out-Host
+    } elseif (Get-Command python -ErrorAction SilentlyContinue) {
+        & python $ScriptPath @Arguments | Out-Host
+    } else {
+        Write-Host "WARNING: Python not found; skipping $ScriptPath"
+        return $false
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        if ($AllowFailure) {
+            Write-Host "WARNING: script failed (continuing): $ScriptPath"
+            return $false
+        }
+        throw "Script failed: $ScriptPath"
+    }
+
+    return $true
+}
+
 Write-Host "--- push-win.ps1: working in $PWD"
 Write-Host "--- push-win.ps1: remote $RepoUrl"
 
@@ -97,13 +129,12 @@ git remote -v | Out-Host
 
 if (Test-Path make_readme.py) {
     Write-Host "--- Updating README.md..."
-    if (Get-Command py -ErrorAction SilentlyContinue) {
-        py -3 make_readme.py | Out-Host
-    } elseif (Get-Command python -ErrorAction SilentlyContinue) {
-        python make_readme.py | Out-Host
-    } else {
-        Write-Host "WARNING: Python not found, skipping README regeneration."
-    }
+    Invoke-PythonScript -ScriptPath "make_readme.py" | Out-Null
+}
+
+if (Test-Path "dev-tools/zyx_planning_and_visuals/make_report.py") {
+    Write-Host "--- Generating workspace reports..."
+    Invoke-PythonScript -ScriptPath "dev-tools/zyx_planning_and_visuals/make_report.py" -AllowFailure | Out-Null
 }
 
 Write-Host "--- Running: git add ."

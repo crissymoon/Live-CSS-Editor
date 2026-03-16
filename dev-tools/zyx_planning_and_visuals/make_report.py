@@ -1,109 +1,264 @@
-# Make Report 
-import subprocess
+#!/usr/bin/env python3
+"""
+make_report.py
+---------------
+Cross-platform report runner for this repository.
 
-def run_shell_script(script_path): # Get Scan Output
+It executes key code-review scanners and writes:
+1) a timestamped markdown summary report
+2) a timestamped JSON machine-readable report
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+@dataclass
+class CommandResult:
+    name: str
+    command: list[str]
+    returncode: int
+    duration_seconds: float
+    stdout: str
+    stderr: str
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0
+
+
+def parse_args() -> argparse.Namespace:
+    script_dir = Path(__file__).resolve().parent
+    default_root = script_dir.parents[2]
+    default_out = script_dir / "reports"
+
+    parser = argparse.ArgumentParser(description="Generate repository quality reports.")
+    parser.add_argument("--root", default=str(default_root), help="Repository root path.")
+    parser.add_argument("--outdir", default=str(default_out), help="Report output directory.")
+    parser.add_argument(
+        "--lines-threshold",
+        type=int,
+        default=1200,
+        help="Function line threshold for lines_count.py.",
+    )
+    parser.add_argument(
+        "--skip-create-report",
+        action="store_true",
+        help="Skip the optional create_report.py execution.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=240,
+        help="Per-command timeout in seconds.",
+    )
+    return parser.parse_args()
+
+
+def run_command(name: str, command: list[str], cwd: Path, timeout: int) -> CommandResult:
+    start = time.perf_counter()
     try:
-        result = subprocess.run(
-            [script_path],
+        proc = subprocess.run(
+            command,
+            cwd=str(cwd),
             capture_output=True,
             text=True,
-            check=True
+            timeout=timeout,
+            check=False,
         )
-        return result.stdout, result.stderr
-    except subprocess.CalledProcessError as e:
-        print(f"Script failed with return code {e.returncode}")
-        return e.stdout, e.stderr
-    except FileNotFoundError:
-        print(f"Error: The script file was not found at {script_path}")
-        return "", f"FileNotFoundError: {script_path}"
+        rc = proc.returncode
+        stdout = proc.stdout or ""
+        stderr = proc.stderr or ""
+    except subprocess.TimeoutExpired as exc:
+        rc = 124
+        stdout = exc.stdout or ""
+        stderr = (exc.stderr or "") + "\nCommand timed out."
 
-def py_out(py_script):
-    import subprocess
-    result = subprocess.run(
-        ["python3", py_script],
-        capture_output=True,
-        text=True
-    ); return result.stdout
- 
-
-# ************************ PROJECT DATA START _____
-TECH_STACK = [
-    'Python', 
-    'JavaScript', 
-    'PHP', 
-    'C', 
-    'HTML', 
-    'CSS', 
-    'Shell', 
-    'Go'
-]
-
-TEST_FILES = [
-    '/Users/mac/Documents/live-css/search.py', # 1
-    '/Users/mac/Documents/live-css/py_audit.py', # 2
-    '/Users/mac/Documents/live-css/lines_count.py', # 3
-    '/Users/mac/Documents/live-css/god_funcs.py', # 4
-    '/Users/mac/Documents/live-css/dev-tools/db-browser/smoke/analyze/run_analysis.sh' # 5
-]
-# ^-TEST_FILES
-# 1. Searches files --not needed to report but keep here for ref
-# 2. Scans the live-css project for Python code quality concerns
-# 3. Counts files for long lines
-# 4. Checks for god-funcs
-# 5. Complete GAP Analysis of the DB System
-
-MAP_FILES = [
-    '/Users/mac/Documents/live-css/model-map.json',
-]
-
-HEADER_INO = """
-Project: Crissy's Style Tool -- ck live-css dir
-
-Author:----Crissy Deutsch
-Company:---XcaliburMoon Web Development
-Website:---https://xcaliburmoon.net/
-License:---MIT
-"""
-
-OVERVIEW = """---Overview---
-This is a scan tool for this project..."""
-
-NOTES = """
---note there is a mirage in the dependency gap the xcm_auth will be hosted on diff server for this as a auth system once smoke testing is done in this dir a migration will occur --tue-mar3-26
+    duration = time.perf_counter() - start
+    return CommandResult(name, command, rc, duration, stdout, stderr)
 
 
-"""
-
-# ************************ PROJECT DATA STOP^^^^^
-
-
-# ************************ RUN SCANS & REPORTS START _____
-def pull_db_report(): 
-    script_file = "./dev-tools/db-browser/smoke/analyze/run_analysis.sh"
-    stdout, stderr = run_shell_script(script_file)
-    s = f"{stdout}\n{stderr}"
-    lst = s.split('\n'); print(f"\n{'*'*70}\n\nDB-Browser Test: {script_file}\n\n{'*'*70}\n")
-    for x in range(51, 64):print(lst[x])
+def tail_text(text: str, max_lines: int = 60) -> str:
+    lines = text.strip().splitlines()
+    if not lines:
+        return "(no output)"
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+    return "\n".join(lines[-max_lines:])
 
 
-def pull_audit_report(): # 2. Scans the live-css project for Python code quality concerns
-    f = "/Users/mac/Documents/live-css/py_audit.py"; s = py_out(f)
-    s1 = s[-225:]; s2 = s1[:-12]
-    print(f"\n---PY AUDIT--->>> File: {f}\n{s2}\n")
+def build_commands(root: Path, lines_threshold: int, skip_create_report: bool) -> list[tuple[str, list[str]]]:
+    code_review = root / "dev-tools" / "code-review"
+    zyx_dir = root / "dev-tools" / "zyx_planning_and_visuals"
+    python_exe = sys.executable
 
-def print_output_by_num(x):
-    if x == 5: return print("Cannot run .sh from this call..")
-    script_file = str(TEST_FILES[x-1])
-    stdout, stderr = run_shell_script(script_file)
-    print(f"{stdout}\n{stderr}")
+    commands: list[tuple[str, list[str]]] = [
+        (
+            "security_scan",
+            [python_exe, str(code_review / "security_ck.py"), str(root), "--no-color"],
+        ),
+        (
+            "lines_count",
+            [python_exe, str(code_review / "lines_count.py"), str(root), str(lines_threshold)],
+        ),
+        (
+            "python_audit",
+            [python_exe, str(code_review / "py_audit.py"), "--dir", str(root)],
+        ),
+    ]
 
-# print_output_by_num(4) # Check for god-funcs
+    if not skip_create_report:
+        commands.append(
+            (
+                "create_report",
+                [python_exe, str(zyx_dir / "create_report.py"), "--root", str(root)],
+            )
+        )
 
-print(f"{HEADER_INO}\n{OVERVIEW}\n")
-print(f"Tech Stack: {str(TECH_STACK).replace("'","")[1:-1]}\n")
-# pull_audit_report() # 2. Scans the live-css project for Python code quality concerns --not ready for this yet --is in a later phase
-pull_db_report() # DB Browser Test Report
-print("")
-    
-    
+    return commands
 
+
+def render_markdown(
+    root: Path,
+    generated_at: str,
+    results: list[CommandResult],
+    markdown_path: Path,
+    json_path: Path,
+) -> str:
+    success_count = sum(1 for r in results if r.ok)
+    fail_count = len(results) - success_count
+
+    lines: list[str] = [
+        f"# Workspace Report ({generated_at})",
+        "",
+        f"- Root: `{root}`",
+        f"- Commands run: {len(results)}",
+        f"- Successful: {success_count}",
+        f"- Failed: {fail_count}",
+        "",
+        "## Repository Context",
+        "",
+        "This repo is an inspiration and rapid-start workspace for building apps and prototypes quickly.",
+        "It intentionally mixes starter flows, experiments, and reusable tooling in one growing codebase.",
+        "",
+        "Some auth and database values in the workspace are for local dev preview and starter setups only, not production secrets.",
+        "Sensitive assets should remain outside the repo root and be linked in locally when needed.",
+        "",
+        "## Artifacts",
+        "",
+        f"- Markdown: `{markdown_path}`",
+        f"- JSON: `{json_path}`",
+        "",
+        "## Command Results",
+        "",
+    ]
+
+    for result in results:
+        status = "PASS" if result.ok else "FAIL"
+        cmd_display = " ".join(result.command)
+        lines.extend(
+            [
+                f"### {result.name} [{status}]",
+                "",
+                f"- Return code: `{result.returncode}`",
+                f"- Duration: `{result.duration_seconds:.2f}s`",
+                f"- Command: `{cmd_display}`",
+                "",
+                "#### stdout (tail)",
+                "",
+                "```text",
+                tail_text(result.stdout),
+                "```",
+                "",
+                "#### stderr (tail)",
+                "",
+                "```text",
+                tail_text(result.stderr),
+                "```",
+                "",
+            ]
+        )
+
+    return "\n".join(lines)
+
+
+def write_reports(outdir: Path, root: Path, results: list[CommandResult]) -> tuple[Path, Path]:
+    outdir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S_UTC")
+
+    md_path = outdir / f"workspace_report_{stamp}.md"
+    json_path = outdir / f"workspace_report_{stamp}.json"
+
+    md_content = render_markdown(root, stamp, results, md_path, json_path)
+    md_path.write_text(md_content, encoding="utf-8")
+
+    payload = {
+        "generated_at": stamp,
+        "root": str(root),
+        "repository_context": {
+            "purpose": "Inspiration and rapid-start workspace for quickly building apps and prototypes.",
+            "notes": [
+                "Starter auth and database values may exist for local dev preview flows.",
+                "Sensitive assets are expected to stay outside the repo root and be linked locally when needed.",
+            ],
+        },
+        "results": [
+            {
+                "name": r.name,
+                "command": r.command,
+                "returncode": r.returncode,
+                "ok": r.ok,
+                "duration_seconds": round(r.duration_seconds, 3),
+                "stdout": r.stdout,
+                "stderr": r.stderr,
+            }
+            for r in results
+        ],
+    }
+    json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    return md_path, json_path
+
+
+def main() -> int:
+    args = parse_args()
+    root = Path(args.root).resolve()
+    outdir = Path(args.outdir).resolve()
+
+    if not root.exists():
+        print(f"ERROR: root path does not exist: {root}", file=sys.stderr)
+        return 2
+
+    commands = build_commands(root, args.lines_threshold, args.skip_create_report)
+
+    print(f"Generating reports from root: {root}")
+    results: list[CommandResult] = []
+    for name, command in commands:
+        print(f"- Running {name} ...")
+        result = run_command(name, command, cwd=root, timeout=args.timeout)
+        results.append(result)
+        status = "PASS" if result.ok else "FAIL"
+        print(f"  -> {status} ({result.duration_seconds:.2f}s, rc={result.returncode})")
+
+    md_path, json_path = write_reports(outdir, root, results)
+    print("Report artifacts:")
+    print(f"- {md_path}")
+    print(f"- {json_path}")
+
+    failures = [r for r in results if not r.ok]
+    if failures:
+        print(f"Completed with {len(failures)} failed command(s).", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
