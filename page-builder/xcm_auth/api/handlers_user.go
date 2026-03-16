@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"xcaliburmoon.net/xcm_auth/addons"
 	"xcaliburmoon.net/xcm_auth/auth"
 	"xcaliburmoon.net/xcm_auth/config"
 	"xcaliburmoon.net/xcm_auth/db"
@@ -18,11 +19,12 @@ import (
 type UserHandlers struct {
 	store db.Store
 	cfg   *config.Config
+	guard *addons.PromptGuard
 }
 
 // NewUserHandlers creates a UserHandlers.
-func NewUserHandlers(store db.Store, cfg *config.Config) *UserHandlers {
-	return &UserHandlers{store: store, cfg: cfg}
+func NewUserHandlers(store db.Store, cfg *config.Config, guard *addons.PromptGuard) *UserHandlers {
+	return &UserHandlers{store: store, cfg: cfg, guard: guard}
 }
 
 // ── GET /user/me ──────────────────────────────────────────────────────────────
@@ -157,6 +159,19 @@ func (h *UserHandlers) AdminCreateUser(w http.ResponseWriter, r *http.Request) {
 	if req.Username == "" || req.Email == "" || req.Password == "" {
 		jsonErr(w, http.StatusBadRequest, "username, email, and password are required")
 		return
+	}
+	if h.guard != nil && h.guard.ShouldCheck("admin-create-user") {
+		decision, err := h.guard.GuardInput(r.Context(), "admin-create-user", req.Username, req.Email, req.Role)
+		if err != nil {
+			log.Printf("[api/user] AdminCreateUser: prompt guard error: %v", err)
+			if !h.guard.FailOpen() {
+				jsonErr(w, http.StatusServiceUnavailable, "optional prompt guard unavailable")
+				return
+			}
+		} else if h.guard.ShouldBlock(decision) {
+			jsonErr(w, http.StatusBadRequest, "request blocked by optional security add-on")
+			return
+		}
 	}
 	if req.Role != models.RoleAdmin && req.Role != models.RoleUser {
 		req.Role = models.RoleUser

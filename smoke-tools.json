@@ -1,0 +1,125 @@
+{
+  "version": "1.0.0",
+  "name": "dev_tools smoke tool registry",
+  "description": "Smoke tools used by dev workflows and future agents.",
+  "tools": [
+    {
+      "id": "xcm_auth_guard_login_smoke",
+      "name": "xcm_auth login + guard smoke",
+      "description": "Health, register/login, /user/me, injection and oversized-input probes, optional prompt guard expectation check.",
+      "platforms": ["windows"],
+      "cwd": ".",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "page-builder/xcm_auth/smoke/smoke_auth_guard_login.ps1"
+      ],
+      "tags": ["auth", "security", "smoke", "prompt-guard"]
+    },
+    {
+      "id": "xcm_auth_email_2fa_smoke",
+      "name": "xcm_auth email 2FA smoke",
+      "description": "End-to-end login and email-based 2FA verification smoke.",
+      "platforms": ["windows"],
+      "cwd": ".",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "page-builder/xcm_auth/smoke/smoke_email_2fa.ps1"
+      ],
+      "tags": ["auth", "2fa", "email", "smoke"]
+    },
+    {
+      "id": "xcm_auth_guard_login_alt_server",
+      "name": "xcm_auth login + guard smoke (alt server)",
+      "description": "Starts temporary xcm_auth and runs auth+guard smoke against isolated port.",
+      "platforms": ["windows"],
+      "cwd": ".",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "page-builder/xcm_auth/smoke/run_auth_guard_smoke_alt_server.ps1"
+      ],
+      "tags": ["auth", "security", "smoke", "isolated"]
+    },
+    {
+      "id": "xcm_auth_reset_dev_state",
+      "name": "xcm_auth reset dev state",
+      "description": "Resets xcm_auth runtime test state in the local sqlite DB.",
+      "platforms": ["windows"],
+      "cwd": ".",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "page-builder/xcm_auth/smoke/reset_dev_state.ps1"
+      ],
+      "tags": ["auth", "reset", "smoke"]
+    },
+    {
+      "id": "code_review_smoke_runner",
+      "name": "code-review smoke runner",
+      "description": "Runs smoke tools from this manifest and writes JSON report.",
+      "platforms": ["windows", "macos", "linux"],
+      "cwd": ".",
+      "command": [
+        "python",
+        "dev-tools/code-review/smoke_tester.py"
+      ],
+      "tags": ["code-review", "automation", "agents", "smoke"]
+    },
+    {
+      "id": "code_review_security_scan",
+      "name": "code-review security scan",
+      "description": "Runs security pattern scan across repository.",
+      "platforms": ["windows", "macos", "linux"],
+      "cwd": ".",
+      "command": [
+        "python",
+        "dev-tools/code-review/security_ck.py",
+        ".",
+        "--no-color"
+      ],
+      "tags": ["code-review", "security", "scan"]
+    },
+    {
+      "id": "push_win_repo",
+      "name": "push repository (Windows)",
+      "description": "Runs Windows push workflow script.",
+      "platforms": ["windows"],
+      "cwd": ".",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "push-win.ps1"
+      ],
+      "tags": ["git", "push", "windows"]
+    },
+    {
+      "id": "push_sh_repo",
+      "name": "push repository (macOS/Linux)",
+      "description": "Runs shell push workflow script.",
+      "platforms": ["macos", "linux"],
+      "cwd": ".",
+      "command": [
+        "bash",
+        "push.sh"
+      ],
+      "tags": ["git", "push", "macos", "linux"]
+    }
+  ]
+}

@@ -88,6 +88,32 @@ body {
 .palette-node[data-type="memory"]    .node-icon { background:#3a1a00; color:#f97316; }
 .palette-node[data-type="tool"]      .node-icon { background:#1a1a3a; color:#818cf8; }
 .palette-node[data-type="output"]    .node-icon { background:#1a3a1a; color:#4ade80; }
+.palette-node[data-type="guard"]     .node-icon { background:#3a1010; color:#ef4444; }
+.palette-node[data-type="agent-task"] .node-icon { background:#083344; color:#22d3ee; }
+
+.quick-node-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 2px 6px;
+}
+
+.quick-node-btn {
+    width: 100%;
+    text-align: left;
+    font-size: 11px;
+    color: #b6e3f3;
+    background: #102432;
+    border: 1px solid #1f4b63;
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+}
+
+.quick-node-btn:hover {
+    background: #163348;
+    border-color: #2a6f8f;
+}
 
 #saved-flow-list {
     display: flex;
@@ -302,6 +328,10 @@ body {
 .fn-type-tool      .fn-icon   { background:#1a1a3a; color:#818cf8; }
 .fn-type-output    .fn-header { border-color: #1a3a1a; }
 .fn-type-output    .fn-icon   { background:#1a3a1a; color:#4ade80; }
+.fn-type-guard     .fn-header { border-color: #3a1010; }
+.fn-type-guard     .fn-icon   { background:#3a1010; color:#ef4444; }
+.fn-type-agent-task .fn-header { border-color: #083344; }
+.fn-type-agent-task .fn-icon   { background:#083344; color:#22d3ee; }
 
 /* ----------  edges (SVG)  ---------- */
 .flow-edge { fill: none; stroke: #4a4a70; stroke-width: 2; pointer-events: none; }

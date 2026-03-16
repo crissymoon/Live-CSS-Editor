@@ -27,6 +27,7 @@ const NODE_TYPES = {
     tool:      { icon: 'T', label: 'Tool',      color: '#818cf8' },
     output:    { icon: 'O', label: 'Output',    color: '#4ade80' },
     guard:     { icon: 'G', label: 'Guard',     color: '#ef4444' },
+    'agent-task': { icon: 'V', label: 'VS Agent Task', color: '#22d3ee' },
 };
 
 /* Default extra props per node type */
@@ -39,6 +40,7 @@ const TYPE_DEFAULTS = {
     tool:      { command: '', varName: 'result' },
     output:    { varName: '' },
     guard:     { inputVar: 'prompt', varName: 'guard_result', guardUrl: 'http://localhost:8765/classify', blockOnFlag: 'true' },
+    'agent-task': { taskId: 'xcm_auth_guard_login_alt_server', timeoutSec: 240, failFlowOnError: 'true' },
 };
 
 /* ============================================================
@@ -52,6 +54,12 @@ let state = {
     nextId: 1,
     wireFrom: null,  // {nodeId, port, portType} when dragging a new edge
 };
+
+let taskCatalog = [];
+
+function findTaskMeta(taskId) {
+    return taskCatalog.find(t => t.id === taskId) || null;
+}
 
 /* ============================================================
    DOM refs
@@ -179,6 +187,7 @@ function buildSummary(node) {
             case 'tool':      return p.command ? p.command.slice(0,30) : 'command...';
             case 'output':    return `p(${p.varName||'...'})`;
             case 'guard':     return `guard(${p.inputVar||'...'}) -> ${p.varName||'...'}`;
+            case 'agent-task': return `task: ${p.taskId||'...'} (${p.timeoutSec||240}s)`;
             default:          return '';
         }
     } catch(err) {
@@ -503,9 +512,57 @@ function buildDynamicProps(node) {
                     <option value="false"${p.blockOnFlag==='false'?' selected':''}>no -- continue even if flagged</option>
                 </select>`);
                 break;
+            case 'agent-task':
+                field('Task ID (from smoke-tools.json)', renderTaskIdSelect(p.taskId || 'xcm_auth_guard_login_alt_server'));
+                field('Timeout (seconds)', `<input type="number" data-prop="timeoutSec" value="${Number(p.timeoutSec)||240}" min="5" max="1800">`);
+                field('Fail flow on error', `<select data-prop="failFlowOnError">
+                    <option value="true"${(p.failFlowOnError||'true')==='true'?' selected':''}>yes -- halt flow if task fails</option>
+                    <option value="false"${p.failFlowOnError==='false'?' selected':''}>no -- continue flow</option>
+                </select>`);
+                break;
         }
     } catch(err) {
         console.error('agent-flow: buildDynamicProps failed', err);
+    }
+}
+
+function renderTaskIdSelect(selectedId) {
+    const fallback = escAttr(selectedId || '');
+    if (!Array.isArray(taskCatalog) || taskCatalog.length === 0) {
+        return `<input type="text" data-prop="taskId" value="${fallback}" placeholder="task id from smoke-tools.json">`;
+    }
+
+    const options = taskCatalog.map(task => {
+        const id = escAttr(task.id || '');
+        const name = escHtml(task.name || task.id || '');
+        const selected = task.id === selectedId ? ' selected' : '';
+        return `<option value="${id}"${selected}>${name} (${id})</option>`;
+    }).join('');
+
+    const selectedExists = taskCatalog.some(task => task.id === selectedId);
+    const customOpt = (!selectedExists && selectedId)
+        ? `<option value="${fallback}" selected>custom (${fallback})</option>`
+        : '';
+
+    return `<select data-prop="taskId">${customOpt}${options}</select>`;
+}
+
+async function loadTaskCatalog() {
+    try {
+        const resp = await fetch('api/tasks.php').catch(err => {
+            throw new Error('Network error: ' + err.message);
+        });
+        if (!resp.ok) {
+            throw new Error('HTTP ' + resp.status);
+        }
+        const data = await resp.json();
+        if (!data.ok || !Array.isArray(data.tasks)) {
+            throw new Error(data.error || 'Invalid task catalog response');
+        }
+        taskCatalog = data.tasks;
+    } catch (err) {
+        console.warn('agent-flow: task catalog unavailable', err);
+        taskCatalog = [];
     }
 }
 
@@ -659,6 +716,11 @@ function generateMoon() {
                     /* guard node: runtime HTTP call -- emit a comment in moon source */
                     lines.push(`# guard: check ${safeName(p.inputVar||'prompt')} via ${escapeMoonStr(p.guardUrl||'http://localhost:8765/classify')}`);
                     lines.push(`p("guard node -- use Run AI Direct for live guard checks")`);
+                    break;
+                case 'agent-task':
+                    /* task node: runtime task execution only available in direct runner */
+                    lines.push(`# agent-task: ${escapeMoonStr(p.taskId||'')} timeout=${Number(p.timeoutSec)||240}s`);
+                    lines.push(`p("agent-task node -- use Run AI Direct for task execution")`);
                     break;
             }
             lines.push('');
@@ -921,6 +983,20 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     if (!state.nodes.length || confirm('Clear all nodes and edges?')) clearCanvas();
 });
 
+document.querySelectorAll('.quick-node-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const taskId = btn.dataset.taskId || '';
+        const node = createNode('agent-task', 140, 120 + (state.nodes.length % 8) * 70);
+        if (!node) return;
+        node.props.taskId = taskId;
+        const meta = findTaskMeta(taskId);
+        node.label = meta ? 'Task: ' + (meta.name || taskId) : 'Task: ' + taskId;
+        renderNode(node);
+        selectNode(node.id);
+        renderAllEdges();
+    });
+});
+
 outputClose.addEventListener('click', () => outputPanel.classList.add('hidden'));
 
 document.querySelectorAll('.out-tab').forEach(tab => {
@@ -974,6 +1050,7 @@ function escAttr(s) {
 (function init() {
     try {
         loadFlowList();
+        loadTaskCatalog();
 
         /* validate moon binary on load */
         fetch('api/validate.php')

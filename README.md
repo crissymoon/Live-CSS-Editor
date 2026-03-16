@@ -52,6 +52,7 @@ live-css/
   make_readme.py
   push-win.ps1
   push.sh
+  smoke-tools.json
 ```
 
 ## Technology Stack
@@ -81,4 +82,4 @@ Copyright (c) 2026 Crissy Deutsch / XcaliburMoon Web Development
 
 ---
 
-*README last generated: 2026-03-15  22:03:49*
+*README last generated: 2026-03-16  00:24:03*

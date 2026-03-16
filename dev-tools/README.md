@@ -88,9 +88,11 @@ Runs db-browser smoke analysis and Python audit and prints a project health summ
 | `py_audit.py` | Python code quality concerns |
 | `god_funcs.py` | Flag god-functions (too-large single functions) |
 | `search.py` | Project-wide exact / regex / fuzzy search |
+| `smoke_tester.py` | Runs smoke tools from root manifest and writes JSON report |
 
 ```bash
 python dev-tools/code-review/lines_count.py /path/to/dir
 python dev-tools/code-review/security_ck.py /path/to/dir --no-color
 python dev-tools/code-review/search.py "query" --regex
+python dev-tools/code-review/smoke_tester.py --tool xcm_auth_guard_login_smoke
 ```

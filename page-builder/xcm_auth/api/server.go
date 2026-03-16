@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"xcaliburmoon.net/xcm_auth/addons"
 	"xcaliburmoon.net/xcm_auth/config"
 	"xcaliburmoon.net/xcm_auth/db"
 	"xcaliburmoon.net/xcm_auth/email"
@@ -20,6 +21,7 @@ type Server struct {
 	cfg    *config.Config
 	store  db.Store
 	mailer *email.Mailer
+	guard  *addons.PromptGuard
 	router *chi.Mux
 	http   *http.Server
 }
@@ -30,7 +32,11 @@ func NewServer(cfg *config.Config, store db.Store, mailer *email.Mailer) *Server
 		cfg:    cfg,
 		store:  store,
 		mailer: mailer,
+		guard:  addons.NewPromptGuard(&cfg.PromptGuard),
 		router: chi.NewRouter(),
+	}
+	if s.guard != nil {
+		log.Printf("[server] prompt guard add-on enabled mode=%s fail_open=%v", cfg.PromptGuard.Mode, cfg.PromptGuard.FailOpen)
 	}
 	s.mountMiddleware()
 	s.mountRoutes()
@@ -58,10 +64,11 @@ func (s *Server) mountMiddleware() {
 func (s *Server) mountRoutes() {
 	r := s.router
 
-	authH := NewAuthHandlers(s.store, s.cfg, s.mailer)
-	userH := NewUserHandlers(s.store, s.cfg)
+	authH := NewAuthHandlers(s.store, s.cfg, s.mailer, s.guard)
+	userH := NewUserHandlers(s.store, s.cfg, s.guard)
 
-	requireAuth  := RequireAuth(&s.cfg.JWT)
+	requireAccess := RequireAuth(&s.cfg.JWT)
+	requireChallenge := RequireTokenUse(&s.cfg.JWT, "challenge")
 	requireAdmin := RequireRole(&s.cfg.JWT, "admin")
 
 	// Health check - no auth
@@ -79,9 +86,14 @@ func (s *Server) mountRoutes() {
 
 		// These require the short-lived challenge token (pending 2FA)
 		r.Group(func(r chi.Router) {
-			r.Use(requireAuth)
+			r.Use(requireChallenge)
 			r.Post("/verify-2fa",   authH.Verify2FA)
 			r.Post("/resend-2fa",   authH.Resend2FA)
+ 		})
+
+		// These require a regular authenticated access token
+		r.Group(func(r chi.Router) {
+			r.Use(requireAccess)
 			r.Post("/verify-email", authH.VerifyEmail)
 			r.Post("/logout",       authH.Logout)
 			r.Post("/logout-all",   authH.LogoutAll)
@@ -90,7 +102,7 @@ func (s *Server) mountRoutes() {
 
 	// ── /user ── authenticated endpoints ──────────────────────────────────
 	r.Route("/user", func(r chi.Router) {
-		r.Use(requireAuth)
+		r.Use(requireAccess)
 		r.Get("/me",        userH.Me)
 		r.Get("/sessions",  userH.ListSessions)
 		r.Get("/devices",   userH.ListDevices)

@@ -1,0 +1,63 @@
+{
+  "name": "agent-flow-workflow-plugin",
+  "displayName": "Agent Flow Workflow Plugin",
+  "description": "Open Agent Flow in VS Code Simple Browser and focus workflow panes.",
+  "version": "0.0.1",
+  "publisher": "xcaliburmoon",
+  "icon": "images/ava-moon.png",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentFlow.openWorkflowWorkspace",
+        "title": "Agent Flow: Open Workflow Workspace"
+      },
+      {
+        "command": "agentFlow.startAndOpenWorkflow",
+        "title": "Agent Flow: Start Server and Open Workflow"
+      }
+    ],
+    "configuration": {
+      "title": "Agent Flow Workflow",
+      "properties": {
+        "agentFlow.workflowUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:9090",
+          "description": "URL opened in VS Code Simple Browser for Agent Flow."
+        },
+        "agentFlow.focusChatAfterOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Attempt to focus a chat view after opening the workflow browser."
+        },
+        "agentFlow.startServerOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start the local Agent Flow server command before opening the workflow URL."
+        },
+        "agentFlow.startupWaitMs": {
+          "type": "number",
+          "default": 12000,
+          "minimum": 0,
+          "description": "Milliseconds to wait for the workflow URL to respond after starting the server command."
+        },
+        "agentFlow.startupCommandWindows": {
+          "type": "string",
+          "default": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"Set-Location '${workspaceFolder}'; php -S 127.0.0.1:9090 -t dev-tools/agent-flow\"",
+          "description": "Server startup command used on Windows in the Agent Flow terminal. Supports ${workspaceFolder}."
+        },
+        "agentFlow.startupCommandUnix": {
+          "type": "string",
+          "default": "cd '${workspaceFolder}' && php -S 127.0.0.1:9090 -t dev-tools/agent-flow",
+          "description": "Server startup command used on macOS/Linux in the Agent Flow terminal. Supports ${workspaceFolder}."
+        }
+      }
+    }
+  }
+}

@@ -23,6 +23,7 @@ type Config struct {
 	Email    EmailConfig
 	Rate     RateConfig
 	Security SecurityConfig
+	PromptGuard PromptGuardConfig
 }
 
 type ServerConfig struct {
@@ -75,6 +76,18 @@ type SecurityConfig struct {
 	CORSOrigins  []string
 	AppName      string
 	AppURL       string
+	Profile      string
+}
+
+type PromptGuardConfig struct {
+	Enabled        bool
+	URL            string
+	Timeout        time.Duration
+	Mode           string
+	FailOpen       bool
+	BlockThreshold float64
+	StartupHealthCheck bool
+	Endpoints      []string
 }
 
 // Load reads the .env file at envPath (if it exists) then populates Config
@@ -154,6 +167,38 @@ func Load(envPath string) *Config {
 	}
 	cfg.Security.AppName = envStr("APP_NAME", "XCM Auth")
 	cfg.Security.AppURL  = envStr("APP_URL", "http://localhost:8080")
+	cfg.Security.Profile = strings.ToLower(strings.TrimSpace(envStr("SECURITY_PROFILE", "dev")))
+	if cfg.Security.Profile != "dev" && cfg.Security.Profile != "strict" {
+		log.Printf("[config] SECURITY_PROFILE=%q invalid, using dev", cfg.Security.Profile)
+		cfg.Security.Profile = "dev"
+	}
+
+	// ── Optional prompt-injection guard add-on ───────────────────────────────
+	cfg.PromptGuard.Enabled = envBool("PROMPT_GUARD_ENABLED", false)
+	cfg.PromptGuard.URL = envStr("PROMPT_GUARD_URL", "http://127.0.0.1:8765")
+	cfg.PromptGuard.Timeout = time.Duration(envInt("PROMPT_GUARD_TIMEOUT_MS", 1200)) * time.Millisecond
+	cfg.PromptGuard.Mode = strings.ToLower(strings.TrimSpace(envStr("PROMPT_GUARD_MODE", "monitor")))
+	if cfg.PromptGuard.Mode != "monitor" && cfg.PromptGuard.Mode != "block" {
+		log.Printf("[config] PROMPT_GUARD_MODE=%q invalid, using monitor", cfg.PromptGuard.Mode)
+		cfg.PromptGuard.Mode = "monitor"
+	}
+	cfg.PromptGuard.FailOpen = envBool("PROMPT_GUARD_FAIL_OPEN", true)
+	cfg.PromptGuard.StartupHealthCheck = envBool("PROMPT_GUARD_STARTUP_HEALTHCHECK", false)
+	cfg.PromptGuard.BlockThreshold = envFloat("PROMPT_GUARD_BLOCK_THRESHOLD", 0.90)
+	if cfg.PromptGuard.BlockThreshold < 0.0 || cfg.PromptGuard.BlockThreshold > 1.0 {
+		log.Printf("[config] PROMPT_GUARD_BLOCK_THRESHOLD=%f out of range [0,1], using 0.90", cfg.PromptGuard.BlockThreshold)
+		cfg.PromptGuard.BlockThreshold = 0.90
+	}
+	cfg.PromptGuard.Endpoints = envCSV("PROMPT_GUARD_ENDPOINTS", []string{
+		"register", "login", "forgot-password", "reset-password", "admin-create-user",
+	})
+
+	if cfg.Security.Profile == "strict" {
+		cfg.Security.RequireHTTPS = true
+		cfg.PromptGuard.FailOpen = false
+		cfg.PromptGuard.StartupHealthCheck = true
+		log.Printf("[config] strict profile enabled: REQUIRE_HTTPS=true PROMPT_GUARD_FAIL_OPEN=false PROMPT_GUARD_STARTUP_HEALTHCHECK=true")
+	}
 
 	if len(errs) > 0 {
 		log.Fatalf("[config] Fatal configuration errors:\n  - %s", strings.Join(errs, "\n  - "))
@@ -210,8 +255,62 @@ func (c *Config) Validate() error {
 	if c.JWT.AccessExpiryMinutes > 60 {
 		issues = append(issues, fmt.Sprintf("JWT_ACCESS_EXPIRY_MINUTES=%d - access tokens should be short-lived", c.JWT.AccessExpiryMinutes))
 	}
+	if c.Security.Profile == "strict" {
+		if !c.Security.RequireHTTPS {
+			issues = append(issues, "SECURITY_PROFILE=strict requires REQUIRE_HTTPS=true")
+		}
+		if !c.PromptGuard.Enabled {
+			issues = append(issues, "SECURITY_PROFILE=strict requires PROMPT_GUARD_ENABLED=true")
+		}
+		if c.PromptGuard.FailOpen {
+			issues = append(issues, "SECURITY_PROFILE=strict requires PROMPT_GUARD_FAIL_OPEN=false")
+		}
+		if !c.PromptGuard.StartupHealthCheck {
+			issues = append(issues, "SECURITY_PROFILE=strict requires PROMPT_GUARD_STARTUP_HEALTHCHECK=true")
+		}
+		for _, origin := range c.Security.CORSOrigins {
+			if strings.TrimSpace(origin) == "*" {
+				issues = append(issues, "SECURITY_PROFILE=strict does not allow CORS_ORIGINS=*")
+				break
+			}
+		}
+	}
 	if len(issues) > 0 {
 		return fmt.Errorf("security issues detected:\n  - %s", strings.Join(issues, "\n  - "))
 	}
+	if c.PromptGuard.Enabled && strings.TrimSpace(c.PromptGuard.URL) == "" {
+		return fmt.Errorf("security issues detected:\n  - PROMPT_GUARD_ENABLED=true but PROMPT_GUARD_URL is empty")
+	}
 	return nil
+}
+
+func envFloat(key string, def float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			log.Printf("[config] %s: cannot parse %q as float, using default %f", key, v, def)
+			return def
+		}
+		return f
+	}
+	return def
+}
+
+func envCSV(key string, def []string) []string {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return def
+	}
+	return out
 }

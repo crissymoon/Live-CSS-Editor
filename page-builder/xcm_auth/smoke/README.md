@@ -14,6 +14,12 @@ Browser and CLI smoke helpers for local auth verification.
 - Starts a temporary local xcm_auth server on an alternate port.
 - Runs `smoke_login.ps1` against it.
 
+`run_auth_guard_smoke_alt_server.ps1`
+
+- Starts a temporary local xcm_auth server on an alternate port.
+- Runs `smoke_auth_guard_login.ps1` against that server.
+- Optional `-EnablePromptGuard` lets you smoke test with prompt_inj_guard add-on settings.
+
 `smoke_email_2fa.ps1`
 
 - End-to-end local email 2FA smoke runner.
@@ -25,6 +31,14 @@ Browser and CLI smoke helpers for local auth verification.
 - `-CI`: emits a `##[section]` summary line compatible with CI pipelines.
 - `-ResetAfter`: automatically clears runtime DB tables after the run.
 - Stops any services it started itself before exiting.
+
+`smoke_auth_guard_login.ps1`
+
+- Login-focused smoke for auth and optional prompt guard add-on behavior.
+- Verifies `/health`, register/bootstrap, login, and authenticated `/user/me` access when tokens are available.
+- Includes cybersecurity probes for injection-like identifier input and oversized payload handling.
+- Optional `-ExpectGuardBlock` check validates block-mode behavior when prompt guard is enabled.
+- Prints a compact pass/fail summary plus potential security concerns discovered during the run.
 
 `reset_dev_state.ps1`
 
@@ -38,6 +52,18 @@ From `page-builder/xcm_auth`:
 
 ```powershell
 ./smoke/smoke_email_2fa.ps1
+```
+
+Run the auth + security probe smoke:
+
+```powershell
+./smoke/smoke_auth_guard_login.ps1
+```
+
+Expect prompt guard block mode behavior:
+
+```powershell
+./smoke/smoke_auth_guard_login.ps1 -ExpectGuardBlock
 ```
 
 Skip negative checks if you only want the happy path:

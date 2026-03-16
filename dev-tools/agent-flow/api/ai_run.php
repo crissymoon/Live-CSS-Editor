@@ -16,6 +16,7 @@
  *   loop      -- logs iteration count; no nested execution in this runner
  *   memory    -- stores/recalls a value in a session-scoped $memory map
  *   tool      -- emits the command string as a step result (no shell exec)
+ *   agent-task -- executes an allowlisted task by ID from root smoke-tools.json
  *
  * Returns JSON:
  *   { ok: bool, output: string, steps: [{id, type, label, result, error?}], error? }
@@ -43,6 +44,7 @@ if (!file_exists($configPath)) {
 require_once $configPath;
 
 define('AI_RUN_TIMEOUT', 60);
+define('TASK_RUN_TIMEOUT_DEFAULT', 240);
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -148,6 +150,122 @@ function callOpenAI(string $apiKey, string $baseUrl, string $model, array $messa
     }
 
     return $content;
+}
+
+function repoRootPath(): string {
+    $root = realpath(__DIR__ . '/../../..');
+    if (!$root) {
+        throw new RuntimeException('Could not resolve repository root from api directory');
+    }
+    return $root;
+}
+
+function loadSmokeManifest(string $root): array {
+    $manifestPath = $root . '/smoke-tools.json';
+    if (!is_file($manifestPath)) {
+        throw new RuntimeException('smoke-tools.json not found at repo root');
+    }
+    $raw = file_get_contents($manifestPath);
+    if ($raw === false) {
+        throw new RuntimeException('Could not read smoke-tools.json');
+    }
+    $json = json_decode($raw, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($json)) {
+        throw new RuntimeException('Invalid smoke-tools.json: ' . json_last_error_msg());
+    }
+    $tools = $json['tools'] ?? null;
+    if (!is_array($tools)) {
+        throw new RuntimeException('smoke-tools.json missing tools array');
+    }
+    return $tools;
+}
+
+function findToolById(array $tools, string $taskId): ?array {
+    foreach ($tools as $tool) {
+        if (!is_array($tool)) continue;
+        if (($tool['id'] ?? '') === $taskId) {
+            return $tool;
+        }
+    }
+    return null;
+}
+
+function startsWithPath(string $path, string $prefix): bool {
+    $pathNorm = str_replace('\\', '/', $path);
+    $prefixNorm = rtrim(str_replace('\\', '/', $prefix), '/');
+    return $pathNorm === $prefixNorm || str_starts_with($pathNorm, $prefixNorm . '/');
+}
+
+function runAllowlistedTask(array $tool, string $root, int $timeoutSec): array {
+    $cmd = $tool['command'] ?? [];
+    if (!is_array($cmd) || count($cmd) === 0) {
+        throw new RuntimeException('task command is missing or invalid');
+    }
+
+    $cwdRel = (string)($tool['cwd'] ?? '.');
+    $cwdResolved = realpath($root . '/' . ltrim($cwdRel, '/'));
+    if (!$cwdResolved || !is_dir($cwdResolved)) {
+        throw new RuntimeException('task cwd does not exist: ' . $cwdRel);
+    }
+    if (!startsWithPath($cwdResolved, $root)) {
+        throw new RuntimeException('task cwd escapes repository root');
+    }
+
+    $cmdParts = [];
+    foreach ($cmd as $part) {
+        if (!is_scalar($part)) {
+            throw new RuntimeException('task command contains non-scalar argument');
+        }
+        $cmdParts[] = escapeshellarg((string)$part);
+    }
+    $commandString = implode(' ', $cmdParts);
+
+    $desc = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+    $proc = proc_open($commandString, $desc, $pipes, $cwdResolved);
+    if (!is_resource($proc)) {
+        throw new RuntimeException('proc_open failed for task command');
+    }
+
+    fclose($pipes[0]);
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+
+    $stdout = '';
+    $stderr = '';
+    $start = time();
+
+    while (true) {
+        $status = proc_get_status($proc);
+        $stdout .= stream_get_contents($pipes[1]);
+        $stderr .= stream_get_contents($pipes[2]);
+
+        if (!$status['running']) {
+            break;
+        }
+        if ((time() - $start) > $timeoutSec) {
+            proc_terminate($proc, 9);
+            $stderr .= "\n[agent-flow] Task killed after timeout {$timeoutSec}s.";
+            break;
+        }
+        usleep(50000);
+    }
+
+    $stdout .= stream_get_contents($pipes[1]);
+    $stderr .= stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($proc);
+
+    return [
+        'exit_code' => $exitCode,
+        'stdout' => $stdout,
+        'stderr' => $stderr,
+        'cwd' => $cwdResolved,
+    ];
 }
 
 // ---- request validation ----------------------------------------------------
@@ -305,6 +423,52 @@ foreach ($ordered as $nodeId) {
             case 'tool': {
                 $cmd = $props['command'] ?? '';
                 $step['result'] = 'tool node (no exec in ai_run) -- command: ' . $cmd;
+                break;
+            }
+
+            case 'agent-task': {
+                $taskId = trim((string)($props['taskId'] ?? ''));
+                $timeoutSec = (int)($props['timeoutSec'] ?? TASK_RUN_TIMEOUT_DEFAULT);
+                if ($timeoutSec < 5) $timeoutSec = 5;
+                if ($timeoutSec > 1800) $timeoutSec = 1800;
+                $failFlowOnError = (($props['failFlowOnError'] ?? 'true') === 'true');
+
+                if ($taskId === '') {
+                    throw new RuntimeException('agent-task requires taskId');
+                }
+
+                $root = repoRootPath();
+                $tools = loadSmokeManifest($root);
+                $tool = findToolById($tools, $taskId);
+                if (!$tool) {
+                    throw new RuntimeException('taskId not found in smoke-tools.json: ' . $taskId);
+                }
+
+                $run = runAllowlistedTask($tool, $root, $timeoutSec);
+                $step['task_id'] = $taskId;
+                $step['task_exit_code'] = $run['exit_code'];
+                $step['task_cwd'] = $run['cwd'];
+
+                $stdoutTail = trim(substr((string)$run['stdout'], -800));
+                $stderrTail = trim(substr((string)$run['stderr'], -800));
+
+                $summary = 'task ' . $taskId . ' exit=' . $run['exit_code'];
+                if ($stdoutTail !== '') {
+                    $summary .= "\nstdout tail:\n" . $stdoutTail;
+                }
+                if ($stderrTail !== '') {
+                    $summary .= "\nstderr tail:\n" . $stderrTail;
+                }
+                $step['result'] = $summary;
+
+                if ((int)$run['exit_code'] !== 0) {
+                    $step['error'] = 'task failed with exit code ' . $run['exit_code'];
+                    if ($failFlowOnError) {
+                        $halted = true;
+                        $step['halted'] = true;
+                        $step['result'] .= "\nflow halted (failFlowOnError=true)";
+                    }
+                }
                 break;
             }
 

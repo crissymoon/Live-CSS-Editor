@@ -50,6 +50,20 @@
             <span class="node-icon">G</span>
             <span class="node-label">Guard</span>
         </div>
+        <div class="palette-node" draggable="true" data-type="agent-task">
+            <span class="node-icon">V</span>
+            <span class="node-label">VS Agent Task</span>
+        </div>
+
+        <div class="palette-sep"></div>
+        <div class="palette-title">Quick Nodes</div>
+        <div class="palette-hint">One-click task nodes</div>
+        <div class="quick-node-list">
+            <button type="button" class="quick-node-btn" data-task-id="code_review_smoke_runner">Code Review Smoke</button>
+            <button type="button" class="quick-node-btn" data-task-id="code_review_security_scan">Security Scan</button>
+            <button type="button" class="quick-node-btn" data-task-id="push_win_repo">Push (Windows)</button>
+            <button type="button" class="quick-node-btn" data-task-id="push_sh_repo">Push (macOS/Linux)</button>
+        </div>
 
         <div class="palette-sep"></div>
         <div class="palette-title">Saved Flows</div>

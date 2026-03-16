@@ -25,6 +25,7 @@ memory (SQLite via ava.keep / ava.recall), and output.
 | memory     | ava.keep / ava.recall  | Persist or retrieve data             |
 | tool       | shell / file ops       | Run a command or file operation      |
 | output     | p(...)                 | Print / display a value              |
+| agent-task | smoke-tools task ID    | Run an allowlisted VS Agent Task     |
 
 ## Requirements
 
@@ -66,9 +67,55 @@ walks the graph in topological order, and emits moon-lang source. The script is
 written to a temp file and run with the moon binary. stdout and stderr are both
 captured and returned so the UI can show them.
 
+For direct runtime execution (`Run AI Direct`), `api/ai_run.php` now supports
+`agent-task` nodes. These nodes execute commands from allowlisted task IDs in
+the root [smoke-tools.json](../../smoke-tools.json) manifest.
+
+### Agent Task Node
+
+- Add `VS Agent Task` node from the palette.
+- Set `taskId` to a task in [smoke-tools.json](../../smoke-tools.json)
+  : example `xcm_auth_guard_login_alt_server`
+- Optional `timeoutSec` and `failFlowOnError` can be configured per node.
+
+Security model:
+
+- Only tasks declared in [smoke-tools.json](../../smoke-tools.json) can run.
+- Task `cwd` is constrained to remain inside repository root.
+- Raw arbitrary shell command text is not executed by this node type.
+
 ## Notes
 
 - The moon binary path is resolved in `api/run.php` -- update `MOON_BIN` if yours
   is somewhere else.
 - Provider keys must be configured in the moon-lang keys file (not stored here).
 - This folder is safe to make public; it contains no secrets.
+
+## Quick Nodes
+
+The palette includes one-click quick nodes for common workflows:
+
+- Code Review Smoke
+- Security Scan
+- Push (Windows)
+- Push (macOS/Linux)
+
+These create `agent-task` nodes prefilled with task IDs from
+[../../smoke-tools.json](../../smoke-tools.json).
+
+## VS Code Plugin (Simple Browser Workspace)
+
+A lightweight extension scaffold is included at:
+
+- [vscode-workflow-plugin/package.json](vscode-workflow-plugin/package.json)
+- [vscode-workflow-plugin/src/extension.js](vscode-workflow-plugin/src/extension.js)
+
+Command:
+
+- `Agent Flow: Open Workflow Workspace`
+
+Behavior:
+
+- Focuses Explorer
+- Opens Agent Flow URL in Simple Browser inside the editor area
+- Attempts to focus chat for streamlined workflow

@@ -84,9 +84,14 @@ func SecurityHeaders(next http.Handler) http.Handler {
 
 // ── JWT auth middleware ───────────────────────────────────────────────────────
 
-// RequireAuth validates the Bearer access token in the Authorization header.
+// RequireAuth validates a Bearer token and enforces access-token use.
 // On success the parsed Claims are stored in the request context.
 func RequireAuth(jwtCfg *config.JWTConfig) func(http.Handler) http.Handler {
+	return RequireTokenUse(jwtCfg, auth.TokenUseAccess)
+}
+
+// RequireTokenUse validates a Bearer token and enforces an expected token use.
+func RequireTokenUse(jwtCfg *config.JWTConfig, expectedUse string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			header := r.Header.Get("Authorization")
@@ -107,6 +112,21 @@ func RequireAuth(jwtCfg *config.JWTConfig) func(http.Handler) http.Handler {
 				return
 			}
 
+			if expectedUse != "" {
+				claimUse := strings.TrimSpace(strings.ToLower(claims.TokenUse))
+				expected := strings.ToLower(expectedUse)
+
+				// Backward compatibility: old tokens without explicit `use` are treated as access.
+				if claimUse == "" {
+					claimUse = auth.TokenUseAccess
+				}
+
+				if claimUse != expected {
+					jsonErr(w, http.StatusUnauthorized, "Token is not valid for this endpoint")
+					return
+				}
+			}
+
 			ctx := context.WithValue(r.Context(), ctxClaims, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -115,7 +135,7 @@ func RequireAuth(jwtCfg *config.JWTConfig) func(http.Handler) http.Handler {
 
 // RequireRole wraps RequireAuth and additionally enforces a minimum role.
 func RequireRole(jwtCfg *config.JWTConfig, role string) func(http.Handler) http.Handler {
-	authMW := RequireAuth(jwtCfg)
+	authMW := RequireTokenUse(jwtCfg, auth.TokenUseAccess)
 	return func(next http.Handler) http.Handler {
 		return authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims := claimsFromCtx(r)

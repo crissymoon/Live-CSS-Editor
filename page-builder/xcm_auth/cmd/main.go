@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"xcaliburmoon.net/xcm_auth/addons"
 	"xcaliburmoon.net/xcm_auth/api"
 	"xcaliburmoon.net/xcm_auth/config"
 	"xcaliburmoon.net/xcm_auth/db"
@@ -22,7 +23,26 @@ func main() {
 	}
 	cfg := config.Load(envPath)
 	if err := cfg.Validate(); err != nil {
+		if cfg.Security.Profile == "strict" {
+			log.Fatalf("[main] strict profile config validate failed: %v", err)
+		}
 		log.Printf("[main] WARN: config validate: %v", err)
+	}
+
+	if cfg.PromptGuard.Enabled && cfg.PromptGuard.StartupHealthCheck {
+		guard := addons.NewPromptGuard(&cfg.PromptGuard)
+		healthCtx, cancel := context.WithTimeout(context.Background(), cfg.PromptGuard.Timeout)
+		err := guard.HealthCheck(healthCtx)
+		cancel()
+		if err != nil {
+			if cfg.PromptGuard.FailOpen {
+				log.Printf("[main] WARN: prompt guard health check failed (fail-open): %v", err)
+			} else {
+				log.Fatalf("[main] prompt guard health check failed (fail-closed): %v", err)
+			}
+		} else {
+			log.Printf("[main] prompt guard health check passed")
+		}
 	}
 
 	// ── Database ──────────────────────────────────────────────────────────────

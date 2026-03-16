@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"xcaliburmoon.net/xcm_auth/addons"
 	"xcaliburmoon.net/xcm_auth/auth"
 	"xcaliburmoon.net/xcm_auth/config"
 	"xcaliburmoon.net/xcm_auth/db"
@@ -20,11 +21,12 @@ type AuthHandlers struct {
 	store  db.Store
 	cfg    *config.Config
 	mailer *email.Mailer
+	guard  *addons.PromptGuard
 }
 
 // NewAuthHandlers creates an AuthHandlers with the given dependencies.
-func NewAuthHandlers(store db.Store, cfg *config.Config, mailer *email.Mailer) *AuthHandlers {
-	return &AuthHandlers{store: store, cfg: cfg, mailer: mailer}
+func NewAuthHandlers(store db.Store, cfg *config.Config, mailer *email.Mailer, guard *addons.PromptGuard) *AuthHandlers {
+	return &AuthHandlers{store: store, cfg: cfg, mailer: mailer, guard: guard}
 }
 
 // ── POST /auth/register ───────────────────────────────────────────────────────
@@ -56,6 +58,9 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := auth.PasswordStrength(req.Password); err != nil {
 		jsonValidation(w, []string{err.Error()})
+		return
+	}
+	if h.blockByPromptGuard(w, r, "register", req.Username, req.Email) {
 		return
 	}
 
@@ -139,6 +144,9 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Identifier = strings.TrimSpace(req.Identifier)
+	if h.blockByPromptGuard(w, r, "login", req.Identifier) {
+		return
+	}
 	ctx := r.Context()
 	ip  := auth.ClientIP(r)
 
@@ -233,7 +241,7 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Issue a short-lived challenge token so the client knows which user to verify
-		challengeToken, _, err := auth.IssueAccessToken(user, &config.JWTConfig{
+		challengeToken, _, err := auth.IssueChallengeToken(user, &config.JWTConfig{
 			AccessSecret:        h.cfg.JWT.AccessSecret,
 			AccessExpiryMinutes: h.cfg.TwoFA.ExpiryMinutes,
 		})
@@ -523,6 +531,9 @@ func (h *AuthHandlers) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	_ = auth.RecordAttempt(ctx, h.store, key, "resend_2fa", &h.cfg.Rate)
 
 	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if h.blockByPromptGuard(w, r, "forgot-password", email) {
+		return
+	}
 	user, err := h.store.GetUserByEmail(ctx, email)
 	if err != nil {
 		log.Printf("[api/auth] ForgotPassword: GetUserByEmail: %v", err)
@@ -561,6 +572,9 @@ func (h *AuthHandlers) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	if err := auth.PasswordStrength(req.NewPassword); err != nil {
 		jsonValidation(w, []string{err.Error()})
+		return
+	}
+	if h.blockByPromptGuard(w, r, "reset-password", req.Email, req.Code) {
 		return
 	}
 
@@ -702,4 +716,27 @@ func (h *AuthHandlers) auditLog(ctx context.Context, userID int64, ip, action, d
 	if err := h.store.CreateAuditLog(ctx, entry); err != nil {
 		log.Printf("[api/auth] auditLog: CreateAuditLog (%q): %v", action, err)
 	}
+}
+
+func (h *AuthHandlers) blockByPromptGuard(w http.ResponseWriter, r *http.Request, endpoint string, values ...string) bool {
+	if h.guard == nil || !h.guard.ShouldCheck(endpoint) {
+		return false
+	}
+
+	decision, err := h.guard.GuardInput(r.Context(), endpoint, values...)
+	if err != nil {
+		log.Printf("[api/auth] prompt guard endpoint=%s error=%v", endpoint, err)
+		if h.guard.FailOpen() {
+			return false
+		}
+		jsonErr(w, http.StatusServiceUnavailable, "optional prompt guard unavailable")
+		return true
+	}
+
+	if h.guard.ShouldBlock(decision) {
+		log.Printf("[api/auth] prompt guard blocked endpoint=%s label=%s confidence=%.4f", endpoint, decision.Label, decision.Confidence)
+		jsonErr(w, http.StatusBadRequest, "request blocked by optional security add-on")
+		return true
+	}
+	return false
 }

@@ -21,13 +21,31 @@ type Claims struct {
 	Username string `json:"usr"`
 	Email    string `json:"eml"`
 	Role     string `json:"role"`
+	TokenUse string `json:"use,omitempty"`
 	jwt.RegisteredClaims
 }
 
+const (
+	TokenUseAccess    = "access"
+	TokenUseChallenge = "challenge"
+)
+
 // IssueAccessToken creates a signed JWT access token for the given user.
 func IssueAccessToken(user *models.User, cfg *config.JWTConfig) (string, time.Time, error) {
+	return issueTokenWithUse(user, cfg, TokenUseAccess)
+}
+
+// IssueChallengeToken creates a short-lived challenge token for pre-2FA flows.
+func IssueChallengeToken(user *models.User, cfg *config.JWTConfig) (string, time.Time, error) {
+	return issueTokenWithUse(user, cfg, TokenUseChallenge)
+}
+
+func issueTokenWithUse(user *models.User, cfg *config.JWTConfig, tokenUse string) (string, time.Time, error) {
 	if user == nil {
 		return "", time.Time{}, fmt.Errorf("[auth/token] IssueAccessToken: nil user")
+	}
+	if tokenUse == "" {
+		tokenUse = TokenUseAccess
 	}
 	expiresAt := time.Now().UTC().Add(time.Duration(cfg.AccessExpiryMinutes) * time.Minute)
 	claims := Claims{
@@ -35,6 +53,7 @@ func IssueAccessToken(user *models.User, cfg *config.JWTConfig) (string, time.Ti
 		Username: user.Username,
 		Email:    user.Email,
 		Role:     user.Role,
+		TokenUse: tokenUse,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   fmt.Sprintf("%d", user.ID),
 			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
@@ -46,7 +65,7 @@ func IssueAccessToken(user *models.User, cfg *config.JWTConfig) (string, time.Ti
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("[auth/token] IssueAccessToken sign: %w", err)
 	}
-	log.Printf("[auth/token] issued access token for user %d (expires %s)", user.ID, expiresAt.Format(time.RFC3339))
+	log.Printf("[auth/token] issued %s token for user %d (expires %s)", tokenUse, user.ID, expiresAt.Format(time.RFC3339))
 	return signed, expiresAt, nil
 }
 

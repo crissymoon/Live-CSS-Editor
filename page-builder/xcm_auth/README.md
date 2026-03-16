@@ -78,6 +78,47 @@ DB_DRIVER=postgres
 DB_DSN=postgres://user:pass@127.0.0.1:5432/xcm_auth?sslmode=disable
 ```
 
+## Optional Security Add-on: prompt_inj_guard
+
+xcm_auth can optionally call prompt_inj_guard as a request screening add-on.
+It is disabled by default and is not a hard dependency.
+
+Guard service source: [../../dev-tools/agent-flow/prompt_inj_guard/README.md](../../dev-tools/agent-flow/prompt_inj_guard/README.md)
+
+Enable add-on mode via environment:
+
+```env
+PROMPT_GUARD_ENABLED=true
+PROMPT_GUARD_URL=http://127.0.0.1:8765
+PROMPT_GUARD_MODE=monitor
+PROMPT_GUARD_FAIL_OPEN=true
+PROMPT_GUARD_TIMEOUT_MS=1200
+PROMPT_GUARD_BLOCK_THRESHOLD=0.90
+PROMPT_GUARD_ENDPOINTS=register,login,forgot-password,reset-password,admin-create-user
+```
+
+Modes:
+
+- monitor: classify and log flagged input, never blocks requests.
+- block: block flagged requests when confidence is >= PROMPT_GUARD_BLOCK_THRESHOLD.
+
+If PROMPT_GUARD_FAIL_OPEN=true and the add-on is unreachable, requests continue.
+If PROMPT_GUARD_FAIL_OPEN=false and the add-on is unreachable, guarded endpoints return 503.
+
+Strict profile for production hardening:
+
+```env
+SECURITY_PROFILE=strict
+PROMPT_GUARD_ENABLED=true
+PROMPT_GUARD_URL=http://127.0.0.1:8765
+```
+
+`SECURITY_PROFILE=strict` enforces:
+
+- `REQUIRE_HTTPS=true`
+- `PROMPT_GUARD_FAIL_OPEN=false`
+- `PROMPT_GUARD_STARTUP_HEALTHCHECK=true` (server startup is gated on guard health)
+
 ## Core Endpoints
 
 - GET /health
