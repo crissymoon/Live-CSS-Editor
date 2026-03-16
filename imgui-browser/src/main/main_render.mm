@@ -7,9 +7,16 @@
 
 void main_render_loop(const Args& args) {
     double last_server_poll = 0.0;
+    bool   drag_active      = false;
+    bool   left_prev        = false;
+    int    drag_win_x       = 0;
+    int    drag_win_y       = 0;
+    double drag_mouse_x     = 0.0;
+    double drag_mouse_y     = 0.0;
 
     while (!glfwWindowShouldClose(g_win)) {
         // Process macOS events (needed for WKWebView / NSRunLoop).
+#if defined(__APPLE__)
         @autoreleasepool {
             NSEvent* ev;
             while ((ev = [NSApp nextEventMatchingMask:NSEventMaskAny
@@ -21,8 +28,41 @@ void main_render_loop(const Args& args) {
             [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode
                                     beforeDate:[NSDate distantPast]];
         }
+#endif
 
         glfwPollEvents();
+
+        // Window dragging for undecorated windows.
+        // Drag only from the non-interactive top strip so tabs/buttons keep normal behavior.
+        {
+            double mx = 0.0, my = 0.0;
+            glfwGetCursorPos(g_win, &mx, &my);
+            bool left_now = glfwGetMouseButton(g_win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+            bool pressed  = left_now && !left_prev;
+            bool released = !left_now && left_prev;
+
+            const float drag_h = (g_prev_top > 0) ? (float)g_prev_top : (float)TAB_BAR_HEIGHT_PX;
+            bool in_drag_zone = (my >= 0.0 && my <= (double)drag_h);
+
+            if (pressed && in_drag_zone && !g_chrome_has_hover) {
+                drag_active = true;
+                glfwGetWindowPos(g_win, &drag_win_x, &drag_win_y);
+                drag_mouse_x = mx;
+                drag_mouse_y = my;
+            }
+
+            if (drag_active && left_now) {
+                int nx = drag_win_x + (int)(mx - drag_mouse_x);
+                int ny = drag_win_y + (int)(my - drag_mouse_y);
+                glfwSetWindowPos(g_win, nx, ny);
+            }
+
+            if (released) {
+                drag_active = false;
+            }
+
+            left_prev = left_now;
+        }
 
         double now = glfwGetTime();
         fps_host_tick(g_state, now);
@@ -103,7 +143,9 @@ void main_render_loop(const Args& args) {
         }
 
         // ── Dear ImGui frame ─────────────────────────────────────────
+    #if defined(__APPLE__)
         @try {
+    #endif
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -149,6 +191,7 @@ void main_render_loop(const Args& args) {
             glfwGetCursorPos(g_win, &mx, &my);
             bool over_bottom_chrome = g_prev_bot > 0 &&
                                       (my > (double)(g_state.win_h - g_prev_bot));
+#if defined(__APPLE__)
             if (over_bottom_chrome) {
                 ImGuiMouseCursor want = ImGui::GetMouseCursor();
                 if (want == ImGuiMouseCursor_TextInput)
@@ -166,6 +209,9 @@ void main_render_loop(const Args& args) {
                 else
                     [[NSCursor arrowCursor] set];
             }
+#else
+            (void)over_bottom_chrome;
+#endif
         }
 
         glViewport(0, 0, g_fb_w, g_fb_h);
@@ -174,12 +220,14 @@ void main_render_loop(const Args& args) {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(g_win);
 
+#if defined(__APPLE__)
         } @catch (NSException* e) {
             NSString* msg = [NSString stringWithFormat:@"name=%@ reason=%@\n%@",
                              e.name, e.reason,
                              [e.callStackSymbols componentsJoinedByString:@"\n"]];
             xcm_write_crash("ObjC exception in render loop (frame skipped)", msg.UTF8String);
         }
+#endif
     } // end render loop
 
     // Persist session data on clean exit

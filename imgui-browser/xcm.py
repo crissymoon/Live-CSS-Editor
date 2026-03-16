@@ -65,6 +65,7 @@ BUILD_DIR     = os.path.join(SCRIPT_DIR, "build")
 SRC_DIR       = os.path.join(SCRIPT_DIR, "src")
 PHP_WASM_DIR  = os.path.join(SCRIPT_DIR, "php-wasm-project")
 PID_FILE      = os.path.join(SCRIPT_DIR, ".wasm-server.pid")
+VENDOR_DIR    = os.path.join(SCRIPT_DIR, "vendor")
 
 OS = platform.system()  # "Darwin" | "Linux" | "Windows"
 
@@ -331,6 +332,132 @@ def _port_open(host: str, port: int) -> bool:
     except OSError:
         return False
 
+
+# ---------------------------------------------------------------------------
+# Dependency bootstrap
+# ---------------------------------------------------------------------------
+def _git_clone_if_missing(name: str, url: str, tag: str) -> bool:
+    dest = os.path.join(VENDOR_DIR, name)
+    if os.path.isdir(dest):
+        return True
+
+    git = shutil.which("git")
+    if not git:
+        err(f"git not found; cannot fetch missing dependency: {name}")
+        return False
+
+    os.makedirs(VENDOR_DIR, exist_ok=True)
+    info(f"Fetching dependency: {name} ({tag})")
+    cmd = [git, "clone", "--branch", tag, "--depth", "1", url, dest]
+    result = subprocess.run(cmd)
+    if result.returncode != 0:
+        err(f"Failed to clone dependency: {name}")
+        return False
+    return True
+
+
+def _find_webview2_sdk() -> tuple[str | None, str | None]:
+    """
+    Return (include_dir, static_lib_path) for WebView2 SDK, or (None, None).
+    Supports both vendor/webview2/include layout and NuGet package layout.
+    """
+    candidates = [
+        (
+            os.path.join(VENDOR_DIR, "webview2", "include"),
+            os.path.join(VENDOR_DIR, "webview2", "lib", "x64", "WebView2LoaderStatic.lib"),
+        ),
+    ]
+
+    webview2_root = os.path.join(VENDOR_DIR, "webview2")
+    if os.path.isdir(webview2_root):
+        for entry in os.listdir(webview2_root):
+            if not entry.lower().startswith("microsoft.web.webview2"):
+                continue
+            pkg_root = os.path.join(webview2_root, entry)
+            candidates.append(
+                (
+                    os.path.join(pkg_root, "build", "native", "include"),
+                    os.path.join(pkg_root, "build", "native", "x64", "WebView2LoaderStatic.lib"),
+                )
+            )
+
+    for include_dir, lib_path in candidates:
+        if os.path.isfile(os.path.join(include_dir, "WebView2.h")) and os.path.isfile(lib_path):
+            return include_dir, lib_path
+
+    return None, None
+
+
+def _install_webview2_sdk() -> bool:
+    include_dir, lib_path = _find_webview2_sdk()
+    if include_dir and lib_path:
+        return True
+
+    nuget = shutil.which("nuget")
+    if not nuget:
+        warn("nuget not found; cannot auto-install WebView2 SDK. Build will use stubs unless SDK is installed.")
+        warn("Install manually: nuget install Microsoft.Web.WebView2 -OutputDirectory vendor/webview2")
+        return False
+
+    os.makedirs(os.path.join(VENDOR_DIR, "webview2"), exist_ok=True)
+    info("Installing WebView2 SDK via NuGet ...")
+    cmd = [
+        nuget,
+        "install",
+        "Microsoft.Web.WebView2",
+        "-OutputDirectory",
+        os.path.join(VENDOR_DIR, "webview2"),
+        "-ExcludeVersion",
+    ]
+    result = subprocess.run(cmd, cwd=SCRIPT_DIR)
+    if result.returncode != 0:
+        warn("NuGet WebView2 install failed; continuing (stub webview build may still compile).")
+        return False
+
+    include_dir, lib_path = _find_webview2_sdk()
+    return bool(include_dir and lib_path)
+
+
+def ensure_native_deps() -> tuple[bool, list[str]]:
+    """
+    Ensure native source dependencies are present.
+    Returns (ok, cmake_extra_args).
+    """
+    deps = [
+        ("imgui", "https://github.com/ocornut/imgui.git", "v1.91.5"),
+        ("glfw", "https://github.com/glfw/glfw.git", "3.4"),
+        ("httplib", "https://github.com/yhirose/cpp-httplib.git", "v0.18.1"),
+    ]
+
+    ok = True
+    for name, url, tag in deps:
+        ok = _git_clone_if_missing(name, url, tag) and ok
+
+    cmake_args: list[str] = []
+    if OS == "Windows":
+        if _install_webview2_sdk():
+            include_dir, lib_path = _find_webview2_sdk()
+            if include_dir and lib_path:
+                cmake_args.extend([
+                    f"-DWEBVIEW2_INCLUDE_DIR={include_dir}",
+                    f"-DWEBVIEW2_LOADER_LIB={lib_path}",
+                ])
+        else:
+            warn("Proceeding without WebView2 SDK auto-detection; browser tab rendering may be disabled.")
+    elif OS == "Linux":
+        pkg_config = shutil.which("pkg-config")
+        if not pkg_config:
+            err("pkg-config is required on Linux (install package: pkg-config).")
+            return False, cmake_args
+
+        check = subprocess.run([pkg_config, "--exists", "webkit2gtk-4.1"], check=False)
+        if check.returncode != 0:
+            err("webkit2gtk-4.1 development files are missing.")
+            err("Install package: libwebkit2gtk-4.1-dev")
+            return False, cmake_args
+
+    return ok, cmake_args
+
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
@@ -339,6 +466,11 @@ def build_app(clean: bool = False) -> bool:
     cmake = shutil.which("cmake")
     if not cmake:
         err("cmake not found.  Install CMake (https://cmake.org).")
+        return False
+
+    deps_ok, cmake_dep_args = ensure_native_deps()
+    if not deps_ok:
+        err("One or more native dependencies failed to install.")
         return False
 
     if clean and os.path.isdir(BUILD_DIR):
@@ -353,6 +485,7 @@ def build_app(clean: bool = False) -> bool:
         "-DCMAKE_BUILD_TYPE=Release",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
     ]
+    configure_cmd += cmake_dep_args
 
     if OS == "Darwin":
         import subprocess as sp

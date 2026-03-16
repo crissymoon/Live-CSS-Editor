@@ -38,9 +38,14 @@
 #include <cstdlib>
 #include <ctime>
 #include <signal.h>
-#include <execinfo.h>
-#include <unistd.h>
-#include <sys/stat.h>
+
+#if defined(_WIN32)
+#  include <direct.h>
+#else
+#  include <execinfo.h>
+#  include <unistd.h>
+#  include <sys/stat.h>
+#endif
 
 // Defined in fps_counter.cpp.
 void fps_host_tick(AppState& st, double now_sec);

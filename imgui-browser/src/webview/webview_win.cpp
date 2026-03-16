@@ -25,6 +25,8 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <shellapi.h>
+#include <wrl.h>
 
 #include <string>
 #include <functional>
@@ -65,6 +67,7 @@ static WebViewCallbacks                   s_cbs;
 static AppState*                          s_state   = nullptr;
 static HWND                               s_hwnd    = nullptr;
 static std::unordered_map<int, WVHandle*> s_handles;
+static bool                               s_com_initialized = false;
 
 // ── webview_init ──────────────────────────────────────────────────────────
 
@@ -72,6 +75,16 @@ void webview_init(void* glfw_window_opaque, AppState* state, WebViewCallbacks cb
 {
     s_state = state;
     s_cbs   = std::move(cbs);
+
+#if XCM_WEBVIEW2_AVAILABLE
+    // WebView2 requires COM on the calling thread.
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (SUCCEEDED(hr) || hr == S_FALSE || hr == RPC_E_CHANGED_MODE) {
+        s_com_initialized = (hr == S_OK || hr == S_FALSE);
+    } else {
+        fprintf(stderr, "[webview_win] CoInitializeEx failed: 0x%08lx\n", hr);
+    }
+#endif
 
 #if XCM_WEBVIEW2_AVAILABLE
     GLFWwindow* gw = static_cast<GLFWwindow*>(glfw_window_opaque);
@@ -352,4 +365,11 @@ void webview_shutdown() {
         webview_destroy(h);
     }
     s_handles.clear();
+
+#if XCM_WEBVIEW2_AVAILABLE
+    if (s_com_initialized) {
+        CoUninitialize();
+        s_com_initialized = false;
+    }
+#endif
 }

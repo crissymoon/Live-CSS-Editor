@@ -53,7 +53,6 @@ target_compile_definitions(imgui PUBLIC
 # Shared: compiles on all platforms.
 set(SOURCES_SHARED
     src/top-of-gui/chrome.cpp
-    src/cmds-and-server/server_manager.cpp
     src/cmds-and-server/cmd_server.cpp
     src/fps_counter.cpp
 )
@@ -77,7 +76,7 @@ set(SOURCES_APPLE
     src/main.mm
     src/main/main_crash.mm
     src/main/main_menu.mm
-    src/top-of-gui/native_chrome.mm
+    src/top-of-gui/native_chrome_stub.cpp
     src/webview/webview_state.mm
     src/webview/webview_delegates.mm
     src/webview/webview_popup.mm
@@ -85,6 +84,7 @@ set(SOURCES_APPLE
     src/webview/webview_nav.mm
     src/webview/webview_cookies.mm
     src/xcm_shell.mm
+    src/cmds-and-server/server_manager.cpp
     src/platform/platform_mac.mm
 )
 
@@ -95,6 +95,7 @@ set(SOURCES_LINUX
     src/webview/webview_linux.cpp
     src/top-of-gui/native_chrome_stub.cpp
     src/xcm_shell_stub.cpp
+    src/cmds-and-server/server_manager.cpp
     src/platform/platform_linux.cpp
 )
 
@@ -103,6 +104,7 @@ set(SOURCES_WIN
     src/main/main_entry_win.cpp
     src/main/main_crash_cross.cpp
     src/webview/webview_win.cpp
+    src/cmds-and-server/server_manager_win.cpp
     src/top-of-gui/native_chrome_stub.cpp
     src/xcm_shell_stub.cpp
     src/platform/platform_win.cpp
@@ -194,23 +196,57 @@ elseif(WIN32)
     )
     target_compile_options(imgui_browser PRIVATE /W3 /MP)
 
-    # WebView2 SDK -- install via NuGet or place headers in vendor/webview2/
+    # WebView2 SDK (Chromium Edge) -- supports either:
+    # 1) vendor/webview2/include + vendor/webview2/lib/x64
+    # 2) NuGet layout: Microsoft.Web.WebView2/build/native/{include,x64}
     set(WEBVIEW2_DIR "${VENDOR}/webview2" CACHE PATH "WebView2 SDK root")
-    if(EXISTS "${WEBVIEW2_DIR}/include")
-        target_include_directories(imgui_browser PRIVATE "${WEBVIEW2_DIR}/include")
+    set(WEBVIEW2_INCLUDE_DIR "" CACHE PATH "Path containing WebView2.h")
+    set(WEBVIEW2_LOADER_LIB "" CACHE FILEPATH "Path to WebView2LoaderStatic.lib")
+
+    if(NOT WEBVIEW2_INCLUDE_DIR)
+        if(EXISTS "${WEBVIEW2_DIR}/include/WebView2.h")
+            set(WEBVIEW2_INCLUDE_DIR "${WEBVIEW2_DIR}/include")
+        else()
+            file(GLOB WEBVIEW2_NUGET_DIRS "${WEBVIEW2_DIR}/Microsoft.Web.WebView2*")
+            foreach(_pkg IN LISTS WEBVIEW2_NUGET_DIRS)
+                if(EXISTS "${_pkg}/build/native/include/WebView2.h")
+                    set(WEBVIEW2_INCLUDE_DIR "${_pkg}/build/native/include")
+                    break()
+                endif()
+            endforeach()
+        endif()
+    endif()
+
+    if(NOT WEBVIEW2_LOADER_LIB)
+        if(EXISTS "${WEBVIEW2_DIR}/lib/x64/WebView2LoaderStatic.lib")
+            set(WEBVIEW2_LOADER_LIB "${WEBVIEW2_DIR}/lib/x64/WebView2LoaderStatic.lib")
+        elseif(WEBVIEW2_INCLUDE_DIR)
+            # If include path came from NuGet package, infer sibling x64 lib dir.
+            get_filename_component(_wv2_native_dir "${WEBVIEW2_INCLUDE_DIR}" DIRECTORY)
+            if(EXISTS "${_wv2_native_dir}/x64/WebView2LoaderStatic.lib")
+                set(WEBVIEW2_LOADER_LIB "${_wv2_native_dir}/x64/WebView2LoaderStatic.lib")
+            endif()
+        endif()
+    endif()
+
+    if(WEBVIEW2_INCLUDE_DIR)
+        target_include_directories(imgui_browser PRIVATE "${WEBVIEW2_INCLUDE_DIR}")
+    endif()
+
+    if(WEBVIEW2_INCLUDE_DIR AND WEBVIEW2_LOADER_LIB)
         target_link_libraries(imgui_browser PRIVATE
             imgui glfw
-            "${WEBVIEW2_DIR}/lib/x64/WebView2LoaderStatic.lib"
-            opengl32 gdi32 user32 shell32 ole32 oleaut32
+            "${WEBVIEW2_LOADER_LIB}"
+            opengl32 gdi32 user32 shell32 ole32 oleaut32 shlwapi
         )
     else()
         message(WARNING
-            "WebView2 SDK not found at ${WEBVIEW2_DIR}. "
-            "Run: nuget install Microsoft.Web.WebView2 -OutputDirectory vendor/webview2 "
-            "or set -DWEBVIEW2_DIR=<path>")
+            "WebView2 SDK not fully resolved. include='${WEBVIEW2_INCLUDE_DIR}' lib='${WEBVIEW2_LOADER_LIB}'. "
+            "Run: nuget install Microsoft.Web.WebView2 -OutputDirectory vendor/webview2"
+        )
         target_link_libraries(imgui_browser PRIVATE
             imgui glfw
-            opengl32 gdi32 user32 shell32 ole32 oleaut32
+            opengl32 gdi32 user32 shell32 ole32 oleaut32 shlwapi
         )
     endif()
 

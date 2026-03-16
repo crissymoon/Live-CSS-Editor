@@ -48,6 +48,11 @@ Servers (spawned as child processes):
 - Node.js image-cache server on 127.0.0.1:7779
 - HTTP command API on 127.0.0.1:9878 (compatible with push.sh)
 
+UI consistency note:
+- The browser chrome is rendered by Dear ImGui on all platforms.
+- Platform-specific native chrome paths are stubbed so tab/toolbar/status styling stays consistent across macOS, Windows, and Linux.
+- GLFW window decorations are disabled so the app does not rely on OS title bars or grab bars.
+
 ## Quick start
 
 ```bash
@@ -125,9 +130,59 @@ Use `xcm.bat` instead of `python xcm.py` -- it locates Python 3 automatically:
 
 ```bat
 xcm.bat list
+xcm.bat build
 xcm.bat run explore
 xcm.bat dry-run wasm
 ```
+
+Windows prerequisites:
+
+- Visual Studio 2022 Build Tools (Desktop C++ workload)
+- CMake on PATH
+- Git on PATH (used to fetch `vendor/` dependencies)
+- NuGet on PATH (recommended, for WebView2 SDK auto-install)
+
+`xcm.py build` now auto-fetches missing native dependencies into `vendor/`.
+If NuGet is available, it also installs the WebView2 SDK automatically.
+If NuGet is not available, the project still builds with WebView stubs, but real browser rendering requires installing Microsoft WebView2 SDK.
+
+WSL note:
+- If WSL was just enabled, reboot Windows first.
+- Then install a distro (example): `wsl --install -d Ubuntu`
+- Build inside WSL using the Linux section below.
+
+One-command Windows helper (build in WSL + open drop page):
+
+```powershell
+cd imgui-browser
+powershell -ExecutionPolicy Bypass -File .\build-and-drop-wsl.ps1
+```
+
+Optional distro override:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build-and-drop-wsl.ps1 -Distro kali-linux
+```
+
+### Linux / Raspberry Pi 5
+
+Build directly on Linux (including Raspberry Pi OS) for best compatibility.
+
+```bash
+cd imgui-browser
+bash build-linux.sh
+```
+
+What this script does:
+- checks Linux prerequisites (`cmake`, `pkg-config`, `git`, `webkit2gtk-4.1`)
+- fetches vendor deps if missing
+- builds into `build-linux/`
+- packages a transferable tarball in `dist/`
+
+Output example:
+- `dist/imgui-browser-linux-aarch64.tar.gz` (Pi 5 / ARM64)
+
+You can quick-drop that tarball to your Pi or other Linux host, extract it, and run `./run.sh` from the extracted folder.
 
 ---
 

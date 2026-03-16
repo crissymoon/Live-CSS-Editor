@@ -2,23 +2,56 @@
 // Uses _NSGetExecutablePath to derive apps_dir relative to the binary.
 
 #include "main_args.h"
-#include <mach-o/dyld.h>
 #include <cstdlib>
+
+#if defined(__APPLE__)
+#  include <mach-o/dyld.h>
+#elif defined(_WIN32)
+#  define WIN32_LEAN_AND_MEAN
+#  define NOMINMAX
+#  include <windows.h>
+#elif defined(__linux__)
+#  include <unistd.h>
+#  include <limits.h>
+#endif
 
 Args parse_args(int argc, char** argv) {
     Args a;
     // Derive apps_dir relative to the executable (binary lives in build/).
     char exe_path[1024] = {};
+    
+#if defined(__APPLE__)
     uint32_t sz = sizeof(exe_path);
     _NSGetExecutablePath(exe_path, &sz);
+#elif defined(_WIN32)
+    GetModuleFileNameA(nullptr, exe_path, (DWORD)sizeof(exe_path));
+#elif defined(__linux__)
+    ssize_t n = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (n > 0) exe_path[n] = '\0';
+#endif
+
     std::string exe_str(exe_path);
+
+#if defined(_WIN32)
+    auto pos = exe_str.rfind('\\');
+#else
     auto pos = exe_str.rfind('/');
+#endif
+
     if (pos != std::string::npos) {
         std::string parent = exe_str.substr(0, pos);
+#if defined(_WIN32)
+        auto p2 = parent.rfind('\\');
+#else
         auto p2 = parent.rfind('/');
+#endif
         if (p2 != std::string::npos) {
             std::string root = parent.substr(0, p2);
+#if defined(_WIN32)
+            a.apps_dir = root + "\\..\\dev-tools\\dev-browser\\apps";
+#else
             a.apps_dir = root + "/../dev-tools/dev-browser/apps";
+#endif
         }
     }
     for (int i = 1; i < argc; i++) {

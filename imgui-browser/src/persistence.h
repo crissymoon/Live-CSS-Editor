@@ -14,6 +14,10 @@
 #include <cstdlib>
 #include <sys/stat.h>
 
+#if defined(_WIN32)
+#  include <direct.h>
+#endif
+
 // ── Data structures ───────────────────────────────────────────────────
 
 struct HistoryEntry {
@@ -27,19 +31,33 @@ struct BookmarkEntry {
     std::string title;
 };
 
+inline int xcm_mkdir_portable(const char* path) {
+#if defined(_WIN32)
+    return _mkdir(path);
+#else
+    return mkdir(path, 0700);
+#endif
+}
+
 // ── Settings + storage directory ─────────────────────────────────────
 
 // Fixed path for the settings file -- always here regardless of data_dir.
 inline std::string xcm_settings_path() {
     const char* home = getenv("HOME");
+#if defined(_WIN32)
+    if (!home || !*home) home = getenv("USERPROFILE");
+#endif
     std::string cfg_dir = std::string(home ? home : ".") + "/.xcm-browser";
-    mkdir(cfg_dir.c_str(), 0700);
+    xcm_mkdir_portable(cfg_dir.c_str());
     return cfg_dir + "/settings.json";
 }
 
 // Default data directory shown to the user.
 inline std::string xcm_default_data_dir() {
     const char* home = getenv("HOME");
+#if defined(_WIN32)
+    if (!home || !*home) home = getenv("USERPROFILE");
+#endif
     return std::string(home ? home : ".") + "/Desktop/crissys-style-tool";
 }
 
@@ -91,7 +109,7 @@ inline std::string xcm_data_dir() {
         }
         fclose(f);
     }
-    mkdir(data_dir.c_str(), 0700);
+    xcm_mkdir_portable(data_dir.c_str());
     return data_dir;
 }
 
