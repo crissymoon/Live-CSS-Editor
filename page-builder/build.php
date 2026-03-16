@@ -56,6 +56,54 @@ function loadOverrides(string $pageDir): array {
     return is_array($data) ? $data : [];
 }
 
+/** Load project-level build options from project.json with strict defaults. */
+function loadBuildProjectOptions(): array {
+  $cfgPath = __DIR__ . '/project.json';
+  $cfg = [];
+  if (file_exists($cfgPath)) {
+    $raw = file_get_contents($cfgPath);
+    if ($raw !== false) {
+      $decoded = json_decode($raw, true);
+      if (is_array($decoded)) {
+        $cfg = $decoded;
+      }
+    }
+  }
+
+  $builderScriptLanguage = strtolower((string)($cfg['builder_script_language'] ?? 'javascript'));
+  if (!in_array($builderScriptLanguage, ['javascript', 'typescript'], true)) {
+    $builderScriptLanguage = 'javascript';
+  }
+
+  $supportedScriptLanguages = $cfg['supported_script_languages'] ?? ['javascript'];
+  if (!is_array($supportedScriptLanguages)) {
+    $supportedScriptLanguages = ['javascript'];
+  }
+  $supportedScriptLanguages = array_values(array_unique(array_filter(array_map(
+    static fn($x) => strtolower(trim((string)$x)),
+    $supportedScriptLanguages
+  ), static fn($x) => in_array($x, ['javascript', 'typescript'], true))));
+  if (empty($supportedScriptLanguages)) {
+    $supportedScriptLanguages = ['javascript'];
+  }
+  if (!in_array($builderScriptLanguage, $supportedScriptLanguages, true)) {
+    $supportedScriptLanguages[] = $builderScriptLanguage;
+  }
+
+  $breadcrumbEnabled = !empty($cfg['breadcrumb_manager_enabled']);
+  $breadcrumbPackage = (string)($cfg['breadcrumb_manager_package'] ?? 'bc_mgr_wasm_with_storage');
+  if (!in_array($breadcrumbPackage, ['bc_mgr_wasm_with_storage', 'bc_mgr_wasm_dropin'], true)) {
+    $breadcrumbPackage = 'bc_mgr_wasm_with_storage';
+  }
+
+  return [
+    'builder_script_language' => $builderScriptLanguage,
+    'supported_script_languages' => $supportedScriptLanguages,
+    'breadcrumb_manager_enabled' => $breadcrumbEnabled,
+    'breadcrumb_manager_package' => $breadcrumbPackage,
+  ];
+}
+
 /** Merge base settings with any saved overrides for an element ID */
 function mergeSettings(string $id, array $settings, array $overrides): array {
     if (isset($overrides[$id]) && is_array($overrides[$id])) {
@@ -714,10 +762,16 @@ function buildPageData(string $page, string $pagesRoot, array $slugMap = []): ar
     }
     $body .= renderFooter($footer, $overrides);
 
+    $projectOptions = loadBuildProjectOptions();
+
     $title = $header['brand']['text'] ?? ucfirst($page);
     $html  = buildHtmlShell($body, $title, [
         'headerBg'      => $header['settings']['bg'] ?? '#1a1a2e',
         'navCollapseAt' => (int)($header['navSettings']['navCollapseAt'] ?? 640),
+      'builderScriptLanguage' => $projectOptions['builder_script_language'],
+      'supportedScriptLanguages' => $projectOptions['supported_script_languages'],
+      'breadcrumbManagerEnabled' => $projectOptions['breadcrumb_manager_enabled'],
+      'breadcrumbManagerPackage' => $projectOptions['breadcrumb_manager_package'],
     ]);
 
     return ['html' => $html, 'title' => $title, 'bytes_raw' => strlen($html)];
@@ -731,6 +785,32 @@ function buildHtmlShell(string $body, string $pageTitle, array $allSettings): st
     $headerBg = $allSettings['headerBg'] ?? '#1a1a2e';
     $bp       = (int)($allSettings['navCollapseAt'] ?? 640); /* mobile nav breakpoint in px */
     $desc     = htmlspecialchars($allSettings['description'] ?? $pageTitle, ENT_QUOTES);
+  $builderScriptLanguage = htmlspecialchars((string)($allSettings['builderScriptLanguage'] ?? 'javascript'), ENT_QUOTES);
+
+  $supportedScriptLanguages = $allSettings['supportedScriptLanguages'] ?? ['javascript'];
+  if (!is_array($supportedScriptLanguages)) {
+    $supportedScriptLanguages = ['javascript'];
+  }
+  $supportedScriptLanguagesCsv = htmlspecialchars(implode(',', $supportedScriptLanguages), ENT_QUOTES);
+
+  $breadcrumbEnabled = !empty($allSettings['breadcrumbManagerEnabled']);
+  $breadcrumbPackage = (string)($allSettings['breadcrumbManagerPackage'] ?? 'bc_mgr_wasm_with_storage');
+  if (!in_array($breadcrumbPackage, ['bc_mgr_wasm_with_storage', 'bc_mgr_wasm_dropin'], true)) {
+    $breadcrumbPackage = 'bc_mgr_wasm_with_storage';
+  }
+  $breadcrumbPackageEsc = htmlspecialchars($breadcrumbPackage, ENT_QUOTES);
+
+  $breadcrumbScripts = '';
+  if ($breadcrumbEnabled) {
+    $base = '/page-builder/public_html/breadcrumb-manager/' . $breadcrumbPackage;
+    if ($breadcrumbPackage === 'bc_mgr_wasm_with_storage') {
+      $breadcrumbScripts = '<script src="' . $base . '/bc_mgr.js" defer></script>';
+    } else {
+      $breadcrumbScripts = '<script src="' . $base . '/bc_mgr_wasm.js" defer></script>'
+        . '<script src="' . $base . '/bc_mgr_wasm_adapter.js" defer></script>';
+    }
+  }
+  $breadcrumbEnabledJs = $breadcrumbEnabled ? 'true' : 'false';
     return <<<HTML
 <!DOCTYPE html>
 <html lang="en">
@@ -740,6 +820,9 @@ function buildHtmlShell(string $body, string $pageTitle, array $allSettings): st
 <meta name="description" content="{$desc}">
 <meta name="theme-color" content="{$headerBg}">
 <meta name="color-scheme" content="dark">
+<meta name="x-pb-builder-script-language" content="{$builderScriptLanguage}">
+<meta name="x-pb-supported-script-languages" content="{$supportedScriptLanguagesCsv}">
+<meta name="x-pb-breadcrumb-package" content="{$breadcrumbPackageEsc}">
 <title>{$pageTitle}</title>
 <!-- Preconnect to font CDN used by monospace stack -->
 <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
@@ -945,7 +1028,15 @@ header nav > ul > li > .pb-dropdown > li > a:focus-visible { background: rgba(99
 <body>
 {$body}
 <!-- Built by page-builder/build.php | DO NOT EDIT MANUALLY -->
+{$breadcrumbScripts}
 <script>
+window.PB_BUILD_OPTIONS = {
+  builderScriptLanguage: '{$builderScriptLanguage}',
+  supportedScriptLanguages: '{$supportedScriptLanguagesCsv}'.split(',').filter(Boolean),
+  breadcrumbManagerEnabled: {$breadcrumbEnabledJs},
+  breadcrumbManagerPackage: '{$breadcrumbPackageEsc}'
+};
+
 /* Hamburger nav toggle -- needed when pb-responsive.js is not loaded */
 (function () {
   try {
@@ -1122,6 +1213,10 @@ header nav > ul > li > .pb-dropdown > li > a:focus-visible { background: rgba(99
  * ------------------------------------------------------------------ */
 (function () {
   try {
+    if (window.PB_BUILD_OPTIONS && window.PB_BUILD_OPTIONS.breadcrumbManagerEnabled) {
+      console.log('[pb-build] breadcrumb runtime enabled:', window.PB_BUILD_OPTIONS.breadcrumbManagerPackage);
+    }
+
     var forms = document.querySelectorAll('.pb-form');
     if (!forms.length) { console.log('[pb-form] no forms found on page'); return; }
 
@@ -1346,9 +1441,15 @@ try {
 // Get page title from header brand or first section heading
 $pageTitle = $header['brand']['text'] ?? ucfirst($page);
 
+$projectOptions = loadBuildProjectOptions();
+
 $allSettings = [
     'headerBg'      => $header['settings']['bg'] ?? '#1a1a2e',
     'navCollapseAt' => (int)($header['navSettings']['navCollapseAt'] ?? 640),
+  'builderScriptLanguage' => $projectOptions['builder_script_language'],
+  'supportedScriptLanguages' => $projectOptions['supported_script_languages'],
+  'breadcrumbManagerEnabled' => $projectOptions['breadcrumb_manager_enabled'],
+  'breadcrumbManagerPackage' => $projectOptions['breadcrumb_manager_package'],
 ];
 $html = buildHtmlShell($body, $pageTitle, $allSettings);
 

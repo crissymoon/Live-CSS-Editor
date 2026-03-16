@@ -64,8 +64,15 @@ if (file_exists($deployLog)) {
     }
 }
 
-// Read project config (index page + slug map)
-$projectConfig    = ['index_page' => '', 'slugs' => []];
+// Read project config (index page + slug map + builder script language settings)
+$projectConfig    = [
+    'index_page' => '',
+    'slugs' => [],
+    'builder_script_language' => 'javascript',
+    'supported_script_languages' => ['javascript'],
+    'breadcrumb_manager_enabled' => false,
+    'breadcrumb_manager_package' => 'bc_mgr_wasm_with_storage',
+];
 $projectConfigFile = __DIR__ . '/project.json';
 if (file_exists($projectConfigFile)) {
     $pcRaw = file_get_contents($projectConfigFile);
@@ -75,6 +82,19 @@ if (file_exists($projectConfigFile)) {
     }
 }
 $projectConfig['slugs'] = is_array($projectConfig['slugs'] ?? null) ? $projectConfig['slugs'] : [];
+$projectConfig['supported_script_languages'] = is_array($projectConfig['supported_script_languages'] ?? null)
+    ? array_values($projectConfig['supported_script_languages'])
+    : ['javascript'];
+$projectConfig['builder_script_language'] = is_string($projectConfig['builder_script_language'] ?? null)
+    ? strtolower($projectConfig['builder_script_language'])
+    : 'javascript';
+if (!in_array($projectConfig['builder_script_language'], ['javascript', 'typescript'], true)) {
+    $projectConfig['builder_script_language'] = 'javascript';
+}
+$projectConfig['breadcrumb_manager_enabled'] = !empty($projectConfig['breadcrumb_manager_enabled']);
+if (!in_array((string)($projectConfig['breadcrumb_manager_package'] ?? 'bc_mgr_wasm_with_storage'), ['bc_mgr_wasm_with_storage', 'bc_mgr_wasm_dropin'], true)) {
+    $projectConfig['breadcrumb_manager_package'] = 'bc_mgr_wasm_with_storage';
+}
 
 // Resolve base URL so relative assets/API paths work in both modes:
 // 1) php -S -t page-builder  -> /index.php
@@ -582,6 +602,45 @@ if ($docRoot !== '') {
             </select>
         </div>
 
+        <div class="settings-row">
+            <label>builder script language</label>
+            <select id="pb-builder-script-language">
+                <option value="javascript" <?= ($projectConfig['builder_script_language'] ?? 'javascript') === 'javascript' ? 'selected' : '' ?>>javascript</option>
+                <option value="typescript" <?= ($projectConfig['builder_script_language'] ?? '') === 'typescript' ? 'selected' : '' ?>>typescript</option>
+            </select>
+        </div>
+
+        <div class="settings-row" style="align-items:flex-start;">
+            <label style="padding-top:6px;">enabled script languages</label>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:11px;">
+                    <input type="checkbox" class="pb-script-lang" value="javascript"
+                        <?= in_array('javascript', $projectConfig['supported_script_languages'] ?? [], true) ? 'checked' : '' ?>>
+                    javascript
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:11px;">
+                    <input type="checkbox" class="pb-script-lang" value="typescript"
+                        <?= in_array('typescript', $projectConfig['supported_script_languages'] ?? [], true) ? 'checked' : '' ?>>
+                    typescript
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-row" style="align-items:flex-start;">
+            <label style="padding-top:6px;">breadcrumb manager</label>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:11px;">
+                    <input type="checkbox" id="pb-breadcrumb-enabled"
+                        <?= !empty($projectConfig['breadcrumb_manager_enabled']) ? 'checked' : '' ?>>
+                    enable breadcrumb runtime in built pages
+                </label>
+                <select id="pb-breadcrumb-package" style="min-width:280px;">
+                    <option value="bc_mgr_wasm_with_storage" <?= ($projectConfig['breadcrumb_manager_package'] ?? '') === 'bc_mgr_wasm_with_storage' ? 'selected' : '' ?>>bc_mgr_wasm_with_storage (stateful)</option>
+                    <option value="bc_mgr_wasm_dropin" <?= ($projectConfig['breadcrumb_manager_package'] ?? '') === 'bc_mgr_wasm_dropin' ? 'selected' : '' ?>>bc_mgr_wasm_dropin (adapter only)</option>
+                </select>
+            </div>
+        </div>
+
         <div class="slug-table" id="pb-slug-table">
             <div class="slug-table-header">
                 <span>page</span>
@@ -939,6 +998,9 @@ function createPage() {
 function saveProjectConfig() {
     const indexPage = document.getElementById('pb-index-page-select').value;
     const slugs     = collectSlugs();
+    const builderScriptLanguage = getBuilderScriptLanguage();
+    const supportedScriptLanguages = collectSupportedScriptLanguages(builderScriptLanguage);
+    const breadcrumbOptions = getBreadcrumbOptions();
 
     const msgEl = document.getElementById('pb-settings-msg');
     if (!msgEl) { console.error('[pb-index] saveProjectConfig: #pb-settings-msg not found'); return; }
@@ -948,7 +1010,14 @@ function saveProjectConfig() {
     fetch('project-config.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ index_page: indexPage, slugs: slugs })
+        body: JSON.stringify({
+            index_page: indexPage,
+            slugs: slugs,
+            builder_script_language: builderScriptLanguage,
+            supported_script_languages: supportedScriptLanguages,
+            breadcrumb_manager_enabled: breadcrumbOptions.enabled,
+            breadcrumb_manager_package: breadcrumbOptions.packageName
+        })
     })
     .then(function(r) { return r.json(); })
     .then(function(d) {
@@ -980,16 +1049,64 @@ function collectSlugs() {
     return slugs;
 }
 
+function getBuilderScriptLanguage() {
+    var sel = document.getElementById('pb-builder-script-language');
+    if (!sel) return 'javascript';
+    return (sel.value === 'typescript') ? 'typescript' : 'javascript';
+}
+
+function collectSupportedScriptLanguages(builderScriptLanguage) {
+    var selected = [];
+    document.querySelectorAll('.pb-script-lang:checked').forEach(function(input) {
+        if (input.value === 'javascript' || input.value === 'typescript') {
+            selected.push(input.value);
+        }
+    });
+
+    if (selected.indexOf('javascript') === -1) {
+        selected.push('javascript');
+    }
+
+    if (selected.indexOf(builderScriptLanguage) === -1) {
+        selected.push(builderScriptLanguage);
+    }
+
+    return selected;
+}
+
+function getBreadcrumbOptions() {
+    var enabledInput = document.getElementById('pb-breadcrumb-enabled');
+    var packageSelect = document.getElementById('pb-breadcrumb-package');
+    var packageName = packageSelect && packageSelect.value === 'bc_mgr_wasm_dropin'
+        ? 'bc_mgr_wasm_dropin'
+        : 'bc_mgr_wasm_with_storage';
+    return {
+        enabled: !!(enabledInput && enabledInput.checked),
+        packageName: packageName
+    };
+}
+
 function setLandingPage(name) {
     if (!name) { console.error('[pb-index] setLandingPage: no name provided'); return; }
     // Mirror to settings panel select so it stays in sync if user saves from there
     var sel = document.getElementById('pb-index-page-select');
     if (sel) { sel.value = name; } else { console.warn('[pb-index] setLandingPage: select element not found'); }
 
+    var builderScriptLanguage = getBuilderScriptLanguage();
+    var supportedScriptLanguages = collectSupportedScriptLanguages(builderScriptLanguage);
+    var breadcrumbOptions = getBreadcrumbOptions();
+
     fetch('project-config.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ index_page: name, slugs: collectSlugs() })
+        body: JSON.stringify({
+            index_page: name,
+            slugs: collectSlugs(),
+            builder_script_language: builderScriptLanguage,
+            supported_script_languages: supportedScriptLanguages,
+            breadcrumb_manager_enabled: breadcrumbOptions.enabled,
+            breadcrumb_manager_package: breadcrumbOptions.packageName
+        })
     })
     .then(function(r) { return r.json(); })
     .then(function(d) {

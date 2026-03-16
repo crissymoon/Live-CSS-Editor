@@ -72,6 +72,19 @@ All section JSON files follow the schema in
 Drop a new `.json` file into `sections/{type}/` and it appears in the library
 with no registration step.
 
+## External Language + Breadcrumb Integrations
+
+The page builder can link external runtime artifacts directly into this folder
+using Windows junctions/symlinks:
+
+- `page-builder/bindings/typescript` -> `C:\Users\criss\Desktop\render_eng\bindings\typescript`
+- `page-builder/public_html/breadcrumb-manager` -> `C:\Users\criss\Desktop\bc_mgr\dist`
+
+Project settings now include:
+
+- `builder_script_language` (`javascript` or `typescript`)
+- `supported_script_languages` (array of enabled script languages)
+
 ## xcm-editor.db
 
 Shared project-level SQLite database scanned by the admin db-browser tool.

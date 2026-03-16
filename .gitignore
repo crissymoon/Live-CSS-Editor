@@ -131,3 +131,7 @@ dev-tools/code-review/uml/out/*.ppm
 dev-tools/code-review/uml/out/*.png
 dev-tools/code-review/uml/out/*.pnm
 dev-tools/code-review/uml/render/Manifest.toml
+
+# page-builder local external integration links (Windows junction/symlink targets)
+page-builder/bindings/typescript/
+page-builder/public_html/breadcrumb-manager/

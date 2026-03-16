@@ -49,7 +49,15 @@ $pagesRoot  = __DIR__ . '/pages';
 // ---- Load helper -----------------------------------------------------------
 
 function loadProjectConfig(string $configFile): array {
-    $defaults = ['index_page' => '', 'slugs' => [], 'updated_at' => ''];
+    $defaults = [
+        'index_page' => '',
+        'slugs' => [],
+        'builder_script_language' => 'javascript',
+        'supported_script_languages' => ['javascript'],
+        'breadcrumb_manager_enabled' => false,
+        'breadcrumb_manager_package' => 'bc_mgr_wasm_with_storage',
+        'updated_at' => '',
+    ];
     if (!file_exists($configFile)) {
         return $defaults;
     }
@@ -63,7 +71,23 @@ function loadProjectConfig(string $configFile): array {
         error_log('[project-config] project.json contains invalid JSON: ' . json_last_error_msg());
         return $defaults;
     }
-    return array_merge($defaults, $data);
+    $cfg = array_merge($defaults, $data);
+
+    if (!is_array($cfg['slugs'] ?? null)) {
+        $cfg['slugs'] = [];
+    }
+    if (!is_array($cfg['supported_script_languages'] ?? null)) {
+        $cfg['supported_script_languages'] = ['javascript'];
+    }
+    if (!in_array((string)($cfg['builder_script_language'] ?? 'javascript'), ['javascript', 'typescript'], true)) {
+        $cfg['builder_script_language'] = 'javascript';
+    }
+    $cfg['breadcrumb_manager_enabled'] = !empty($cfg['breadcrumb_manager_enabled']);
+    if (!in_array((string)($cfg['breadcrumb_manager_package'] ?? 'bc_mgr_wasm_with_storage'), ['bc_mgr_wasm_with_storage', 'bc_mgr_wasm_dropin'], true)) {
+        $cfg['breadcrumb_manager_package'] = 'bc_mgr_wasm_with_storage';
+    }
+
+    return $cfg;
 }
 
 // ---- GET ------------------------------------------------------------------
@@ -103,6 +127,8 @@ if (!is_array($body)) {
     cfgErr('Request body must be a JSON object');
 }
 
+$currentCfg = loadProjectConfig($configFile);
+
 // Validate index_page
 $indexPage = trim($body['index_page'] ?? '');
 if ($indexPage !== '' && !preg_match('/^[a-z0-9_-]+$/i', $indexPage)) {
@@ -133,9 +159,60 @@ foreach ($rawSlugs as $pageName => $slug) {
     $slugs[$pageName] = $slug;
 }
 
+// Validate script language settings
+$allowedScriptLangs = ['javascript', 'typescript'];
+$allowedBreadcrumbPackages = ['bc_mgr_wasm_with_storage', 'bc_mgr_wasm_dropin'];
+
+$builderScriptLanguage = strtolower(trim((string)($body['builder_script_language'] ?? ($currentCfg['builder_script_language'] ?? 'javascript'))));
+if (!in_array($builderScriptLanguage, $allowedScriptLangs, true)) {
+    cfgErr('builder_script_language must be one of: javascript, typescript');
+}
+
+$supportedScriptLanguagesRaw = $body['supported_script_languages'] ?? ($currentCfg['supported_script_languages'] ?? ['javascript']);
+if (!is_array($supportedScriptLanguagesRaw)) {
+    cfgErr('supported_script_languages must be an array');
+}
+
+$supportedScriptLanguages = [];
+foreach ($supportedScriptLanguagesRaw as $lang) {
+    $lang = strtolower(trim((string)$lang));
+    if ($lang === '') {
+        continue;
+    }
+    if (!in_array($lang, $allowedScriptLangs, true)) {
+        cfgErr('supported_script_languages contains unsupported value: ' . $lang);
+    }
+    if (!in_array($lang, $supportedScriptLanguages, true)) {
+        $supportedScriptLanguages[] = $lang;
+    }
+}
+
+if (empty($supportedScriptLanguages)) {
+    $supportedScriptLanguages = ['javascript'];
+}
+
+if (!in_array($builderScriptLanguage, $supportedScriptLanguages, true)) {
+    $supportedScriptLanguages[] = $builderScriptLanguage;
+}
+
+$breadcrumbManagerEnabled = $body['breadcrumb_manager_enabled'] ?? ($currentCfg['breadcrumb_manager_enabled'] ?? false);
+$breadcrumbManagerEnabled = filter_var($breadcrumbManagerEnabled, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+if ($breadcrumbManagerEnabled === null) {
+    cfgErr('breadcrumb_manager_enabled must be a boolean');
+}
+
+$breadcrumbManagerPackage = trim((string)($body['breadcrumb_manager_package'] ?? ($currentCfg['breadcrumb_manager_package'] ?? 'bc_mgr_wasm_with_storage')));
+if (!in_array($breadcrumbManagerPackage, $allowedBreadcrumbPackages, true)) {
+    cfgErr('breadcrumb_manager_package must be one of: bc_mgr_wasm_with_storage, bc_mgr_wasm_dropin');
+}
+
 $cfg = [
     'index_page' => $indexPage,
     'slugs'      => $slugs,
+    'builder_script_language' => $builderScriptLanguage,
+    'supported_script_languages' => $supportedScriptLanguages,
+    'breadcrumb_manager_enabled' => $breadcrumbManagerEnabled,
+    'breadcrumb_manager_package' => $breadcrumbManagerPackage,
     'updated_at' => date('c'),
 ];
 

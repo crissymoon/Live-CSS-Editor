@@ -15,14 +15,48 @@
   "contributes": {
     "commands": [
       {
+        "command": "agentFlow.openLaunchProfile",
+        "title": "Agent Flow: Open Launch Profile"
+      },
+      {
         "command": "agentFlow.openWorkflowWorkspace",
         "title": "Agent Flow: Open Workflow Workspace"
       },
       {
         "command": "agentFlow.startAndOpenWorkflow",
         "title": "Agent Flow: Start Server and Open Workflow"
+      },
+      {
+        "command": "agentFlow.startFullServerAndOpenWorkflow",
+        "title": "Agent Flow: Start Full Server Stack and Open Workflow"
+      },
+      {
+        "command": "agentFlow.startPhpWasmAndOpen",
+        "title": "Agent Flow: Start PHP-WASM and Open Demo"
+      },
+      {
+        "command": "agentFlow.openSettings",
+        "title": "Agent Flow: Open Settings"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentFlow",
+          "title": "Agent Flow",
+          "icon": "images/agent-flow-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentFlow": [
+        {
+          "id": "agentFlow.quickOptions",
+          "name": "Quick Options",
+          "icon": "images/agent-flow-activity.svg"
+        }
+      ]
+    },
     "configuration": {
       "title": "Agent Flow Workflow",
       "properties": {
@@ -56,6 +90,48 @@
           "type": "string",
           "default": "cd '${workspaceFolder}' && php -S 127.0.0.1:9090 -t dev-tools/agent-flow",
           "description": "Server startup command used on macOS/Linux in the Agent Flow terminal. Supports ${workspaceFolder}."
+        },
+        "agentFlow.fullServerUrl": {
+          "type": "string",
+          "default": "https://localhost:8443/dev-tools/agent-flow/",
+          "description": "URL opened after starting the full server stack workflow."
+        },
+        "agentFlow.fullServerStartupWaitMs": {
+          "type": "number",
+          "default": 22000,
+          "minimum": 0,
+          "description": "Milliseconds to wait for full server stack URL readiness."
+        },
+        "agentFlow.fullServerCommandWindows": {
+          "type": "string",
+          "default": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"Set-Location '${workspaceFolder}'; bash server/start.sh\"",
+          "description": "Startup command for full server stack on Windows. Supports ${workspaceFolder}."
+        },
+        "agentFlow.fullServerCommandUnix": {
+          "type": "string",
+          "default": "cd '${workspaceFolder}' && bash server/start.sh",
+          "description": "Startup command for full server stack on macOS/Linux. Supports ${workspaceFolder}."
+        },
+        "agentFlow.phpWasmUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8080",
+          "description": "URL opened for the PHP-WASM demo server."
+        },
+        "agentFlow.phpWasmStartupWaitMs": {
+          "type": "number",
+          "default": 12000,
+          "minimum": 0,
+          "description": "Milliseconds to wait for PHP-WASM URL readiness."
+        },
+        "agentFlow.phpWasmCommandWindows": {
+          "type": "string",
+          "default": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"Set-Location '${workspaceFolder}/imgui-browser/php-wasm-project'; node server.js 8080\"",
+          "description": "Startup command for PHP-WASM on Windows. Supports ${workspaceFolder}."
+        },
+        "agentFlow.phpWasmCommandUnix": {
+          "type": "string",
+          "default": "cd '${workspaceFolder}/imgui-browser/php-wasm-project' && node server.js 8080",
+          "description": "Startup command for PHP-WASM on macOS/Linux. Supports ${workspaceFolder}."
         }
       }
     }

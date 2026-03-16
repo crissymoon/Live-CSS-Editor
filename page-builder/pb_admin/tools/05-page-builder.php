@@ -20,6 +20,41 @@ $buildLogPath = dirname(dirname(__DIR__)) . '/deploy/build-log.json';
 $buildLog     = null;
 $buildLogErr  = null;
 
+$projectCfgPath = dirname(dirname(__DIR__)) . '/project.json';
+$projectCfg = [];
+if (file_exists($projectCfgPath)) {
+    $projectRaw = file_get_contents($projectCfgPath);
+    if ($projectRaw !== false) {
+        $decoded = json_decode($projectRaw, true);
+        if (is_array($decoded)) {
+            $projectCfg = $decoded;
+        }
+    }
+}
+
+$builderScriptLanguage = strtolower((string)($projectCfg['builder_script_language'] ?? 'javascript'));
+if (!in_array($builderScriptLanguage, ['javascript', 'typescript'], true)) {
+    $builderScriptLanguage = 'javascript';
+}
+
+$supportedScriptLanguages = $projectCfg['supported_script_languages'] ?? ['javascript'];
+if (!is_array($supportedScriptLanguages)) {
+    $supportedScriptLanguages = ['javascript'];
+}
+$supportedScriptLanguages = array_values(array_unique(array_filter(array_map(
+    static fn($x) => strtolower(trim((string)$x)),
+    $supportedScriptLanguages
+), static fn($x) => in_array($x, ['javascript', 'typescript'], true))));
+if (empty($supportedScriptLanguages)) {
+    $supportedScriptLanguages = ['javascript'];
+}
+
+$breadcrumbEnabled = !empty($projectCfg['breadcrumb_manager_enabled']);
+$breadcrumbPackage = (string)($projectCfg['breadcrumb_manager_package'] ?? 'bc_mgr_wasm_with_storage');
+if (!in_array($breadcrumbPackage, ['bc_mgr_wasm_with_storage', 'bc_mgr_wasm_dropin'], true)) {
+    $breadcrumbPackage = 'bc_mgr_wasm_with_storage';
+}
+
 if (!file_exists($buildLogPath)) {
     $buildLogErr = 'No deploy found yet. Run a staging from the page builder.';
 } else {
@@ -40,6 +75,23 @@ if (!file_exists($buildLogPath)) {
 ?>
 
 <div id="pb-tool-wrap">
+
+<div class="data-table" style="font-size:11px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid rgba(99,102,241,0.15);">
+        <div style="padding:10px 12px;border-right:1px solid rgba(99,102,241,0.1);">
+            <div style="color:#3a3a5a;font-size:10px;letter-spacing:0.08em;margin-bottom:4px;">visual editor script mode</div>
+            <div style="color:#a0a0c0;"><?= htmlspecialchars($builderScriptLanguage) ?></div>
+        </div>
+        <div style="padding:10px 12px;border-right:1px solid rgba(99,102,241,0.1);">
+            <div style="color:#3a3a5a;font-size:10px;letter-spacing:0.08em;margin-bottom:4px;">enabled script languages</div>
+            <div style="color:#a0a0c0;"><?= htmlspecialchars(implode(', ', $supportedScriptLanguages)) ?></div>
+        </div>
+        <div style="padding:10px 12px;">
+            <div style="color:#3a3a5a;font-size:10px;letter-spacing:0.08em;margin-bottom:4px;">breadcrumb runtime</div>
+            <div style="color:#a0a0c0;"><?= $breadcrumbEnabled ? 'enabled' : 'disabled' ?> (<?= htmlspecialchars($breadcrumbPackage) ?>)</div>
+        </div>
+    </div>
+</div>
 
 <?php if ($buildLogErr): ?>
     <p style="font-size:11px;color:#5555a0;"><?= htmlspecialchars($buildLogErr) ?></p>
@@ -118,6 +170,13 @@ if (!file_exists($buildLogPath)) {
 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
     <a href="<?= htmlspecialchars(($pbRoot !== '' ? $pbRoot : '') . '/', ENT_QUOTES) ?>" style="font-size:11px;color:#6366f1;text-decoration:none;letter-spacing:0.06em;padding:5px 12px;border:1px solid rgba(99,102,241,0.3);">
         open page builder
+    </a>
+    <a href="<?= htmlspecialchars(($pbRoot !== '' ? $pbRoot : '') . '/watcher.php', ENT_QUOTES) ?>" style="font-size:11px;color:#6366f1;text-decoration:none;letter-spacing:0.06em;padding:5px 12px;border:1px solid rgba(99,102,241,0.3);">
+        open visual editor
+    </a>
+    <a href="<?= htmlspecialchars(($pbRoot !== '' ? $pbRoot : '') . '/public_html/breadcrumb-manager/', ENT_QUOTES) ?>" target="_blank"
+       style="font-size:11px;color:#8888a0;text-decoration:none;letter-spacing:0.06em;padding:5px 12px;border:1px solid rgba(99,102,241,0.15);">
+        breadcrumb manager
     </a>
     <a href="<?= htmlspecialchars($deployUrl, ENT_QUOTES) ?>" target="_blank"
        style="font-size:11px;color:#8888a0;text-decoration:none;letter-spacing:0.06em;padding:5px 12px;border:1px solid rgba(99,102,241,0.15);">

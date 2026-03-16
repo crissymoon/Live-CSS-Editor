@@ -12,6 +12,13 @@ require_auth();
 
 $user = current_user();
 
+$pbRoot = rtrim(dirname(ADMIN_URL_PATH), '/');
+if ($pbRoot === '/' || $pbRoot === '\\') {
+    $pbRoot = '';
+}
+$pageBuilderHref = ($pbRoot !== '' ? $pbRoot : '') . '/index.php';
+$breadcrumbHref = ($pbRoot !== '' ? $pbRoot : '') . '/public_html/breadcrumb-manager/';
+
 // ── Discover and load tools ───────────────────────────────────────────────────
 $toolsDir = __DIR__ . '/tools';
 $tools    = [];
@@ -487,7 +494,9 @@ function apiFetch(action, params, cb) {
         </div>
         <div class="sidebar-section">
             <div class="sidebar-label">dev</div>
-            <a href="../page-builder/index.php" class="sidebar-link">page builder</a>
+            <a href="<?= htmlspecialchars($pageBuilderHref, ENT_QUOTES) ?>" class="sidebar-link">page builder</a>
+            <a href="http://localhost:9090" target="_blank" class="sidebar-link">agent flow</a>
+            <a href="<?= htmlspecialchars($breadcrumbHref, ENT_QUOTES) ?>" target="_blank" class="sidebar-link">breadcrumb manager</a>
             <a href="../index.php" class="sidebar-link">style tool</a>
         </div>
     </nav>
