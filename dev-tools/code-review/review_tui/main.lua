@@ -775,12 +775,32 @@ function love.keypressed(key)
         return
     end
 
+    -- Tab (browser focus, no path editing) → jump to editor.
+    -- Cmd/Ctrl+Right while browser has focus → jump to editor (Mac: Cmd+Right,
+    -- Windows/Linux: Ctrl+Right).  This is the reverse of Cmd+Left-at-first-tab
+    -- in the editor which sends focus to the browser.
+    if not path_editing and browser_nav_focus and Editor.has_tabs() then
+        if key == "tab" or (ctrl and key == "right") then
+            browser_nav_focus = false
+            Browser.set_keyboard_focus(false)
+            return
+        end
+    end
+
     if not path_editing and (browser_nav_focus or not Editor.has_tabs()) then
         if not browser_nav_focus then
             browser_nav_focus = true
             Browser.set_keyboard_focus(true)
         end
-        if Browser.keypressed(key) then return end
+        if Browser.keypressed(key) then
+            -- Browser may have cleared its own kb_focus internally (e.g. on Escape
+            -- or after opening a file).  Sync the main-level flag so that subsequent
+            -- key events are routed correctly.
+            if not Browser.has_keyboard_focus() then
+                browser_nav_focus = false
+            end
+            return
+        end
         if key == "escape" then
             browser_nav_focus = false
             Browser.set_keyboard_focus(false)
