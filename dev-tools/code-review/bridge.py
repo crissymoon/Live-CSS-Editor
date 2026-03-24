@@ -145,6 +145,14 @@ def scan_orphaned_code(scan_dir: str) -> list[str]:
     return report_lines
 
 
+def scan_c_lint(scan_dir: str) -> list[str]:
+    out_line(f"[ C/C++ Lint ]  {scan_dir}")
+    script = os.path.join(HERE, "c_linter.py")
+    report_lines: list[str] = []
+    run_scanner([script, scan_dir], scan_dir, report_lines)
+    return report_lines
+
+
 def scan_c_memory_safety(scan_dir: str) -> list[str]:
     out_line(f"[ C Memory Safety ]  {scan_dir}")
     script = os.path.join(HERE, "code_smells.py")
@@ -165,6 +173,7 @@ def run_all(scan_dir: str) -> list[str]:
         ("Code Smells",     scan_code_smells),
         ("Orphaned Code",   scan_orphaned_code),
         ("C Memory Safety", scan_c_memory_safety),
+        ("C/C++ Lint",      scan_c_lint),
     ]
     for label, fn in sections:
         out_line("")
@@ -187,6 +196,7 @@ COMMANDS = {
     "code_smells":   (scan_code_smells, "Code Smells"),
     "orphaned_code": (scan_orphaned_code, "Orphaned Code"),
     "c_memory_safety": (scan_c_memory_safety, "C Memory Safety"),
+    "c_lint":        (scan_c_lint,      "C/C++ Lint"),
     "run_all":       (run_all,          "Full Report"),
 }
 

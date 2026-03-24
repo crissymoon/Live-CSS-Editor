@@ -93,11 +93,30 @@ PAT_ORPHAN_C_STATIC_FUNC = re.compile(
 )
 
 UNSAFE_C_CALLS = [
-    (re.compile(r"\bgets\s*\("), "HIGH", "Use of gets() is unsafe and can cause buffer overflows"),
-    (re.compile(r"\bstrcpy\s*\("), "MEDIUM", "Use of strcpy() may overflow destination buffers"),
-    (re.compile(r"\bstrcat\s*\("), "MEDIUM", "Use of strcat() may overflow destination buffers"),
-    (re.compile(r"\bsprintf\s*\("), "HIGH", "Use of sprintf() is unsafe; prefer snprintf()"),
-    (re.compile(r"\bvsprintf\s*\("), "HIGH", "Use of vsprintf() is unsafe; prefer vsnprintf()"),
+    # ---- Buffer overflows ----
+    (re.compile(r"\bgets\s*\("),    "HIGH",   "gets() is unsafe; no bounds check — use fgets()"),
+    (re.compile(r"\bstrcpy\s*\("),  "HIGH",   "strcpy() may overflow destination; use strncpy() or strlcpy()"),
+    (re.compile(r"\bstrcat\s*\("),  "HIGH",   "strcat() may overflow destination; use strncat()"),
+    (re.compile(r"\bsprintf\s*\("), "HIGH",   "sprintf() may overflow; use snprintf()"),
+    (re.compile(r"\bvsprintf\s*\("),"HIGH",   "vsprintf() may overflow; use vsnprintf()"),
+    # scanf(%s) without width limit — pattern catches the format string arg
+    (re.compile(r'\bscanf\s*\(\s*"[^"]*%s'),  "HIGH", 'scanf("%s") has no width limit; use scanf("%Ns")'),
+    (re.compile(r'\bsscanf\s*\([^,]+,\s*"[^"]*%s'), "HIGH",
+     'sscanf("%s") has no width limit; use a width specifier'),
+    # strncpy does not null-terminate when src >= n
+    (re.compile(r"\bstrncpy\s*\("), "MEDIUM", "strncpy() does not guarantee null termination"),
+    # ---- Stack overflow ----
+    (re.compile(r"\balloca\s*\("),  "MEDIUM", "alloca() is not portable and may overflow the stack"),
+    # ---- Command injection ----
+    (re.compile(r"\bsystem\s*\("),  "HIGH",   "system() is vulnerable to command injection"),
+    (re.compile(r"\bpopen\s*\("),   "HIGH",   "popen() is vulnerable to command injection"),
+    # ---- TOCTOU race conditions ----
+    (re.compile(r"\bmktemp\s*\("),  "HIGH",   "mktemp() has a TOCTOU race; use mkstemp()"),
+    (re.compile(r"\btmpnam\s*\("),  "HIGH",   "tmpnam() has a TOCTOU race; use tmpfile() or mkstemp()"),
+    # ---- Error-silent numeric conversions ----
+    (re.compile(r"\batoi\s*\("),    "MEDIUM", "atoi() has no error handling and UB on overflow; use strtol()"),
+    (re.compile(r"\batol\s*\("),    "MEDIUM", "atol() has no error handling and UB on overflow; use strtol()"),
+    (re.compile(r"\batof\s*\("),    "MEDIUM", "atof() has no error handling; use strtod()"),
 ]
 
 

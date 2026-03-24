@@ -39,7 +39,8 @@ BASE_SKIP_FILES = {
 
 # File extensions to scan
 # Skip the GO XCM-AUTH (.go) - handle seperate
-SCAN_EXTENSIONS = {'.c', '.php', '.py', '.js'}
+C_EXTENSIONS = {'.c', '.h', '.cc', '.cpp', '.cxx', '.hh', '.hpp', '.hxx'}
+SCAN_EXTENSIONS = C_EXTENSIONS | {'.php', '.py', '.js'}
 
 
 class GodFunctionScanner:
@@ -75,7 +76,7 @@ class GodFunctionScanner:
         for file_path in self._get_files():
             ext = file_path.suffix.lower()
             
-            if ext == '.c':
+            if ext in C_EXTENSIONS:
                 self._scan_c_file(file_path)
             elif ext == '.php':
                 self._scan_php_file(file_path)

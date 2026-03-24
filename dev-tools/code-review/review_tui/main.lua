@@ -329,6 +329,7 @@ actions.scan_py_audit  = function() run_scan("py_audit",      "Py Audit")      e
 actions.scan_smells    = function() run_scan("code_smells",   "Code Smells")   end
 actions.scan_orphans   = function() run_scan("orphaned_code", "Orphaned Code") end
 actions.scan_c_memsafe = function() run_scan("c_memory_safety", "C Memory Safety") end
+actions.scan_c_lint    = function() run_scan("c_lint",        "C/C++ Lint")    end
 actions.scan_all       = function() run_scan("run_all",       "Run All Scans") end
 actions.toggle_terminal = function() Terminal.toggle() end
 
@@ -494,6 +495,7 @@ local function draw_toolbar()
         { label="Smells",    action=actions.scan_smells    },
         { label="Orphans",   action=actions.scan_orphans   },
         { label="C Safe",    action=actions.scan_c_memsafe },
+        { label="C Lint",    action=actions.scan_c_lint    },
         { label="Terminal",  action=actions.toggle_terminal },
         { label="> All",     action=actions.scan_all, accent=true },
     }
@@ -690,7 +692,7 @@ local function draw_about()
     text_at(mx + 20, my + 50, "Part of the Live CSS Editor Suite.")
     text_at(mx + 20, my + 70, "Built with Love2D + Lua + Python.")
     gc("dim")
-    text_at(mx + 20, my + 100, "Scanners: security_ck / god_funcs / lines_count / py_audit / code_smells / orphaned_code / c_memory_safety")
+    text_at(mx + 20, my + 100, "Scanners: security_ck / god_funcs / lines_count / py_audit / code_smells / orphaned_code / c_memory_safety / c_linter")
     text_at(mx + 20, my + 118, "Reports written to:  dev-tools/code-review/reports/")
     gc("violet")
     local cls = "[ Close ]"
