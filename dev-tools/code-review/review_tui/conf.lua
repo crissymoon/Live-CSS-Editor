@@ -5,6 +5,7 @@ function love.conf(t)
     t.window.resizable  = true
     t.window.minwidth   = 700
     t.window.minheight  = 480
+    t.window.icon       = "ava-moon.png"
     t.window.vsync      = 1
     t.window.highdpi    = false  -- use logical DPI coords; keeps mouse events + rendering consistent
     t.console           = false

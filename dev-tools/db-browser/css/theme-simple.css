@@ -318,6 +318,7 @@ textview {
 textview text {
     background-color: #ffffff;
     color: #111111;
+    caret-color: #111111;
 }
 
 /* treeview base already defined above */

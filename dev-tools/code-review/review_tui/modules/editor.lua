@@ -217,6 +217,9 @@ local function tokenize_line(line, ext)
     return out
 end
 
+-- Forward declaration so open_file (below) can call it before the body is defined.
+local ensure_active_tab_visible
+
 -- ---------------------------------------------
 -- File I/O
 -- ---------------------------------------------
@@ -225,6 +228,7 @@ function M.open_file(path)
     for i, t in ipairs(M.tabs) do
         if t.filepath == path then
             M.cur_idx = i
+            ensure_active_tab_visible()
             return
         end
     end
@@ -237,6 +241,7 @@ function M.open_file(path)
     local tab = new_tab(path, lines)
     M.tabs[#M.tabs+1] = tab
     M.cur_idx = #M.tabs
+    ensure_active_tab_visible()
 end
 
 local function save_tab(t)
@@ -357,7 +362,45 @@ end
 -- ---------------------------------------------
 
 -- tab button geometry cache: { { x, w, close_x } ... }
-local _tab_geom = {}
+local _tab_geom     = {}
+local _tab_scroll_x = 0   -- horizontal scroll offset for the tab bar
+local _tab_bar_x    = 0   -- updated each draw; used by scroll helpers
+local _tab_bar_w    = 0
+local TAB_MAX_W     = 200  -- max pixel width of a single tab
+
+-- Truncate a label to fit inside max_px pixels (using font_sm).
+local function truncate_label(lbl, max_px)
+    if font_sm:getWidth(lbl) <= max_px then return lbl, font_sm:getWidth(lbl) end
+    local ellipsis = "\xe2\x80\xa6"   -- UTF-8 ellipsis character
+    local ew = font_sm:getWidth(ellipsis)
+    local avail = max_px - ew
+    local i = #lbl
+    while i > 0 and font_sm:getWidth(lbl:sub(1, i)) > avail do i = i - 1 end
+    local s = lbl:sub(1, i) .. ellipsis
+    return s, font_sm:getWidth(s)
+end
+
+-- Scroll _tab_scroll_x so the active tab is fully in view.
+ensure_active_tab_visible = function()
+    if #M.tabs == 0 or _tab_bar_w == 0 then return end
+    local tx = 4
+    for i, tab in ipairs(M.tabs) do
+        local name  = tab.filepath:match("([^/]+)$") or tab.filepath
+        local label = (tab.modified and "*" or "") .. name
+        local lw    = font_sm:getWidth(label)
+        local cw    = font_sm:getWidth("x") + 8
+        local tw    = math.min(lw + cw + 20, TAB_MAX_W)
+        if i == M.cur_idx then
+            if tx < _tab_scroll_x then
+                _tab_scroll_x = math.max(0, tx - 4)
+            elseif tx + tw > _tab_scroll_x + _tab_bar_w then
+                _tab_scroll_x = tx + tw - _tab_bar_w + 4
+            end
+            break
+        end
+        tx = tx + tw + 2
+    end
+end
 
 function M.draw(x, y, w, h)
     if not M.has_tabs() then return end
@@ -371,40 +414,70 @@ function M.draw(x, y, w, h)
     love.graphics.setColor(C.border)
     love.graphics.line(x, y + TAB_H, x + w, y + TAB_H)
 
-    _tab_geom = {}
-    local tx = x + 4
+    _tab_bar_x = x
+    _tab_bar_w = w
+    _tab_geom  = {}
     love.graphics.setFont(font_sm)
+
+    -- Compute per-tab widths and total scrollable width.
+    local tab_widths = {}
+    local total_tabs_w = 4
     for i, tab in ipairs(M.tabs) do
-        local name   = (tab.filepath:match("([^/]+)$") or tab.filepath)
+        local name  = tab.filepath:match("([^/]+)$") or tab.filepath
+        local label = (tab.modified and "*" or "") .. name
+        local lw    = font_sm:getWidth(label)
+        local cw    = font_sm:getWidth("x") + 8
+        local tw    = math.min(lw + cw + 20, TAB_MAX_W)
+        tab_widths[i] = tw
+        total_tabs_w  = total_tabs_w + tw + 2
+    end
+
+    -- Clamp scroll.
+    local max_scroll = math.max(0, total_tabs_w - w)
+    _tab_scroll_x = math.max(0, math.min(_tab_scroll_x, max_scroll))
+
+    -- Clip rendering to the tab bar area so tabs don't bleed into other panels.
+    love.graphics.setScissor(x, y, w, TAB_H)
+
+    local tx = x + 4 - _tab_scroll_x
+    for i, tab in ipairs(M.tabs) do
+        local name   = tab.filepath:match("([^/]+)$") or tab.filepath
         local label  = (tab.modified and "*" or "") .. name
-        local lw     = font_sm:getWidth(label)
-        local close_w= font_sm:getWidth("x") + 8
-        local tab_w  = lw + close_w + 20
+        local cw     = font_sm:getWidth("x") + 8
+        local tw     = tab_widths[i]
         local active = (i == M.cur_idx)
 
-        _tab_geom[i] = { x = tx, w = tab_w, close_x = tx + lw + 16 }
+        -- Label area is everything left of the close button.
+        local label_max_px = tw - cw - 20
+        local disp_label, dlw = truncate_label(label, label_max_px)
+        local close_x = tx + dlw + 16
 
-        if active then
-            love.graphics.setColor(C.panel_bg)
-            fill_rect(tx, y + 1, tab_w, TAB_H - 1, 3)
-            love.graphics.setColor(C.accent)
-            fill_rect(tx, y, tab_w, 2)
-        else
-            love.graphics.setColor(C.bg)
-            fill_rect(tx, y + 3, tab_w, TAB_H - 3, 3)
+        _tab_geom[i] = { x = tx, w = tw, close_x = close_x }
+
+        -- Only draw if at least partially visible.
+        if tx + tw > x and tx < x + w then
+            if active then
+                love.graphics.setColor(C.panel_bg)
+                fill_rect(tx, y + 1, tw, TAB_H - 1, 3)
+                love.graphics.setColor(C.accent)
+                fill_rect(tx, y, tw, 2)
+            else
+                love.graphics.setColor(C.bg)
+                fill_rect(tx, y + 3, tw, TAB_H - 3, 3)
+            end
+
+            love.graphics.setColor(active and C.text_bright or C.dim)
+            love.graphics.setFont(font_sm)
+            love.graphics.print(disp_label, tx + 8, y + 5)
+
+            love.graphics.setColor(active and C.grey or C.dark)
+            love.graphics.print("x", close_x, y + 5)
         end
 
-        love.graphics.setColor(active and C.text_bright or C.dim)
-        love.graphics.setFont(font_sm)
-        love.graphics.print(label, tx + 8, y + 5)
-
-        -- close X
-        love.graphics.setColor(active and C.grey or C.dark)
-        local cx = tx + lw + 16
-        love.graphics.print("x", cx, y + 5)
-
-        tx = tx + tab_w + 2
+        tx = tx + tw + 2
     end
+
+    love.graphics.setScissor()
 
     -- ---- editor area ----
     local ey    = y + TAB_H
@@ -559,31 +632,37 @@ function M.keypressed(key, h)
     local t    = M.active_tab()
     if not t   then return false end
 
-    local cmd   = love.keyboard.isDown("lgui","rgui")
-    local ctrl  = love.keyboard.isDown("lctrl","rctrl") or cmd
-    local shift = love.keyboard.isDown("lshift","rshift")
-    local L     = t.cursor.line
-    local CO    = t.cursor.col
+    local cmd        = love.keyboard.isDown("lgui","rgui")
+    local pure_ctrl  = love.keyboard.isDown("lctrl","rctrl")
+    local ctrl       = pure_ctrl or cmd
+    local shift      = love.keyboard.isDown("lshift","rshift")
+    local alt        = love.keyboard.isDown("lalt","ralt")
+    local L          = t.cursor.line
+    local CO         = t.cursor.col
 
     -- close context menu on any key
     if t._ctx then t._ctx = nil end
 
-    -- Cmd+Left / Cmd+Right: switch tabs; Cmd+T: new empty tab
-    if cmd and not love.keyboard.isDown("lctrl","rctrl") then
+    -- Cmd+Left/Right (macOS/Win key) or Alt+Left/Right (Windows): switch tabs
+    -- Cmd+T / Alt+T: new empty tab
+    if (cmd and not pure_ctrl) or (alt and not pure_ctrl and not cmd) then
         if key == "left" then
             if M.cur_idx > 1 then
                 M.cur_idx = M.cur_idx - 1
+                ensure_active_tab_visible()
             else
                 _request_browser_focus = true
             end
             return true
         elseif key == "right" then
             if M.cur_idx < #M.tabs then M.cur_idx = M.cur_idx + 1 end
+            ensure_active_tab_visible()
             return true
         elseif key == "t" then
             local tab = new_tab("untitled", { "" })
             M.tabs[#M.tabs + 1] = tab
             M.cur_idx = #M.tabs
+            ensure_active_tab_visible()
             return true
         end
     end
@@ -620,16 +699,16 @@ function M.keypressed(key, h)
     elseif key == "v" and ctrl then
         paste_into(t, love.system.getClipboardText(), h); return true
 
-    -- Cmd+Shift+I/J/K/L: turbo movement (8-line vertical, word-jump horizontal)
-    elseif key == "i" and cmd and shift then
+    -- Cmd+Shift+I/J/K/L (macOS/Win key) or Ctrl+Shift+I/J/K/L (Windows): turbo movement
+    elseif key == "i" and ctrl and shift then
         t.cursor.line = math.max(1, t.cursor.line - 8)
         clamp_col(t); ensure_scroll(t, h); return true
 
-    elseif key == "k" and cmd and shift then
+    elseif key == "k" and ctrl and shift then
         t.cursor.line = math.min(#t.lines, t.cursor.line + 8)
         clamp_col(t); ensure_scroll(t, h); return true
 
-    elseif key == "j" and cmd and shift then
+    elseif key == "j" and ctrl and shift then
         local line = t.lines[t.cursor.line]
         local col  = t.cursor.col - 1
         if col < 1 then
@@ -644,7 +723,7 @@ function M.keypressed(key, h)
         end
         ensure_scroll(t, h); return true
 
-    elseif key == "l" and cmd and shift then
+    elseif key == "l" and ctrl and shift then
         local line = t.lines[t.cursor.line]
         local len  = #line
         local col  = t.cursor.col
@@ -889,6 +968,7 @@ function M.mousepressed(mx, my, btn, px, py, pw, ph)
                 -- switch tab
                 if btn == 1 then
                     M.cur_idx = i
+                    ensure_active_tab_visible()
                     return true
                 end
             end
@@ -981,10 +1061,27 @@ function M.mousereleased(mx, my, btn)
     return false
 end
 
-function M.wheelmoved(wy, px, py, pw, ph)
+function M.wheelmoved(wy, px, py, pw, ph, mx, my)
     if not M.has_tabs() then return false end
     local t   = M.active_tab()
     if not t  then return false end
+
+    -- Horizontal scroll of the tab bar when mouse hovers over it.
+    if mx and my and my >= py and my < py + TAB_H then
+        local tab_widths_total = 4
+        for _, tab in ipairs(M.tabs) do
+            local name  = tab.filepath:match("([^/]+)$") or tab.filepath
+            local label = (tab.modified and "*" or "") .. name
+            local lw    = font_sm:getWidth(label)
+            local cw    = font_sm:getWidth("x") + 8
+            local tw    = math.min(lw + cw + 20, TAB_MAX_W)
+            tab_widths_total = tab_widths_total + tw + 2
+        end
+        local max_scroll = math.max(0, tab_widths_total - pw)
+        _tab_scroll_x = math.max(0, math.min(max_scroll, _tab_scroll_x - wy * 40))
+        return true
+    end
+
     local vis = visible_lines(ph)
     local max_scr = math.max(0, #t.lines - vis + OVER_ROWS)
     t.scroll  = math.max(0, math.min(max_scr, t.scroll - wy * 3))

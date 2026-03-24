@@ -65,14 +65,20 @@ void zebra_cell_data_func(GtkTreeViewColumn *col G_GNUC_UNUSED,
     gtk_tree_path_free(path);
 
     if (app && app->theme_is_dark) {
-        if (row % 2 == 0)
-            g_object_set(renderer, "cell-background", "#0c071c", NULL);
-        else
-            g_object_set(renderer, "cell-background", "#160e38", NULL);
+        const char *bg = (row % 2 == 0) ? "#0c071c" : "#160e38";
+        g_object_set(renderer,
+                     "cell-background",     bg,
+                     "cell-background-set", TRUE,
+                     "foreground",          "#c8c0e8",
+                     "foreground-set",      TRUE,
+                     NULL);
     } else {
-        if (row % 2 == 0)
-            g_object_set(renderer, "cell-background", "#ffffff", NULL);
-        else
-            g_object_set(renderer, "cell-background", "#e8f0fa", NULL);
+        const char *bg = (row % 2 == 0) ? "#ffffff" : "#e8f0fa";
+        g_object_set(renderer,
+                     "cell-background",     bg,
+                     "cell-background-set", TRUE,
+                     "foreground",          "#1a1a2e",
+                     "foreground-set",      TRUE,
+                     NULL);
     }
 }

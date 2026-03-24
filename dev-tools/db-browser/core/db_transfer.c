@@ -4,10 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <unistd.h>
-#include <libgen.h>
+#include <glib.h>
+#include <glib/gstdio.h>
 
 static char storage_directory[1024] = {0};
 
@@ -22,13 +20,10 @@ bool db_transfer_init(const char *storage_dir) {
     }
 
     // Create directory if it doesn't exist
-    struct stat st = {0};
-    if (stat(storage_dir, &st) == -1) {
-        if (mkdir(storage_dir, 0700) != 0) {
-            fprintf(stderr, "[db-transfer] Failed to create storage directory: %s\n", 
-                    strerror(errno));
-            return false;
-        }
+    if (g_mkdir_with_parents(storage_dir, 0700) != 0) {
+        fprintf(stderr, "[db-transfer] Failed to create storage directory: %s\n",
+                strerror(errno));
+        return false;
     }
 
     strncpy(storage_directory, storage_dir, sizeof(storage_directory) - 1);
@@ -66,14 +61,13 @@ static char* make_storage_path(const char *db_name, const char *extension) {
 
 /* Helper: check if file exists */
 static bool file_exists(const char *path) {
-    struct stat st;
-    return stat(path, &st) == 0;
+    return g_file_test(path, G_FILE_TEST_EXISTS);
 }
 
 /* Helper: get file size */
 static size_t get_file_size(const char *path) {
-    struct stat st;
-    if (stat(path, &st) == 0) {
+    GStatBuf st;
+    if (g_stat(path, &st) == 0) {
         return st.st_size;
     }
     return 0;
@@ -81,8 +75,8 @@ static size_t get_file_size(const char *path) {
 
 /* Helper: get file modification time */
 static time_t get_file_mtime(const char *path) {
-    struct stat st;
-    if (stat(path, &st) == 0) {
+    GStatBuf st;
+    if (g_stat(path, &st) == 0) {
         return st.st_mtime;
     }
     return 0;
@@ -99,81 +93,79 @@ DatabaseInfo** db_transfer_list_databases(int *count) {
     /* Discard any stale cache before rebuilding */
     HASH_CLEAR(hh, db_name_cache);
 
-    DIR *dir = opendir(storage_directory);
+    GError *gerr = NULL;
+
+    /* First pass: count .db files */
+    GDir *dir = g_dir_open(storage_directory, 0, &gerr);
     if (!dir) {
         fprintf(stderr, "[db-transfer] Failed to open storage directory: %s\n",
-                strerror(errno));
+                gerr ? gerr->message : "unknown error");
+        if (gerr) g_error_free(gerr);
         return NULL;
     }
 
-    // First pass: count databases
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_name[0] == '.') continue;
-        
-        size_t len = strlen(entry->d_name);
-        if (len > 3 && strcmp(entry->d_name + len - 3, ".db") == 0) {
+    const gchar *entry;
+    while ((entry = g_dir_read_name(dir)) != NULL) {
+        if (entry[0] == '.') continue;
+        size_t len = strlen(entry);
+        if (len > 3 && strcmp(entry + len - 3, ".db") == 0) {
             (*count)++;
         }
     }
+    g_dir_close(dir);
 
-    if (*count == 0) {
-        closedir(dir);
-        return NULL;
-    }
+    if (*count == 0) return NULL;
 
-    // Allocate array
+    /* Allocate array */
     DatabaseInfo **list = malloc(sizeof(DatabaseInfo*) * (*count));
-    if (!list) {
-        closedir(dir);
+    if (!list) { *count = 0; return NULL; }
+
+    /* Second pass: populate list */
+    gerr = NULL;
+    dir = g_dir_open(storage_directory, 0, &gerr);
+    if (!dir) {
+        free(list);
         *count = 0;
         return NULL;
     }
 
-    // Second pass: populate list
-    rewinddir(dir);
     int index = 0;
-    while ((entry = readdir(dir)) != NULL && index < *count) {
-        if (entry->d_name[0] == '.') continue;
-        
-        size_t len = strlen(entry->d_name);
-        if (len > 3 && strcmp(entry->d_name + len - 3, ".db") == 0) {
+    while ((entry = g_dir_read_name(dir)) != NULL && index < *count) {
+        if (entry[0] == '.') continue;
+
+        size_t len = strlen(entry);
+        if (len > 3 && strcmp(entry + len - 3, ".db") == 0) {
             DatabaseInfo *info = malloc(sizeof(DatabaseInfo));
             if (!info) continue;
 
             memset(info, 0, sizeof(DatabaseInfo));
 
-            // Extract name without extension
-            char *name_copy = strdup(entry->d_name);
+            char *name_copy = strdup(entry);
             char *dot = strrchr(name_copy, '.');
             if (dot) *dot = '\0';
             info->name = name_copy;
 
-            // Build paths
-            info->local_path = make_storage_path(info->name, "db");
+            info->local_path     = make_storage_path(info->name, "db");
             info->encrypted_path = make_storage_path(info->name, "db.enc");
 
-            // Get file info
             if (file_exists(info->local_path)) {
-                info->size = get_file_size(info->local_path);
-                info->modified = get_file_mtime(info->local_path);
+                info->size        = get_file_size(info->local_path);
+                info->modified    = get_file_mtime(info->local_path);
                 info->is_encrypted = false;
             } else if (file_exists(info->encrypted_path)) {
-                info->size = get_file_size(info->encrypted_path);
-                info->modified = get_file_mtime(info->encrypted_path);
+                info->size        = get_file_size(info->encrypted_path);
+                info->modified    = get_file_mtime(info->encrypted_path);
                 info->is_encrypted = true;
                 free(info->local_path);
-                info->local_path = NULL;
+                info->local_path  = NULL;
             }
 
             list[index++] = info;
 
-            /* Register in name-cache for O(1) lookups */
             HASH_ADD_STR(db_name_cache, name, info);
         }
     }
-
-    closedir(dir);
+    g_dir_close(dir);
     *count = index;
     return list;
 }

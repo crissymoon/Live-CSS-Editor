@@ -147,6 +147,7 @@ textview {
 textview text {
     background-color: #080412;
     color: #c8c0e8;
+    caret-color: #c8c0e8;
 }
 
 textview:focus {

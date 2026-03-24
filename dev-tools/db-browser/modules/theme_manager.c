@@ -73,5 +73,20 @@ void on_toggle_theme(GtkWidget *widget, gpointer data) {
                                   state->theme_is_dark ? "Light" : "Dark");
     }
 
+    /* Re-apply cursor color on theme switch (Windows GTK3 doesn't track CSS caret-color) */
+    if (state->query_editor) {
+        G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+        if (state->theme_is_dark) {
+            GdkRGBA fg  = {0.784, 0.753, 0.910, 1.0};  /* #c8c0e8 */
+            GdkRGBA sec = {0.486, 0.361, 0.910, 1.0};  /* #7c5ce8 */
+            gtk_widget_override_cursor(state->query_editor, &fg, &sec);
+        } else {
+            GdkRGBA fg  = {0.102, 0.102, 0.180, 1.0};  /* #1a1a2e */
+            GdkRGBA sec = {0.204, 0.239, 0.800, 1.0};  /* #343dcc */
+            gtk_widget_override_cursor(state->query_editor, &fg, &sec);
+        }
+        G_GNUC_END_IGNORE_DEPRECATIONS
+    }
+
     save_theme_pref(state->theme_is_dark);
 }

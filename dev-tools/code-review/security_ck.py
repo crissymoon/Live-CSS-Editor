@@ -215,7 +215,6 @@ FALSE_POSITIVE_HINTS = [
     "my_api_key",
     "test_key",
     "test_pass",
-    "none",
     "null",
     "undefined",
     "empty",

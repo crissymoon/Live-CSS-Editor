@@ -2,19 +2,33 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <time.h>
+#include <glib.h>
+
+#ifdef _WIN32
+#include <windows.h>
+static char *_trash_dirname(char *path) {
+    char *sep = strrchr(path, '\\');
+    if (!sep) sep = strrchr(path, '/');
+    if (sep) *sep = '\0';
+    return path;
+}
+static void _get_username(char *buf, size_t len) {
+    DWORD sz = (DWORD)len;
+    if (!GetUserNameA(buf, &sz)) strncpy(buf, "unknown", len);
+}
+#else
+#include <sys/stat.h>
 #include <libgen.h>
 #include <unistd.h>
+#define _trash_dirname(p) dirname(p)
+static void _get_username(char *buf, size_t len) {
+    if (getlogin_r(buf, len) != 0) strncpy(buf, "unknown", len);
+}
+#endif
 
 static bool ensure_directory(const char *path) {
-    struct stat st = {0};
-    if (stat(path, &st) == -1) {
-        if (mkdir(path, 0755) != 0) {
-            return false;
-        }
-    }
-    return true;
+    return g_mkdir_with_parents(path, 0755) == 0;
 }
 
 TrashManager* trash_manager_init(const char *source_db_path) {
@@ -24,7 +38,7 @@ TrashManager* trash_manager_init(const char *source_db_path) {
     if (!manager) return NULL;
 
     char *db_path_copy = strdup(source_db_path);
-    char *db_dir = dirname(db_path_copy);
+    char *db_dir = _trash_dirname(db_path_copy);
     
     manager->trash_dir = malloc(strlen(db_dir) + 20);
     if (!manager->trash_dir) {
@@ -151,7 +165,7 @@ bool trash_manager_save_row(TrashManager *manager,
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", localtime(&now));
 
     char username[256] = "unknown";
-    getlogin_r(username, sizeof(username));
+    _get_username(username, sizeof(username));
 
     const char *insert_sql = 
         "INSERT INTO deleted_rows (source_database, table_name, original_rowid, "
@@ -349,7 +363,7 @@ bool trash_manager_save_table(TrashManager *manager,
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", localtime(&now));
 
     char username[256] = "unknown";
-    getlogin_r(username, sizeof(username));
+    _get_username(username, sizeof(username));
 
     const char *insert_sql = 
         "INSERT INTO dropped_tables (source_database, table_name, create_sql, "

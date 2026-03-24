@@ -9,7 +9,7 @@ char *get_recent_config_path(void) {
     const char *home = g_get_home_dir();
     if (!home) {
         fprintf(stderr, "[db-browser] get_recent_config_path: g_get_home_dir returned NULL\n");
-        return g_strdup("/tmp/crissy-db-browser-recent.txt");
+        return g_build_filename(g_get_tmp_dir(), "crissy-db-browser-recent.txt", NULL);
     }
     char *dir = g_build_filename(home, ".config", "crissy-db-browser", NULL);
     if (g_mkdir_with_parents(dir, 0755) != 0) {
@@ -26,8 +26,8 @@ void populate_recent_combo(AppState *state) {
         return;
     }
 
-    GtkWidget *popover = gtk_menu_button_get_popover(
-                             GTK_MENU_BUTTON(state->recent_btn));
+    GtkWidget *popover = GTK_WIDGET(gtk_menu_button_get_popover(
+                             GTK_MENU_BUTTON(state->recent_btn)));
     if (!popover) return;
 
     GtkWidget *box = gtk_bin_get_child(GTK_BIN(popover));

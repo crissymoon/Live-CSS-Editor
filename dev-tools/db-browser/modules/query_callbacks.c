@@ -367,13 +367,24 @@ void on_execute_query(GtkWidget *widget, gpointer data) {
     QueryResult *result = db_manager_execute_query(state->db_manager, query);
     g_free(query);
 
-    if (!result) {
-        show_error_dialog("Query Error", "Failed to execute query.");
-        return;
+    /* Helper lambda-style: clear any previous error label */
+    if (state->query_error_label) {
+        gtk_label_set_text(GTK_LABEL(state->query_error_label), "");
+        gtk_widget_hide(state->query_error_label);
     }
 
-    if (result->error) {
-        show_error_dialog("SQL Error", result->error);
+    if (!result) {
+        const char *db_err = db_manager_get_last_error(state->db_manager);
+        const char *msg = db_err ? db_err : "Failed to execute query.";
+        if (state->query_error_label) {
+            char markup[1024];
+            snprintf(markup, sizeof(markup), "<span foreground='#e05555'>Error: %s</span>", msg);
+            gtk_label_set_markup(GTK_LABEL(state->query_error_label), markup);
+            gtk_widget_show(state->query_error_label);
+        } else {
+            show_error_dialog("SQL Error", msg);
+        }
+        update_status("Query failed");
         return;
     }
 
@@ -406,8 +417,13 @@ void on_execute_query(GtkWidget *widget, gpointer data) {
         for (int i = 0; i < result->column_count; i++) {
             GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
             g_object_set(renderer, "xpad", 10, "ypad", 4, NULL);
-            GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(
-                result->column_names[i], renderer, "text", i, NULL);
+            GtkTreeViewColumn *column = gtk_tree_view_column_new();
+            gtk_tree_view_column_pack_start(column, renderer, TRUE);
+            gtk_tree_view_column_add_attribute(column, renderer, "text", i);
+            /* Use gtk_label_new so '_' is never treated as a mnemonic accelerator */
+            GtkWidget *header = gtk_label_new(result->column_names[i]);
+            gtk_widget_show(header);
+            gtk_tree_view_column_set_widget(column, header);
             gtk_tree_view_column_set_cell_data_func(column, renderer, zebra_cell_data_func, NULL, NULL);
             gtk_tree_view_column_set_resizable(column, TRUE);
             gtk_tree_view_column_set_sort_column_id(column, i);
@@ -416,15 +432,14 @@ void on_execute_query(GtkWidget *widget, gpointer data) {
         }
 
         char status[256];
-        snprintf(status, sizeof(status), "Query executed successfully: %d rows returned", result->row_count);
+        snprintf(status, sizeof(status), "Query returned %d row%s",
+                 result->row_count, result->row_count == 1 ? "" : "s");
         update_status(status);
-        show_info_dialog("Success", status);
     } else {
-        update_status("Query executed successfully: 0 rows returned");
-        show_info_dialog("Success", "Query executed successfully. No rows to display.");
+        update_status("Query executed: 0 rows returned");
     }
-    
-    // Mark query as saved after successful execution
+
+    db_manager_free_query_result(result);
     mark_query_saved(state);
 }
 

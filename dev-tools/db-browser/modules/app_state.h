@@ -14,6 +14,7 @@ typedef struct {
     GtkWidget *table_view;
     GtkWidget *query_editor;
     GtkWidget *result_view;
+    GtkWidget *query_error_label;
     GtkWidget *data_view;
     GtkWidget *data_info_label;
 

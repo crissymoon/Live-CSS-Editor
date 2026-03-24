@@ -11,13 +11,17 @@ Note: On macOS, `Cmd` is treated as `Ctrl` for most editor shortcuts.
 | macOS | `Cmd` works as the main control modifier for editor actions |
 | Linux / Windows | Use `Ctrl` for the same actions |
 | Turbo movement | `Cmd+Shift+I/J/K/L` on macOS, `Ctrl+Shift+I/J/K/L` on Linux/Windows |
+| Tab switching | `Cmd+Left/Right` on macOS, `Alt+Left/Right` on Windows/Linux |
+| New empty tab | `Cmd+T` on macOS, `Alt+T` on Windows/Linux |
+| Quit | `Cmd+Q` on macOS, `Ctrl+Q` on Windows/Linux |
 
 ### File / Tabs
 
 | Keys | Action |
 |---|---|
-| Cmd+Left / Cmd+Right | Switch to previous / next tab |
-| Cmd+T | Open a new empty tab |
+| Cmd+Left / Cmd+Right | Switch to previous / next tab (macOS) |
+| Alt+Left / Alt+Right | Switch to previous / next tab (Windows/Linux) |
+| Cmd+T / Alt+T | Open a new empty tab |
 | Ctrl+S | Save current file |
 | Ctrl+W | Close current tab |
 
@@ -45,8 +49,10 @@ Note: On macOS, `Cmd` is treated as `Ctrl` for most editor shortcuts.
 | Ctrl+Up / Ctrl+Down | Jump 8 lines |
 | Left / Right | Move one character (crosses line boundary at edges) |
 | Ctrl+Left / Ctrl+Right | Jump by word |
-| Cmd+Shift+I / Cmd+Shift+K | Turbo move up/down 8 lines |
-| Cmd+Shift+J / Cmd+Shift+L | Turbo word-jump left/right |
+| Cmd+Shift+I / Cmd+Shift+K | Turbo move up/down 8 lines (macOS) |
+| Ctrl+Shift+I / Ctrl+Shift+K | Turbo move up/down 8 lines (Windows/Linux) |
+| Cmd+Shift+J / Cmd+Shift+L | Turbo word-jump left/right (macOS) |
+| Ctrl+Shift+J / Ctrl+Shift+L | Turbo word-jump left/right (Windows/Linux) |
 | Home | Smart home: first non-whitespace, then column 1 |
 | Ctrl+Home | Jump to start of file (line 1, column 1) |
 | End | End of current line |
@@ -181,5 +187,6 @@ Note: On macOS, `Cmd` is treated as `Ctrl` for most editor shortcuts.
 
 | Keys | Action |
 |---|---|
-| Cmd+Q | Quit |
+| Cmd+Q | Quit (macOS) |
+| Ctrl+Q | Quit (Windows/Linux) |
 | Escape | Close menu / modal |

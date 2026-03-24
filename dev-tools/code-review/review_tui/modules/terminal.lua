@@ -15,14 +15,37 @@ local tabs = {}
 local cur_idx = 1
 local tab_seq = 1
 
+-- Async command state (one command at a time across all tabs).
+local _term_job_id = 0
+local _term_chan    = nil
+local _term_thread  = nil
+local _term_tab     = nil   -- tab that owns the running command
+
+local TERM_WORKER = [[
+local cmd, chan_name = ...
+local chan = love.thread.getChannel(chan_name)
+local WP   = require "modules.winpipe"
+local iter = WP.lines_live(cmd)
+if not iter then
+    chan:push("ERR:Failed to start: " .. tostring(cmd))
+    chan:push("__DONE__")
+    return
+end
+for line in iter do
+    chan:push(line)
+end
+chan:push("__DONE__")
+]]
+
 local TAB_H = 24
 local INPUT_H = 24
 local PAD_X = 8
 local SCROLL_STEP = 4
 local MAX_LINES = 3000
 
-local _tab_geom = {}
-local _plus_geom = nil
+local _tab_geom       = {}
+local _tab_close_geom = {}   -- per-tab × button hit areas
+local _plus_geom  = nil
 local _close_geom = nil
 
 local function state_path()
@@ -49,7 +72,7 @@ local function normalize_dir(path)
     if IS_WIN then
         p = p:gsub("/", "\\")
         -- relative: not a drive letter path and not UNC
-        if not p:match("^%a:\\\\") and not p:match("^\\\\\\\\") then
+        if not p:match("^%a:\\") and not p:match("^\\\\") then
             p = default_cwd:gsub("\\\\+$", "") .. "\\" .. p
         end
         p = p:gsub("\\\\+$", "")
@@ -84,8 +107,20 @@ local function active_tab()
     return tabs[cur_idx]
 end
 
+-- Strip ANSI/VT100 escape sequences from a terminal output line and
+-- collapse carriage-return overwrite sequences (progress bars, spinners).
+local function strip_ansi(s)
+    -- CSI sequences: ESC [ <params> <final-letter>  (colours, cursor moves, etc.)
+    s = s:gsub("\027%[[^%a]*%a", "")
+    -- Remaining two-char ESC sequences (ESC c, ESC M, etc.)
+    s = s:gsub("\027.", "")
+    -- Carriage-return overwrite: keep only text after the last \r
+    s = s:gsub("^.*\r", "")
+    return s
+end
+
 local function add_line(t, line)
-    t.lines[#t.lines + 1] = tostring(line or "")
+    t.lines[#t.lines + 1] = strip_ansi(tostring(line or ""))
     if #t.lines > MAX_LINES then
         local drop = #t.lines - MAX_LINES
         for _ = 1, drop do table.remove(t.lines, 1) end
@@ -94,7 +129,9 @@ end
 
 local function set_scroll_bottom(t, h, font)
     local line_h = font:getHeight()
-    local out_h = h - TAB_H - INPUT_H - 2
+    -- Must match the output-area height used in M.draw:
+    --   out_h = h - TAB_H - INPUT_H - 20  (20 px for the cwd line below the tab bar)
+    local out_h = h - TAB_H - INPUT_H - 20
     local vis = math.max(1, math.floor(out_h / line_h))
     local max_scr = math.max(0, #t.lines - vis)
     t.scroll = max_scr
@@ -179,7 +216,7 @@ local function resolve_cd(base, arg)
         if target == "" then return base end
         target = target:gsub("/", "\\")
         -- absolute: starts with drive letter or UNC
-        if target:match("^%a:\\\\") or target:match("^\\\\\\\\") then
+        if target:match("^%a:\\") or target:match("^\\\\") then
             return target
         end
         return base:gsub("\\\\+$", "") .. "\\" .. target
@@ -220,6 +257,13 @@ local function run_command(t, command, h, font)
         return
     end
 
+    -- Reject if a command is already running.
+    if _term_chan then
+        add_line(t, "busy: a command is already running")
+        set_scroll_bottom(t, h, font)
+        return
+    end
+
     local shell_cmd
     if IS_WIN then
         -- PowerShell: change to cwd (single-quoted, ' escaped as '') then run cmd
@@ -229,15 +273,16 @@ local function run_command(t, command, h, font)
     else
         shell_cmd = "cd " .. shell_escape(t.cwd) .. " && " .. cmd .. " 2>&1"
     end
-    local has_output = false
-    for line in WP.lines_live(shell_cmd) or (function() return nil end) do
-        add_line(t, line)
-        has_output = true
-    end
-    if not has_output then add_line(t, "") end
 
-    set_scroll_bottom(t, h, font)
-    save_state()
+    -- Spawn command in a worker thread so the main thread stays responsive.
+    _term_job_id = _term_job_id + 1
+    local chan_name = "code_review_term_" .. tostring(_term_job_id)
+    _term_chan   = love.thread.getChannel(chan_name)
+    _term_chan:clear()
+    _term_tab    = t
+    _term_thread = love.thread.newThread(TERM_WORKER)
+    _term_thread:start(shell_cmd, chan_name)
+    -- Output is collected by M.poll() called each frame from love.update.
 end
 
 function M.init(colours, cwd)
@@ -288,19 +333,26 @@ function M.draw(x, y, w, h, font)
     love.graphics.line(x, y + TAB_H, x + w, y + TAB_H)
 
     _tab_geom = {}
+    _tab_close_geom = {}
     local tx = x + 6
     love.graphics.setFont(font)
+    local CLOSE_W = 16   -- width reserved for the × button inside each tab
     for i, tab in ipairs(tabs) do
         local label = tab.name
-        local tw = font:getWidth(label) + 24
-        local hov = false
+        local lw = font:getWidth(label)
+        local tw = lw + 24 + CLOSE_W
         local active = i == cur_idx
         love.graphics.setColor(active and C.accent or C.panel_bg)
         love.graphics.rectangle("fill", tx, y + 2, tw, TAB_H - 4, 3)
         love.graphics.setColor(active and C.text_bright or C.text)
         love.graphics.rectangle("line", tx, y + 2, tw, TAB_H - 4, 3)
         love.graphics.print(label, tx + 8, y + 6)
-        _tab_geom[#_tab_geom + 1] = { x = tx, y = y + 2, w = tw, h = TAB_H - 4 }
+        -- × close button
+        local cx = tx + tw - CLOSE_W
+        love.graphics.setColor(active and C.text_bright or C.dim)
+        love.graphics.print("x", cx + 2, y + 6)
+        _tab_geom[#_tab_geom + 1]       = { x = tx, y = y + 2, w = tw - CLOSE_W, h = TAB_H - 4 }
+        _tab_close_geom[#_tab_close_geom + 1] = { x = cx, y = y + 2, w = CLOSE_W, h = TAB_H - 4 }
         tx = tx + tw + 6
     end
 
@@ -371,6 +423,27 @@ function M.mousepressed(mx, my, btn, x, y, w, h)
     if mx < x or mx >= x + w or my < y or my >= y + h then return false end
 
     if btn ~= 1 then return true end
+
+    -- Check per-tab × close buttons first.
+    for i, g in ipairs(_tab_close_geom) do
+        if mx >= g.x and mx < g.x + g.w and my >= g.y and my < g.y + g.h then
+            -- Cancel async command if it belongs to this tab.
+            if _term_tab == tabs[i] then
+                _term_chan   = nil
+                _term_thread = nil
+                _term_tab    = nil
+            end
+            if #tabs > 1 then
+                table.remove(tabs, i)
+                if cur_idx > #tabs then cur_idx = #tabs end
+            else
+                tabs[1] = new_tab(default_cwd)
+                cur_idx = 1
+            end
+            save_state()
+            return true
+        end
+    end
 
     for i, g in ipairs(_tab_geom) do
         if mx >= g.x and mx < g.x + g.w and my >= g.y and my < g.y + g.h then
@@ -489,6 +562,38 @@ function M.wheelmoved(wy)
     if not t then return true end
     t.scroll = math.max(0, t.scroll - wy * SCROLL_STEP)
     return true
+end
+
+function M.poll()
+    if not _term_chan then return end
+    local t = _term_tab
+    local processed = 0
+    local max_per_frame = 100
+    while processed < max_per_frame do
+        local line = _term_chan:pop()
+        if not line then break end
+        processed = processed + 1
+        if line == "__DONE__" then
+            _term_chan   = nil
+            _term_thread = nil
+            _term_tab    = nil
+            if t then
+                t.scroll = 1e9   -- clamped to max in draw
+                save_state()
+            end
+            return
+        elseif line:sub(1, 4) == "ERR:" then
+            if t then add_line(t, line:sub(5)) end
+        else
+            if t then add_line(t, line) end
+        end
+    end
+    -- Auto-scroll to bottom while output is still arriving.
+    if t then t.scroll = 1e9 end
+end
+
+function M.is_busy()
+    return _term_chan ~= nil
 end
 
 return M

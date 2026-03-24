@@ -230,6 +230,13 @@ void create_query_panel(AppState *state) {
     gtk_text_view_set_right_margin(GTK_TEXT_VIEW(state->query_editor), 8);
     gtk_text_view_set_top_margin(GTK_TEXT_VIEW(state->query_editor), 6);
     gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(state->query_editor), 6);
+
+    /* Cursor color: GTK3 on Windows ignores CSS caret-color, so force it here */
+    G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+    GdkRGBA caret_dark = {0.784, 0.753, 0.910, 1.0};   /* #c8c0e8 */
+    GdkRGBA caret_sec  = {0.486, 0.361, 0.910, 1.0};   /* #7c5ce8 */
+    gtk_widget_override_cursor(state->query_editor, &caret_dark, &caret_sec);
+    G_GNUC_END_IGNORE_DEPRECATIONS
     
     // Connect buffer change signal for auto-save tracking
     GtkTextBuffer *query_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(state->query_editor));
@@ -248,6 +255,12 @@ void create_query_panel(AppState *state) {
     gtk_box_pack_start(GTK_BOX(btn_row), btn_execute, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(vbox), btn_row, FALSE, FALSE, 0);
+
+    state->query_error_label = gtk_label_new(NULL);
+    gtk_widget_set_halign(state->query_error_label, GTK_ALIGN_START);
+    gtk_widget_set_margin_start(state->query_error_label, 2);
+    gtk_widget_set_no_show_all(state->query_error_label, TRUE);
+    gtk_box_pack_start(GTK_BOX(vbox), state->query_error_label, FALSE, FALSE, 0);
 
     GtkWidget *results_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(results_label), "<b>Results</b>");

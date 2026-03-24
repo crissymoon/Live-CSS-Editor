@@ -66,12 +66,15 @@ def add(path: str, line: int, kind: str, msg: str, severity: str = "MEDIUM") -> 
 
 # Regex patterns
 PAT_PY_DEF   = re.compile(r"^\s*def\s+\w+\s*\(([^)]*)\)")
-PAT_JS_FUNC  = re.compile(r"(?:function\s+\w+\s*|(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\()\s*([^)]*)\)")
+PAT_JS_FUNC  = re.compile(r"(?:function\s+\w+\s*\(|(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\()\s*([^)]*)\)")
 PAT_PHP_FUNC = re.compile(r"function\s+\w+\s*\(([^)]*)\)")
 PAT_C_FUNC   = re.compile(r"\w[\w\s\*]+\s+\w+\s*\(([^)]*)\)\s*\{")
-PAT_IMPORT_PY= re.compile(r"^(?:import|from)\s+([\w.]+)")
-PAT_MAGIC    = re.compile(r"(?<!\w)(?<![\'\"])(\d{2,})(?![\'\"])(?!\w)")
+PAT_IMPORT_PY= re.compile(r"^(?:import|from)\s+(\.{0,3}[\w.]*)")
+PAT_MAGIC    = re.compile(r"(?<![.\w'\"])(\d{2,})(?![.\w'\"])")
 PAT_TOKEN    = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
+# Matches the entire content of a string literal (single or double quoted, with escapes)
+# Used to blank out string contents before the magic-number scan.
+_STR_CONTENT_RE = re.compile(r'"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'')
 
 PAT_ORPHAN_PY = re.compile(r"^(def|class)\s+([A-Za-z_]\w*)\b")
 PAT_ORPHAN_PHP_FUNC = re.compile(r"^(?:final\s+|abstract\s+)?function\s+([A-Za-z_]\w*)\s*\(")
@@ -98,25 +101,53 @@ UNSAFE_C_CALLS = [
 ]
 
 
+def _split_params(sig: str) -> list[str]:
+    """Split a parameter string by top-level commas, respecting nested brackets.
+
+    Prevents generic type annotations like Dict[str, int] from being counted
+    as two separate parameters.
+    """
+    result: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for ch in sig:
+        if ch in "([{":
+            depth += 1
+            current.append(ch)
+        elif ch in ")]}":
+            depth -= 1
+            current.append(ch)
+        elif ch == "," and depth == 0:
+            part = "".join(current).strip()
+            if part:
+                result.append(part)
+            current = []
+        else:
+            current.append(ch)
+    part = "".join(current).strip()
+    if part:
+        result.append(part)
+    return result
+
+
 def count_params(sig: str) -> tuple[int, int]:
     """Return (total_params, primitive_params)."""
     if not sig.strip():
         return 0, 0
-    params = [p.strip() for p in sig.split(",") if p.strip()]
+    params = _split_params(sig)
     # Strip type annotations / defaults
     primitives = 0
     for p in params:
         p_clean = p.split("=")[0].strip()
-        # Python/TS type hint: name: type
-        hint = p_clean.split(":")[-1].strip().lower() if ":" in p_clean else ""
-        # C/PHP: type name
+        # Split on ":" for typed params (Python/TS "name: type") and on
+        # whitespace for positional type-before-name style (C/PHP "type name").
+        # Checking every token in the cleaned param string is sufficient;
+        # the old separate "hint" check caused double-counting for typed params.
         words = p_clean.split()
         for w in words:
-            if w.lower() in PRIMITIVES:
+            if w.lower().rstrip(":") in PRIMITIVES:
                 primitives += 1
                 break
-        if hint in PRIMITIVES:
-            primitives += 1
     return len(params), primitives
 
 
@@ -136,8 +167,10 @@ def check_params_and_nesting(path: str, lines: list[str]) -> None:
     func_line_count = 0
 
     for i, raw in enumerate(lines, 1):
-        # Nesting depth: count leading braces / indentation
-        indent = len(raw) - len(raw.lstrip())
+        # Expand tabs to spaces before measuring indent so tab-indented
+        # files are treated the same as space-indented files.
+        expanded = raw.expandtabs(4)
+        indent = len(expanded) - len(expanded.lstrip())
         indent_level = indent // 4  # assume 4-space / tab=4 indent
 
         if indent_level > MAX_NESTING:
@@ -173,6 +206,16 @@ def check_params_and_nesting(path: str, lines: list[str]) -> None:
             f"Method body ~{func_line_count} lines (max {MAX_METHOD_LINES})", "MEDIUM")
 
 
+def _blank_strings(line: str) -> str:
+    """Replace the *contents* of string literals with spaces.
+
+    This prevents numbers that appear inside strings from being flagged as
+    magic numbers.  The surrounding quotes are preserved so the character
+    offsets stay correct for other checks.
+    """
+    return _STR_CONTENT_RE.sub(lambda m: m.group()[0] + " " * (len(m.group()) - 2) + m.group()[-1], line)
+
+
 def check_magic_numbers(path: str, lines: list[str]) -> None:
     ext = os.path.splitext(path)[1].lower()
     for i, raw in enumerate(lines, 1):
@@ -180,9 +223,13 @@ def check_magic_numbers(path: str, lines: list[str]) -> None:
         # Skip comments, strings, declarations/constants
         if stripped.startswith(("#", "//", "*", "/*", "'")):
             continue
-        if "=" in stripped and stripped.split("=")[0].strip().upper() == stripped.split("=")[0].strip():
-            continue  # UPPER_CASE = constant
-        for m in PAT_MAGIC.finditer(raw):
+        if "=" in stripped:
+            # Strip optional type annotation from LHS: "MAX_VAL: int = 5" -> "MAX_VAL"
+            lhs = stripped.split("=")[0].strip()
+            lhs_name = lhs.split(":")[0].strip()
+            if lhs_name and lhs_name.upper() == lhs_name and lhs_name.replace("_", "").isalnum():
+                continue  # UPPER_CASE constant (with or without type annotation)
+        for m in PAT_MAGIC.finditer(_blank_strings(raw)):
             val = int(m.group(1))
             if val in (0, 1, 2, 100, 200, 404, 500):  # common acceptable literals
                 continue
@@ -245,7 +292,9 @@ def check_dead_imports(path: str, lines: list[str]) -> None:
                         if n and n != "*":
                             imports[n] = i
             else:
-                name = m.group(1).split(".")[-1]
+                # "import X as alias" → the usable name is the alias, not X.
+                as_m = re.match(r"import\s+[\w.]+\s+as\s+(\w+)", raw.strip())
+                name = as_m.group(1) if as_m else m.group(1).split(".")[-1]
                 imports[name] = i
 
     # Check usages in rest of file
@@ -263,15 +312,20 @@ def check_duplicate_blocks(path: str, lines: list[str]) -> None:
     norm = [ln.strip() for ln in lines]
     # Create all blocks of size DUP_BLOCK_SIZE
     seen: dict[tuple, int] = {}
+    # Track the end of the last reported duplicate range so overlapping
+    # sliding-window positions for the same duplication are not reported again.
+    next_report_i = 0
     for i in range(len(norm) - DUP_BLOCK_SIZE + 1):
         block = tuple(norm[i : i + DUP_BLOCK_SIZE])
         if all(b == "" for b in block):
             continue
         if block in seen:
             first_line = seen[block]
-            add(path, i + 1, "DUPLICATE_CODE",
-                f"Block of {DUP_BLOCK_SIZE} lines duplicates lines {first_line}-{first_line + DUP_BLOCK_SIZE - 1}",
-                "MEDIUM")
+            if i >= next_report_i:
+                add(path, i + 1, "DUPLICATE_CODE",
+                    f"Block of {DUP_BLOCK_SIZE} lines duplicates lines {first_line}-{first_line + DUP_BLOCK_SIZE - 1}",
+                    "MEDIUM")
+                next_report_i = i + DUP_BLOCK_SIZE
         else:
             seen[block] = i + 1
 

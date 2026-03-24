@@ -18,6 +18,7 @@ void show_error_dialog(const char *title, const char *message) {
                                                "%s", title);
     gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
                                              "%s", message);
+    gtk_window_present(GTK_WINDOW(dialog));
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
 }
@@ -32,6 +33,7 @@ void show_info_dialog(const char *title, const char *message) {
                                                "%s", title);
     gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
                                              "%s", message);
+    gtk_window_present(GTK_WINDOW(dialog));
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
 }
@@ -47,6 +49,7 @@ bool confirm_action(const char *message) {
     gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
                                              "%s", message);
 
+    gtk_window_present(GTK_WINDOW(dialog));
     gint response = gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
 

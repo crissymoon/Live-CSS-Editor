@@ -5,7 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
-#include <sys/stat.h>
+#include <glib.h>
 
 // Helper to convert string to uppercase for comparison
 static char* str_to_upper(const char *str) {
@@ -225,7 +225,7 @@ bool save_query_to_history(AppState *state, const char *query) {
     snprintf(history_dir, sizeof(history_dir), "%s/.db-browser", home);
     
     // Create directory if it doesn't exist
-    mkdir(history_dir, 0755);
+    g_mkdir_with_parents(history_dir, 0755);
     
     char history_file[1024];
     snprintf(history_file, sizeof(history_file), "%s/query_history.sql", history_dir);

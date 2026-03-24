@@ -8,8 +8,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <direct.h>
+static char *_compat_realpath(const char *path, char *resolved) {
+    return GetFullPathNameA(path, 1024, resolved, NULL) ? resolved : NULL;
+}
+static char *_compat_dirname(char *path) {
+    char *sep = strrchr(path, '\\');
+    if (!sep) sep = strrchr(path, '/');
+    if (sep) *sep = '\0';
+    return path;
+}
+#define realpath(p, r) _compat_realpath(p, r)
+#define dirname(p)     _compat_dirname(p)
+#else
 #include <unistd.h>
 #include <libgen.h>
+#endif
 
 #include "core/db_manager.h"
 #include "core/db_transfer.h"

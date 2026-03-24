@@ -211,7 +211,6 @@ class GodFunctionScanner:
         # Count decision points
         patterns = [
             r'\bif\s*\(',
-            r'\belse\s+if\s*\(',
             r'\bfor\s*\(',
             r'\bwhile\s*\(',
             r'\bcase\s+[^:]+:',
@@ -259,8 +258,8 @@ class GodFunctionScanner:
     def _extract_php_functions(self, content: str) -> List[Tuple[str, str]]:
         """Extract function/method definitions from PHP code."""
         functions = []
-        # function name(...) { or public/private/protected function name(...)
-        pattern = r'(?:public|private|protected|static|\s)+function\s+(\w+)\s*\([^)]*\)\s*(?::\s*\??\w+)?\s*\{'
+        # function name(...) { or public/private/protected/static/abstract/final function name(...)
+        pattern = r'(?:(?:public|private|protected|static|abstract|final)\s+)*function\s+(\w+)\s*\([^)]*\)\s*(?::\s*\??\w+)?\s*\{'
         
         for match in re.finditer(pattern, content):
             func_name = match.group(1)
@@ -278,8 +277,6 @@ class GodFunctionScanner:
         complexity = 1
         patterns = [
             r'\bif\s*\(',
-            r'\belseif\s*\(',
-            r'\belse\s+if\s*\(',
             r'\bfor\s*\(',
             r'\bforeach\s*\(',
             r'\bwhile\s*\(',
@@ -302,7 +299,7 @@ class GodFunctionScanner:
             params = match.group(1).strip()
             if not params:
                 return 0
-            return len([p for p in params.split(',') if p.strip()])
+            return len(self._split_params(params))
         return 0
     
     # --- Python Language ---
@@ -411,8 +408,7 @@ class GodFunctionScanner:
             params = match.group(1).strip()
             if not params:
                 return 0
-            # Filter out self, cls, *args, **kwargs
-            param_list = [p.strip().split('=')[0].strip() for p in params.split(',')]
+            param_list = [p.strip().split('=')[0].strip() for p in self._split_params(params)]
             param_list = [p for p in param_list if p and p not in ('self', 'cls') and not p.startswith('*')]
             return len(param_list)
         return 0
@@ -528,6 +524,35 @@ class GodFunctionScanner:
     
     # --- Shared Helpers ---
     
+    @staticmethod
+    def _split_params(sig: str) -> List[str]:
+        """Split a parameter string by top-level commas, respecting nested brackets.
+
+        Prevents generic type annotations like Dict[str, int] from being
+        counted as two separate parameters.
+        """
+        result: List[str] = []
+        depth = 0
+        current: List[str] = []
+        for ch in sig:
+            if ch in "([{":
+                depth += 1
+                current.append(ch)
+            elif ch in ")]}":
+                depth -= 1
+                current.append(ch)
+            elif ch == "," and depth == 0:
+                part = "".join(current).strip()
+                if part:
+                    result.append(part)
+                current = []
+            else:
+                current.append(ch)
+        part = "".join(current).strip()
+        if part:
+            result.append(part)
+        return result
+
     def _extract_brace_block(self, content: str, start: int) -> str:
         """Extract a brace-delimited block starting at position start."""
         if start >= len(content) or content[start] != '{':

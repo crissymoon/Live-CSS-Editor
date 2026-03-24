@@ -233,6 +233,11 @@ local function classify_kind(text)
         counts.medium = counts.medium + 1; return "medium"
     elseif up:find("[LOW]", 1, true) or up:find(": LOW", 1, true) or up:find("LOW]", 1, true) then
         counts.low = counts.low + 1; return "low"
+    -- "ERROR " / "WARNING " (trailing space avoids matching names like error_handler)
+    elseif up:find("ERROR ", 1, true) then
+        return "error"
+    elseif up:find("WARNING ", 1, true) or up:find(": WARN", 1, true) then
+        counts.medium = counts.medium + 1; return "medium"
     elseif up:find("INFO", 1, true) or up:find("NOTE", 1, true) then
         counts.info = counts.info + 1; return "info"
     end
@@ -402,6 +407,7 @@ function love.update(dt)
     perf.worst_ms = math.max(ms, perf.worst_ms * 0.98)
 
     Bridge.poll()
+    Terminal.poll()
 end
 
 --------------------------------------------------------------------
@@ -822,7 +828,7 @@ function love.keypressed(key)
         if about_open   then about_open = false; return end
         if Menu.is_open() then Menu.close(); return end
     end
-    if key == "q" and love.keyboard.isDown("lgui", "rgui") then
+    if key == "q" and (love.keyboard.isDown("lgui", "rgui") or love.keyboard.isDown("lctrl", "rctrl")) then
         love.event.quit()
     end
 end
@@ -982,7 +988,7 @@ function love.wheelmoved(wx, wy)
     if Browser.wheelmoved(wx, wy, mx, my) then return end
     -- Route to editor if open
     if Editor.has_tabs() and mx >= content_x() then
-        Editor.wheelmoved(wy, content_x(), content_y(), content_w(), content_h())
+        Editor.wheelmoved(wy, content_x(), content_y(), content_w(), content_h(), mx, my)
         return
     end
     -- Scroll results

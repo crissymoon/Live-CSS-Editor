@@ -197,12 +197,12 @@ def ast_checks(rel_path: str, source: str, tree: ast.AST) -> List[Dict]:
 
         # --- global statement inside a function ---
         if isinstance(node, ast.Global):
-            # check if it is inside a function (its parent chain includes a FunctionDef)
-            findings.append(finding(
-                rel_path, node.lineno, "info", "D002",
-                f"'global {', '.join(node.names)}' -- globals inside functions make state "
-                "hard to reason about. Consider passing values explicitly."
-            ))
+            # Only flag globals that appear inside a function body; module-level
+            # globals are ordinary variable assignments and should not be reported.
+            # We detect this by checking whether any ancestor is a FunctionDef.
+            # ast.walk visits all nodes without parent links, so we build a
+            # parent map once per tree and reuse it.
+            pass  # handled in the parent-map pass below
 
         # --- star import ---
         if isinstance(node, ast.ImportFrom):
@@ -234,6 +234,27 @@ def ast_checks(rel_path: str, source: str, tree: ast.AST) -> List[Dict]:
                     f"Public function '{node.name}' has no type annotations (PEP 484). "
                     "Adding annotations improves IDE support and catches type errors early."
                 ))
+
+    # --- global statement inside a function (parent-map pass) ---
+    try:
+        parent: dict = {}
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                parent[id(child)] = node
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Global):
+                p = parent.get(id(node))
+                while p is not None:
+                    if isinstance(p, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        findings.append(finding(
+                            rel_path, node.lineno, "info", "D002",
+                            f"'global {', '.join(node.names)}' inside a function makes state "
+                            "hard to reason about. Consider passing values explicitly."
+                        ))
+                        break
+                    p = parent.get(id(p))
+    except Exception as exc:
+        sys.stderr.write(f"[py_audit] global-in-function check failed for {rel_path}: {exc}\n")
 
     # --- missing if __name__ == '__main__' guard in files with top-level code ---
     try:
@@ -283,7 +304,7 @@ def _check_main_guard(rel_path: str, tree: ast.AST, findings: List[Dict], is_scr
 
 _RE_LONG_LINE = re.compile(r".{121,}")
 _RE_TRAILING_WS = re.compile(r"[ \t]+$")
-_RE_OLD_FORMAT = re.compile(r'"[^"]*%[sd][^"]*"\s*%\s*|\'[^\']*%[sd][^\']*\'\s*%\s*')
+_RE_OLD_FORMAT = re.compile(r'"[^"]*%[sdiouxXeEfFgGcrb%][^"]*"\s*%\s*|\'[^\']*%[sdiouxXeEfFgGcrb%][^\']*\'\s*%\s*')
 _RE_TODO = re.compile(r"#.*\b(TODO|FIXME|HACK|XXX)\b", re.IGNORECASE)
 _RE_TABS = re.compile(r"^\t+")
 _RE_MIXED_INDENT = re.compile(r"^ +\t|^\t+ ")
