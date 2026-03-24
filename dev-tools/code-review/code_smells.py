@@ -166,12 +166,34 @@ def check_params_and_nesting(path: str, lines: list[str]) -> None:
     func_start = None
     func_line_count = 0
 
+    # Track triple-quoted string state (Python only) to avoid flagging
+    # indented string content as DEEP_NESTING.
+    triple_quote_delim: str | None = None
+
     for i, raw in enumerate(lines, 1):
         # Expand tabs to spaces before measuring indent so tab-indented
         # files are treated the same as space-indented files.
         expanded = raw.expandtabs(4)
         indent = len(expanded) - len(expanded.lstrip())
         indent_level = indent // 4  # assume 4-space / tab=4 indent
+
+        # For Python, skip lines that are inside a triple-quoted string.
+        if ext == ".py":
+            stripped_raw = raw.strip()
+            for delim in ('"""', "'''"):
+                # Odd number of delimiter occurrences on this line toggles state.
+                if stripped_raw.count(delim) % 2 == 1:
+                    if triple_quote_delim == delim:
+                        triple_quote_delim = None   # closing delimiter
+                    elif triple_quote_delim is None:
+                        triple_quote_delim = delim  # opening delimiter
+                    break
+            if triple_quote_delim is not None and not any(
+                    raw.strip().startswith(d) for d in ('"""', "'''")):
+                # Inside a multi-line string body — skip structural checks.
+                if ext == ".py" and func_start is not None:
+                    func_line_count += 1
+                continue
 
         if indent_level > MAX_NESTING:
             add(path, i, "DEEP_NESTING",
@@ -227,8 +249,12 @@ def check_magic_numbers(path: str, lines: list[str]) -> None:
             # Strip optional type annotation from LHS: "MAX_VAL: int = 5" -> "MAX_VAL"
             lhs = stripped.split("=")[0].strip()
             lhs_name = lhs.split(":")[0].strip()
-            if lhs_name and lhs_name.upper() == lhs_name and lhs_name.replace("_", "").isalnum():
-                continue  # UPPER_CASE constant (with or without type annotation)
+            # Skip any simple identifier assignment (UPPER_CASE constant OR
+            # lowercase named variable). Magic numbers in logic expressions
+            # like "if x > 30:" are still caught because they have no "name = "
+            # LHS that is a plain identifier.
+            if lhs_name and re.match(r'^[A-Za-z_]\w*$', lhs_name):
+                continue
         for m in PAT_MAGIC.finditer(_blank_strings(raw)):
             val = int(m.group(1))
             if val in (0, 1, 2, 100, 200, 404, 500):  # common acceptable literals
@@ -245,6 +271,13 @@ def check_empty_catch(path: str, lines: list[str]) -> None:
         raw = lines[i].strip()
         # Python except
         if re.match(r"except[\s(:]", raw):
+            # Inline body: "except E as x: statement" — not empty
+            colon_pos = raw.find(":")
+            if colon_pos != -1:
+                inline = raw[colon_pos + 1:].strip()
+                if inline and not inline.startswith("#"):
+                    i += 1
+                    continue
             # look ahead for body
             j = i + 1
             body_lines = []
@@ -258,6 +291,13 @@ def check_empty_catch(path: str, lines: list[str]) -> None:
                 add(path, i + 1, "EMPTY_CATCH", "Empty except block (swallowed exception)", "HIGH")
         # JS/PHP catch
         if re.match(r"}\s*catch\s*\(|catch\s*\(", raw):
+            # Inline body: "} catch (e) { code; }" — not empty
+            brace_open = raw.find("{")
+            if brace_open != -1:
+                inline = raw[brace_open + 1:].rstrip("}").strip()
+                if inline and not inline.startswith("//"):
+                    i += 1
+                    continue
             j = i + 1
             brace_depth = 0
             found_code = False
@@ -275,27 +315,60 @@ def check_empty_catch(path: str, lines: list[str]) -> None:
         i += 1
 
 
+def _collect_import_names(tail: str, lineno: int, lines: list[str], idx: int,
+                          imports: dict[str, int]) -> int:
+    """Parse the name list from a 'from X import ...' statement.
+
+    Handles parenthesised single-line `(A, B)`, multi-line `(\\n  A,\\n  B,\\n)`,
+    and inline comments `A, B  # noqa`.  Returns the updated line index (0-based).
+    """
+    # Strip trailing inline comment from the tail portion
+    tail = re.sub(r'\s*#.*$', '', tail).strip()
+
+    if tail.startswith("(") and ")" not in tail:
+        # Multi-line parenthesised import: accumulate continuation lines
+        tail = tail.lstrip("(")
+        idx += 1
+        while idx < len(lines):
+            cont = re.sub(r'\s*#.*$', '', lines[idx].strip())
+            if ")" in cont:
+                tail += "," + cont[:cont.index(")")]
+                break
+            tail += "," + cont
+            idx += 1
+    else:
+        # Strip outer parens for single-line `(A, B)` style
+        tail = tail.strip("()")
+
+    for part in tail.split(","):
+        n = part.strip().split(" as ")[-1].strip("() ")
+        if n and n != "*":
+            imports[n] = lineno
+
+    return idx
+
+
 def check_dead_imports(path: str, lines: list[str]) -> None:
     ext = os.path.splitext(path)[1].lower()
     if ext != ".py":
         return
     imports: dict[str, int] = {}
-    for i, raw in enumerate(lines, 1):
-        m = PAT_IMPORT_PY.match(raw.strip())
+    idx = 0
+    while idx < len(lines):
+        stripped = lines[idx].strip()
+        lineno = idx + 1
+        m = PAT_IMPORT_PY.match(stripped)
         if m:
-            # from X import Y, Z  -> Y and Z
-            if raw.strip().startswith("from"):
-                rest = re.search(r"import\s+(.+)", raw)
+            if stripped.startswith("from"):
+                rest = re.search(r"import\s+(.+)", stripped)
                 if rest:
-                    names = [n.strip().split(" as ")[-1] for n in rest.group(1).split(",")]
-                    for n in names:
-                        if n and n != "*":
-                            imports[n] = i
+                    idx = _collect_import_names(rest.group(1), lineno, lines, idx, imports)
             else:
                 # "import X as alias" → the usable name is the alias, not X.
-                as_m = re.match(r"import\s+[\w.]+\s+as\s+(\w+)", raw.strip())
+                as_m = re.match(r"import\s+[\w.]+\s+as\s+(\w+)", stripped)
                 name = as_m.group(1) if as_m else m.group(1).split(".")[-1]
-                imports[name] = i
+                imports[name] = lineno
+        idx += 1
 
     # Check usages in rest of file
     full_text = "\n".join(lines)
