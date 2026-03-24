@@ -68,8 +68,53 @@ function stroke_rect(x, y, w, h, r)
     love.graphics.rectangle("line", x, y, w, h, r or 0)
 end
 
+-- Sanitize a string so love.graphics.print never sees invalid UTF-8.
+-- Walks the raw bytes and drops any byte that is not part of a valid
+-- UTF-8 sequence.  Fast path: returns the string unchanged if it is
+-- already valid (most lines will be plain ASCII).
+local function sanitize_utf8(s)
+    if type(s) ~= "string" then return "" end
+    -- Quick scan: if every byte is ASCII the string is always valid.
+    local n = #s
+    local i = 1
+    while i <= n do
+        if s:byte(i) >= 0x80 then break end
+        i = i + 1
+    end
+    if i > n then return s end  -- pure ASCII — skip full decode
+
+    local out = {}
+    i = 1
+    while i <= n do
+        local b = s:byte(i)
+        if b < 0x80 then
+            out[#out+1] = s:sub(i, i); i = i + 1
+        elseif b >= 0xC2 and b <= 0xDF and i+1 <= n then
+            local b2 = s:byte(i+1)
+            if b2 >= 0x80 and b2 <= 0xBF then
+                out[#out+1] = s:sub(i, i+1); i = i + 2
+            else i = i + 1 end
+        elseif b >= 0xE0 and b <= 0xEF and i+2 <= n then
+            local b2, b3 = s:byte(i+1), s:byte(i+2)
+            if b2 >= 0x80 and b2 <= 0xBF and b3 >= 0x80 and b3 <= 0xBF then
+                out[#out+1] = s:sub(i, i+2); i = i + 3
+            else i = i + 1 end
+        elseif b >= 0xF0 and b <= 0xF4 and i+3 <= n then
+            local b2, b3, b4 = s:byte(i+1), s:byte(i+2), s:byte(i+3)
+            if b2 >= 0x80 and b2 <= 0xBF and
+               b3 >= 0x80 and b3 <= 0xBF and
+               b4 >= 0x80 and b4 <= 0xBF then
+                out[#out+1] = s:sub(i, i+3); i = i + 4
+            else i = i + 1 end
+        else
+            i = i + 1  -- drop invalid byte
+        end
+    end
+    return table.concat(out)
+end
+
 function text_at(x, y, s)
-    love.graphics.print(s, math.floor(x), math.floor(y))
+    love.graphics.print(sanitize_utf8(s), math.floor(x), math.floor(y))
 end
 
 local function trunc_str(s, max_w, font)
@@ -1010,7 +1055,7 @@ function love.wheelmoved(wx, wy)
     if Browser.wheelmoved(wx, wy, mx, my) then return end
     -- Route to editor if open
     if Editor.has_tabs() and mx >= content_x() then
-        Editor.wheelmoved(wy, content_x(), content_y(), content_w(), content_h(), mx, my)
+        Editor.wheelmoved(wx, wy, content_x(), content_y(), content_w(), content_h(), mx, my)
         return
     end
     -- Scroll results

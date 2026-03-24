@@ -107,8 +107,9 @@ local function active_tab()
     return tabs[cur_idx]
 end
 
--- Strip ANSI/VT100 escape sequences from a terminal output line and
--- collapse carriage-return overwrite sequences (progress bars, spinners).
+-- Strip ANSI/VT100 escape sequences from a terminal output line,
+-- collapse carriage-return overwrite sequences, and drop any invalid
+-- UTF-8 bytes so love.graphics.print never crashes on subprocess output.
 local function strip_ansi(s)
     -- CSI sequences: ESC [ <params> <final-letter>  (colours, cursor moves, etc.)
     s = s:gsub("\027%[[^%a]*%a", "")
@@ -116,6 +117,41 @@ local function strip_ansi(s)
     s = s:gsub("\027.", "")
     -- Carriage-return overwrite: keep only text after the last \r
     s = s:gsub("^.*\r", "")
+
+    -- Drop invalid UTF-8 bytes (fast-path: skip if pure ASCII)
+    local n = #s
+    local i = 1
+    while i <= n do
+        if s:byte(i) >= 0x80 then break end
+        i = i + 1
+    end
+    if i <= n then
+        local out = {}
+        i = 1
+        while i <= n do
+            local b = s:byte(i)
+            if b < 0x80 then
+                out[#out+1] = s:sub(i,i); i = i+1
+            elseif b >= 0xC2 and b <= 0xDF and i+1 <= n then
+                local b2 = s:byte(i+1)
+                if b2 >= 0x80 and b2 <= 0xBF then out[#out+1]=s:sub(i,i+1); i=i+2
+                else i=i+1 end
+            elseif b >= 0xE0 and b <= 0xEF and i+2 <= n then
+                local b2,b3 = s:byte(i+1),s:byte(i+2)
+                if b2>=0x80 and b2<=0xBF and b3>=0x80 and b3<=0xBF then
+                    out[#out+1]=s:sub(i,i+2); i=i+3
+                else i=i+1 end
+            elseif b >= 0xF0 and b <= 0xF4 and i+3 <= n then
+                local b2,b3,b4 = s:byte(i+1),s:byte(i+2),s:byte(i+3)
+                if b2>=0x80 and b2<=0xBF and b3>=0x80 and b3<=0xBF and b4>=0x80 and b4<=0xBF then
+                    out[#out+1]=s:sub(i,i+3); i=i+4
+                else i=i+1 end
+            else
+                i=i+1
+            end
+        end
+        s = table.concat(out)
+    end
     return s
 end
 

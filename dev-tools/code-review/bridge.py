@@ -53,12 +53,20 @@ def run_scanner(args: list[str], scan_dir: str, report_lines: list[str]) -> None
     """
     cmd = [sys.executable] + args
     try:
+        env = os.environ.copy()
+        # Force UTF-8 stdio in the scanner subprocess so that any U+FFFD
+        # replacement characters produced by errors="replace" file reads
+        # can be encoded on stdout without crashing on cp1252 systems.
+        env["PYTHONIOENCODING"] = "utf-8:replace"
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             cwd=scan_dir,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
             bufsize=1,
         )
         for line in proc.stdout:
@@ -80,7 +88,7 @@ def write_report(scan_dir: str, scanner_label: str, lines: list[str]) -> str:
     name = scanner_label.lower().replace(" ", "-")
     path = os.path.join(REPORTS_DIR, f"report_{name}_{ts}.md")
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(f"# Code Review Report - {scanner_label}\n\n")
         f.write(f"**Directory:** `{scan_dir}`  \n")
         f.write(f"**Generated:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n\n")

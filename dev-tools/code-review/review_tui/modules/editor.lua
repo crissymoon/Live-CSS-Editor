@@ -31,6 +31,7 @@ local BOTTOM_PAD= 12    -- bottom breathing room above footer
 local OVER_ROWS = 2     -- allow scrolling past EOF a little
 local CTX_W     = 178
 local CTX_ITEM_H= 22
+local ARROW_W   = 18   -- width of the left/right scroll-arrow buttons on the tab bar
 
 -- drag-to-select state
 local _drag        = false
@@ -366,6 +367,7 @@ local _tab_geom     = {}
 local _tab_scroll_x = 0   -- horizontal scroll offset for the tab bar
 local _tab_bar_x    = 0   -- updated each draw; used by scroll helpers
 local _tab_bar_w    = 0
+local _total_tabs_w = 0   -- total pixel width of all tabs (cached after each draw)
 local TAB_MAX_W     = 200  -- max pixel width of a single tab
 
 -- Truncate a label to fit inside max_px pixels (using font_sm).
@@ -380,7 +382,8 @@ local function truncate_label(lbl, max_px)
     return s, font_sm:getWidth(s)
 end
 
--- Scroll _tab_scroll_x so the active tab is fully in view.
+-- Scroll _tab_scroll_x so the active tab is fully in view,
+-- leaving ARROW_W margin on each side so it never hides behind an arrow.
 ensure_active_tab_visible = function()
     if #M.tabs == 0 or _tab_bar_w == 0 then return end
     local tx = 4
@@ -391,10 +394,10 @@ ensure_active_tab_visible = function()
         local cw    = font_sm:getWidth("x") + 8
         local tw    = math.min(lw + cw + 20, TAB_MAX_W)
         if i == M.cur_idx then
-            if tx < _tab_scroll_x then
-                _tab_scroll_x = math.max(0, tx - 4)
-            elseif tx + tw > _tab_scroll_x + _tab_bar_w then
-                _tab_scroll_x = tx + tw - _tab_bar_w + 4
+            if tx < _tab_scroll_x + ARROW_W then
+                _tab_scroll_x = math.max(0, tx - ARROW_W)
+            elseif tx + tw > _tab_scroll_x + _tab_bar_w - ARROW_W then
+                _tab_scroll_x = tx + tw - _tab_bar_w + ARROW_W
             end
             break
         end
@@ -435,9 +438,16 @@ function M.draw(x, y, w, h)
     -- Clamp scroll.
     local max_scroll = math.max(0, total_tabs_w - w)
     _tab_scroll_x = math.max(0, math.min(_tab_scroll_x, max_scroll))
+    _total_tabs_w = total_tabs_w
 
-    -- Clip rendering to the tab bar area so tabs don't bleed into other panels.
-    love.graphics.setScissor(x, y, w, TAB_H)
+    -- Determine which scroll-arrow buttons are needed.
+    local show_left  = _tab_scroll_x > 0
+    local show_right = total_tabs_w > _tab_scroll_x + w
+    local lpad = show_left  and ARROW_W or 0
+    local rpad = show_right and ARROW_W or 0
+
+    -- Clip rendering to the visible tab area (between arrow zones).
+    love.graphics.setScissor(x + lpad, y, w - lpad - rpad, TAB_H)
 
     local tx = x + 4 - _tab_scroll_x
     for i, tab in ipairs(M.tabs) do
@@ -478,6 +488,22 @@ function M.draw(x, y, w, h)
     end
 
     love.graphics.setScissor()
+
+    -- Draw scroll-arrow buttons on top of the tab bar (over any partially-visible tabs).
+    if show_left then
+        love.graphics.setColor(C.menu_bg)
+        fill_rect(x, y, ARROW_W, TAB_H)
+        love.graphics.setColor(C.dim)
+        love.graphics.setFont(font_sm)
+        love.graphics.print("<", x + 4, y + 5)
+    end
+    if show_right then
+        love.graphics.setColor(C.menu_bg)
+        fill_rect(x + w - ARROW_W, y, ARROW_W, TAB_H)
+        love.graphics.setColor(C.dim)
+        love.graphics.setFont(font_sm)
+        love.graphics.print(">", x + w - ARROW_W + 4, y + 5)
+    end
 
     -- ---- editor area ----
     local ey    = y + TAB_H
@@ -957,8 +983,28 @@ function M.mousepressed(mx, my, btn, px, py, pw, ph)
 
     -- ---- tab bar clicks ----
     if my >= py and my < py + TAB_H then
+        -- Left scroll-arrow button.
+        if _tab_scroll_x > 0 and mx >= px and mx < px + ARROW_W then
+            _tab_scroll_x = math.max(0, _tab_scroll_x - TAB_MAX_W)
+            return true
+        end
+        -- Right scroll-arrow button.
+        local show_right = _total_tabs_w > _tab_scroll_x + pw
+        if show_right and mx >= px + pw - ARROW_W and mx < px + pw then
+            local max_scroll = math.max(0, _total_tabs_w - pw)
+            _tab_scroll_x = math.min(max_scroll, _tab_scroll_x + TAB_MAX_W)
+            return true
+        end
+
+        -- Visible tab area (between the arrow zones).
+        local vis_left  = px + (_tab_scroll_x > 0 and ARROW_W or 0)
+        local vis_right = px + pw - (show_right and ARROW_W or 0)
+
         for i, geom in ipairs(_tab_geom) do
-            if mx >= geom.x and mx < geom.x + geom.w then
+            -- Guard: only accept clicks within the visible (non-arrow) region so
+            -- tabs scrolled off the left edge can't be hit by accident.
+            if mx >= geom.x and mx < geom.x + geom.w
+               and mx >= vis_left and mx < vis_right then
                 -- close button
                 local xbtn_x = geom.close_x
                 if btn == 1 and mx >= xbtn_x and mx < xbtn_x + 14 then
@@ -969,6 +1015,11 @@ function M.mousepressed(mx, my, btn, px, py, pw, ph)
                 if btn == 1 then
                     M.cur_idx = i
                     ensure_active_tab_visible()
+                    return true
+                end
+                -- middle-click to close
+                if btn == 3 then
+                    close_tab(i)
                     return true
                 end
             end
@@ -1061,12 +1112,14 @@ function M.mousereleased(mx, my, btn)
     return false
 end
 
-function M.wheelmoved(wy, px, py, pw, ph, mx, my)
+function M.wheelmoved(wx, wy, px, py, pw, ph, mx, my)
     if not M.has_tabs() then return false end
     local t   = M.active_tab()
     if not t  then return false end
 
     -- Horizontal scroll of the tab bar when mouse hovers over it.
+    -- Prefer the horizontal trackpad axis (wx); fall back to the vertical
+    -- wheel axis (wy) so a regular scroll wheel also works over the tab bar.
     if mx and my and my >= py and my < py + TAB_H then
         local tab_widths_total = 4
         for _, tab in ipairs(M.tabs) do
@@ -1078,7 +1131,10 @@ function M.wheelmoved(wy, px, py, pw, ph, mx, my)
             tab_widths_total = tab_widths_total + tw + 2
         end
         local max_scroll = math.max(0, tab_widths_total - pw)
-        _tab_scroll_x = math.max(0, math.min(max_scroll, _tab_scroll_x - wy * 40))
+        -- wx > 0 = swipe/scroll right → show tabs further right → increase offset.
+        -- wy > 0 = scroll up  → show earlier (left) tabs → decrease offset.
+        local delta = (wx ~= 0) and (wx * 40) or (-wy * 40)
+        _tab_scroll_x = math.max(0, math.min(max_scroll, _tab_scroll_x + delta))
         return true
     end
 
