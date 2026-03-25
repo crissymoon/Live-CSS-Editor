@@ -452,6 +452,11 @@ function love.update(dt)
     perf.fps = dt > 0 and (1 / dt) or 0
     perf.worst_ms = math.max(ms, perf.worst_ms * 0.98)
 
+    -- Auto-scroll the editor while the user is drag-selecting.
+    local umx, umy = love.mouse.getPosition()
+    if _dpi ~= 1 then umx = umx / _dpi; umy = umy / _dpi end
+    Editor.update(dt, umx, umy)
+
     Bridge.poll()
     Terminal.poll()
 end

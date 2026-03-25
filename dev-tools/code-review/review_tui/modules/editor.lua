@@ -34,9 +34,12 @@ local CTX_ITEM_H= 22
 local ARROW_W   = 18   -- width of the left/right scroll-arrow buttons on the tab bar
 
 -- drag-to-select state
-local _drag        = false
-local _drag_anchor = nil   -- { line, col }
-local _drag_ctx    = nil   -- { px, py, pw, ph }
+local _drag              = false
+local _drag_anchor       = nil   -- { line, col }
+local _drag_ctx          = nil   -- { px, py, pw, ph }
+local _drag_mx           = 0     -- last mouse position during drag (scaled coords)
+local _drag_my           = 0
+local _drag_scroll_accum = 0     -- fractional line accumulator for smooth auto-scroll
 local _request_browser_focus = false
 
 local CTX_ITEMS = {
@@ -1091,8 +1094,31 @@ function M.mousemoved(mx, my)
     if not _drag or not _drag_anchor then return false end
     local t = M.active_tab()
     if not t or not _drag_ctx then return false end
-    local row, col = _pos_from_mouse(mx, my, t, _drag_ctx.px, _drag_ctx.py)
-    if not row then return false end
+
+    -- Track mouse position so M.update(dt) can auto-scroll each frame.
+    _drag_mx = mx
+    _drag_my = my
+
+    local ctx  = _drag_ctx
+    local ey   = ctx.py + TAB_H
+    local vis  = visible_lines(ctx.ph)
+    local row, col
+
+    if my < ey then
+        -- Mouse above the editor (in tab bar or beyond): pin selection to the
+        -- first visible line so dragging upward feels responsive.
+        row = math.max(1, t.scroll + 1)
+        col = 1
+    elseif my >= ey + TOP_PAD + vis * CHAR_H then
+        -- Mouse below the visible rows: pin to last visible line so the
+        -- update-loop can scroll further while selection keeps extending.
+        row = math.min(#t.lines, t.scroll + vis)
+        col = #t.lines[row] + 1
+    else
+        row, col = _pos_from_mouse(mx, my, t, ctx.px, ctx.py)
+        if not row then return false end
+    end
+
     t.cursor.line = row
     t.cursor.col  = col
     clamp_col(t)
@@ -1103,11 +1129,71 @@ function M.mousemoved(mx, my)
     return true
 end
 
+-- Auto-scroll the editor while a drag-to-select is in progress and the
+-- mouse is outside the visible row area.  Called every frame from love.update.
+function M.update(dt, mx, my)
+    if not _drag or not _drag_ctx then return end
+    local t = M.active_tab()
+    if not t then return end
+
+    -- Use the passed-in position (already DPI-scaled by main.lua).
+    _drag_mx = mx or _drag_mx
+    _drag_my = my or _drag_my
+
+    local ctx    = _drag_ctx
+    local ey     = ctx.py + TAB_H
+    local vis    = visible_lines(ctx.ph)
+    local top    = ey + TOP_PAD
+    local bottom = top + vis * CHAR_H
+
+    -- Compute scroll velocity: proportional to distance outside the viewport.
+    -- At exactly one CHAR_H outside we get ~6 lines/sec; further = faster.
+    local speed = 0
+    if _drag_my < top then
+        speed = (_drag_my - top) / CHAR_H   -- negative = scroll up
+    elseif _drag_my >= bottom then
+        speed = (_drag_my - bottom + 1) / CHAR_H  -- positive = scroll down
+    end
+
+    if speed == 0 then
+        _drag_scroll_accum = 0
+        return
+    end
+
+    _drag_scroll_accum = _drag_scroll_accum + speed * dt * 6
+    local lines = math.floor(math.abs(_drag_scroll_accum) + 0.5)
+    if lines < 1 then return end
+
+    local dir     = _drag_scroll_accum > 0 and 1 or -1
+    local max_scr = math.max(0, #t.lines - vis + OVER_ROWS)
+    local new_scr = math.max(0, math.min(max_scr, t.scroll + dir * lines))
+    if new_scr == t.scroll then
+        _drag_scroll_accum = 0
+        return
+    end
+    t.scroll           = new_scr
+    _drag_scroll_accum = _drag_scroll_accum - dir * lines
+
+    -- Extend the selection to the newly revealed edge row.
+    if dir > 0 then
+        t.cursor.line = math.min(#t.lines, t.scroll + vis)
+        t.cursor.col  = #t.lines[t.cursor.line] + 1
+    else
+        t.cursor.line = math.max(1, t.scroll + 1)
+        t.cursor.col  = 1
+    end
+    t.sel = {
+        s = { line = _drag_anchor.line, col = _drag_anchor.col },
+        e = { line = t.cursor.line,     col = t.cursor.col },
+    }
+end
+
 function M.mousereleased(mx, my, btn)
     if btn == 1 then
-        _drag        = false
-        _drag_anchor = nil
-        _drag_ctx    = nil
+        _drag              = false
+        _drag_anchor       = nil
+        _drag_ctx          = nil
+        _drag_scroll_accum = 0   -- reset so residual doesn't fire on next drag
     end
     return false
 end
