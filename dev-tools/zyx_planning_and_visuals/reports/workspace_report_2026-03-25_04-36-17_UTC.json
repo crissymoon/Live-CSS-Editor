@@ -1,0 +1,69 @@
+{
+  "generated_at": "2026-03-25_04-36-17_UTC",
+  "root": "C:\\Users\\criss\\Desktop",
+  "repository_context": {
+    "purpose": "Inspiration and rapid-start workspace for quickly building apps and prototypes.",
+    "notes": [
+      "Starter auth and database values may exist for local dev preview flows.",
+      "Sensitive assets are expected to stay outside the repo root and be linked locally when needed."
+    ]
+  },
+  "results": [
+    {
+      "name": "security_scan",
+      "command": [
+        "C:\\Users\\criss\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+        "C:\\Users\\criss\\Desktop\\dev-tools\\code-review\\security_ck.py",
+        "C:\\Users\\criss\\Desktop",
+        "--no-color"
+      ],
+      "returncode": 2,
+      "ok": false,
+      "duration_seconds": 0.069,
+      "stdout": "",
+      "stderr": "C:\\Users\\criss\\AppData\\Local\\Programs\\Python\\Python313\\python.exe: can't open file 'C:\\\\Users\\\\criss\\\\Desktop\\\\dev-tools\\\\code-review\\\\security_ck.py': [Errno 2] No such file or directory\n"
+    },
+    {
+      "name": "lines_count",
+      "command": [
+        "C:\\Users\\criss\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+        "C:\\Users\\criss\\Desktop\\dev-tools\\code-review\\lines_count.py",
+        "C:\\Users\\criss\\Desktop",
+        "1200"
+      ],
+      "returncode": 2,
+      "ok": false,
+      "duration_seconds": 0.066,
+      "stdout": "",
+      "stderr": "C:\\Users\\criss\\AppData\\Local\\Programs\\Python\\Python313\\python.exe: can't open file 'C:\\\\Users\\\\criss\\\\Desktop\\\\dev-tools\\\\code-review\\\\lines_count.py': [Errno 2] No such file or directory\n"
+    },
+    {
+      "name": "python_audit",
+      "command": [
+        "C:\\Users\\criss\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+        "C:\\Users\\criss\\Desktop\\dev-tools\\code-review\\py_audit.py",
+        "--dir",
+        "C:\\Users\\criss\\Desktop"
+      ],
+      "returncode": 2,
+      "ok": false,
+      "duration_seconds": 0.069,
+      "stdout": "",
+      "stderr": "C:\\Users\\criss\\AppData\\Local\\Programs\\Python\\Python313\\python.exe: can't open file 'C:\\\\Users\\\\criss\\\\Desktop\\\\dev-tools\\\\code-review\\\\py_audit.py': [Errno 2] No such file or directory\n"
+    },
+    {
+      "name": "create_report",
+      "command": [
+        "C:\\Users\\criss\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+        "C:\\Users\\criss\\Desktop\\dev-tools\\zyx_planning_and_visuals\\create_report.py",
+        "--root",
+        "C:\\Users\\criss\\Desktop"
+      ],
+      "returncode": 2,
+      "ok": false,
+      "duration_seconds": 0.072,
+      "stdout": "",
+      "stderr": "C:\\Users\\criss\\AppData\\Local\\Programs\\Python\\Python313\\python.exe: can't open file 'C:\\\\Users\\\\criss\\\\Desktop\\\\dev-tools\\\\zyx_planning_and_visuals\\\\create_report.py': [Errno 2] No such file or directory\n"
+    }
+  ]
+}

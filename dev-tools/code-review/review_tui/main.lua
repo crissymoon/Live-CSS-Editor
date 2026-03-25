@@ -133,33 +133,51 @@ end
 font_sm, font_md, font_ui = nil, nil, nil
 
 local function load_fonts()
+    -- Use the Windows font directory from the environment so this works
+    -- regardless of which drive Windows is installed on.
+    local wf = (os.getenv("WINDIR") or os.getenv("SystemRoot") or "C:/Windows") .. "/Fonts/"
+
     local mono_candidates = {
-        "C:/Windows/Fonts/CascadiaMono.ttf",
-        "C:/Windows/Fonts/consola.ttf",
-        "C:/Windows/Fonts/lucon.ttf",
+        wf .. "CascadiaMono.ttf",
+        wf .. "CascadiaCode.ttf",
+        wf .. "consola.ttf",
+        wf .. "lucon.ttf",
         "/System/Library/Fonts/Menlo.ttc",
+        "/System/Library/Fonts/SFMono-Regular.otf",
         "/Library/Fonts/JetBrainsMono-Regular.ttf",
         "/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Regular.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
     }
     local ui_candidates = {
-        "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/arial.ttf",
+        wf .. "segoeui.ttf",
+        wf .. "arial.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
         "/System/Library/Fonts/SFNSText.ttf",
+        "/System/Library/Fonts/SFCompactText.ttf",
     }
 
-    -- Broad-coverage fallback fonts for Unicode glyphs the primary may lack
+    -- Fallback fonts for glyphs not in the primary.
+    -- Order matters: comprehensive coverage fonts come first so that common
+    -- characters like em-dash, curly quotes, and ellipsis are found quickly.
+    -- Symbol/emoji fonts come last since they cover narrow Unicode ranges.
+    -- LastResort.otf is intentionally excluded: it renders descriptive tofu
+    -- boxes (worse than a blank) for every unmapped character.
     local fallback_candidates = {
-        "C:/Windows/Fonts/seguisym.ttf",
-        "C:/Windows/Fonts/seguiemj.ttf",
-        "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/arial.ttf",
+        -- Windows: comprehensive general-purpose fonts first
+        wf .. "segoeui.ttf",
+        wf .. "arial.ttf",
+        wf .. "seguisym.ttf",   -- mathematical and symbol blocks
+        wf .. "seguiemj.ttf",   -- emoji
+        -- macOS
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
         "/System/Library/Fonts/Apple Symbols.ttf",
-        "/System/Library/Fonts/LastResort.otf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        -- Linux
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansMono-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
         "/usr/share/fonts/truetype/unifont/unifont.ttf",
     }
 
@@ -178,7 +196,8 @@ local function load_fonts()
             if ok and f then fbs[#fbs + 1] = f end
         end
         if #fbs > 0 then
-            primary:setFallbacks(unpack(fbs))
+            -- pcall guards against older Love2D builds that lack setFallbacks.
+            pcall(function() primary:setFallbacks(unpack(fbs)) end)
         end
     end
 

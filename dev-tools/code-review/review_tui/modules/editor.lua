@@ -42,6 +42,10 @@ local _drag_my           = 0
 local _drag_scroll_accum = 0     -- fractional line accumulator for smooth auto-scroll
 local _request_browser_focus = false
 
+-- tab drag-to-reorder state
+local _tab_drag_idx    = nil  -- index of tab currently being dragged (nil = none)
+local _tab_drag_origin = 0    -- mouse x when the tab drag started
+
 local CTX_ITEMS = {
     { label = "Select All",  hint = "Ctrl+A" },
     { label = "Copy",        hint = "Ctrl+C" },
@@ -82,7 +86,7 @@ function M.consume_browser_focus_request()
 end
 
 -- ---------------------------------------------
--- UTF-8 safety (copied pattern from reference)
+-- UTF-8 safety
 -- ---------------------------------------------
 local function _seq_len(b)
     if b < 0x80 then return 1
@@ -101,6 +105,12 @@ local function _valid_seq(s, i, len)
     return true
 end
 
+-- U+FFFD REPLACEMENT CHARACTER (UTF-8: EF BF BD).
+-- Used in place of bytes that are not valid UTF-8, so they appear as a
+-- visible stand-in rather than being silently dropped.  This handles files
+-- saved in cp1252 / latin-1 where e.g. em dash is byte 0x97.
+local _REPLACEMENT = "\xef\xbf\xbd"
+
 local function _utf8_safe(s)
     if type(s) ~= "string" then return tostring(s or "") end
     if not s:find("[\x80-\xFF]") then return s end
@@ -113,6 +123,9 @@ local function _utf8_safe(s)
             out[#out + 1] = s:sub(i, i + len - 1)
             i = i + len
         else
+            -- Undecodable byte: emit the Unicode replacement character so the
+            -- character is visible rather than silently absent.
+            out[#out + 1] = _REPLACEMENT
             i = i + 1
         end
     end
@@ -152,6 +165,11 @@ local EXT_LANG = {
 
 local function ext_of(path)
     return (path:match("%.([^%.]+)$") or ""):lower()
+end
+
+-- Return just the filename from a path that may use / or \ as separator.
+local function basename(path)
+    return path:match("[^/\\]+$") or path
 end
 
 local function tokenize_line(line, ext)
@@ -225,6 +243,75 @@ end
 local ensure_active_tab_visible
 
 -- ---------------------------------------------
+-- Encoding helpers for file I/O
+-- ---------------------------------------------
+-- Windows-1252 special range 0x80-0x9F → Unicode codepoints.
+-- Entries absent from this table are undefined in cp1252 and map to U+FFFD.
+-- Bytes 0xA0-0xFF are identical to Latin-1 (same codepoint as byte value).
+local _CP1252 = {
+    [0x80]=0x20AC,           [0x82]=0x201A,[0x83]=0x0192,[0x84]=0x201E,
+    [0x85]=0x2026,[0x86]=0x2020,[0x87]=0x2021,[0x88]=0x02C6,
+    [0x89]=0x2030,[0x8A]=0x0160,[0x8B]=0x2039,[0x8C]=0x0152,
+                  [0x8E]=0x017D,
+    [0x91]=0x2018,[0x92]=0x2019,[0x93]=0x201C,[0x94]=0x201D,
+    [0x95]=0x2022,[0x96]=0x2013,[0x97]=0x2014,
+    [0x98]=0x02DC,[0x99]=0x2122,[0x9A]=0x0161,[0x9B]=0x203A,
+    [0x9C]=0x0153,            [0x9E]=0x017E,[0x9F]=0x0178,
+}
+
+-- Encode a Unicode codepoint to a UTF-8 byte string (U+0000..U+10FFFF).
+local function _utf8_chr(cp)
+    if cp < 0x80 then
+        return string.char(cp)
+    elseif cp < 0x800 then
+        return string.char(0xC0 + math.floor(cp / 64),
+                           0x80 + (cp % 64))
+    elseif cp < 0x10000 then
+        return string.char(0xE0 + math.floor(cp / 4096),
+                           0x80 + math.floor(cp / 64) % 64,
+                           0x80 + (cp % 64))
+    else
+        return string.char(0xF0 + math.floor(cp / 262144),
+                           0x80 + math.floor(cp / 4096) % 64,
+                           0x80 + math.floor(cp / 64) % 64,
+                           0x80 + (cp % 64))
+    end
+end
+
+-- Return true if s is entirely valid UTF-8.
+local function _is_utf8(s)
+    local i, n = 1, #s
+    while i <= n do
+        local b   = s:byte(i)
+        local len = _seq_len(b)
+        if not len or i + len - 1 > n or not _valid_seq(s, i, len) then
+            return false
+        end
+        i = i + len
+    end
+    return true
+end
+
+-- Convert a raw byte string from cp1252/Latin-1 to UTF-8.
+-- Bytes 0x00-0x7F pass through unchanged (same as ASCII/UTF-8).
+-- Bytes 0x80-0x9F use the cp1252 table above; undefined entries → U+FFFD.
+-- Bytes 0xA0-0xFF use their Latin-1 value (identical to the Unicode codepoint).
+local function _cp1252_to_utf8(s)
+    local out, n = {}, #s
+    for i = 1, n do
+        local b = s:byte(i)
+        if b < 0x80 then
+            out[#out+1] = string.char(b)
+        elseif b >= 0xA0 then
+            out[#out+1] = _utf8_chr(b)          -- Latin-1 supplement
+        else
+            out[#out+1] = _utf8_chr(_CP1252[b] or 0xFFFD)
+        end
+    end
+    return table.concat(out)
+end
+
+-- ---------------------------------------------
 -- File I/O
 -- ---------------------------------------------
 function M.open_file(path)
@@ -236,12 +323,32 @@ function M.open_file(path)
             return
         end
     end
-    local f = io.open(path, "r")
+    -- Read as raw bytes so no OS-level encoding conversion happens.
+    local f = io.open(path, "rb")
     if not f then return end
-    local lines = {}
-    for line in f:lines() do lines[#lines+1] = line end
+    local content = f:read("*a")
     f:close()
-    if #lines == 0 then lines = { "" } end
+
+    local lines = { "" }
+    if content and content ~= "" then
+        -- Auto-detect encoding: if the bytes are not valid UTF-8 treat the file
+        -- as cp1252/Latin-1 and recode to UTF-8 so all characters display correctly.
+        if not _is_utf8(content) then
+            content = _cp1252_to_utf8(content)
+        end
+        -- Normalise line endings (CRLF, CR, LF all → LF) then split.
+        content = content:gsub("\r\n", "\n"):gsub("\r", "\n")
+        lines = {}
+        for line in (content .. "\n"):gmatch("([^\n]*)\n") do
+            lines[#lines+1] = line
+        end
+        -- Drop the spurious trailing empty line the gmatch adds.
+        if #lines > 1 and lines[#lines] == "" then
+            lines[#lines] = nil
+        end
+        if #lines == 0 then lines = { "" } end
+    end
+
     local tab = new_tab(path, lines)
     M.tabs[#M.tabs+1] = tab
     M.cur_idx = #M.tabs
@@ -391,7 +498,7 @@ ensure_active_tab_visible = function()
     if #M.tabs == 0 or _tab_bar_w == 0 then return end
     local tx = 4
     for i, tab in ipairs(M.tabs) do
-        local name  = tab.filepath:match("([^/]+)$") or tab.filepath
+        local name  = basename(tab.filepath)
         local label = (tab.modified and "*" or "") .. name
         local lw    = font_sm:getWidth(label)
         local cw    = font_sm:getWidth("x") + 8
@@ -429,7 +536,7 @@ function M.draw(x, y, w, h)
     local tab_widths = {}
     local total_tabs_w = 4
     for i, tab in ipairs(M.tabs) do
-        local name  = tab.filepath:match("([^/]+)$") or tab.filepath
+        local name  = basename(tab.filepath)
         local label = (tab.modified and "*" or "") .. name
         local lw    = font_sm:getWidth(label)
         local cw    = font_sm:getWidth("x") + 8
@@ -454,7 +561,7 @@ function M.draw(x, y, w, h)
 
     local tx = x + 4 - _tab_scroll_x
     for i, tab in ipairs(M.tabs) do
-        local name   = tab.filepath:match("([^/]+)$") or tab.filepath
+        local name   = basename(tab.filepath)
         local label  = (tab.modified and "*" or "") .. name
         local cw     = font_sm:getWidth("x") + 8
         local tw     = tab_widths[i]
@@ -469,21 +576,29 @@ function M.draw(x, y, w, h)
 
         -- Only draw if at least partially visible.
         if tx + tw > x and tx < x + w then
+            local dragging = (_tab_drag_idx == i)
             if active then
                 love.graphics.setColor(C.panel_bg)
                 fill_rect(tx, y + 1, tw, TAB_H - 1, 3)
                 love.graphics.setColor(C.accent)
                 fill_rect(tx, y, tw, 2)
+            elseif dragging then
+                -- Lifted appearance: matches the active style but with the
+                -- accent stripe on the bottom to signal it is being moved.
+                love.graphics.setColor(C.panel_bg)
+                fill_rect(tx, y + 2, tw, TAB_H - 2, 3)
+                love.graphics.setColor(C.accent)
+                fill_rect(tx, y + TAB_H - 2, tw, 2)
             else
                 love.graphics.setColor(C.bg)
                 fill_rect(tx, y + 3, tw, TAB_H - 3, 3)
             end
 
-            love.graphics.setColor(active and C.text_bright or C.dim)
+            love.graphics.setColor((active or dragging) and C.text_bright or C.dim)
             love.graphics.setFont(font_sm)
             love.graphics.print(disp_label, tx + 8, y + 5)
 
-            love.graphics.setColor(active and C.grey or C.dark)
+            love.graphics.setColor((active or dragging) and C.grey or C.dark)
             love.graphics.print("x", close_x, y + 5)
         end
 
@@ -1014,9 +1129,11 @@ function M.mousepressed(mx, my, btn, px, py, pw, ph)
                     close_tab(i)
                     return true
                 end
-                -- switch tab
+                -- switch tab and begin drag tracking
                 if btn == 1 then
-                    M.cur_idx = i
+                    M.cur_idx        = i
+                    _tab_drag_idx    = i
+                    _tab_drag_origin = mx
                     ensure_active_tab_visible()
                     return true
                 end
@@ -1091,6 +1208,29 @@ function M.mousepressed(mx, my, btn, px, py, pw, ph)
 end
 
 function M.mousemoved(mx, my)
+    -- Tab drag-to-reorder: active anywhere once a tab drag has begun.
+    if _tab_drag_idx and math.abs(mx - _tab_drag_origin) > 4 then
+        if _tab_drag_idx > 1 then
+            local prev = _tab_geom[_tab_drag_idx - 1]
+            if prev and mx < prev.x + prev.w / 2 then
+                M.tabs[_tab_drag_idx], M.tabs[_tab_drag_idx - 1] =
+                    M.tabs[_tab_drag_idx - 1], M.tabs[_tab_drag_idx]
+                _tab_drag_idx = _tab_drag_idx - 1
+                M.cur_idx     = _tab_drag_idx
+            end
+        end
+        if _tab_drag_idx < #M.tabs then
+            local nxt = _tab_geom[_tab_drag_idx + 1]
+            if nxt and mx > nxt.x + nxt.w / 2 then
+                M.tabs[_tab_drag_idx], M.tabs[_tab_drag_idx + 1] =
+                    M.tabs[_tab_drag_idx + 1], M.tabs[_tab_drag_idx]
+                _tab_drag_idx = _tab_drag_idx + 1
+                M.cur_idx     = _tab_drag_idx
+            end
+        end
+        return true
+    end
+
     if not _drag or not _drag_anchor then return false end
     local t = M.active_tab()
     if not t or not _drag_ctx then return false end
@@ -1190,6 +1330,7 @@ end
 
 function M.mousereleased(mx, my, btn)
     if btn == 1 then
+        _tab_drag_idx      = nil     -- clear any tab drag
         _drag              = false
         _drag_anchor       = nil
         _drag_ctx          = nil
@@ -1209,7 +1350,7 @@ function M.wheelmoved(wx, wy, px, py, pw, ph, mx, my)
     if mx and my and my >= py and my < py + TAB_H then
         local tab_widths_total = 4
         for _, tab in ipairs(M.tabs) do
-            local name  = tab.filepath:match("([^/]+)$") or tab.filepath
+            local name  = basename(tab.filepath)
             local label = (tab.modified and "*" or "") .. name
             local lw    = font_sm:getWidth(label)
             local cw    = font_sm:getWidth("x") + 8
