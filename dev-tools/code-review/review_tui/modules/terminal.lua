@@ -24,15 +24,19 @@ local _term_tab     = nil   -- tab that owns the running command
 local TERM_WORKER = [[
 local cmd, chan_name = ...
 local chan = love.thread.getChannel(chan_name)
-local WP   = require "modules.winpipe"
-local iter = WP.lines_live(cmd)
-if not iter then
-    chan:push("ERR:Failed to start: " .. tostring(cmd))
-    chan:push("__DONE__")
-    return
-end
-for line in iter do
-    chan:push(line)
+local ok, err = pcall(function()
+    local WP   = require "modules.winpipe"
+    local iter = WP.lines_live(cmd)
+    if not iter then
+        chan:push("ERR:Failed to start: " .. tostring(cmd))
+        return
+    end
+    for line in iter do
+        chan:push(line)
+    end
+end)
+if not ok then
+    chan:push("ERR:thread error: " .. tostring(err))
 end
 chan:push("__DONE__")
 ]]
@@ -858,7 +862,20 @@ function M.poll()
     local max_per_frame = 100
     while processed < max_per_frame do
         local line = _term_chan:pop()
-        if not line then break end
+        if not line then
+            -- Thread died without sending __DONE__ (unhandled error or crash).
+            if _term_thread and not _term_thread:isRunning() then
+                local thread_err = _term_thread:getError()
+                if thread_err and t then
+                    add_line(t, "error: " .. tostring(thread_err))
+                end
+                _term_chan   = nil
+                _term_thread = nil
+                _term_tab    = nil
+                if t then t.scroll = 1e9; save_state() end
+            end
+            break
+        end
         processed = processed + 1
         if line == "__DONE__" then
             _term_chan   = nil

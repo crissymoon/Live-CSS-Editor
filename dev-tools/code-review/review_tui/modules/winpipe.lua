@@ -8,15 +8,15 @@
 --   WP.lines_live(cmd)  -> streaming line iterator (reads as process writes; good for long scans)
 --   WP.is_dir(path)     -> bool, true if path is an existing directory (no subprocess, Win32 direct)
 
-local ffi = require "ffi"
-local M   = {}
+local M = {}
 
--- Use ffi.os so this module works in Love2D main thread AND worker threads
--- without requiring love.system (which may not be available in all thread contexts).
-local IS_WIN = ffi.os == "Windows"
+-- Detect platform without requiring ffi so this module loads cleanly in Love2D
+-- worker threads on macOS (including Apple Silicon builds where ffi may be
+-- unavailable). package.config:sub(1,1) is "\\" on Windows, "/" elsewhere.
+local IS_WIN = package.config:sub(1, 1) == "\\"
 
 -- -------------------------------------------------------------------------
--- Non-Windows fallback
+-- Non-Windows fallback (macOS / Linux)
 -- -------------------------------------------------------------------------
 if not IS_WIN then
     function M.lines(cmd)
@@ -40,12 +40,29 @@ if not IS_WIN then
     end
 
     function M.is_dir(path)
+        -- Use opendir() via FFI when available to avoid fork() overhead.
+        local ok, ffi_mod = pcall(require, "ffi")
+        if ok then
+            pcall(ffi_mod.cdef, [[void* opendir(const char*); int closedir(void*);]])
+            local d = ffi_mod.C.opendir(path)
+            if d ~= nil then
+                ffi_mod.C.closedir(d)
+                return true
+            end
+            return false
+        end
+        -- Fallback when ffi is not available.
         local rc = os.execute("[ -d " .. string.format("%q", path) .. " ]")
         return rc == 0 or rc == true
     end
 
     return M
 end
+
+-- -------------------------------------------------------------------------
+-- Windows implementation via LuaJIT FFI
+-- -------------------------------------------------------------------------
+local ffi = require "ffi"
 
 -- -------------------------------------------------------------------------
 -- Windows implementation via LuaJIT FFI
