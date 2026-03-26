@@ -12,8 +12,9 @@
 
 static int s_php_port = 9879;
 
-void native_chrome_create(void*, AppState*, int php_port) {
+void native_chrome_create(void*, AppState* state, int php_port) {
     s_php_port = php_port;
+    if (state) state->php_port = php_port;
 }
 
 int native_chrome_update(AppState* st) {
@@ -41,8 +42,8 @@ int native_chrome_update(AppState* st) {
 int   native_chrome_status_h()                  { return STATUS_HEIGHT_PX; }
 bool  native_chrome_has_hover()                 { return ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive(); }
 void  native_chrome_resize(int, int)            {}
-float native_chrome_bm_btn_x()                  { return 0.0f; }
-float native_chrome_hist_btn_x()                { return 0.0f; }
+float native_chrome_bm_btn_x()                  { return chrome_bm_btn_x(); }
+float native_chrome_hist_btn_x()                { return chrome_hist_btn_x(); }
 void  native_chrome_focus_url()                 {}
 void  native_chrome_destroy()                   {}
 void  native_chrome_eval_toolbar_js(const char*){}

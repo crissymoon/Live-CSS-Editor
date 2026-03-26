@@ -34,3 +34,9 @@ void chrome_apply_theme();
 void chrome_draw_panels(AppState* st,
                         float anchor_bm_x, float anchor_hist_x,
                         int   panel_top);
+
+// Screen-X (right edge) of the bookmark / history buttons as set by the
+// most recent chrome_draw_top / draw_toolbar call.  Used by the stub on
+// non-Apple platforms so panels are anchored to the correct position.
+float chrome_bm_btn_x();
+float chrome_hist_btn_x();

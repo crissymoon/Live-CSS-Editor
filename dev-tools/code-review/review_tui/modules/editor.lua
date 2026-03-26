@@ -199,6 +199,40 @@ local KW_MAP = {
         ["echo"]="kw_decl",["print"]="kw_decl",
         ["true"]="literal",["false"]="literal",["null"]="literal",
     },
+    c = {
+        ["if"]="kw_ctrl",["else"]="kw_ctrl",["for"]="kw_ctrl",["while"]="kw_ctrl",
+        ["do"]="kw_ctrl",["switch"]="kw_ctrl",["case"]="kw_ctrl",["default"]="kw_ctrl",
+        ["break"]="kw_ctrl",["continue"]="kw_ctrl",["return"]="kw_ctrl",["goto"]="kw_ctrl",
+        ["int"]="kw_decl",["float"]="kw_decl",["double"]="kw_decl",["void"]="kw_decl",
+        ["char"]="kw_decl",["long"]="kw_decl",["short"]="kw_decl",["unsigned"]="kw_decl",
+        ["signed"]="kw_decl",["const"]="kw_decl",["struct"]="kw_decl",["enum"]="kw_decl",
+        ["union"]="kw_decl",["typedef"]="kw_decl",["extern"]="kw_decl",["static"]="kw_decl",
+        ["inline"]="kw_decl",["volatile"]="kw_decl",["register"]="kw_decl",["auto"]="kw_decl",
+        ["true"]="literal",["false"]="literal",["NULL"]="literal",
+        ["sizeof"]="violet",
+    },
+    cpp = {
+        ["if"]="kw_ctrl",["else"]="kw_ctrl",["for"]="kw_ctrl",["while"]="kw_ctrl",
+        ["do"]="kw_ctrl",["switch"]="kw_ctrl",["case"]="kw_ctrl",["default"]="kw_ctrl",
+        ["break"]="kw_ctrl",["continue"]="kw_ctrl",["return"]="kw_ctrl",["goto"]="kw_ctrl",
+        ["throw"]="kw_ctrl",["try"]="kw_ctrl",["catch"]="kw_ctrl",
+        ["int"]="kw_decl",["float"]="kw_decl",["double"]="kw_decl",["void"]="kw_decl",
+        ["char"]="kw_decl",["long"]="kw_decl",["short"]="kw_decl",["unsigned"]="kw_decl",
+        ["signed"]="kw_decl",["const"]="kw_decl",["struct"]="kw_decl",["enum"]="kw_decl",
+        ["union"]="kw_decl",["typedef"]="kw_decl",["extern"]="kw_decl",["static"]="kw_decl",
+        ["inline"]="kw_decl",["volatile"]="kw_decl",["auto"]="kw_decl",["constexpr"]="kw_decl",
+        ["class"]="kw_decl",["template"]="kw_decl",["typename"]="kw_decl",
+        ["namespace"]="kw_decl",["using"]="kw_decl",["operator"]="kw_decl",
+        ["public"]="kw_decl",["private"]="kw_decl",["protected"]="kw_decl",
+        ["virtual"]="kw_decl",["override"]="kw_decl",["final"]="kw_decl",
+        ["explicit"]="kw_decl",["friend"]="kw_decl",["mutable"]="kw_decl",
+        ["new"]="kw_decl",["delete"]="kw_decl",["decltype"]="kw_decl",
+        ["true"]="literal",["false"]="literal",["nullptr"]="literal",
+        ["NULL"]="literal",["this"]="literal",
+        ["sizeof"]="violet",["typeid"]="violet",["alignof"]="violet",
+        ["noexcept"]="violet",["and"]="violet",["or"]="violet",["not"]="violet",
+        ["static_assert"]="kw_ctrl",
+    },
 }
 
 -- symbol characters that should receive the operator color
@@ -206,13 +240,14 @@ local OP_SET = {
     ["="] = true, ["+"] = true, ["-"] = true, ["*"] = true, ["/"] = true,
     ["!"] = true, ["&"] = true, ["|"] = true, ["~"] = true, ["?"] = true,
     ["@"] = true, ["%"] = true, ["^"] = true, ["\\"]= true,
-    ["<"] = true, [">"] = true, [":"] = true,
+    ["<"] = true, [">"] = true, [":"] = true, ["#"] = true,
 }
 
 local EXT_LANG = {
     lua="lua", py="python", js="js", ts="js", jsx="js", tsx="js", php="php",
-    c="js", h="js", cpp="js", cs="js",
+    c="c", h="cpp", cpp="cpp", cs="js",
     sh="python", bash="python",
+    css="css",
 }
 
 local function ext_of(path)
@@ -224,7 +259,186 @@ local function basename(path)
     return path:match("[^/\\]+$") or path
 end
 
+-- CSS-specific tokenizer.
+-- Colors:
+--   .class    → yellow     (#id → literal/amber, both distinct in the dark purple theme)
+--   property  → lavender   (light purple/blueish, same hue used for brackets elsewhere)
+--   :pseudo   → violet
+--   @at-rule  → kw_ctrl
+--   strings   → green,  hex/numbers → cyan,  comments → comment
+local function tokenize_line_css(line)
+    local out = {}
+    local i   = 1
+    local n   = #line
+
+    -- Fast path: multi-line comment body (starts with * or */)
+    local stripped = line:match("^%s*(.*)")
+    if stripped:match("^/%*") or (stripped:match("^%*") and not stripped:match("^%*/")) then
+        out[#out+1] = { text = line, col = "comment" }
+        return out
+    end
+
+    -- Decide initial declaration context for lines that have no braces.
+    -- Lines with braces toggle in_decl as we scan them.
+    local has_open  = line:find("{",  1, true) ~= nil
+    local has_close = line:find("}",  1, true) ~= nil
+    local in_decl
+    if has_open or has_close then
+        in_decl = false   -- toggled dynamically below
+    elseif stripped == "" or stripped:match("^@") or stripped:match("^[.#:*%[]") then
+        in_decl = false
+    else
+        -- Heuristic: identifier followed by ":" then whitespace/digit/#/quote → declaration.
+        -- "a:hover" has a letter after ":" so it stays as selector context.
+        -- Indented lines that are ambiguous (word:word) default to declaration.
+        local after = stripped:match("^%-?[%a][%w%-]*%s*:(.?)")
+        if after == nil then
+            in_decl = false
+        elseif after == "" or after:match("[%s%d#\"']") then
+            in_decl = true
+        elseif after:match("[%a]") then
+            in_decl = line:match("^%s") ~= nil   -- indented → declaration
+        else
+            in_decl = false
+        end
+    end
+
+    while i <= n do
+        local c = line:sub(i, i)
+
+        -- block comment
+        if c == "/" and line:sub(i, i+1) == "/*" then
+            local j = line:find("*/", i+2, true)
+            if j then
+                out[#out+1] = { text = line:sub(i, j+1), col = "comment" }
+                i = j + 2
+            else
+                out[#out+1] = { text = line:sub(i), col = "comment" }
+                i = n + 1
+            end
+
+        elseif c == "{" then
+            out[#out+1] = { text = c, col = "lavender" }
+            in_decl = true
+            i = i + 1
+
+        elseif c == "}" then
+            out[#out+1] = { text = c, col = "lavender" }
+            in_decl = false
+            i = i + 1
+
+        elseif c == ";" then
+            out[#out+1] = { text = c, col = "op" }
+            i = i + 1
+
+        elseif not in_decl then
+            -- Selector context
+            if c == "@" then
+                local j = i + 1
+                while j <= n and line:sub(j,j):match("[%a%-]") do j = j + 1 end
+                out[#out+1] = { text = line:sub(i, j-1), col = "kw_ctrl" }
+                i = j
+            elseif c == "." then
+                local j = i + 1
+                while j <= n and line:sub(j,j):match("[%w%-_]") do j = j + 1 end
+                out[#out+1] = { text = line:sub(i, j-1), col = "yellow" }
+                i = j
+            elseif c == "#" then
+                local j = i + 1
+                while j <= n and line:sub(j,j):match("[%w%-_]") do j = j + 1 end
+                out[#out+1] = { text = line:sub(i, j-1), col = "literal" }
+                i = j
+            elseif c == ":" then
+                -- :pseudo or ::pseudo-element
+                local j = i + 1
+                if line:sub(j,j) == ":" then j = j + 1 end
+                while j <= n and line:sub(j,j):match("[%w%-]") do j = j + 1 end
+                out[#out+1] = { text = line:sub(i, j-1), col = "violet" }
+                i = j
+            elseif c:match("[%a_]") then
+                local j = i
+                while j <= n and line:sub(j,j):match("[%w%-_]") do j = j + 1 end
+                out[#out+1] = { text = line:sub(i, j-1), col = "text" }
+                i = j
+            elseif c:match("[>+~,]") then
+                out[#out+1] = { text = c, col = "op" }
+                i = i + 1
+            elseif c == "[" or c == "]" or c == "(" or c == ")" then
+                out[#out+1] = { text = c, col = "lavender" }
+                i = i + 1
+            elseif c:match("%s") then
+                out[#out+1] = { text = c, col = "dim" }
+                i = i + 1
+            else
+                out[#out+1] = { text = c, col = "text" }
+                i = i + 1
+            end
+
+        else
+            -- Declaration context (inside {})
+            if c == '"' or c == "'" then
+                local j = i + 1
+                while j <= n do
+                    if line:sub(j,j) == "\\" then j = j + 2
+                    elseif line:sub(j,j) == c then j = j + 1; break
+                    else j = j + 1 end
+                end
+                out[#out+1] = { text = line:sub(i, j-1), col = "green" }
+                i = j
+            elseif c == "#" then
+                -- hex color value
+                local j = i + 1
+                while j <= n and line:sub(j,j):match("[%x]") do j = j + 1 end
+                out[#out+1] = { text = line:sub(i, j-1), col = "cyan" }
+                i = j
+            elseif c:match("[0-9]") or (c == "-" and line:sub(i+1,i+1):match("[0-9]")) then
+                -- number + optional CSS unit (px, em, rem, vh, vw, %, etc.)
+                local j = i
+                if c == "-" then j = j + 1 end
+                while j <= n and line:sub(j,j):match("[0-9%.]") do j = j + 1 end
+                while j <= n and line:sub(j,j):match("[%a%%]") do j = j + 1 end
+                out[#out+1] = { text = line:sub(i, j-1), col = "cyan" }
+                i = j
+            elseif c:match("[%a%-]") then
+                -- Scan word; look ahead past optional whitespace for ":" to detect property names.
+                local j = i
+                while j <= n and line:sub(j,j):match("[%w%-]") do j = j + 1 end
+                local word = line:sub(i, j-1)
+                local k = j
+                while k <= n and line:sub(k,k):match("%s") do k = k + 1 end
+                -- single colon (not "::") right after → property name
+                if line:sub(k,k) == ":" and line:sub(k+1,k+1) ~= ":" then
+                    out[#out+1] = { text = word, col = "lavender" }
+                else
+                    out[#out+1] = { text = word, col = "text" }
+                end
+                i = j
+            elseif c == ":" then
+                out[#out+1] = { text = c, col = "op" }
+                i = i + 1
+            elseif c == "," then
+                out[#out+1] = { text = c, col = "op" }
+                i = i + 1
+            elseif c:match("[()%[%]]") then
+                out[#out+1] = { text = c, col = "lavender" }
+                i = i + 1
+            elseif c == "!" then
+                out[#out+1] = { text = c, col = "op" }
+                i = i + 1
+            elseif c:match("%s") then
+                out[#out+1] = { text = c, col = "dim" }
+                i = i + 1
+            else
+                out[#out+1] = { text = c, col = "text" }
+                i = i + 1
+            end
+        end
+    end
+    return out
+end
+
 local function tokenize_line(line, ext)
+    if ext == "css" then return tokenize_line_css(line) end
     local lang  = EXT_LANG[ext] or "js"
     local kw    = KW_MAP[lang] or {}
     local out   = {}
@@ -267,7 +481,13 @@ local function tokenize_line(line, ext)
             local j = i
             while j <= n and line:sub(j, j):match("[%w_]") do j = j + 1 end
             local word = line:sub(i, j - 1)
-            local col  = kw[word] or "text"
+            local col
+            -- namespace/type qualifier: word immediately followed by :: (e.g. std::, MyClass::)
+            if line:sub(j, j+1) == "::" then
+                col = "ns"
+            else
+                col = kw[word] or "text"
+            end
             out[#out+1] = { text = word, col = col }
             i = j
 
@@ -757,7 +977,7 @@ function M.draw(x, y, w, h)
             local px_e = (li == el) and col_px(line, ec)
                          or (x + GUTTER + font_sm:getWidth(_utf8_safe(line)) + font_sm:getWidth(" "))
             if px_e > px_s then
-                love.graphics.setColor(0.72, 0.55, 1.0, 0.55)
+                love.graphics.setColor(0.55, 0.28, 1.0, 0.82)
                 fill_rect(px_s, draw_y - 2, px_e - px_s, CHAR_H + 2)
             end
         end

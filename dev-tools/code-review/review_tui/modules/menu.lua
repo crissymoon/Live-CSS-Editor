@@ -46,6 +46,7 @@ function M.init(actions, colours)
             items = {
                 { label = "Toggle Browser",      action = actions.toggle_browser },
                 { label = "Toggle Terminal",     action = actions.toggle_terminal },
+                { label = "Color Picker",        action = actions.toggle_color_picker },
                 { label = "Scroll to Bottom",    action = actions.scroll_bottom },
                 { label = "Clear Results",       action = actions.clear_results },
             },

@@ -58,6 +58,7 @@ C = {
     literal     = {1.0,  0.70, 0.28, 1},   -- amber:      value literals (true/false/null/nil)
     op          = {0.76, 0.88, 1.0,  1},   -- ice blue:   operators (= + - * / ! < > & | ~)
     comment     = {0.40, 0.50, 0.44, 1},   -- sage:       line comments
+    ns          = {0.95, 0.82, 0.48, 1},   -- warm gold:  namespace/type qualifiers (std::, MyClass::)
 }
 
 --------------------------------------------------------------------
@@ -321,6 +322,7 @@ local Menu    = require "modules.menu"
 local Browser = require "modules.browser"
 local Editor  = require "modules.editor"
 local Terminal = require "modules.terminal"
+local ColorPicker = require "modules.colorpicker"
 
 --------------------------------------------------------------------
 -- Results helpers
@@ -445,6 +447,7 @@ actions.scan_c_memsafe = function() run_scan("c_memory_safety", "C Memory Safety
 actions.scan_c_lint    = function() run_scan("c_lint",        "C/C++ Lint")    end
 actions.scan_all       = function() run_scan("run_all",       "Run All Scans") end
 actions.toggle_terminal = function() Terminal.toggle() end
+actions.toggle_color_picker = function() ColorPicker.toggle() end
 
 actions.toggle_browser = function() Browser.toggle() end
 actions.scroll_bottom  = function() scroll_y = 1e9 end
@@ -498,6 +501,7 @@ function love.load()
         end
     )
     Terminal.init(C, scan_path)
+    ColorPicker.init(C)
     Browser.set_root(scan_path)
     Browser.set_keyboard_focus(true)
     CHAR_H = font_sm:getHeight()
@@ -582,14 +586,14 @@ local function draw_toolbar()
     text_at(badge_x + (badge_w - font_sm:getWidth(status)) / 2, y + 7, status)
 
     -- Row 2: path label + input spanning available width
+    local ph     = 20
+    local py     = y + 30
     love.graphics.setFont(font_ui)
     gc("dim")
     local path_label = "Path:"
-    text_at(12, y + 34, path_label)
+    text_at(12, py - 1, path_label)
     local plw = font_ui:getWidth(path_label)
     local px, pw = 12 + plw + 8, W - 12 - 12 - plw - 8
-    local ph     = 20
-    local py     = y + 30
     if path_editing then
         gc("panel_bg")
         fill_rect(px, py, pw, ph, 3)
@@ -619,6 +623,7 @@ local function draw_toolbar()
         { label="C Safe",    action=actions.scan_c_memsafe },
         { label="C Lint",    action=actions.scan_c_lint    },
         { label="Terminal",  action=actions.toggle_terminal },
+        { label="Colors",    action=actions.toggle_color_picker },
         { label="> All",     action=actions.scan_all, accent=true },
     }
     local btn_h  = 20
@@ -848,6 +853,9 @@ function love.draw()
     -- Menu on top
     Menu.draw(MENUBAR_H, font_ui)
 
+    -- Color picker overlay (above content, below menu dropdowns handled by menu)
+    ColorPicker.draw(font_sm, font_ui)
+
     -- About modal on very top
     draw_about()
 end
@@ -885,6 +893,8 @@ end
 function love.keypressed(key)
     local cmd = love.keyboard.isDown("lgui", "rgui")
     local ctrl = love.keyboard.isDown("lctrl", "rctrl") or cmd
+
+    if ColorPicker.keypressed(key) then return end
 
     if Terminal.is_visible() then
         if Terminal.keypressed(key, content_h(), font_sm) then
@@ -996,6 +1006,8 @@ end
 
 function love.mousepressed(mx, my, btn)
     if _dpi ~= 1 then mx = mx / _dpi; my = my / _dpi end
+    -- Color picker gets first priority when visible (it's a floating overlay)
+    if ColorPicker.mousepressed(mx, my, btn) then return end
     if Terminal.is_visible() then
         if Terminal.mousepressed(mx, my, btn, content_x(), content_y(), content_w(), content_h()) then
             return
@@ -1105,6 +1117,8 @@ end
 
 function love.mousereleased(mx, my, btn)
     if _dpi ~= 1 then mx = mx / _dpi; my = my / _dpi end
+    ColorPicker.mousereleased()
+    Terminal.mousereleased(mx, my, btn)
     if btn == 1 then
         sel_dragging = false
     end
@@ -1114,6 +1128,8 @@ end
 function love.mousemoved(mx, my, dx, dy)
     if _dpi ~= 1 then mx = mx / _dpi; my = my / _dpi end
     Menu.mousemoved(mx, my, MENUBAR_H)
+    ColorPicker.mousemoved(mx, my)
+    Terminal.mousemoved(mx, my)
     -- extend drag selection in editor
     if Editor.has_tabs() then
         Editor.mousemoved(mx, my)

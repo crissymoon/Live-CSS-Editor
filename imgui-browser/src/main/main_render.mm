@@ -15,6 +15,12 @@ void main_render_loop(const Args& args) {
     double drag_mouse_y     = 0.0;
 
     while (!glfwWindowShouldClose(g_win)) {
+        // Skip rendering while minimized -- saves CPU/GPU.
+        if (g_win_iconified) {
+            glfwWaitEvents();
+            continue;
+        }
+
         // Process macOS events (needed for WKWebView / NSRunLoop).
 #if defined(__APPLE__)
         @autoreleasepool {
@@ -84,8 +90,8 @@ void main_render_loop(const Args& args) {
         double now = glfwGetTime();
         fps_host_tick(g_state, now);
 
-        // Poll server status every 3 seconds
-        if (now - last_server_poll > 3.0) {
+        // Poll server status every 5 seconds
+        if (now - last_server_poll > 5.0) {
             auto ss = server_poll_status(args.php_port, 7779);
             g_state.php_server_ok  = ss.php_ok;
             g_state.node_server_ok = ss.node_ok;
@@ -111,8 +117,18 @@ void main_render_loop(const Args& args) {
                     if (t) g_state.push_nav(t->id, "__bookmark_toggle__");
                 }
                 if (ImGui::IsKeyPressed(ImGuiKey_H, false)) {
+#if defined(__APPLE__)
                     g_state.show_history_panel   = !g_state.show_history_panel;
                     g_state.show_bookmarks_panel = false;
+#else
+                    // On Windows/Linux, open the inline drawer to the history sub-panel
+                    if (g_state.show_more_panel && g_state.more_subpanel == 2) {
+                        g_state.show_more_panel = false;
+                    } else {
+                        g_state.show_more_panel = true;
+                        g_state.more_subpanel   = 2;  // history
+                    }
+#endif
                 }
                 if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
                     std::string nt_url = "http://127.0.0.1:" +
@@ -170,21 +186,6 @@ void main_render_loop(const Args& args) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-
-        // DEBUG: on-screen mouse position overlay -- remove after diagnosis.
-        {
-            double gx = 0, gy = 0;
-            glfwGetCursorPos(g_win, &gx, &gy);
-            ImVec2 mp = ImGui::GetMousePos();
-            char dbg[128];
-            if (mp.x < -100000.0f)
-                snprintf(dbg, sizeof(dbg), "GLFW=(%.0f,%.0f) ImGui=NO_DATA", gx, gy);
-            else
-                snprintf(dbg, sizeof(dbg), "GLFW=(%.0f,%.0f) ImGui=(%.0f,%.0f)",
-                         gx, gy, mp.x, mp.y);
-            ImGui::GetForegroundDrawList()->AddText(
-                {10.0f, 40.0f}, IM_COL32(255, 50, 50, 255), dbg);
-        }
 
         if (g_resize_dirty) {
             native_chrome_resize(g_state.win_w, g_state.win_h);

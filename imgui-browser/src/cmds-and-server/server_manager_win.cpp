@@ -33,12 +33,28 @@ static bool port_open(int port) {
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) return false;
 
+    // Non-blocking connect with short timeout to avoid stalling the render thread
+    u_long mode = 1;
+    ioctlsocket(sock, FIONBIO, &mode);
+
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<u_short>(port));
     inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
 
-    bool ok = connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0;
+    int rc = connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    if (rc == 0) { closesocket(sock); return true; }
+
+    int err = WSAGetLastError();
+    if (err != WSAEWOULDBLOCK) { closesocket(sock); return false; }
+
+    // Wait up to 15ms for the connection to complete
+    fd_set wfds;
+    FD_ZERO(&wfds);
+    FD_SET(sock, &wfds);
+    timeval tv = { 0, 15000 };  // 15ms
+    rc = select(0, nullptr, &wfds, nullptr, &tv);
+    bool ok = (rc > 0);
     closesocket(sock);
     return ok;
 }

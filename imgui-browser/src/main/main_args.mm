@@ -48,9 +48,9 @@ Args parse_args(int argc, char** argv) {
         if (p2 != std::string::npos) {
             std::string root = parent.substr(0, p2);
 #if defined(_WIN32)
-            a.apps_dir = root + "\\..\\dev-tools\\dev-browser\\apps";
+            a.apps_dir = root + "\\..\\..\\dev-tools\\dev-browser\\apps";
 #else
-            a.apps_dir = root + "/../dev-tools/dev-browser/apps";
+            a.apps_dir = root + "/../../dev-tools/dev-browser/apps";
 #endif
         }
     }

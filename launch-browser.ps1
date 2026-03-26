@@ -3,12 +3,14 @@
 # Usage:
 #   .\launch-browser.ps1
 #   .\launch-browser.ps1 --url https://example.com
+#   .\launch-browser.ps1 --clean          # wipe build dir, reconfigure, rebuild
 #
 # Checks whether the source is newer than the built exe and prompts you to
 # build before opening if so.  Requires Visual Studio 2022 or CMake in PATH.
 
 param(
-    [string]$Url = ""
+    [string]$Url   = "",
+    [switch]$Clean
 )
 
 Set-StrictMode -Version Latest
@@ -68,13 +70,39 @@ function Get-NeedsRebuild {
     return $false
 }
 
+# ── Configure (cmake ..) ─────────────────────────────────────────────────────
+
+function Invoke-Configure {
+    $cmake = Find-CMake
+    if (-not $cmake) {
+        Write-Host "cmake not found -- skipping configure step."
+        return $false
+    }
+
+    Write-Host "Configuring with CMake..."
+    if (-not (Test-Path $BuildDir)) { New-Item -ItemType Directory -Path $BuildDir | Out-Null }
+
+    $args = @("..", "-DCMAKE_BUILD_TYPE=Release")
+    & $cmake @args
+    $ok = $LASTEXITCODE -eq 0
+    if (-not $ok) { Write-Host "cmake configure failed." }
+    return $ok
+}
+
 # ── Build ────────────────────────────────────────────────────────────────────
 
 function Invoke-Build {
+    $slnPath = Join-Path $BuildDir "imgui_browser.sln"
+
+    # If there is no solution / cache yet, configure first.
+    if (-not (Test-Path (Join-Path $BuildDir "CMakeCache.txt"))) {
+        if (-not (Invoke-Configure)) { return $false }
+    }
+
     $msbuild = Find-MSBuild
     if ($msbuild) {
         Write-Host "Using MSBuild: $msbuild"
-        & $msbuild (Join-Path $BuildDir "imgui_browser.sln") `
+        & $msbuild $slnPath `
             /p:Configuration=Release /p:Platform=x64 `
             /t:imgui_browser /m /nologo /v:minimal
         return $LASTEXITCODE -eq 0
@@ -94,6 +122,16 @@ function Invoke-Build {
     return $false
 }
 
+# ── Clean ────────────────────────────────────────────────────────────────────
+
+function Invoke-Clean {
+    if (Test-Path $BuildDir) {
+        Write-Host "Removing $BuildDir ..."
+        Remove-Item $BuildDir -Recurse -Force
+        Write-Host "Build directory cleared."
+    }
+}
+
 # ── Launch ───────────────────────────────────────────────────────────────────
 
 function Start-Browser {
@@ -109,11 +147,18 @@ function Start-Browser {
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
-$needsBuild = Get-NeedsRebuild
-$exeExists  = Test-Path $Exe
-
 Write-Host ""
 Write-Host "--- Crissy's Style Tool ---"
+
+if ($Clean) {
+    Invoke-Clean
+    Write-Host "Rebuilding from scratch..."
+    if (Invoke-Build) { Start-Browser } else { Write-Host "Build failed. Check output above." }
+    exit
+}
+
+$needsBuild = Get-NeedsRebuild
+$exeExists  = Test-Path $Exe
 
 if (-not $exeExists) {
     Write-Host "No binary found. A build is required before the browser can open."

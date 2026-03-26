@@ -233,9 +233,11 @@ void platform_app_postinit(void* glfw_window) {
 
     // WS_POPUP = no system border at all.
     // WS_THICKFRAME = keep Windows resize-snap zones (Win11 snapping).
+    // Preserve WS_VISIBLE from whatever GLFW set so the window stays on screen.
     // Omit WS_SYSMENU/WS_MINIMIZEBOX/WS_MAXIMIZEBOX -- those can cause Windows
     // to internally allocate a caption strip even when WM_NCCALCSIZE removes it.
-    LONG_PTR style = static_cast<LONG_PTR>(WS_POPUP | WS_THICKFRAME);
+    LONG_PTR old_style = GetWindowLongPtrA(s_hwnd, GWL_STYLE);
+    LONG_PTR style = (WS_POPUP | WS_THICKFRAME) | (old_style & WS_VISIBLE);
     SetWindowLongPtrA(s_hwnd, GWL_STYLE, style);
 
     LONG_PTR ex_style = GetWindowLongPtrA(s_hwnd, GWL_EXSTYLE);

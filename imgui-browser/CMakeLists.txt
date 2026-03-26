@@ -237,7 +237,7 @@ elseif(WIN32)
         target_link_libraries(imgui_browser PRIVATE
             imgui glfw
             "${WEBVIEW2_LOADER_LIB}"
-            opengl32 gdi32 user32 shell32 ole32 oleaut32 shlwapi
+            opengl32 gdi32 user32 shell32 ole32 oleaut32 shlwapi dwmapi
         )
     else()
         message(WARNING
@@ -246,7 +246,7 @@ elseif(WIN32)
         )
         target_link_libraries(imgui_browser PRIVATE
             imgui glfw
-            opengl32 gdi32 user32 shell32 ole32 oleaut32 shlwapi
+            opengl32 gdi32 user32 shell32 ole32 oleaut32 shlwapi dwmapi
         )
     endif()
 

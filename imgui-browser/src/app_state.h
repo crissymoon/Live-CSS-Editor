@@ -18,6 +18,7 @@ constexpr int    CHROME_HEIGHT_PX  = 44;   // toolbar row (URL bar + nav buttons
 constexpr int    STATUS_HEIGHT_PX  = 0;    // status bar removed (info lives in URL bar)
 constexpr int    TAB_BAR_HEIGHT_PX = 70;   // title strip + tab row (includes 30px top padding for traffic lights)
 constexpr int    TOTAL_CHROME_TOP  = TAB_BAR_HEIGHT_PX + CHROME_HEIGHT_PX;
+constexpr int    DRAWER_HEIGHT_PX  = 400;  // more-panel inline drawer height when open
 constexpr int    TRAFFIC_LIGHT_W   = 82;   // px to skip on left for macOS traffic lights
 constexpr int    MAX_TABS          = 24;
 constexpr int    URL_BUF_SIZE      = 2048;
@@ -126,9 +127,15 @@ struct AppState {
     std::vector<HistoryEntry>  history;
     std::vector<BookmarkEntry> bookmarks;
 
+    // PHP server port (set from launch args so chrome.cpp can build app URLs)
+    int    php_port               = 9879;
+
     // Panel visibility flags
     bool   show_bookmarks_panel   = false;
     bool   show_history_panel     = false;
+    bool   show_more_panel        = false;
+    bool   show_info_slide        = false;  // status/viewport info overlay in URL bar
+    int    more_subpanel          = 0;      // 0=main grid, 1=bookmarks, 2=history
     // Search filter for history panel
     char   history_filter[128]    = {};
 

@@ -48,6 +48,13 @@ local _tab_close_geom = {}   -- per-tab × button hit areas
 local _plus_geom  = nil
 local _close_geom = nil
 
+-- Text selection state for copy-from-terminal.
+-- l1/c1 = anchor, l2/c2 = drag end (either may come first in reading order).
+-- char offsets are 1-based Lua string indices.
+local _sel = { tab_idx = 0, l1 = 0, c1 = 0, l2 = 0, c2 = 0, dragging = false }
+-- Geometry captured during M.draw so mouse handlers can do hit-testing.
+local _draw_state = nil
+
 local function state_path()
     local base = os.getenv("CODE_REVIEW_DIR") or "."
     return base .. "/.terminal_state.lua"
@@ -66,6 +73,94 @@ local function trim(s)
     return tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")
 end
 
+-- Collapse . and .. segments in an already-absolute path.
+local function collapse_dots(p)
+    if IS_WIN then
+        local drive = p:match("^%a:\\") or p:match("^\\\\[^\\]+\\[^\\]+\\")
+        if not drive then return p end
+        local rest = p:sub(#drive + 1)
+        local parts = {}
+        for seg in rest:gmatch("[^\\]+") do
+            if seg == ".." then
+                if #parts > 0 then parts[#parts] = nil end
+            elseif seg ~= "." then
+                parts[#parts + 1] = seg
+            end
+        end
+        local result = drive .. table.concat(parts, "\\")
+        -- Remove trailing backslash unless it is the drive root itself.
+        result = result:gsub("\\+$", "")
+        return result ~= "" and result or drive:sub(1, -2)
+    else
+        local is_abs = p:sub(1, 1) == "/"
+        local parts = {}
+        for seg in p:gmatch("[^/]+") do
+            if seg == ".." then
+                if #parts > 0 then parts[#parts] = nil end
+            elseif seg ~= "." then
+                parts[#parts + 1] = seg
+            end
+        end
+        local result = table.concat(parts, "/")
+        if is_abs then return "/" .. result end
+        return result ~= "" and result or "."
+    end
+end
+
+-- Return the 1-based char index in `line` at or just after pixel offset `rel_x`.
+local function char_at_x(font, line, rel_x)
+    local n = #line
+    if rel_x <= 0 then return 1 end
+    for i = 1, n do
+        if font:getWidth(line:sub(1, i)) > rel_x then return i end
+    end
+    return n + 1
+end
+
+-- Return selection bounds in reading order: sl,sc,el,ec.
+local function sel_normalize()
+    if _sel.l1 < _sel.l2 or (_sel.l1 == _sel.l2 and _sel.c1 <= _sel.c2) then
+        return _sel.l1, _sel.c1, _sel.l2, _sel.c2
+    end
+    return _sel.l2, _sel.c2, _sel.l1, _sel.c1
+end
+
+-- Detect a venv activation command and return the venv root path, or nil.
+-- Handles: `source path`, `. path`, `call path`, bare path.
+-- The activate script must be named `activate*` inside Scripts/ or bin/.
+local function detect_venv_activation(cmd, cwd)
+    local raw = cmd:match("^[Ss]ource%s+(.+)$")
+             or cmd:match("^%.%s+(.+)$")
+             or cmd:match("^[Cc]all%s+(.+)$")
+             or cmd
+    raw = trim(raw)
+    raw = raw:match('^"(.-)"$') or raw:match("^'(.-)'$") or raw
+    local fname = raw:match("[/\\]([^/\\]+)$") or raw
+    if not fname:lower():match("^activate") then return nil end
+    -- Resolve to absolute path.
+    local full
+    if IS_WIN then
+        raw = raw:gsub("/", "\\")
+        if raw:match("^%a:\\") or raw:match("^\\\\") then
+            full = raw
+        else
+            full = cwd:gsub("\\+$", "") .. "\\" .. raw
+        end
+    else
+        if raw:sub(1, 1) == "/" then
+            full = raw
+        elseif raw:sub(1, 2) == "~/" then
+            full = (os.getenv("HOME") or cwd) .. "/" .. raw:sub(3)
+        else
+            full = cwd:gsub("/+$", "") .. "/" .. raw
+        end
+    end
+    full = collapse_dots(full)
+    -- Venv root = parent of Scripts/ or bin/ directory.
+    return full:match("^(.+)[/\\][Ss]cripts[/\\][^/\\]+$")
+        or full:match("^(.+)[/\\][Bb]in[/\\][^/\\]+$")
+end
+
 local function normalize_dir(path)
     local p = trim(path)
     if p == "" then return default_cwd end
@@ -77,7 +172,7 @@ local function normalize_dir(path)
         end
         p = p:gsub("\\\\+$", "")
         if p == "" then p = "C:\\" end
-        return p
+        return collapse_dots(p)
     else
         if p == "~" then return os.getenv("HOME") or default_cwd end
         if p:sub(1, 1) ~= "/" then
@@ -85,7 +180,7 @@ local function normalize_dir(path)
         end
         p = p:gsub("/+$", "")
         if p == "" then p = "/" end
-        return p
+        return collapse_dots(p)
     end
 end
 
@@ -98,6 +193,7 @@ local function new_tab(cwd)
         scroll = 0,
         history = {},
         hist_idx = 0,
+        active_venv = nil,
     }
     tab_seq = tab_seq + 1
     return t
@@ -203,6 +299,7 @@ local function save_state()
             fh:write("        ", serialize_string(cmd), ",\n")
         end
         fh:write("      },\n")
+        fh:write("      active_venv = ", t.active_venv and serialize_string(t.active_venv) or "nil", ",\n")
         fh:write("    },\n")
     end
     fh:write("  },\n")
@@ -232,6 +329,7 @@ local function load_state()
                     scroll = tonumber(src.scroll) or 0,
                     history = type(src.history) == "table" and src.history or {},
                     hist_idx = tonumber(src.hist_idx) or 0,
+                    active_venv = type(src.active_venv) == "string" and src.active_venv or nil,
                 }
             end
         end
@@ -251,17 +349,26 @@ local function resolve_cd(base, arg)
     if IS_WIN then
         if target == "" then return base end
         target = target:gsub("/", "\\")
+        local raw
         -- absolute: starts with drive letter or UNC
         if target:match("^%a:\\") or target:match("^\\\\") then
-            return target
+            raw = target
+        else
+            raw = base:gsub("\\\\+$", "") .. "\\" .. target
         end
-        return base:gsub("\\\\+$", "") .. "\\" .. target
+        return collapse_dots(raw)
     else
         local home = os.getenv("HOME") or base
         if target == "" or target == "~" then return home end
-        if target:sub(1, 1) == "/" then return target end
-        if target:sub(1, 2) == "~/" then return home .. "/" .. target:sub(3) end
-        return base:gsub("/+$", "") .. "/" .. target
+        local raw
+        if target:sub(1, 1) == "/" then
+            raw = target
+        elseif target:sub(1, 2) == "~/" then
+            raw = home .. "/" .. target:sub(3)
+        else
+            raw = base:gsub("/+$", "") .. "/" .. target
+        end
+        return collapse_dots(raw)
     end
 end
 
@@ -271,8 +378,10 @@ local function run_command(t, command, h, font)
 
     t.history[#t.history + 1] = cmd
     t.hist_idx = #t.history + 1
-    add_line(t, t.cwd .. " $ " .. cmd)
+    local venv_prompt = t.active_venv and "(venv) " or ""
+    add_line(t, venv_prompt .. t.cwd .. " $ " .. cmd)
 
+    -- cd handling.
     local cd_target = cmd:match("^cd%s*(.*)$")
     if cd_target ~= nil then
         local target = resolve_cd(t.cwd, cd_target)
@@ -293,6 +402,29 @@ local function run_command(t, command, h, font)
         return
     end
 
+    -- deactivate virtual environment.
+    if cmd:lower() == "deactivate" then
+        if t.active_venv then
+            add_line(t, "deactivated: " .. t.active_venv)
+            t.active_venv = nil
+        else
+            add_line(t, "no virtual environment is active")
+        end
+        set_scroll_bottom(t, h, font)
+        save_state()
+        return
+    end
+
+    -- Virtual environment activation (source/./call + activate script path).
+    local venv_root = detect_venv_activation(cmd, t.cwd)
+    if venv_root then
+        t.active_venv = venv_root
+        add_line(t, "activated: " .. venv_root)
+        set_scroll_bottom(t, h, font)
+        save_state()
+        return
+    end
+
     -- Reject if a command is already running.
     if _term_chan then
         add_line(t, "busy: a command is already running")
@@ -300,14 +432,34 @@ local function run_command(t, command, h, font)
         return
     end
 
+    -- Strip leading `call` prefix (CMD.exe built-in — not needed in PowerShell).
+    local exec_cmd = cmd
+    if IS_WIN then
+        exec_cmd = exec_cmd:match("^[Cc]all%s+(.+)$") or exec_cmd
+    end
+
     local shell_cmd
     if IS_WIN then
-        -- PowerShell: change to cwd (single-quoted, ' escaped as '') then run cmd
         local safe_cwd = t.cwd:gsub("'", "''")
+        -- Prepend venv Scripts to PATH when a venv is active.
+        local venv_prefix = ""
+        if t.active_venv then
+            local vscripts = t.active_venv:gsub("'", "''") .. "\\Scripts"
+            venv_prefix = "$env:VIRTUAL_ENV='" .. t.active_venv:gsub("'","''") .. "'; "
+                       .. "$env:PATH='" .. vscripts .. ";' + $env:PATH; "
+        end
         shell_cmd = "powershell -NoProfile -NonInteractive -Command "
-                 .. '"Set-Location \'' .. safe_cwd .. "\'; " .. cmd:gsub('"', '\\"') .. '"'
+                 .. '"Set-Location \'' .. safe_cwd .. "\'; "
+                 .. venv_prefix:gsub('"', '\\"')
+                 .. exec_cmd:gsub('"', '\\"') .. '"'
     else
-        shell_cmd = "cd " .. shell_escape(t.cwd) .. " && " .. cmd .. " 2>&1"
+        local venv_prefix = ""
+        if t.active_venv then
+            local vbin = t.active_venv .. "/bin"
+            venv_prefix = "export VIRTUAL_ENV=" .. shell_escape(t.active_venv)
+                       .. "; export PATH=" .. shell_escape(vbin) .. ":$PATH; "
+        end
+        shell_cmd = "cd " .. shell_escape(t.cwd) .. " && " .. venv_prefix .. exec_cmd .. " 2>&1"
     end
 
     -- Spawn command in a worker thread so the main thread stays responsive.
@@ -406,9 +558,10 @@ function M.draw(x, y, w, h, font)
     love.graphics.rectangle("line", _close_geom.x, _close_geom.y, _close_geom.w, _close_geom.h, 3)
     love.graphics.print("Hide", _close_geom.x + 3, _close_geom.y + 4)
 
-    -- cwd line
+    -- cwd line (show venv tag when active)
     love.graphics.setColor(C.dim)
-    love.graphics.print("cwd: " .. t.cwd, x + PAD_X, y + TAB_H + 4)
+    local venv_tag = t.active_venv and "(venv) " or ""
+    love.graphics.print(venv_tag .. "cwd: " .. t.cwd, x + PAD_X, y + TAB_H + 4)
 
     -- output
     local out_y = y + TAB_H + 20
@@ -419,12 +572,46 @@ function M.draw(x, y, w, h, font)
     if t.scroll > max_scr then t.scroll = max_scr end
     if t.scroll < 0 then t.scroll = 0 end
 
+    -- Capture geometry so mouse handlers can hit-test without needing extra args.
+    _draw_state = { x = x, y = y, w = w, h = h,
+                    out_y = out_y, out_h = out_h,
+                    line_h = line_h, font = font,
+                    tab_idx = cur_idx }
+
     love.graphics.setScissor(x + 2, out_y, w - 4, out_h)
     local start = t.scroll + 1
     local stop = math.min(#t.lines, t.scroll + vis)
     local py = out_y
+
+    -- Determine if there is an active selection on this tab.
+    local has_sel = _sel.tab_idx == cur_idx
+                 and (_sel.l1 ~= _sel.l2 or _sel.c1 ~= _sel.c2)
+    local sl, sc, el, ec = 0, 0, 0, 0
+    if has_sel then sl, sc, el, ec = sel_normalize() end
+
     for i = start, stop do
         local line = tostring(t.lines[i] or "")
+        -- Draw selection highlight behind text.
+        if has_sel and i >= sl and i <= el then
+            local hx1, hx2
+            if i == sl and i == el then
+                hx1 = font:getWidth(line:sub(1, sc - 1))
+                hx2 = font:getWidth(line:sub(1, ec - 1))
+            elseif i == sl then
+                hx1 = font:getWidth(line:sub(1, sc - 1))
+                hx2 = math.max(font:getWidth(line), 4)
+            elseif i == el then
+                hx1 = 0
+                hx2 = font:getWidth(line:sub(1, ec - 1))
+            else
+                hx1 = 0
+                hx2 = math.max(font:getWidth(line), 4)
+            end
+            if hx2 > hx1 then
+                love.graphics.setColor(C.accent[1], C.accent[2], C.accent[3], 0.35)
+                love.graphics.rectangle("fill", x + PAD_X + hx1, py, hx2 - hx1, line_h)
+            end
+        end
         love.graphics.setColor(C.text)
         love.graphics.print(line, x + PAD_X, py)
         py = py + line_h
@@ -502,6 +689,22 @@ function M.mousepressed(mx, my, btn, x, y, w, h)
         return true
     end
 
+    -- Start a text selection if the click is in the output area.
+    if _draw_state then
+        local ds = _draw_state
+        if my >= ds.out_y and my < ds.out_y + ds.out_h then
+            local t2 = tabs[cur_idx]
+            if t2 then
+                local li = t2.scroll + math.floor((my - ds.out_y) / ds.line_h) + 1
+                li = math.max(1, math.min(#t2.lines, li))
+                local line = tostring(t2.lines[li] or "")
+                local col = char_at_x(ds.font, line, mx - (x + PAD_X))
+                _sel = { tab_idx = cur_idx, l1 = li, c1 = col,
+                         l2 = li, c2 = col, dragging = true }
+            end
+        end
+    end
+
     return true
 end
 
@@ -539,6 +742,34 @@ function M.keypressed(key, h, font)
     elseif ctrl and key == "right" then
         if cur_idx < #tabs then cur_idx = cur_idx + 1 end
         save_state()
+        return true
+    elseif ctrl and key == "c" then
+        -- Copy selected text, or cancel a running command when nothing is selected.
+        local has_sel = _sel.tab_idx == cur_idx
+                     and (_sel.l1 ~= _sel.l2 or _sel.c1 ~= _sel.c2)
+        if has_sel then
+            local sl, sc, el, ec = sel_normalize()
+            local parts = {}
+            for li = sl, el do
+                local line = tostring(t.lines[li] or "")
+                if li == sl and li == el then
+                    parts[#parts + 1] = line:sub(sc, ec - 1)
+                elseif li == sl then
+                    parts[#parts + 1] = line:sub(sc)
+                elseif li == el then
+                    parts[#parts + 1] = line:sub(1, ec - 1)
+                else
+                    parts[#parts + 1] = line
+                end
+            end
+            love.system.setClipboardText(table.concat(parts, "\n"))
+        elseif _term_chan and _term_tab == t then
+            _term_chan   = nil
+            _term_thread = nil
+            _term_tab    = nil
+            add_line(t, "^C")
+            set_scroll_bottom(t, h, font)
+        end
         return true
     elseif key == "return" or key == "kpenter" then
         local cmdline = t.input
@@ -579,6 +810,26 @@ function M.keypressed(key, h, font)
     end
 
     return true
+end
+
+-- Extend the current drag selection as the mouse moves.
+function M.mousemoved(mx, my)
+    if not visible or not _sel.dragging then return end
+    if not _draw_state then return end
+    local ds = _draw_state
+    local t = tabs[cur_idx]
+    if not t then return end
+    local li = t.scroll + math.floor((my - ds.out_y) / ds.line_h) + 1
+    li = math.max(1, math.min(#t.lines, li))
+    local line = tostring(t.lines[li] or "")
+    local col = char_at_x(ds.font, line, mx - (ds.x + PAD_X))
+    _sel.l2 = li
+    _sel.c2 = col
+end
+
+-- End drag selection.
+function M.mousereleased(mx, my, btn)
+    if _sel.dragging then _sel.dragging = false end
 end
 
 function M.textinput(txt)

@@ -123,9 +123,11 @@ static int   s_drop_tgt   = -1;     // computed insert position during drag
 // Anchor positions for floating panels (screen X of button that opens each)
 static float s_bm_btn_screen_x   = 0.0f;
 static float s_hist_btn_screen_x = 0.0f;
+static float s_more_btn_screen_x = 0.0f;
 // Frame counters: prevent panels from closing on the same frame they open.
 static int   s_bm_open_frame     = -1;
 static int   s_hist_open_frame   = -1;
+static int   s_more_open_frame   = -1;
 
 // ── Internal helpers ──────────────────────────────────────────────────
 
@@ -177,6 +179,99 @@ static bool ghost_btn(const char* id, const char* text, float w, float h,
 // ── Title / tab row ───────────────────────────────────────────────────
 // Single-row tab bar with drag-to-reorder and close-on-hover.
 
+struct GenieAnimState {
+    bool   active = false;
+    double start_time = 0.0;
+    float  window_w = 0.0f;
+    float  window_h = 0.0f;
+};
+
+static GenieAnimState s_genie_anim;
+
+// Per-button animated hover value (0=cold, 1=hot). Kept outside
+// draw_window_controls so it persists across frames and lerps smoothly.
+static float s_tl_hover_t[3] = {0.0f, 0.0f, 0.0f};
+
+static float ease_in_out_cubic(float t) {
+    if (t < 0.5f) return 4.0f * t * t * t;
+    float f = -2.0f * t + 2.0f;
+    return 1.0f - (f * f * f) * 0.5f;
+}
+
+#ifndef __APPLE__
+static void draw_window_controls(float y, float h) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    GLFWwindow* win = glfwGetCurrentContext();
+    const float r   = 6.5f;
+    const float hit = 9.0f;
+    const float d   = hit * 2.0f;
+    const float x0  = 16.0f;
+    const float gap = 8.0f;
+    const float cy  = y + h * 0.5f;
+    const float dt  = ImGui::GetIO().DeltaTime;
+
+    struct ButtonSpec {
+        const char* id;
+        ImVec4 fill;
+        const char* glyph;
+    } buttons[] = {
+        {"##tl_close", {0.973f, 0.529f, 0.451f, 1.0f}, "x"},
+        {"##tl_min",   {0.984f, 0.753f, 0.259f, 1.0f}, "-"},
+        {"##tl_zoom",  {0.204f, 0.827f, 0.600f, 1.0f}, "+"},
+    };
+
+    for (int i = 0; i < 3; ++i) {
+        float cx = x0 + hit + (d + gap) * i;
+        // Snap to half-pixel for crisp anti-aliased rendering on Windows
+        float pcx = floorf(cx) + 0.5f;
+        float pcy = floorf(cy) + 0.5f;
+        ImGui::SetCursorPos({cx - hit, cy - hit});
+        ImGui::InvisibleButton(buttons[i].id, {d, d});
+        const bool hovered = ImGui::IsItemHovered();
+        const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+
+        float tgt = hovered ? 1.0f : 0.0f;
+        s_tl_hover_t[i] += (tgt - s_tl_hover_t[i]) * std::min(1.0f, dt * 14.0f);
+        const float ht = s_tl_hover_t[i];
+
+        ImVec4 fill = buttons[i].fill;
+        fill.w = 0.88f + ht * 0.12f;
+        dl->AddCircleFilled({pcx, pcy}, r, to_u32(fill), 20);
+        dl->AddCircle({pcx, pcy}, r, to_u32({0.03f, 0.03f, 0.05f, 0.28f + ht * 0.27f}), 20, 1.0f);
+        dl->AddCircleFilled({pcx, pcy}, r - 2.5f, to_u32({1.0f, 1.0f, 1.0f, 0.04f + ht * 0.06f}), 16);
+        if (ht > 0.01f) {
+            ImU32 gc = to_u32({0.10f, 0.10f, 0.12f, 0.95f * ht});
+            const float gs = 2.5f;
+            if (i == 0) {
+                dl->AddLine({pcx - gs, pcy - gs}, {pcx + gs, pcy + gs}, gc, 1.5f);
+                dl->AddLine({pcx + gs, pcy - gs}, {pcx - gs, pcy + gs}, gc, 1.5f);
+            } else if (i == 1) {
+                dl->AddLine({pcx - gs, pcy}, {pcx + gs, pcy}, gc, 1.5f);
+            } else {
+                dl->AddLine({pcx - gs, pcy}, {pcx + gs, pcy}, gc, 1.5f);
+                dl->AddLine({pcx, pcy - gs}, {pcx, pcy + gs}, gc, 1.5f);
+            }
+        }
+
+        if (clicked && win) {
+            if (i == 0) {
+                glfwSetWindowShouldClose(win, GLFW_TRUE);
+            } else if (i == 1) {
+                if (!s_genie_anim.active) {
+                    s_genie_anim.active = true;
+                    s_genie_anim.start_time = ImGui::GetTime();
+                    s_genie_anim.window_w = (float)s_state->win_w;
+                    s_genie_anim.window_h = (float)s_state->win_h;
+                }
+            } else {
+                if (glfwGetWindowAttrib(win, GLFW_MAXIMIZED)) glfwRestoreWindow(win);
+                else glfwMaximizeWindow(win);
+            }
+        }
+    }
+}
+#endif
+
 static int draw_title_tab_row(AppState* st, int win_w,
                                bool& new_tab_req, int& close_idx) {
     close_idx   = -1;
@@ -203,65 +298,13 @@ static int draw_title_tab_row(AppState* st, int win_w,
     fg->AddLine({0.0f, 0.5f}, {(float)win_w, 0.5f},
                 to_u32({0.60f, 0.58f, 1.00f, 0.22f}), 1.0f);
 
+    draw_window_controls(0.0f, TOP_PAD);
+
     const float TL_GAP = (float)TRAFFIC_LIGHT_W;
     const float PLUS_W = 28.0f;
     float tabs_x = TL_GAP;
     float tabs_w = (float)win_w - TL_GAP - PLUS_W - 4.0f;
 
-#ifndef __APPLE__
-    // Window control buttons (close / minimize / maximize) in the 30 px grab strip.
-    // macOS provides native traffic lights; on other platforms we draw our own.
-    {
-        const float BTN_R  = 6.0f;
-        const float BTN_CY = TOP_PAD * 0.5f;
-        struct WinBtn { const char* id; float cx; ImVec4 idle; ImVec4 hov; const char* cmd; };
-        WinBtn btns[] = {
-            { "##wc0", 14.0f, {0.55f,0.20f,0.20f,1.0f}, {0.97f,0.27f,0.27f,1.0f}, "__win_close__"    },
-            { "##wc1", 34.0f, {0.45f,0.38f,0.12f,1.0f}, {0.98f,0.75f,0.13f,1.0f}, "__win_minimize__" },
-            { "##wc2", 54.0f, {0.14f,0.43f,0.25f,1.0f}, {0.20f,0.83f,0.60f,1.0f}, "__win_zoom__"     },
-        };
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0,0});
-        for (auto& b : btns) {
-            ImGui::SetCursorPos({b.cx - BTN_R, BTN_CY - BTN_R});
-            ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0,0,0,0});
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  {0,0,0,0});
-            bool clicked = ImGui::InvisibleButton(b.id, {BTN_R * 2.0f, BTN_R * 2.0f});
-            bool hov     = ImGui::IsItemHovered();
-            dl->AddCircleFilled({b.cx, BTN_CY}, BTN_R, to_u32(hov ? b.hov : b.idle), 16);
-            // Icon on hover: small symbol inside the circle
-            if (hov) {
-                float arm = 3.2f;
-                ImU32 ic  = to_u32({1.0f,1.0f,1.0f,0.85f});
-                if (b.cx < 20.0f) { // close: X
-                    dl->AddLine({b.cx-arm,BTN_CY-arm},{b.cx+arm,BTN_CY+arm},ic,1.5f);
-                    dl->AddLine({b.cx+arm,BTN_CY-arm},{b.cx-arm,BTN_CY+arm},ic,1.5f);
-                } else if (b.cx < 44.0f) { // minimize: dash
-                    dl->AddLine({b.cx-arm,BTN_CY},{b.cx+arm,BTN_CY},ic,1.5f);
-                } else { // zoom: + or square
-                    dl->AddLine({b.cx-arm,BTN_CY},{b.cx+arm,BTN_CY},ic,1.5f);
-                    dl->AddLine({b.cx,BTN_CY-arm},{b.cx,BTN_CY+arm},ic,1.5f);
-                }
-            }
-            ImGui::PopStyleColor(3);
-            if (clicked) {
-                fprintf(stderr, "[chrome] win ctrl clicked: %s\n", b.cmd);
-                st->push_nav(-1, b.cmd);
-            }
-        }
-        ImGui::PopStyleVar();
-    }
-
-    // DEBUG: show mouse coords in the grab strip so it is immediately visible
-    // whether ImGui is receiving mouse events at all.  Remove once confirmed.
-    {
-        ImVec2 mp = ImGui::GetMousePos();
-        char dbg[32];
-        snprintf(dbg, sizeof(dbg), "%.0f,%.0f", mp.x, mp.y);
-        ImGui::GetForegroundDrawList()->AddText({200.0f, 8.0f},
-                                               IM_COL32(255, 220, 0, 200), dbg);
-    }
-#endif
 
     int   n     = (int)st->tabs.size();
     float tab_w = std::min(180.0f, std::max(64.0f, tabs_w / (float)std::max(n, 1)));
@@ -465,6 +508,7 @@ static int draw_title_tab_row(AppState* st, int win_w,
 }
 
 // ── Toolbar (URL bar + nav row) ───────────────────────────────────────
+// Layout matches mac chrome: back/fwd/reload | [lock | url input | < info >] | ...
 
 static int draw_toolbar(AppState* st, int win_w, int y_offset) {
     const float H   = (float)CHROME_HEIGHT_PX;
@@ -473,14 +517,13 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
 
     begin_panel("##toolbar", 0, (float)y_offset, (float)win_w, H, COL_SURFACE);
 
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    // GetWindowDrawList uses absolute screen coords; offset manually.
-    ImVec2 wpos = ImGui::GetWindowPos();
+    ImDrawList* dl   = ImGui::GetWindowDrawList();
+    ImVec2      wpos = ImGui::GetWindowPos();
 
     // Bottom hair line
     dl->AddLine({0, wpos.y + H - 1}, {(float)win_w, wpos.y + H - 1},
                 to_u32(COL_SEP), 1.0f);
-    // Morphism: top-to-bottom shimmer, lighter at top
+    // Morphism shimmer
     dl->AddRectFilledMultiColor(
         {0.0f, wpos.y}, {(float)win_w, wpos.y + H},
         to_u32({0.38f, 0.36f, 0.88f, 0.045f}),
@@ -489,210 +532,227 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
         to_u32({0.00f, 0.00f, 0.00f, 0.00f}));
 
     Tab* tab = st->current_tab();
-
     float cy = (H - ImGui::GetFrameHeight()) * 0.5f;
     ImGui::SetCursorPos({pad, cy});
 
-    // Back
+    // ── Back ─────────────────────────────────────────────────────────
     ImGui::BeginDisabled(!tab || !tab->can_back);
-    if (ghost_btn("##back", "<", btn, btn, "Back (Cmd+[)") && tab)
+    if (ghost_btn("##back", "<", btn, btn, "Back (Ctrl+[)") && tab)
         st->push_nav(tab->id, "__back__");
     ImGui::EndDisabled();
     ImGui::SameLine(0, 2);
 
-    // Forward
+    // ── Forward ───────────────────────────────────────────────────────
     ImGui::BeginDisabled(!tab || !tab->can_forward);
-    if (ghost_btn("##fwd", ">", btn, btn, "Forward (Cmd+])") && tab)
+    if (ghost_btn("##fwd", ">", btn, btn, "Forward (Ctrl+])") && tab)
         st->push_nav(tab->id, "__forward__");
     ImGui::EndDisabled();
     ImGui::SameLine(0, 2);
 
-    // Reload / Stop
+    // ── Reload / Stop ─────────────────────────────────────────────────
     if (tab && tab->loading) {
         if (ghost_btn("##stop", "x", btn, btn, "Stop (Esc)"))
             st->push_nav(tab->id, "__stop__");
     } else {
-        if (ghost_btn("##reload", "r", btn, btn, "Reload (Cmd+R)") && tab)
+        if (ghost_btn("##reload", "r", btn, btn, "Reload (Ctrl+R)") && tab)
             st->push_nav(tab->id, "__reload__");
     }
     ImGui::SameLine(0, 6);
 
-    // URL bar
-    float url_x     = ImGui::GetCursorPosX();
-    float lock_w    = 22.0f;        // security indicator
-    float devtool_w = btn + 4.0f;
-    float js_btn_w  = btn + 4.0f;   // JS toggle
-    float bm_btn_w  = btn + 2.0f;   // bookmark star
-    float hist_btn_w = btn;         // history clock
-    float url_w     = (float)win_w - url_x - (lock_w + 4.0f)
-                      - devtool_w - js_btn_w - bm_btn_w - hist_btn_w - pad * 2.0f;
+    // ── URL bar area ──────────────────────────────────────────────────
+    // The URL bar is a single visual container: [lock] [input or info] [</>]
+    float url_area_x = ImGui::GetCursorPosX();   // local x after nav buttons
+    float lock_w     = 22.0f;
+    float info_tog_w = 18.0f;
+    float more_btn_w = btn + 2.0f;
+    // Full width of the URL bar background rect (lock + input + toggle)
+    float url_bar_w  = (float)win_w - url_area_x - more_btn_w - pad * 2.0f;
+    // Width available for the text input (URL bar minus lock and toggle)
+    float url_inp_w  = url_bar_w - lock_w - 4.0f - info_tog_w - 2.0f;
 
-    // ── Security indicator (HTTPS / HTTP / other) ─────────────────
+    // Get screen coords for custom background before advancing cursor
+    ImVec2 bar_sp = ImGui::GetCursorScreenPos();
+    float  bar_fh = ImGui::GetFrameHeight();
+
+    // Draw unified URL bar background (lock + input + info toggle share one pill)
+    dl->AddRectFilled(bar_sp,
+                      {bar_sp.x + url_bar_w, bar_sp.y + bar_fh},
+                      to_u32(COL_BASE), 6.0f);
+
+    // Progress bar at bottom of URL bar background (when loading)
+    if (tab && tab->loading && tab->progress > 0.0f) {
+        dl->AddRectFilled({bar_sp.x, bar_sp.y + bar_fh - 2},
+                          {bar_sp.x + url_bar_w, bar_sp.y + bar_fh},
+                          to_u32({0.10f, 0.10f, 0.16f, 1.0f}), 2.0f);
+        ImVec4 pg = COL_ACCENT; pg.w = 0.60f;
+        dl->AddRectFilled({bar_sp.x, bar_sp.y + bar_fh - 2},
+                          {bar_sp.x + url_bar_w * tab->progress, bar_sp.y + bar_fh},
+                          to_u32(pg), 2.0f);
+    }
+
+    // ── Security indicator ────────────────────────────────────────────
     {
         const std::string& turl = tab ? tab->url : std::string();
         bool https = turl.size() >= 8 && turl.substr(0, 8) == "https://";
         bool http  = turl.size() >= 7 && turl.substr(0, 7) == "http://";
         ImVec4 sec_col = https ? COL_OK : (http ? COL_WARN : COL_TEXT_DIM);
         ImVec2 sp2 = ImGui::GetCursorScreenPos();
-        float  fh2 = ImGui::GetFrameHeight();
+        float  fh2 = bar_fh;
         float  dcx = sp2.x + lock_w * 0.5f;
         float  dcy = sp2.y + fh2 * 0.5f;
         if (https) {
-            // Filled circle = secure
             dl->AddCircleFilled({dcx, dcy}, 4.5f, to_u32(sec_col), 12);
         } else {
-            // Hollow circle = not secure / unknown
             dl->AddCircle({dcx, dcy}, 4.5f, to_u32(sec_col), 12, 1.5f);
             if (http)
                 dl->AddCircleFilled({dcx, dcy}, 1.5f, to_u32(sec_col), 8);
         }
         ImGui::InvisibleButton("##sec_ind", {lock_w, fh2});
         const char* sec_tip = https ? "Secure connection (HTTPS)"
-                             : http  ? "Not secure -- data sent unencrypted (HTTP)"
+                             : http  ? "Not secure (HTTP)"
                                      : nullptr;
         if (sec_tip && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
             ImGui::SetTooltip("%s", sec_tip);
         ImGui::SameLine(0, 4);
     }
 
-    // Progress underline before drawing the input
-    if (tab && tab->loading && tab->progress > 0.0f) {
-        ImVec2 sp = ImGui::GetCursorScreenPos();
-        float  fh = ImGui::GetFrameHeight();
-        // Full trough
-        dl->AddRectFilled({sp.x, sp.y + fh - 2},
-                          {sp.x + url_w, sp.y + fh},
-                          to_u32({0.10f,0.10f,0.16f,1.0f}), 1.0f);
-        // Progress fill
-        ImVec4 pg = COL_ACCENT; pg.w = 0.60f;
-        dl->AddRectFilled({sp.x, sp.y + fh - 2},
-                          {sp.x + url_w * tab->progress, sp.y + fh},
-                          to_u32(pg), 1.0f);
-    }
+    // ── URL input (always rendered) ──────────────────────────────────
+    {
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,        {0.0f, 0.0f, 0.0f, 0.0f});
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, {0.0f, 0.0f, 0.0f, 0.0f});
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,  {0.0f, 0.0f, 0.0f, 0.0f});
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+        ImGui::SetNextItemWidth(url_inp_w);
 
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, COL_BASE);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, COL_RAISED);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive,  COL_RAISED);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-    ImGui::SetNextItemWidth(url_w);
-
-    // Focus URL bar only when explicitly requested (Cmd+L or click).
-    // Do NOT auto-focus on launch -- that steals keyboard input so nav
-    // buttons and tabs feel unresponsive until the user clicks elsewhere.
-    if (st->focus_url_next_frame) {
-        ImGui::SetKeyboardFocusHere();
-        st->focus_url_next_frame = false;
-    }
-
-    bool url_activated = false;
-    if (tab) {
-        url_activated = ImGui::InputText("##url", tab->url_buf, URL_BUF_SIZE,
-                                         ImGuiInputTextFlags_EnterReturnsTrue |
-                                         ImGuiInputTextFlags_AutoSelectAll);
-        if (url_activated) {
-            tab->url = tab->url_buf;
-            st->push_nav(tab->id, tab->url);
+        if (st->focus_url_next_frame) {
+            ImGui::SetKeyboardFocusHere();
+            st->focus_url_next_frame = false;
         }
-        if (!ImGui::IsItemActive() && tab->url != tab->url_buf)
-            snprintf(tab->url_buf, URL_BUF_SIZE, "%s", tab->url.c_str());
-    } else {
-        char empty[2] = {};
-        ImGui::InputText("##url", empty, sizeof(empty));
+
+        if (tab) {
+            bool activated = ImGui::InputText("##url", tab->url_buf, URL_BUF_SIZE,
+                                             ImGuiInputTextFlags_EnterReturnsTrue |
+                                             ImGuiInputTextFlags_AutoSelectAll);
+            if (activated) {
+                tab->url = tab->url_buf;
+                st->push_nav(tab->id, tab->url);
+            }
+            if (!ImGui::IsItemActive() && tab->url != tab->url_buf)
+                snprintf(tab->url_buf, URL_BUF_SIZE, "%s", tab->url.c_str());
+        } else {
+            char empty[2] = {};
+            ImGui::InputText("##url", empty, sizeof(empty));
+        }
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3);
+        ImGui::SameLine(0, 2);
     }
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(3);
+
+    // ── Info toggle button (< always at right edge of URL bar) ───────
+    {
+        bool slide_open = st->show_info_slide;
+        ImGui::PushStyleColor(ImGuiCol_Button,        {0.0f, 0.0f, 0.0f, 0.0f});
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_u32(COL_RAISED));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  to_u32(COL_ACCENT_LO));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0.0f, 0.0f});
+        if (ImGui::Button("##info_tog", {info_tog_w, bar_fh}))
+            st->show_info_slide = !st->show_info_slide;
+        {
+            ImVec2 bmin = ImGui::GetItemRectMin();
+            ImVec2 bmax = ImGui::GetItemRectMax();
+            const char* lbl = slide_open ? ">" : "<";
+            ImVec2 ts = ImGui::CalcTextSize(lbl);
+            dl->AddText({(bmin.x + bmax.x - ts.x) * 0.5f,
+                         (bmin.y + bmax.y - ts.y) * 0.5f},
+                        to_u32(slide_open ? COL_ACCENT : COL_TEXT_DIM), lbl);
+        }
+        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor(3);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+            ImGui::SetTooltip(slide_open ? "Hide status info" : "Status & viewport");
+    }
+
+    // ── Info slide overlay (slides over URL from the right) ──────────
+    // Like the macOS CSS: position:absolute; right:0; transform:translateX
+    // Draws on top of the URL text with an opaque background + shadow fade.
+    if (st->show_info_slide) {
+        float url_left  = bar_sp.x + lock_w + 4.0f;
+        float url_right = url_left + url_inp_w;
+
+        // Measure info content width
+        float dot_r   = 3.5f;
+        float lbl_gap = 9.0f;
+        float sep_gap = 8.0f;
+        float php_tw  = ImGui::CalcTextSize("php").x;
+        float js_tw   = ImGui::CalcTextSize("js").x;
+        int content_h = st->win_h - TOTAL_CHROME_TOP
+                        - (st->show_more_panel ? DRAWER_HEIGHT_PX : 0)
+                        - STATUS_HEIGHT_PX;
+        char vp_str[32];
+        snprintf(vp_str, sizeof(vp_str), "%d x %d", st->win_w, content_h);
+        float vp_tw = ImGui::CalcTextSize(vp_str).x;
+        // Total: padding + php_dot + php_lbl + sep + js_dot + js_lbl + sep + vp + padding
+        float info_cw = 8.0f + (dot_r*2+lbl_gap+php_tw) + sep_gap*2 + (dot_r*2+lbl_gap+js_tw) + sep_gap*2 + vp_tw + 8.0f;
+        float info_w  = std::min(info_cw, url_inp_w);
+        float info_x  = url_right - info_w;
+
+        // Shadow gradient on left edge (fade from transparent to opaque)
+        float shw = 16.0f;
+        dl->AddRectFilledMultiColor(
+            {info_x - shw, bar_sp.y + 1.0f}, {info_x, bar_sp.y + bar_fh - 1.0f},
+            to_u32({COL_BASE.x, COL_BASE.y, COL_BASE.z, 0.0f}),
+            to_u32(COL_BASE), to_u32(COL_BASE),
+            to_u32({COL_BASE.x, COL_BASE.y, COL_BASE.z, 0.0f}));
+
+        // Opaque background covering URL text
+        dl->AddRectFilled({info_x, bar_sp.y + 1.0f},
+                          {url_right, bar_sp.y + bar_fh - 1.0f},
+                          to_u32(COL_BASE));
+
+        // Draw status indicators
+        float ic_cy = bar_sp.y + bar_fh * 0.5f;
+        float cx    = info_x + 8.0f;
+        float th    = ImGui::GetTextLineHeight();
+
+        // PHP dot + label
+        dl->AddCircleFilled({cx + dot_r, ic_cy}, dot_r,
+                            to_u32(st->php_server_ok ? COL_OK : COL_BAD), 8);
+        dl->AddText({cx + lbl_gap, ic_cy - th * 0.5f}, to_u32(COL_TEXT_DIM), "php");
+        cx += lbl_gap + php_tw + sep_gap;
+
+        // Separator
+        dl->AddLine({cx, bar_sp.y + 6.0f}, {cx, bar_sp.y + bar_fh - 6.0f},
+                    to_u32(COL_SEP), 1.0f);
+        cx += sep_gap;
+
+        // JS dot + label
+        bool js_ok = !tab || tab->js_enabled;
+        dl->AddCircleFilled({cx + dot_r, ic_cy}, dot_r,
+                            to_u32(js_ok ? COL_OK : COL_WARN), 8);
+        dl->AddText({cx + lbl_gap, ic_cy - th * 0.5f}, to_u32(COL_TEXT_DIM), "js");
+        cx += lbl_gap + js_tw + sep_gap;
+
+        // Separator
+        dl->AddLine({cx, bar_sp.y + 6.0f}, {cx, bar_sp.y + bar_fh - 6.0f},
+                    to_u32(COL_SEP), 1.0f);
+        cx += sep_gap;
+
+        // Viewport size
+        dl->AddText({cx, ic_cy - th * 0.5f}, to_u32(COL_TEXT_DIM), vp_str);
+    }
+
+    // Draw URL bar border on top of all URL bar widgets
+    dl->AddRect(bar_sp,
+                {bar_sp.x + url_bar_w, bar_sp.y + bar_fh},
+                to_u32({0.388f, 0.400f, 0.941f, 0.28f}), 6.0f, 0, 1.0f);
+
     ImGui::SameLine(0, 4);
 
-    // Dev tools toggle
-    bool dt_on = st->dev_tools_open;
-    if (dt_on) {
-        ImGui::PushStyleColor(ImGuiCol_Button,       COL_ACCENT_MID);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,COL_ACCENT);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, COL_ACCENT);
-    } else {
-        ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_LO);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT_MID);
-    }
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-    if (ImGui::Button("##devt", {btn, btn})) st->dev_tools_open = !st->dev_tools_open;
+    // ── Three-dot menu ────────────────────────────────────────────────
     {
-        // Draw "{}" glyph
-        ImVec2 bmin = ImGui::GetItemRectMin();
-        ImVec2 bmax = ImGui::GetItemRectMax();
-        ImU32  gc   = to_u32(dt_on ? COL_TEXT : COL_TEXT_DIM);
-        float  mx   = (bmin.x + bmax.x) * 0.5f;
-        float  my   = (bmin.y + bmax.y) * 0.5f;
-        // Simple "{}" via two small line segments
-        dl->AddText(
-            {mx - ImGui::CalcTextSize("{}").x * 0.5f,
-             my - ImGui::GetTextLineHeight() * 0.5f},
-            gc, "{}");
-    }
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(3);
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-        ImGui::SetTooltip("Dev Tools (Cmd+Shift+I)");
-
-    ImGui::SameLine(0, 2);
-
-    // ── JS toggle ──────────────────────────────────────────────────
-    // Allows per-tab JavaScript enable/disable with immediate visual
-    // feedback. The actual WKWebpagePreferences change is applied on the
-    // next navigation via the nav delegate (triggered by a reload).
-    bool js_on = !tab || tab->js_enabled;
-    if (js_on) {
-        ImGui::PushStyleColor(ImGuiCol_Button,        COL_ACCENT_LO);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_MID);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT);
-    } else {
-        ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_LO);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT_MID);
-    }
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-    if (ImGui::Button("##jstog", {btn, btn}) && tab) {
-        // Flip the UI flag immediately so the button redraws without lag.
-        // Push the desired state as a nav command so main.mm calls
-        // webview_set_js_enabled (which reloads to apply the setting).
-        tab->js_enabled = !tab->js_enabled;
-        st->push_nav(tab->id, tab->js_enabled ? "__js_on__" : "__js_off__");
-    }
-    {
-        const char* lbl = "JS";
-        ImVec2 bmin = ImGui::GetItemRectMin();
-        ImVec2 bmax = ImGui::GetItemRectMax();
-        ImVec2 ts   = ImGui::CalcTextSize(lbl);
-        ImU32  gc   = to_u32(js_on ? COL_TEXT : COL_TEXT_DIM);
-        dl->AddText({(bmin.x + bmax.x - ts.x) * 0.5f,
-                     (bmin.y + bmax.y - ts.y) * 0.5f},
-                    gc, lbl);
-        // Strike-through when JS is disabled
-        if (!js_on) {
-            float mid_y = (bmin.y + bmax.y) * 0.5f;
-            dl->AddLine({bmin.x + 4, mid_y}, {bmax.x - 4, mid_y},
-                        to_u32(COL_BAD), 1.5f);
-        }
-    }
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(3);
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-        ImGui::SetTooltip("%s", js_on
-            ? "JavaScript enabled -- click to disable for this tab"
-            : "JavaScript disabled -- click to re-enable for this tab");
-
-    ImGui::SameLine(0, 2);
-
-    // ── Bookmark star ──────────────────────────────────────────────
-    {
-        // Check whether the current URL is already bookmarked
-        bool is_bm = false;
-        if (tab && !tab->url.empty()) {
-            for (auto& b : st->bookmarks)
-                if (b.url == tab->url) { is_bm = true; break; }
-        }
-        bool bm_open = st->show_bookmarks_panel;
-        if (is_bm || bm_open) {
+        bool more_open = st->show_more_panel;
+        if (more_open) {
             ImGui::PushStyleColor(ImGuiCol_Button,        COL_ACCENT_LO);
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_MID);
             ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT);
@@ -702,98 +762,29 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
             ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT_MID);
         }
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-        if (ImGui::Button("##bm", {btn, btn})) {
-            st->show_bookmarks_panel = !st->show_bookmarks_panel;
-            st->show_history_panel   = false;
-            if (st->show_bookmarks_panel)
-                s_bm_open_frame = ImGui::GetFrameCount();
-        }
-        // Record screen position for panel anchoring
-        s_bm_btn_screen_x = ImGui::GetItemRectMax().x;
-        {
-            // Draw a 5-pointed star via geometry (fonts may lack U+2605/U+2606)
-            ImVec2 bmin = ImGui::GetItemRectMin();
-            ImVec2 bmax = ImGui::GetItemRectMax();
-            ImU32  gc   = to_u32(is_bm ? COL_ACCENT : COL_TEXT_DIM);
-            ImVec2 c2   = {(bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f};
-            float  ro   = (bmax.x - bmin.x) * 0.36f;   // outer radius
-            float  ri   = ro * 0.40f;                    // inner radius
-            const float kPi = 3.14159265f;
-            for (int k = 0; k < 5; ++k) {
-                float a0 = (float)k * (2.0f * kPi / 5.0f) - kPi * 0.5f;
-                float a1 = a0 + kPi / 5.0f;
-                float a2 = a0 + 2.0f * kPi / 5.0f;
-                ImVec2 p0 = {c2.x + cosf(a0)*ro, c2.y + sinf(a0)*ro};
-                ImVec2 p1 = {c2.x + cosf(a1)*ri, c2.y + sinf(a1)*ri};
-                ImVec2 p2 = {c2.x + cosf(a2)*ro, c2.y + sinf(a2)*ro};
-                if (is_bm) {
-                    dl->AddTriangleFilled(c2, p0, p1, gc);
-                    dl->AddTriangleFilled(c2, p1, p2, gc);
-                } else {
-                    dl->AddLine(p0, p1, gc, 1.2f);
-                    dl->AddLine(p1, p2, gc, 1.2f);
-                }
-            }
-            if (!is_bm) {   // close the outline star
-                float a0 = -kPi * 0.5f;
-                float a1_last = 4.0f * (2.0f * kPi / 5.0f) - kPi * 0.5f + kPi / 5.0f;
-                ImVec2 tip  = {c2.x + cosf(a0)*ro,     c2.y + sinf(a0)*ro};
-                ImVec2 last_inner = {c2.x + cosf(a1_last)*ri, c2.y + sinf(a1_last)*ri};
-                dl->AddLine(last_inner, tip, gc, 1.2f);
-            }
-        }
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(3);
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-            ImGui::SetTooltip(is_bm ? "Bookmarked -- click to manage"
-                                    : "Bookmark this page (Cmd+D)");
-    }
-    ImGui::SameLine(0, 0);
-
-    // ── History button ─────────────────────────────────────────────
-    {
-        bool hist_open = st->show_history_panel;
-        if (hist_open) {
-            ImGui::PushStyleColor(ImGuiCol_Button,        COL_ACCENT_LO);
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_MID);
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT);
-        } else {
-            ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, COL_ACCENT_LO);
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  COL_ACCENT_MID);
-        }
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-        if (ImGui::Button("##hist", {btn, btn})) {
-            st->show_history_panel   = !st->show_history_panel;
+        if (ImGui::Button("##more", {btn, btn})) {
+            st->show_more_panel      = !st->show_more_panel;
+            st->more_subpanel        = 0;
             st->show_bookmarks_panel = false;
-            if (st->show_history_panel)
-                s_hist_open_frame = ImGui::GetFrameCount();
+            st->show_history_panel   = false;
+            if (st->show_more_panel)
+                s_more_open_frame = ImGui::GetFrameCount();
         }
-        s_hist_btn_screen_x = ImGui::GetItemRectMax().x;
-        {
+        s_more_btn_screen_x = ImGui::GetItemRectMax().x;
         {
             ImVec2 bmin = ImGui::GetItemRectMin();
             ImVec2 bmax = ImGui::GetItemRectMax();
-            ImU32  clk_col = to_u32(hist_open ? COL_ACCENT : COL_TEXT_DIM);
-            ImVec2 c2   = {(bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f};
-            float  r    = (bmax.x - bmin.x) * 0.34f;
-            const float kPi = 3.14159265f;
-            // Clock face circle
-            dl->AddCircle(c2, r, clk_col, 14, 1.3f);
-            // Hour hand (~10 o'clock)
-            float ah = -kPi * 0.5f - kPi * 0.34f;
-            dl->AddLine(c2, {c2.x + cosf(ah)*r*0.52f, c2.y + sinf(ah)*r*0.52f},
-                        clk_col, 1.5f);
-            // Minute hand (~12 o'clock, pointing up)
-            float am = -kPi * 0.5f;
-            dl->AddLine(c2, {c2.x + cosf(am)*r*0.72f, c2.y + sinf(am)*r*0.72f},
-                        clk_col, 1.3f);
-        }
+            ImU32  gc   = to_u32(more_open ? COL_ACCENT : COL_TEXT_DIM);
+            float  my2  = (bmin.y + bmax.y) * 0.5f;
+            float  cx   = (bmin.x + bmax.x) * 0.5f;
+            dl->AddCircleFilled({cx - 5.5f, my2}, 1.9f, gc, 8);
+            dl->AddCircleFilled({cx,        my2}, 1.9f, gc, 8);
+            dl->AddCircleFilled({cx + 5.5f, my2}, 1.9f, gc, 8);
         }
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(3);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-            ImGui::SetTooltip("History (Cmd+H)");
+            ImGui::SetTooltip("Tools and settings");
     }
 
     end_panel();
@@ -989,6 +980,287 @@ static void draw_history_panel(AppState* st, float anchor_x, float panel_top) {
     ImGui::PopStyleVar(2);
 }
 
+// ── Inline more-panel drawer ──────────────────────────────────────────
+// Drawn as a pinned panel WITHIN the chrome area (above WebView2).
+// Returns the height added so chrome_draw_top can include it in chrome_top,
+// which causes reposition_webviews to push WebView2 down accordingly.
+
+static int draw_more_drawer(AppState* st, int win_w, int y_offset) {
+    if (!st->show_more_panel) return 0;
+
+    const float H   = (float)DRAWER_HEIGHT_PX;
+    const float pad = 8.0f;
+
+    begin_panel("##drawer_panel", 0, (float)y_offset, (float)win_w, H, COL_BASE);
+
+    ImDrawList* dl   = ImGui::GetWindowDrawList();
+    ImVec2      wpos = ImGui::GetWindowPos();
+
+    // Top border
+    dl->AddLine({0.0f, wpos.y}, {(float)win_w, wpos.y}, to_u32(COL_SEP), 1.0f);
+
+    const float item_h = 28.0f;
+    const float col_w  = ((float)win_w - pad * 2.0f - 4.0f) * 0.5f;
+
+    ImGui::SetCursorPos({pad, 4.0f});
+    ImGui::BeginChild("##drwcont", {(float)win_w - pad * 2.0f, H - 10.0f},
+                      false, ImGuiWindowFlags_None);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {4.0f, 3.0f});
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+    ImGui::PushStyleColor(ImGuiCol_Header,        COL_RAISED);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, COL_TAB_HOV);
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive,  COL_ACCENT_MID);
+
+    Tab* tab = st->current_tab();
+
+    // Helper: selectable item that returns true when clicked and not disabled
+    auto DR_ITEM = [&](const char* label, float w, bool disabled) -> bool {
+        ImGui::BeginDisabled(disabled);
+        bool hit = ImGui::Selectable(label, false, 0, {w, item_h});
+        ImGui::EndDisabled();
+        return hit && !disabled;
+    };
+
+    if (st->more_subpanel == 0) {
+        // ── Main grid ─────────────────────────────────────────────────
+
+        // Navigation: Back | Forward (2-col), then Reload/Stop (full)
+        if (DR_ITEM("< Back##drn",    col_w - 2.0f, !tab || !tab->can_back)) {
+            if (tab) st->push_nav(tab->id, "__back__");
+            st->show_more_panel = false;
+        }
+        ImGui::SameLine(0, 4);
+        if (DR_ITEM("> Forward##drn", col_w - 2.0f, !tab || !tab->can_forward)) {
+            if (tab) st->push_nav(tab->id, "__forward__");
+            st->show_more_panel = false;
+        }
+        if (tab && tab->loading) {
+            if (DR_ITEM("Stop##drn", 0, false)) {
+                st->push_nav(tab->id, "__stop__");
+                st->show_more_panel = false;
+            }
+        } else {
+            if (DR_ITEM("Reload##drn", 0, false)) {
+                if (tab) st->push_nav(tab->id, "__reload__");
+                st->show_more_panel = false;
+            }
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_Separator, COL_SEP);
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+
+        // Developer Tools (collapsible accordion)
+        if (ImGui::CollapsingHeader("Developer Tools##drh")) {
+            ImGui::Indent(8.0f);
+            if (DR_ITEM(st->dev_tools_open
+                        ? "Hide DevTools##dr" : "Show DevTools##dr", 0, !tab)) {
+                if (tab) st->push_nav(tab->id, "__devtools__");
+                st->show_more_panel = false;
+            }
+            if (tab) {
+                if (DR_ITEM(tab->js_enabled
+                            ? "Disable JavaScript##dr"
+                            : "Enable JavaScript##dr", 0, false)) {
+                    tab->js_enabled = !tab->js_enabled;
+                    st->push_nav(tab->id, tab->js_enabled ? "__js_on__" : "__js_off__");
+                    st->show_more_panel = false;
+                }
+            }
+            if (st->php_port > 0) {
+                auto open_app = [&](const char* slug) {
+                    if (tab) {
+                        char url[256];
+                        snprintf(url, sizeof(url), "http://127.0.0.1:%d/%s/",
+                                 st->php_port, slug);
+                        st->push_nav(tab->id, url);
+                    }
+                    st->show_more_panel = false;
+                };
+                if (DR_ITEM("DOM Inspector##dr",  col_w-2.0f, false)) open_app("dom-inspector");
+                ImGui::SameLine(0, 4);
+                if (DR_ITEM("Page Inspector##dr", col_w-2.0f, false)) open_app("page-inspector");
+                if (DR_ITEM("Page Speed##dr",     col_w-2.0f, false)) open_app("page-speed");
+                ImGui::SameLine(0, 4);
+                if (DR_ITEM("Page Builder##dr",   col_w-2.0f, false)) open_app("page-builder-debug");
+            }
+            ImGui::Unindent(8.0f);
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_Separator, COL_SEP);
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+
+        // Bookmarks: [Bookmark Page | Bookmarks] (2-col), History (full)
+        {
+            bool is_bm = false;
+            if (tab && !tab->url.empty())
+                for (auto& b : st->bookmarks)
+                    if (b.url == tab->url) { is_bm = true; break; }
+            if (DR_ITEM(is_bm ? "Remove Bookmark##dr" : "Bookmark Page##dr",
+                        col_w - 2.0f, !tab)) {
+                if (tab) st->push_nav(tab->id, "__bookmark_toggle__");
+                st->show_more_panel = false;
+            }
+            ImGui::SameLine(0, 4);
+            if (DR_ITEM("Bookmarks##dr", col_w - 2.0f, false))
+                st->more_subpanel = 1;
+        }
+        if (DR_ITEM("History##dr", 0, false))
+            st->more_subpanel = 2;
+
+        ImGui::PushStyleColor(ImGuiCol_Separator, COL_SEP);
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+
+        // Tools: PDF | Image (2-col), Editz (full)
+        if (st->php_port > 0) {
+            auto open_app = [&](const char* slug) {
+                if (tab) {
+                    char url[256];
+                    snprintf(url, sizeof(url), "http://127.0.0.1:%d/%s/",
+                             st->php_port, slug);
+                    st->push_nav(tab->id, url);
+                }
+                st->show_more_panel = false;
+            };
+            if (DR_ITEM("PDF Fill & Sign##dr", col_w-2.0f, false)) open_app("pdf-sign");
+            ImGui::SameLine(0, 4);
+            if (DR_ITEM("Image Generator##dr", col_w-2.0f, false)) open_app("image-gen");
+            if (DR_ITEM("Editz##dr", 0, false)) open_app("editz");
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_Separator, COL_SEP);
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+
+        // Viewport Size (collapsible accordion)
+        if (ImGui::CollapsingHeader("Viewport Size##drh")) {
+            struct VpPreset { int w, h; const char* label; };
+            static const VpPreset presets[] = {
+                {375,  667,  "iPhone SE  375 x 667##vp"},
+                {390,  844,  "iPhone 14  390 x 844##vp"},
+                {430,  932,  "iPhone Plus  430 x 932##vp"},
+                {768,  1024, "iPad  768 x 1024##vp"},
+                {1024, 768,  "iPad land.  1024 x 768##vp"},
+                {1280, 800,  "Laptop  1280 x 800##vp"},
+                {1366, 768,  "Laptop  1366 x 768##vp"},
+                {1440, 900,  "Laptop HD  1440 x 900##vp"},
+                {1920, 1080, "Desktop FHD  1920 x 1080##vp"},
+                {2560, 1440, "Desktop QHD  2560 x 1440##vp"},
+            };
+            GLFWwindow* win = glfwGetCurrentContext();
+            ImGui::Indent(8.0f);
+            for (auto& p : presets) {
+                if (DR_ITEM(p.label, 0, false)) {
+                    if (win) glfwSetWindowSize(win, p.w, p.h);
+                    st->show_more_panel = false;
+                }
+            }
+            ImGui::Unindent(8.0f);
+        }
+
+    } else if (st->more_subpanel == 1) {
+        // ── Bookmarks sub-panel ───────────────────────────────────────
+        if (ImGui::Button("< Back##bmsub")) st->more_subpanel = 0;
+        ImGui::SameLine(0, 8);
+        ImGui::PushStyleColor(ImGuiCol_Text, COL_TEXT_DIM);
+        ImGui::TextUnformatted("Bookmarks");
+        ImGui::PopStyleColor();
+        ImGui::PushStyleColor(ImGuiCol_Separator, COL_SEP);
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+
+        if (st->bookmarks.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, COL_TEXT_DIM);
+            ImGui::TextUnformatted("No bookmarks yet.");
+            ImGui::PopStyleColor();
+        } else {
+            for (int i = (int)st->bookmarks.size() - 1; i >= 0; i--) {
+                auto& bm = st->bookmarks[i];
+                const std::string& nm = bm.title.empty() ? bm.url : bm.title;
+                char lbl[104];
+                snprintf(lbl, sizeof(lbl), "%.80s##bmsub%d", nm.c_str(), i);
+                if (ImGui::Selectable(lbl)) {
+                    if (tab) st->push_nav(tab->id, bm.url);
+                    st->more_subpanel = 0;
+                    st->show_more_panel = false;
+                }
+            }
+        }
+
+    } else {
+        // ── History sub-panel ─────────────────────────────────────────
+        if (ImGui::Button("< Back##histsub")) st->more_subpanel = 0;
+        ImGui::SameLine(0, 8);
+        ImGui::PushStyleColor(ImGuiCol_Text, COL_TEXT_DIM);
+        ImGui::TextUnformatted("History");
+        ImGui::PopStyleColor();
+        ImGui::PushStyleColor(ImGuiCol_Separator, COL_SEP);
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+
+        ImGui::SetNextItemWidth((float)win_w - pad * 2.0f - 20.0f);
+        ImGui::InputTextWithHint("##hfilt2", "Search history...",
+                                 st->history_filter, sizeof(st->history_filter));
+        ImGui::PushStyleColor(ImGuiCol_Separator, COL_SEP);
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+
+        std::string filt(st->history_filter);
+        for (auto& c : filt) c = (char)tolower((unsigned char)c);
+
+        int shown = 0;
+        for (int i = (int)st->history.size() - 1; i >= 0 && shown < 100; i--) {
+            auto& he = st->history[i];
+            if (!filt.empty()) {
+                std::string u = he.url, t2 = he.title;
+                for (auto& c : u)  c = (char)tolower((unsigned char)c);
+                for (auto& c : t2) c = (char)tolower((unsigned char)c);
+                if (u.find(filt) == std::string::npos &&
+                    t2.find(filt) == std::string::npos)
+                    continue;
+            }
+            const std::string& nm = he.title.empty() ? he.url : he.title;
+            char lbl[104];
+            snprintf(lbl, sizeof(lbl), "%.80s##histsub%d", nm.c_str(), i);
+            if (ImGui::Selectable(lbl)) {
+                if (tab) st->push_nav(tab->id, he.url);
+                st->more_subpanel = 0;
+                st->show_more_panel = false;
+            }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+                ImGui::SetTooltip("%s", he.url.c_str());
+            shown++;
+        }
+        if (st->history.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, COL_TEXT_DIM);
+            ImGui::TextUnformatted("No history yet.");
+            ImGui::PopStyleColor();
+        }
+    }
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(2);
+    ImGui::EndChild();
+
+    // Close drawer on click outside (but not on the frame it was opened)
+    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows |
+                                ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
+            && ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+            && ImGui::GetFrameCount() != s_more_open_frame)
+        st->show_more_panel = false;
+
+    end_panel();
+    return (int)H;
+}
+
+// ── Button screen-X getters (used by native_chrome_stub on non-Apple) ────
+
+float chrome_bm_btn_x()   { return s_bm_btn_screen_x; }
+float chrome_hist_btn_x()  { return s_hist_btn_screen_x; }
+
 // ── Minimal grab strip (used when both tabs and toolbar are hidden) ───
 // Renders only the 32 px macOS traffic-lights clearance area so the
 // window can still be dragged.  Returns height consumed.
@@ -1052,6 +1324,9 @@ int chrome_draw_top(AppState* st,
         h += draw_toolbar(st, win_w, h);
     }
 
+    // Inline more-panel drawer: extends chrome area so WebView2 is pushed down
+    h += draw_more_drawer(st, win_w, h);
+
     // panels now drawn via chrome_draw_panels()
     return h;
 }
@@ -1060,6 +1335,12 @@ int chrome_draw_top(AppState* st,
 void chrome_draw_panels(AppState* st,
                         float anchor_bm_x, float anchor_hist_x,
                         int   panel_top) {
+#if defined(__APPLE__)
     draw_bookmarks_panel(st, anchor_bm_x,   (float)panel_top);
     draw_history_panel  (st, anchor_hist_x, (float)panel_top);
+#else
+    // On Windows/Linux, bookmarks and history live inside the inline drawer.
+    // Floating ImGui panels would be hidden behind the WebView2 HWND.
+    (void)st; (void)anchor_bm_x; (void)anchor_hist_x; (void)panel_top;
+#endif
 }
