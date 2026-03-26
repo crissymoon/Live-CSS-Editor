@@ -130,6 +130,16 @@ static LRESULT CALLBACK platform_win_wndproc(HWND hwnd, UINT msg, WPARAM wParam,
     switch (msg) {
     case WM_NCHITTEST:
         return hit_test_non_client(hwnd, lParam);
+    case WM_SETCURSOR: {
+        // GLFW overrides the cursor for undecorated windows, preventing the
+        // resize arrows from appearing. Handle non-client hit tests ourselves
+        // so DefWindowProc can set the correct resize cursor.
+        WORD ht = LOWORD(lParam);
+        if (ht != HTCLIENT) {
+            return DefWindowProcA(hwnd, msg, wParam, lParam);
+        }
+        break;  // let GLFW handle client-area cursor
+    }
     case WM_NCCALCSIZE:
         // Remove all non-client area: client rect = full window rect.
         // wParam==0 is a simple RECT query; returning 0 is safe for both.

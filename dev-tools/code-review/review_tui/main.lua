@@ -292,6 +292,11 @@ local path_buf     = scan_path
 local about_open   = false
 local browser_nav_focus = true
 
+-- Which main panel to show when editor has tabs open.
+-- "results" = show code review results, "editor" = show editor.
+-- Opening a file auto-switches to "editor"; user can switch back via toolbar or Ctrl+E.
+local _panel = "results"
+
 -- text selection in results panel
 local sel_anchor   = nil   -- line index where drag started
 local sel_cur      = nil   -- line index at current mouse position
@@ -496,6 +501,7 @@ function love.load()
         end,
         function(path)
             Editor.open_file(path)
+            _panel = "editor"
             browser_nav_focus = false
             Browser.set_keyboard_focus(false)
         end
@@ -626,6 +632,15 @@ local function draw_toolbar()
         { label="Colors",    action=actions.toggle_color_picker },
         { label="> All",     action=actions.scan_all, accent=true },
     }
+    -- When editor tabs are open, show a toggle so the user can switch between
+    -- the review results and the editor without closing tabs.
+    if Editor.has_tabs() then
+        if _panel == "editor" then
+            table.insert(btns, 1, { label="< Review", action=function() _panel="results" end, accent=true })
+        else
+            table.insert(btns, 1, { label="Editor >", action=function() _panel="editor"  end })
+        end
+    end
     local btn_h  = 20
     local btn_y  = y + 58
     local btn_cx = 12
@@ -843,7 +858,7 @@ function love.draw()
     draw_toolbar()
     if Terminal.is_visible() then
         Terminal.draw(content_x(), content_y(), content_w(), content_h(), font_sm)
-    elseif Editor.has_tabs() then
+    elseif Editor.has_tabs() and _panel == "editor" then
         Editor.draw(content_x(), content_y(), content_w(), content_h())
     else
         draw_results()
@@ -896,6 +911,12 @@ function love.keypressed(key)
 
     if ColorPicker.keypressed(key) then return end
 
+    -- Ctrl+E: toggle between editor and review results when editor has tabs open.
+    if ctrl and key == "e" and Editor.has_tabs() then
+        _panel = (_panel == "editor") and "results" or "editor"
+        return
+    end
+
     if Terminal.is_visible() then
         if Terminal.keypressed(key, content_h(), font_sm) then
             return
@@ -917,6 +938,7 @@ function love.keypressed(key)
         if key == "tab" or (ctrl and key == "right") then
             browser_nav_focus = false
             Browser.set_keyboard_focus(false)
+            _panel = "editor"
             return
         end
     end
@@ -942,8 +964,8 @@ function love.keypressed(key)
         end
     end
 
-    -- Route to editor when tabs are open
-    if Editor.has_tabs() and not path_editing and not browser_nav_focus then
+    -- Route to editor when tabs are open and editor panel is active
+    if Editor.has_tabs() and _panel == "editor" and not path_editing and not browser_nav_focus then
         if key == "escape" and Editor.active_tab() and not Editor.active_tab()._ctx then
             -- escape with no ctx: let editor clear selection; if nothing more, close top tab
         end
@@ -1088,8 +1110,8 @@ function love.mousepressed(mx, my, btn)
 
     -- Results panel: left-click starts selection, right-click opens context menu
     if in_results(mx, my) then
-        -- Route to editor if open
-        if Editor.has_tabs() then
+        -- Route to editor only when currently showing the editor panel.
+        if Editor.has_tabs() and _panel == "editor" then
             Editor.mousepressed(mx, my, btn, content_x(), content_y(), content_w(), content_h())
             return
         end
@@ -1130,8 +1152,8 @@ function love.mousemoved(mx, my, dx, dy)
     Menu.mousemoved(mx, my, MENUBAR_H)
     ColorPicker.mousemoved(mx, my)
     Terminal.mousemoved(mx, my)
-    -- extend drag selection in editor
-    if Editor.has_tabs() then
+    -- extend drag selection in editor (only when editor panel is active)
+    if Editor.has_tabs() and _panel == "editor" then
         Editor.mousemoved(mx, my)
     end
     -- extend selection while dragging in results panel

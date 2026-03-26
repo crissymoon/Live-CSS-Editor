@@ -157,6 +157,12 @@ local _close_btn   = nil
 local _harm_btns   = {}
 local _swatch_btns = {}
 local _copy_btns   = {}
+local _code_rows   = {}   -- full-row hit areas for click-to-copy on the color codes
+
+-- Hover + flash state for code rows
+local _hover_code  = 0    -- index of row currently hovered (0 = none)
+local _flash_code  = 0    -- index of row showing "copied!" flash (0 = none)
+local _flash_until = 0    -- love.timer.getTime() deadline for flash
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Shader + canvas
@@ -313,6 +319,7 @@ function M.draw(font_sm, font_ui)
     _harm_btns   = {}
     _swatch_btns = {}
     _copy_btns   = {}
+    _code_rows   = {}
 
     -- Drop shadow
     love.graphics.setColor(0, 0, 0, 0.45)
@@ -374,19 +381,48 @@ function M.draw(font_sm, font_ui)
         { y = cp_ay + 38, label = "hsl",  text = hsl_str },
     }
 
-    for _, row in ipairs(rows) do
-        -- label
+    local now = love.timer.getTime()
+    -- Expire flash after 1.2 s.
+    if now >= _flash_until then _flash_code = 0 end
+
+    for ri, row in ipairs(rows) do
+        -- Clickable area spans label + value + copy button (the full row).
+        local row_hit_x = row_x - 2
+        local row_hit_w = btn_x + btn_w - row_hit_x + 4
+        local row_hit_h = btn_h + 2
+
+        -- Hover tint behind the row.
+        if _hover_code == ri then
+            love.graphics.setColor(C.accent[1], C.accent[2], C.accent[3], 0.13)
+            fill_r(row_hit_x, row.y - 1, row_hit_w, row_hit_h, 2)
+        end
+
+        -- Label.
         gc("dim")
         love.graphics.print(row.label, row_x, row.y)
         local lw = font_sm:getWidth(row.label)
-        -- value
-        gc("text")
-        love.graphics.print(row.text, row_x + lw + 5, row.y)
-        -- copy button
-        love.graphics.setColor(C.accent[1], C.accent[2], C.accent[3], 0.65)
+
+        -- Value text, or "copied!" flash.
+        local val_x = row_x + lw + 5
+        if _flash_code == ri then
+            love.graphics.setColor(0.35, 0.88, 0.50, 1)
+            love.graphics.print("copied!", val_x, row.y)
+        else
+            gc("text")
+            love.graphics.print(row.text, val_x, row.y)
+        end
+
+        -- Copy button (visual only — the whole row is the hit area).
+        love.graphics.setColor(C.accent[1], C.accent[2], C.accent[3], _hover_code == ri and 0.9 or 0.65)
         fill_r(btn_x, row.y, btn_w, btn_h, 3)
         gc("text_bright")
         love.graphics.print("copy", btn_x + 5, row.y)
+
+        -- Register hit area.
+        _code_rows[#_code_rows + 1] = {
+            x = row_hit_x, y = row.y - 1, w = row_hit_w, h = row_hit_h,
+            text = row.text, idx = ri,
+        }
         _copy_btns[#_copy_btns + 1] = {
             x = btn_x, y = row.y, w = btn_w, h = btn_h, text = row.text
         }
@@ -491,7 +527,17 @@ function M.mousepressed(mx, my, btn)
         return true
     end
 
-    -- Copy buttons
+    -- Code rows: clicking anywhere on a row (label + value + copy button) copies.
+    for _, cr in ipairs(_code_rows) do
+        if mx >= cr.x and mx < cr.x + cr.w and my >= cr.y and my < cr.y + cr.h then
+            love.system.setClipboardText(cr.text)
+            _flash_code  = cr.idx
+            _flash_until = love.timer.getTime() + 1.2
+            return true
+        end
+    end
+
+    -- Copy buttons (legacy fallback — covered by _code_rows above, kept for safety).
     for _, cb in ipairs(_copy_btns) do
         if mx >= cb.x and mx < cb.x + cb.w and my >= cb.y and my < cb.y + cb.h then
             love.system.setClipboardText(cb.text)
@@ -530,6 +576,16 @@ end
 
 function M.mousemoved(mx, my)
     if not visible then return end
+
+    -- Update hovered code row.
+    _hover_code = 0
+    for _, cr in ipairs(_code_rows) do
+        if mx >= cr.x and mx < cr.x + cr.w and my >= cr.y and my < cr.y + cr.h then
+            _hover_code = cr.idx
+            break
+        end
+    end
+
     if drag_panel then
         PX = mx - drag_ox
         PY = my - drag_oy

@@ -87,6 +87,15 @@ static std::wstring widen(const std::string& value) {
     return out;
 }
 
+static std::string narrow(LPCWSTR wide) {
+    if (!wide || !wide[0]) return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, wide, -1, nullptr, 0, nullptr, nullptr);
+    if (needed <= 1) return {};
+    std::string out((size_t)needed - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wide, -1, &out[0], needed, nullptr, nullptr);
+    return out;
+}
+
 static std::string discover_webview2_runtime_dir() {
     if (const char* env = std::getenv("XCM_WEBVIEW2_RUNTIME_DIR")) {
         if (GetFileAttributesA(env) != INVALID_FILE_ATTRIBUTES) return env;
@@ -204,6 +213,72 @@ void* webview_create(int tab_id, const std::string& url)
                                         return S_OK;
                                     }).Get(), nullptr);
 
+                            // ── Navigation state event handlers ──────────────
+                            // These mirror the WKWebView delegates on macOS.
+
+                            h->wv->add_NavigationStarting(
+                                Microsoft::WRL::Callback<ICoreWebView2NavigationStartingEventHandler>(
+                                    [tabId = h->tab_id](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*) -> HRESULT {
+                                        if (s_cbs.on_loading)  s_cbs.on_loading(tabId, true);
+                                        if (s_cbs.on_progress) s_cbs.on_progress(tabId, 0.1f);
+                                        return S_OK;
+                                    }).Get(), nullptr);
+
+                            h->wv->add_NavigationCompleted(
+                                Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
+                                    [holder](ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs*) -> HRESULT {
+                                        int tabId = holder->tab_id;
+                                        if (s_cbs.on_loading)  s_cbs.on_loading(tabId, false);
+                                        if (s_cbs.on_progress) s_cbs.on_progress(tabId, 1.0f);
+                                        if (s_cbs.on_nav_state && sender) {
+                                            BOOL canBack = FALSE, canFwd = FALSE;
+                                            sender->get_CanGoBack(&canBack);
+                                            sender->get_CanGoForward(&canFwd);
+                                            s_cbs.on_nav_state(tabId, canBack == TRUE, canFwd == TRUE);
+                                        }
+                                        return S_OK;
+                                    }).Get(), nullptr);
+
+                            h->wv->add_SourceChanged(
+                                Microsoft::WRL::Callback<ICoreWebView2SourceChangedEventHandler>(
+                                    [tabId = h->tab_id](ICoreWebView2* sender, ICoreWebView2SourceChangedEventArgs*) -> HRESULT {
+                                        if (s_cbs.on_url_change && sender) {
+                                            LPWSTR uri = nullptr;
+                                            sender->get_Source(&uri);
+                                            if (uri) {
+                                                s_cbs.on_url_change(tabId, narrow(uri));
+                                                CoTaskMemFree(uri);
+                                            }
+                                        }
+                                        return S_OK;
+                                    }).Get(), nullptr);
+
+                            h->wv->add_DocumentTitleChanged(
+                                Microsoft::WRL::Callback<ICoreWebView2DocumentTitleChangedEventHandler>(
+                                    [tabId = h->tab_id](ICoreWebView2* sender, IUnknown*) -> HRESULT {
+                                        if (s_cbs.on_title_change && sender) {
+                                            LPWSTR title = nullptr;
+                                            sender->get_DocumentTitle(&title);
+                                            if (title) {
+                                                s_cbs.on_title_change(tabId, narrow(title));
+                                                CoTaskMemFree(title);
+                                            }
+                                        }
+                                        return S_OK;
+                                    }).Get(), nullptr);
+
+                            h->wv->add_HistoryChanged(
+                                Microsoft::WRL::Callback<ICoreWebView2HistoryChangedEventHandler>(
+                                    [holder](ICoreWebView2* sender, IUnknown*) -> HRESULT {
+                                        if (s_cbs.on_nav_state && sender) {
+                                            BOOL canBack = FALSE, canFwd = FALSE;
+                                            sender->get_CanGoBack(&canBack);
+                                            sender->get_CanGoForward(&canFwd);
+                                            s_cbs.on_nav_state(holder->tab_id, canBack == TRUE, canFwd == TRUE);
+                                        }
+                                        return S_OK;
+                                    }).Get(), nullptr);
+
                             // Resize to last known bounds.
                             RECT bounds = { h->x, h->y, h->x + h->w, h->y + h->h };
                             ctrl->put_Bounds(bounds);
@@ -225,9 +300,7 @@ void* webview_create(int tab_id, const std::string& url)
                             h->ready = true;
                             // Replay any queued navigation.
                             if (!h->pending_urls.empty()) {
-                                std::wstring wurl(h->pending_urls.back().begin(),
-                                                  h->pending_urls.back().end());
-                                h->wv->Navigate(wurl.c_str());
+                                h->wv->Navigate(widen(h->pending_urls.back()).c_str());
                                 h->pending_urls.clear();
                             }
                             if (h->open_devtools_requested) {
@@ -310,8 +383,7 @@ void webview_load_url(void* handle, const std::string& url) {
     if (h->closed) return;
 #if XCM_WEBVIEW2_AVAILABLE
     if (h->wv && h->ready) {
-        std::wstring wu(url.begin(), url.end());
-        h->wv->Navigate(wu.c_str());
+        h->wv->Navigate(widen(url).c_str());
     } else {
         h->pending_urls.push_back(url);
     }

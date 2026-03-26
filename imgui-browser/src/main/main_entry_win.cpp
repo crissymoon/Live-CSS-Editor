@@ -117,13 +117,13 @@ int main(int argc, char** argv)
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename  = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
-    // Font: try Consolas (ships with Windows) then fall back to ImGui default.
+    // Font: try Segoe UI (Windows system UI font) for modern look,
+    // then fall back to Consolas or ImGui default.
     float font_size = 15.0f * g_state.dpi_scale;
     const char* font_candidates[] = {
+        "C:\\Windows\\Fonts\\segoeui.ttf",
         "C:\\Windows\\Fonts\\consola.ttf",
-        "C:\\Windows\\Fonts\\cour.ttf",
         nullptr
     };
     for (int i = 0; font_candidates[i]; ++i) {

@@ -11,6 +11,7 @@
 #include <string>
 #include <algorithm>
 #include <cctype>
+#include <regex>
 
 static AppState* s_state = nullptr;
 
@@ -236,12 +237,12 @@ static void draw_window_controls(float y, float h) {
 
         ImVec4 fill = buttons[i].fill;
         fill.w = 0.88f + ht * 0.12f;
-        dl->AddCircleFilled({pcx, pcy}, r, to_u32(fill), 20);
-        dl->AddCircle({pcx, pcy}, r, to_u32({0.03f, 0.03f, 0.05f, 0.28f + ht * 0.27f}), 20, 1.0f);
-        dl->AddCircleFilled({pcx, pcy}, r - 2.5f, to_u32({1.0f, 1.0f, 1.0f, 0.04f + ht * 0.06f}), 16);
+        dl->AddCircleFilled({pcx, pcy}, r, to_u32(fill), 24);
+        dl->AddCircle({pcx, pcy}, r, to_u32({0.03f, 0.03f, 0.05f, 0.28f + ht * 0.27f}), 24, 1.0f);
+        dl->AddCircleFilled({pcx, pcy}, r - 2.5f, to_u32({1.0f, 1.0f, 1.0f, 0.04f + ht * 0.06f}), 20);
         if (ht > 0.01f) {
             ImU32 gc = to_u32({0.10f, 0.10f, 0.12f, 0.95f * ht});
-            const float gs = 2.5f;
+            const float gs = 2.8f;
             if (i == 0) {
                 dl->AddLine({pcx - gs, pcy - gs}, {pcx + gs, pcy + gs}, gc, 1.5f);
                 dl->AddLine({pcx + gs, pcy - gs}, {pcx - gs, pcy + gs}, gc, 1.5f);
@@ -285,18 +286,17 @@ static int draw_title_tab_row(AppState* st, int win_w,
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->AddLine({0, H - 1}, {(float)win_w, H - 1}, to_u32(COL_SEP), 1.0f);
-    // Morphism: subtle vertical gradient shimmer across the full strip
+    // Morphism: very subtle vertical gradient
     dl->AddRectFilledMultiColor(
         {0.0f, 0.0f}, {(float)win_w, H},
-        to_u32({0.40f, 0.38f, 0.88f, 0.055f}),
-        to_u32({0.40f, 0.38f, 0.88f, 0.055f}),
+        to_u32({0.40f, 0.38f, 0.88f, 0.030f}),
+        to_u32({0.40f, 0.38f, 0.88f, 0.030f}),
         to_u32({0.00f, 0.00f, 0.00f, 0.00f}),
         to_u32({0.00f, 0.00f, 0.00f, 0.00f}));
-    // Single-pixel top highlight edge -- drawn on the foreground draw list
-    // so it is never clipped by the ImGui window content rect.
+    // Single-pixel top edge
     ImDrawList* fg = ImGui::GetForegroundDrawList();
     fg->AddLine({0.0f, 0.5f}, {(float)win_w, 0.5f},
-                to_u32({0.60f, 0.58f, 1.00f, 0.22f}), 1.0f);
+                to_u32({0.60f, 0.58f, 1.00f, 0.10f}), 1.0f);
 
     draw_window_controls(0.0f, TOP_PAD);
 
@@ -327,25 +327,19 @@ static int draw_title_tab_row(AppState* st, int win_w,
         // Close button shown when hovered or active (needs n > 1)
         float close_w = (n > 1 && (active || hov_rect)) ? 18.0f : 0.0f;
 
-        // Tab background
+        // Tab background -- flat pill style matching macOS CSS
         float fill_alpha = dragging_this ? 0.25f : 1.0f;
         if (active) {
             ImVec4 bg = COL_TAB_ACT; bg.w = fill_alpha;
-            dl->AddRectFilled(tMin, tMax, to_u32(bg), 6.0f, ImDrawFlags_RoundCornersTop);
-            if (!dragging_this)
-                dl->AddLine({tMin.x + 4, tMin.y + 1},
-                            {tMax.x - 4, tMin.y + 1},
-                            to_u32(COL_ACCENT), 2.0f);
+            dl->AddRectFilled(tMin, tMax, to_u32(bg), 6.0f);
         } else if (hov_rect) {
-            dl->AddRectFilled(tMin, tMax, to_u32(COL_TAB_HOV), 6.0f,
-                              ImDrawFlags_RoundCornersTop);
+            dl->AddRectFilled(tMin, tMax, to_u32(COL_TAB_HOV), 6.0f);
         }
-        // Rounded border on top/left/right matching the tab fill shape
+        // Subtle border (matches CSS: idle 10%, hover 20%, active 40%)
         {
-            ImU32 tb = to_u32(active
-                ? ImVec4{0.388f, 0.400f, 0.941f, 0.55f}
-                : ImVec4{0.388f, 0.400f, 0.941f, 0.18f});
-            dl->AddRect(tMin, tMax, tb, 6.0f, ImDrawFlags_RoundCornersTop, 1.0f);
+            float ba = active ? 0.40f : (hov_rect ? 0.20f : 0.10f);
+            ImU32 tb = to_u32(ImVec4{0.388f, 0.400f, 0.941f, ba});
+            dl->AddRect(tMin, tMax, tb, 6.0f, ImDrawFlags_None, 1.0f);
         }
 
         // Label (clipped if too long)
@@ -455,10 +449,8 @@ static int draw_title_tab_row(AppState* st, int win_w,
                                                    tabs_x + (float)n * tab_w - tab_w));
         ImVec2 gMin = {ghost_x, TOP_PAD};
         ImVec2 gMax = {ghost_x + tab_w, H};
-        dl->AddRectFilled(gMin, gMax, to_u32({0.388f,0.400f,0.941f,0.20f}), 6.0f,
-                          ImDrawFlags_RoundCornersTop);
-        dl->AddRect(gMin, gMax, to_u32(COL_ACCENT), 6.0f,
-                    ImDrawFlags_RoundCornersTop, 1.5f);
+        dl->AddRectFilled(gMin, gMax, to_u32({0.388f,0.400f,0.941f,0.20f}), 6.0f);
+        dl->AddRect(gMin, gMax, to_u32(COL_ACCENT), 6.0f, ImDrawFlags_None, 1.5f);
         if (s_drop_tgt != -1) {
             float lx = tabs_x + (float)s_drop_tgt * tab_w;
             if (s_drop_tgt > s_drag_idx) lx += tab_w;
@@ -507,13 +499,63 @@ static int draw_title_tab_row(AppState* st, int win_w,
     return (int)H;
 }
 
+// ── URL resolution (mirrors chrome.js resolveUrl) ─────────────────────
+// If the user typed a bare hostname, IP, or search term, prepend the right
+// scheme or redirect to a Google search -- just like the macOS chrome does.
+static std::string resolve_url(const std::string& raw) {
+    // Trim whitespace
+    size_t start = raw.find_first_not_of(" \t\r\n");
+    size_t end   = raw.find_last_not_of(" \t\r\n");
+    if (start == std::string::npos) return {};
+    std::string v = raw.substr(start, end - start + 1);
+    if (v.empty()) return {};
+
+    // Already has a scheme
+    if (v.find("://") != std::string::npos) return v;
+    // about: pages
+    if (v.size() >= 6 && v.substr(0, 6) == "about:") return v;
+
+    // localhost or localhost:port
+    if (v.substr(0, 9) == "localhost") return "http://" + v;
+
+    bool has_space = v.find(' ') != std::string::npos;
+    bool has_dot   = v.find('.') != std::string::npos;
+
+    // Plain IP address: 192.168.1.1 or 192.168.1.1:8080/path
+    static const std::regex re_ip(R"(^\d{1,3}(\.\d{1,3}){3}(:\d+)?(/.*)?$)");
+    if (std::regex_match(v, re_ip)) return "https://" + v;
+
+    // Hostname-like: no spaces, has a dot, ends with a short alpha TLD
+    static const std::regex re_tld(R"(\.[a-zA-Z]{2,}(/.*)?$)");
+    if (!has_space && has_dot && std::regex_search(v, re_tld))
+        return "https://" + v;
+
+    // 127.0.0.1 with port
+    if (v.substr(0, 4) == "127." || v.substr(0, 8) == "192.168.")
+        return "http://" + v;
+
+    // Everything else is a search query
+    // URL-encode the query
+    std::string encoded;
+    for (char c : v) {
+        if (isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.' || c == '~')
+            encoded += c;
+        else {
+            char buf[4];
+            snprintf(buf, sizeof(buf), "%%%02X", (unsigned char)c);
+            encoded += buf;
+        }
+    }
+    return "https://www.google.com/search?q=" + encoded;
+}
+
 // ── Toolbar (URL bar + nav row) ───────────────────────────────────────
 // Layout matches mac chrome: back/fwd/reload | [lock | url input | < info >] | ...
 
 static int draw_toolbar(AppState* st, int win_w, int y_offset) {
     const float H   = (float)CHROME_HEIGHT_PX;
     const float pad = 8.0f;
-    const float btn = 30.0f;
+    const float btn = 28.0f;
 
     begin_panel("##toolbar", 0, (float)y_offset, (float)win_w, H, COL_SURFACE);
 
@@ -526,13 +568,14 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
     // Morphism shimmer
     dl->AddRectFilledMultiColor(
         {0.0f, wpos.y}, {(float)win_w, wpos.y + H},
-        to_u32({0.38f, 0.36f, 0.88f, 0.045f}),
-        to_u32({0.38f, 0.36f, 0.88f, 0.045f}),
+        to_u32({0.38f, 0.36f, 0.88f, 0.025f}),
+        to_u32({0.38f, 0.36f, 0.88f, 0.025f}),
         to_u32({0.00f, 0.00f, 0.00f, 0.00f}),
         to_u32({0.00f, 0.00f, 0.00f, 0.00f}));
 
     Tab* tab = st->current_tab();
-    float cy = (H - ImGui::GetFrameHeight()) * 0.5f;
+    // Vertically center ALL toolbar items using the same btn height
+    float cy = (H - btn) * 0.5f;
     ImGui::SetCursorPos({pad, cy});
 
     // ── Back ─────────────────────────────────────────────────────────
@@ -572,7 +615,7 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
 
     // Get screen coords for custom background before advancing cursor
     ImVec2 bar_sp = ImGui::GetCursorScreenPos();
-    float  bar_fh = ImGui::GetFrameHeight();
+    float  bar_fh = btn;  // match nav button height for alignment
 
     // Draw unified URL bar background (lock + input + info toggle share one pill)
     dl->AddRectFilled(bar_sp,
@@ -621,6 +664,9 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
         ImGui::PushStyleColor(ImGuiCol_FrameBg,        {0.0f, 0.0f, 0.0f, 0.0f});
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, {0.0f, 0.0f, 0.0f, 0.0f});
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive,  {0.0f, 0.0f, 0.0f, 0.0f});
+        // Increase vertical padding so InputText height matches the URL bar pill
+        float url_pad_y = (btn - ImGui::GetFontSize()) * 0.5f;
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {8.0f, url_pad_y});
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
         ImGui::SetNextItemWidth(url_inp_w);
 
@@ -634,8 +680,13 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
                                              ImGuiInputTextFlags_EnterReturnsTrue |
                                              ImGuiInputTextFlags_AutoSelectAll);
             if (activated) {
-                tab->url = tab->url_buf;
-                st->push_nav(tab->id, tab->url);
+                std::string resolved = resolve_url(tab->url_buf);
+                if (!resolved.empty()) {
+                    tab->url = resolved;
+                    snprintf(tab->url_buf, URL_BUF_SIZE, "%s", resolved.c_str());
+                    st->push_nav(tab->id, tab->url);
+                    fprintf(stderr, "[chrome] URL navigate: %s\n", tab->url.c_str());
+                }
             }
             if (!ImGui::IsItemActive() && tab->url != tab->url_buf)
                 snprintf(tab->url_buf, URL_BUF_SIZE, "%s", tab->url.c_str());
@@ -643,7 +694,7 @@ static int draw_toolbar(AppState* st, int win_w, int y_offset) {
             char empty[2] = {};
             ImGui::InputText("##url", empty, sizeof(empty));
         }
-        ImGui::PopStyleVar();
+        ImGui::PopStyleVar(2);
         ImGui::PopStyleColor(3);
         ImGui::SameLine(0, 2);
     }

@@ -967,7 +967,7 @@ function M.draw(x, y, w, h)
         -- current line highlight
         if is_cur then
             love.graphics.setColor(0.12, 0.06, 0.22, 1)
-            fill_rect(x, draw_y - 2, w, CHAR_H + 2)
+            fill_rect(x, draw_y, w, CHAR_H)
         end
 
         -- selection highlight
@@ -978,7 +978,7 @@ function M.draw(x, y, w, h)
                          or (x + GUTTER + font_sm:getWidth(_utf8_safe(line)) + font_sm:getWidth(" "))
             if px_e > px_s then
                 love.graphics.setColor(0.55, 0.28, 1.0, 0.82)
-                fill_rect(px_s, draw_y - 2, px_e - px_s, CHAR_H + 2)
+                fill_rect(px_s, draw_y, px_e - px_s, CHAR_H)
             end
         end
 
@@ -993,14 +993,14 @@ function M.draw(x, y, w, h)
                     else
                         love.graphics.setColor(0.9, 0.7, 0.2, 0.32)   -- other matches: dim gold
                     end
-                    fill_rect(px_s, draw_y - 1, math.max(4, px_e - px_s), CHAR_H)
+                    fill_rect(px_s, draw_y, math.max(4, px_e - px_s), CHAR_H)
                 end
             end
         end
 
         -- gutter
         love.graphics.setColor(C.panel_bg[1] or 0.065, C.panel_bg[2] or 0.04, C.panel_bg[3] or 0.14, 1)
-        fill_rect(x, draw_y - 2, GUTTER - 4, CHAR_H + 2)
+        fill_rect(x, draw_y, GUTTER - 4, CHAR_H)
         local ln_str = tostring(li)
         local ln_w   = font_sm:getWidth(ln_str)
         love.graphics.setColor(is_cur and C.lavender or C.grey)
