@@ -1,0 +1,43 @@
+{
+  "_note": "This file controls the Live CSS Editor launcher menu.",
+  "_tip": "You can edit this file to add, remove, or change items. Save it, then re-open the launcher to see your changes. No coding needed.",
+
+  "push_repos": [
+    {
+      "_note": "Use __project__ as a shortcut for this project's folder.",
+      "label": "Push live",
+      "description": "Commit and push Live CSS Editor to GitHub",
+      "path": "__project__",
+      "stage": ".",
+      "default_message": "Update Live CSS Editor"
+    },
+    {
+      "label": "Push moon",
+      "description": "Commit and push moon-lang  (xcm-editor repo)",
+      "path": "/Users/mac/Desktop/xcm-editor",
+      "stage": "moon-lang/",
+      "default_message": "Update moon-lang"
+    },
+    {
+      "label": "Push gram",
+      "description": "Commit and push gram-model  (gramcheck)",
+      "path": "/Users/mac/Documents/literature-in-ascii/co-edit-model/gramcheck",
+      "stage": ".",
+      "default_message": "Update gramcheck"
+    }
+  ],
+
+  "tools": [
+    {
+      "_note": "script is relative to this project's folder, or an absolute path.",
+      "label": "Code Review",
+      "description": "Scan your code for issues and get a report",
+      "script": "__project__/dev-tools/code-review/run.sh"
+    },
+    {
+      "label": "DB Browser",
+      "description": "Browse and query your project databases",
+      "script": "__project__/dev-tools/db-browser/quick-launch.sh"
+    }
+  ]
+}

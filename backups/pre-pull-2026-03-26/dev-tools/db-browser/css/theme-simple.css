@@ -1,0 +1,461 @@
+/* Crissy's DB Browser - Simple Theme (light, high contrast) */
+
+window {
+    background-color: #f5f5f5;
+    color: #111111;
+}
+
+window.dialog {
+    border: 2px solid #4466cc;
+    border-radius: 0;
+}
+
+window.popup {
+    border-radius: 0;
+}
+
+decoration {
+    border-radius: 0;
+}
+
+menubar {
+    background-color: #2c3e50;
+    color: #ffffff;
+    border-bottom: 1px solid #34495e;
+    min-height: 32px;
+}
+
+menubar > menuitem {
+    color: #ffffff;
+    padding: 6px 14px;
+}
+
+menubar > menuitem:hover {
+    background-color: #3498db;
+}
+
+toolbar {
+    background-color: #ecf0f1;
+    border-bottom: 1px solid #bdc3c7;
+    padding: 4px 8px;
+    min-height: 38px;
+}
+
+toolbar button {
+    background-image: none;
+    background-color: #3498db;
+    background: #3498db;
+    color: #ffffff;
+    border: 1px solid #2980b9;
+    border-radius: 3px;
+    padding: 5px 14px;
+    margin: 0 2px;
+    min-height: 28px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+toolbar button:hover {
+    background-image: none;
+    background-color: #2980b9;
+    background: #2980b9;
+    box-shadow: none;
+}
+
+toolbar button:active {
+    background-image: none;
+    background-color: #1a6ea0;
+    background: #1a6ea0;
+    box-shadow: none;
+}
+
+button {
+    background-image: none;
+    background-color: #3498db;
+    background: #3498db;
+    color: #ffffff;
+    border: 1px solid #2980b9;
+    border-radius: 3px;
+    padding: 5px 14px;
+    min-height: 28px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+button:hover {
+    background-image: none;
+    background-color: #2980b9;
+    background: #2980b9;
+    box-shadow: none;
+}
+
+button:active {
+    background-image: none;
+    background-color: #1a6ea0;
+    background: #1a6ea0;
+    box-shadow: none;
+}
+
+button label {
+    color: #ffffff;
+}
+
+/* treeview - full modern style */
+treeview {
+    background-color: #ffffff;
+    color: #111111;
+    border: none;
+    border-radius: 0;
+    font-size: 12px;
+    -GtkTreeView-horizontal-separator: 0;
+    -GtkTreeView-vertical-separator: 0;
+    -GtkTreeView-grid-line-width: 0;
+    -GtkTreeView-tree-line-width: 0;
+    -GtkTreeView-allow-rules: 0;
+}
+
+treeview.view {
+    background-color: #ffffff;
+    color: #111111;
+}
+
+treeview.view row {
+    border: none;
+    border-radius: 0;
+    min-height: 28px;
+    box-shadow: none;
+}
+
+treeview.view row:hover {
+    background-color: #dbeeff;
+}
+
+treeview.view row:selected {
+    background-color: #3498db;
+    color: #ffffff;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+treeview.view:selected {
+    background-color: #3498db;
+    color: #ffffff;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+treeview.view cell {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 0;
+    color: inherit;
+    box-shadow: none;
+}
+
+treeview row {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+treeview cell {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* Column headers */
+treeview header {
+    background-image: none;
+    background-color: #2c3e50;
+    background: #2c3e50;
+    border: none;
+    border-bottom: 1px solid #3498db;
+    box-shadow: none;
+}
+
+treeview header button,
+treeview header button:hover,
+treeview header button:active {
+    background-image: none;
+    background: #2c3e50;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 0;
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: none;
+    text-shadow: none;
+    outline: none;
+    -GtkButton-default-border: 0;
+    -GtkButton-inner-border: 0;
+}
+
+treeview header button:hover {
+    background-color: #34495e;
+    background: #34495e;
+    border: none;
+    box-shadow: none;
+}
+
+treeview header button:focus {
+    border: none;
+    box-shadow: none;
+    outline: none;
+}
+
+treeview header button label {
+    color: #ecf0f1;
+}
+
+/* Dropdown / popup menus (used by the Recent button and combo boxes) */
+menu {
+    background-color: #ffffff;
+    color: #111111;
+    border: 1px solid #bdc3c7;
+    padding: 4px 0;
+}
+
+menuitem {
+    background-color: #ffffff;
+    color: #111111;
+    padding: 6px 16px;
+    border-radius: 0;
+}
+
+menuitem label {
+    color: #111111;
+}
+
+menuitem:hover {
+    background-color: #3498db;
+    color: #ffffff;
+}
+
+menuitem:hover label {
+    color: #ffffff;
+}
+
+menuitem:disabled,
+menuitem:insensitive {
+    color: #aaaaaa;
+}
+
+menuitem:disabled label,
+menuitem:insensitive label {
+    color: #aaaaaa;
+}
+
+/* Popovers (GtkMenuButton popup container) */
+popover {
+    background-image: none;
+    background-color: #ffffff;
+    background: #ffffff;
+    color: #111111;
+    border: 1px solid #bdc3c7;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+}
+
+popover > contents {
+    background-image: none;
+    background-color: #ffffff;
+    background: #ffffff;
+    padding: 4px 0;
+}
+
+popover label {
+    color: #111111;
+}
+
+popover modelbutton {
+    background-image: none;
+    background-color: #ffffff;
+    background: #ffffff;
+    color: #111111;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 0;
+    min-height: 24px;
+}
+
+popover modelbutton:hover {
+    background-image: none;
+    background-color: #3498db;
+    background: #3498db;
+    color: #ffffff;
+}
+
+label {
+    color: #111111;
+}
+
+entry {
+    background-color: #ffffff;
+    color: #111111;
+    border: 1px solid #3498db;
+    padding: 6px 10px;
+}
+
+textview {
+    background-color: #ffffff;
+    color: #111111;
+    border: 1px solid #bdc3c7;
+    padding: 8px;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+textview text {
+    background-color: #ffffff;
+    color: #111111;
+}
+
+/* treeview base already defined above */
+
+notebook {
+    background-color: #ecf0f1;
+    border: none;
+}
+
+notebook > header {
+    background-color: #dfe6e9;
+    border-bottom: 2px solid #3498db;
+    padding: 0 4px;
+}
+
+notebook > header > tabs > tab {
+    background-color: transparent;
+    color: #2c3e50;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 22px;
+    margin: 0 1px;
+    margin-bottom: -2px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+notebook > header > tabs > tab:checked {
+    background-color: rgba(52, 152, 219, 0.12);
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+}
+
+notebook > header > tabs > tab:hover:not(:checked) {
+    background-color: rgba(52, 152, 219, 0.08);
+    color: #2c3e50;
+    border-bottom: 2px solid #bdc3c7;
+}
+
+notebook > stack {
+    background-color: #f5f5f5;
+}
+
+statusbar {
+    background-color: #2c3e50;
+    color: #bdc3c7;
+    border-top: 1px solid #34495e;
+    padding: 3px 10px;
+    font-size: 11px;
+}
+
+statusbar label {
+    color: #bdc3c7;
+}
+
+/* Scrolled windows and frames - prevent native macOS GTK 3D rendering */
+scrolledwindow {
+    background-color: #ffffff;
+    border: none;
+}
+
+scrolledwindow viewport {
+    background-color: #ffffff;
+}
+
+scrolledwindow.frame {
+    border: none;
+}
+
+frame {
+    border: none;
+}
+
+frame > border {
+    border: none;
+}
+
+paned {
+    background-color: #ecf0f1;
+}
+
+paned > separator {
+    background-color: #bdc3c7;
+    min-width: 1px;
+    min-height: 1px;
+    border: none;
+}
+
+/* Scrollbars */
+scrollbar {
+    background-color: #ecf0f1;
+    border: none;
+}
+
+scrollbar slider {
+    background-color: #bdc3c7;
+    border: none;
+    border-radius: 6px;
+    min-width: 8px;
+    min-height: 8px;
+}
+
+scrollbar slider:hover {
+    background-color: #3498db;
+}
+
+scrollbar slider:active {
+    background-color: #2980b9;
+}
+
+scrollbar trough {
+    background-color: #ecf0f1;
+    border-radius: 6px;
+}
+
+dialog {
+    background-color: #ffffff;
+    color: #111111;
+    border: 2px solid #3498db;
+}
+
+messagedialog {
+    background-color: #ffffff;
+    color: #111111;
+}
+
+messagedialog label {
+    color: #111111;
+    font-size: 13px;
+}
+
+filechooser {
+    background-color: #ffffff;
+    border: 2px solid #3498db;
+    min-width: 800px;
+    min-height: 560px;
+}
+
+filechooser treeview {
+    min-height: 380px;
+}
