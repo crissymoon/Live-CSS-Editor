@@ -54,7 +54,7 @@ static bool point_in_drag_strip(HWND hwnd, int client_x, int client_y) {
     RECT cr{};
     GetClientRect(hwnd, &cr);
     const int w = cr.right - cr.left;
-    const int drag_strip_h = 32;
+    const int drag_strip_h = 30;  // match TOP_PAD; don't overlap tab area
     const int drag_left = TRAFFIC_LIGHT_W + 14;
     const int drag_right = w - 14;
     return client_y >= 0 && client_y < drag_strip_h &&
@@ -64,23 +64,12 @@ static bool point_in_drag_strip(HWND hwnd, int client_x, int client_y) {
 // Radius for rounded window corners when not maximized (pixels).
 static const int CORNER_RADIUS = 10;
 
-// Apply a rounded-rect clipping region when the window is restored, or clear
-// it (square corners) when the window is maximized so it fills the work area.
+// Clear any window region so DwmExtendFrameIntoClientArea's invisible resize
+// border is not clipped.  Rounded corners are handled natively by
+// DWMWA_WINDOW_CORNER_PREFERENCE on Windows 11+.
 static void update_window_region(HWND hwnd) {
     if (!hwnd) return;
-    if (IsZoomed(hwnd)) {
-        // Maximized: no clipping region — let WM_GETMINMAXINFO size it exactly.
-        SetWindowRgn(hwnd, nullptr, TRUE);
-        return;
-    }
-    RECT cr{};
-    GetClientRect(hwnd, &cr);
-    int w = cr.right;
-    int h = cr.bottom;
-    if (w <= 0 || h <= 0) return;
-    // CreateRoundRectRgn takes the full ellipse diameter, so radius * 2.
-    HRGN rgn = CreateRoundRectRgn(0, 0, w, h, CORNER_RADIUS * 2, CORNER_RADIUS * 2);
-    SetWindowRgn(hwnd, rgn, TRUE);  // Windows takes ownership of rgn.
+    SetWindowRgn(hwnd, nullptr, TRUE);
 }
 
 static LRESULT hit_test_non_client(HWND hwnd, LPARAM lParam) {
@@ -140,6 +129,15 @@ static LRESULT CALLBACK platform_win_wndproc(HWND hwnd, UINT msg, WPARAM wParam,
         }
         break;  // let GLFW handle client-area cursor
     }
+    case WM_NCLBUTTONDOWN:
+    case WM_NCLBUTTONUP:
+    case WM_NCRBUTTONDOWN:
+    case WM_NCRBUTTONUP:
+    case WM_NCMOUSEMOVE:
+        // Route all non-client mouse messages to DefWindowProc so Windows can
+        // handle resize drags, caption drags, and system menu interactions.
+        // GLFW doesn't handle these for undecorated windows.
+        return DefWindowProcA(hwnd, msg, wParam, lParam);
     case WM_NCCALCSIZE:
         // Remove all non-client area: client rect = full window rect.
         // wParam==0 is a simple RECT query; returning 0 is safe for both.
@@ -181,7 +179,7 @@ static LRESULT CALLBACK platform_win_wndproc(HWND hwnd, UINT msg, WPARAM wParam,
             else                ShowWindow(hwnd, SW_MAXIMIZE);
             return 0;
         }
-        break;
+        return DefWindowProcA(hwnd, msg, wParam, lParam);
     case WM_LBUTTONDBLCLK: {
         // Safety net: if Windows routes the double-click as client-area, still
         // maximize/restore when the pointer is over our custom drag strip.
@@ -243,11 +241,11 @@ void platform_app_postinit(void* glfw_window) {
 
     // WS_POPUP = no system border at all.
     // WS_THICKFRAME = keep Windows resize-snap zones (Win11 snapping).
+    // WS_MINIMIZEBOX | WS_MAXIMIZEBOX = enable Win+Arrow snap, taskbar actions.
     // Preserve WS_VISIBLE from whatever GLFW set so the window stays on screen.
-    // Omit WS_SYSMENU/WS_MINIMIZEBOX/WS_MAXIMIZEBOX -- those can cause Windows
-    // to internally allocate a caption strip even when WM_NCCALCSIZE removes it.
     LONG_PTR old_style = GetWindowLongPtrA(s_hwnd, GWL_STYLE);
-    LONG_PTR style = (WS_POPUP | WS_THICKFRAME) | (old_style & WS_VISIBLE);
+    LONG_PTR style = (WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)
+                   | (old_style & WS_VISIBLE);
     SetWindowLongPtrA(s_hwnd, GWL_STYLE, style);
 
     LONG_PTR ex_style = GetWindowLongPtrA(s_hwnd, GWL_EXSTYLE);
@@ -271,6 +269,17 @@ void platform_app_postinit(void* glfw_window) {
     BOOL dark = TRUE;
     DwmSetWindowAttribute(s_hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof(dark));
     DwmSetWindowAttribute(s_hwnd, 19 /* pre-RTM dark mode attr */,         &dark, sizeof(dark));
+
+    // Extend the DWM frame into the client area so Windows provides the
+    // invisible resize border beyond the window edges and the drop shadow.
+    // A bottom margin of 1px is the minimum needed to enable both features.
+    MARGINS dwm_margins = { 0, 0, 0, 1 };
+    DwmExtendFrameIntoClientArea(s_hwnd, &dwm_margins);
+
+    // On Windows 11 (build 22000+), request rounded corners natively.
+    // Attribute 33 = DWMWA_WINDOW_CORNER_PREFERENCE, value 2 = DWMWCP_ROUND.
+    DWORD corner_pref = 2;
+    DwmSetWindowAttribute(s_hwnd, 33, &corner_pref, sizeof(corner_pref));
 
     // Replace the GLFW window-class brush with one that matches our background.
     // This prevents Windows from flashing a white rectangle on the very first

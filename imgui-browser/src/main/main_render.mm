@@ -4,6 +4,7 @@
 
 #include "main_funcs.h"
 #include "main_crash.h"
+#include "../top-of-gui/chrome_traffic_lights.h"
 
 void main_render_loop(const Args& args) {
     double last_server_poll = 0.0;
@@ -39,7 +40,9 @@ void main_render_loop(const Args& args) {
         glfwPollEvents();
 
         // Window dragging for undecorated windows.
-        // Drag only from the non-interactive top strip so tabs/buttons keep normal behavior.
+        // On Windows, WM_NCHITTEST / HTCAPTION handles drag natively; this
+        // GLFW-level fallback is only needed on macOS and Linux.
+#ifdef __APPLE__
         {
             double mx = 0.0, my = 0.0;
             glfwGetCursorPos(g_win, &mx, &my);
@@ -47,11 +50,6 @@ void main_render_loop(const Args& args) {
             bool pressed  = left_now && !left_prev;
             bool released = !left_now && left_prev;
 
-            // Only start drag from the 30-px TOP_PAD strip at the very top.
-            // Exclude the three window-control button areas so their clicks
-            // pass through to ImGui normally.
-            // On Windows, WM_NCHITTEST already handles drag via HTCAPTION; this
-            // path is kept as a cross-platform fallback.
             const double TOP_PAD = 30.0;
             const double BTN_CY  = 15.0, BTN_R = 6.0;
             struct WBR { double x0, x1; } win_btns[] = {{8,20},{28,40},{48,60}};
@@ -70,9 +68,6 @@ void main_render_loop(const Args& args) {
             }
 
             if (drag_active && left_now) {
-                // Use current window pos each frame: as the window moves, the
-                // cursor's client-relative coords shift, so we can't use the
-                // initial drag_win_x/y.  Read current pos + apply client delta.
                 int cwx, cwy;
                 glfwGetWindowPos(g_win, &cwx, &cwy);
                 int nx = cwx + (int)(mx - drag_mouse_x);
@@ -86,6 +81,7 @@ void main_render_loop(const Args& args) {
 
             left_prev = left_now;
         }
+#endif
 
         double now = glfwGetTime();
         fps_host_tick(g_state, now);
@@ -256,6 +252,10 @@ void main_render_loop(const Args& args) {
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(g_win);
+
+#ifndef __APPLE__
+        chrome_tl_update();
+#endif
 
 #if defined(__APPLE__)
         } @catch (NSException* e) {

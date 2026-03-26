@@ -39,6 +39,7 @@
 #include "../cmds-and-server/server_manager.h"
 #include "../cmds-and-server/cmd_server.h"
 #include "../top-of-gui/chrome.h"
+#include "../top-of-gui/chrome_traffic_lights.h"
 
 // Windows requires WinMain or main; GLFW defines a wrapper that calls main()
 // when GLFW_INCLUDE_NONE is defined and the project is set to a Windows subsystem.
@@ -110,6 +111,14 @@ int main(int argc, char** argv)
     g_state.win_h = _lh;
     glfwGetFramebufferSize(g_win, &g_fb_w, &g_fb_h);
     g_state.dpi_scale = (_lw > 0) ? (float)g_fb_w / (float)_lw : 1.0f;
+    // Use content scale (actual display scaling factor) rather than fb/win
+    // ratio. For DPI-aware apps on Windows, fb/win is always 1.0, but the
+    // display can be at 125%, 150%, etc.
+    float content_scale_x = 1.0f;
+    glfwGetWindowContentScale(g_win, &content_scale_x, nullptr);
+    g_state.dpi_scale = content_scale_x;
+    fprintf(stderr, "[diag] win=%dx%d fb=%dx%d content_scale=%.3f\n",
+            _lw, _lh, g_fb_w, g_fb_h, content_scale_x);
 
     // ── Dear ImGui ────────────────────────────────────────────────────────
     IMGUI_CHECKVERSION();
@@ -118,9 +127,10 @@ int main(int argc, char** argv)
     io.IniFilename  = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    // Font: try Segoe UI (Windows system UI font) for modern look,
-    // then fall back to Consolas or ImGui default.
-    float font_size = 15.0f * g_state.dpi_scale;
+    // Font: load at base_size * content_scale for crisp native-resolution
+    // rasterization.  FontGlobalScale stays 1.0 so the font renders at the
+    // scaled size (matching other DPI-aware apps on the display).
+    float font_size = 16.0f * g_state.dpi_scale;
     const char* font_candidates[] = {
         "C:\\Windows\\Fonts\\segoeui.ttf",
         "C:\\Windows\\Fonts\\consola.ttf",
@@ -129,11 +139,12 @@ int main(int argc, char** argv)
     for (int i = 0; font_candidates[i]; ++i) {
         if (GetFileAttributesA(font_candidates[i]) != INVALID_FILE_ATTRIBUTES) {
             io.Fonts->AddFontFromFileTTF(font_candidates[i], font_size);
-            fprintf(stderr, "[ui] loaded font: %s @ %.0fpx\n", font_candidates[i], font_size);
+            fprintf(stderr, "[ui] loaded font: %s @ %.1fpx (base 16 * %.2f)\n",
+                    font_candidates[i], font_size, g_state.dpi_scale);
             break;
         }
     }
-    io.FontGlobalScale = (g_state.dpi_scale > 0.0f) ? 1.0f / g_state.dpi_scale : 1.0f;
+    io.FontGlobalScale = 1.0f;
 
     chrome_init(&g_state);
     g_state.history   = persist_load_history();
@@ -146,6 +157,9 @@ int main(int argc, char** argv)
 
     // ── Native chrome (ImGui-based on Windows) ────────────────────────────
     platform_chrome_create(g_win, &g_state, args.php_port);
+
+    // Native GDI+ traffic light overlay (child HWND)
+    chrome_tl_create(glfwGetWin32Window(g_win), &g_state);
 
     // ── WebView init ──────────────────────────────────────────────────────
     // COM must be initialised on the main thread before WebView2 can create
@@ -189,6 +203,7 @@ int main(int argc, char** argv)
     for (auto& tab : g_state.tabs)
         if (tab.wv_handle) webview_destroy(tab.wv_handle);
     webview_shutdown();
+    chrome_tl_destroy();
     platform_chrome_destroy();
     platform_app_cleanup();
     ImGui_ImplOpenGL3_Shutdown();

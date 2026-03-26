@@ -53,6 +53,10 @@ target_compile_definitions(imgui PUBLIC
 # Shared: compiles on all platforms.
 set(SOURCES_SHARED
     src/top-of-gui/chrome.cpp
+    src/top-of-gui/chrome_traffic_lights.cpp
+    src/top-of-gui/chrome_tab_row.cpp
+    src/top-of-gui/chrome_toolbar.cpp
+    src/top-of-gui/chrome_drawer.cpp
     src/cmds-and-server/cmd_server.cpp
     src/fps_counter.cpp
 )
@@ -237,7 +241,7 @@ elseif(WIN32)
         target_link_libraries(imgui_browser PRIVATE
             imgui glfw
             "${WEBVIEW2_LOADER_LIB}"
-            opengl32 gdi32 user32 shell32 ole32 oleaut32 shlwapi dwmapi
+            opengl32 gdi32 gdiplus user32 shell32 ole32 oleaut32 shlwapi dwmapi
         )
     else()
         message(WARNING
@@ -246,7 +250,7 @@ elseif(WIN32)
         )
         target_link_libraries(imgui_browser PRIVATE
             imgui glfw
-            opengl32 gdi32 user32 shell32 ole32 oleaut32 shlwapi dwmapi
+            opengl32 gdi32 gdiplus user32 shell32 ole32 oleaut32 shlwapi dwmapi
         )
     endif()
 

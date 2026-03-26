@@ -18,6 +18,48 @@
 
 local M = {}
 
+local History = require "modules.history"
+
+-- ---------------------------------------------
+-- File-watch helper (LuaJIT FFI _stat64)
+-- ---------------------------------------------
+local _ffi_ok, ffi = pcall(require, "ffi")
+if _ffi_ok then
+    pcall(function()
+        ffi.cdef[[
+            struct __stat64 {
+                unsigned __int64 st_dev;
+                unsigned __int64 st_ino;
+                unsigned short   st_mode;
+                short            st_nlink;
+                short            st_uid;
+                short            st_gid;
+                unsigned __int64 st_rdev;
+                __int64          st_size;
+                __int64          st_atime;
+                __int64          st_mtime;
+                __int64          st_ctime;
+            };
+            int _stat64(const char *path, struct __stat64 *buf);
+        ]]
+    end)
+end
+
+local function get_mtime(path)
+    if not _ffi_ok then return nil end
+    local ok, st = pcall(function()
+        local s = ffi.new("struct __stat64")
+        if ffi.C._stat64(path, s) == 0 then
+            return tonumber(s.st_mtime)
+        end
+        return nil
+    end)
+    return ok and st or nil
+end
+
+local _watch_accum = 0
+local WATCH_INTERVAL = 1.5  -- seconds between disk-mtime polls
+
 -- ---------------------------------------------
 -- Constants
 -- ---------------------------------------------
@@ -71,14 +113,53 @@ M.cur_idx = 0    -- 1..#tabs; 0 means no tab focused (should not occur when tabs
 
 local function new_tab(path, lines)
     return {
-        filepath = path,
-        lines    = lines,
-        cursor   = { line = 1, col = 1 },
-        scroll   = 0,
-        modified = false,
-        sel      = nil,   -- { s={line,col}, e={line,col} }
-        _ctx     = nil,   -- right-click context menu position
+        filepath     = path,
+        lines        = lines,
+        cursor       = { line = 1, col = 1 },
+        scroll       = 0,
+        modified     = false,
+        disk_changed = false,
+        mtime        = nil,
+        sel          = nil,
+        _ctx         = nil,
+        -- History (time-travel snapshots)
+        hist_pos     = nil,
+        hist_list    = nil,
+        last_snap_t  = 0,
+        -- Per-keystroke undo/redo
+        undo_stack   = {},
+        redo_stack   = {},
+        last_undo_t  = 0,
     }
+end
+
+local UNDO_LIMIT = 200
+
+local function _copy_lines(lines)
+    local c = {}
+    for i, ln in ipairs(lines) do c[i] = ln end
+    return c
+end
+
+-- Push a checkpoint onto the undo stack.
+-- force=true  : always push (major edits: paste, indent, line-break, etc.)
+-- force=false : coalesce rapid same-direction edits (single char, single backspace)
+local function push_undo(t, force)
+    local now = love.timer.getTime()
+    if not force and (now - t.last_undo_t) < 0.5 then return end
+    t.redo_stack = {}  -- any new edit discards the redo history
+    t.undo_stack[#t.undo_stack + 1] = {
+        lines  = _copy_lines(t.lines),
+        cursor = { line = t.cursor.line, col = t.cursor.col },
+        sel    = t.sel and {
+            s = { line = t.sel.s.line, col = t.sel.s.col },
+            e = { line = t.sel.e.line, col = t.sel.e.col },
+        } or nil,
+    }
+    if #t.undo_stack > UNDO_LIMIT then
+        table.remove(t.undo_stack, 1)
+    end
+    t.last_undo_t = now
 end
 
 function M.has_tabs()
@@ -635,9 +716,13 @@ function M.open_file(path)
     end
 
     local tab = new_tab(path, lines)
+    tab.mtime = get_mtime(path)
     M.tabs[#M.tabs+1] = tab
     M.cur_idx = #M.tabs
     ensure_active_tab_visible()
+    -- Capture the on-disk state as a baseline snapshot.
+    History.snapshot(path, lines)
+    tab.last_snap_t = love.timer.getTime()
 end
 
 local function save_tab(t)
@@ -648,7 +733,41 @@ local function save_tab(t)
         if i < #t.lines then f:write("\n") end
     end
     f:close()
-    t.modified = false
+    t.modified     = false
+    t.disk_changed = false
+    t.mtime        = get_mtime(t.filepath)
+    -- Snapshot after save so Ctrl+Z can return to this saved state.
+    History.snapshot(t.filepath, t.lines)
+    t.last_snap_t = love.timer.getTime()
+    t.hist_pos    = nil
+    t.hist_list   = nil
+end
+
+-- Reload a tab from disk, preserving cursor and scroll as much as possible.
+local function reload_tab(t)
+    local f = io.open(t.filepath, "rb")
+    if not f then return end
+    local content = f:read("*a")
+    f:close()
+    if not content then return end
+    if not _is_utf8(content) then content = _cp1252_to_utf8(content) end
+    if content:sub(1, 3) == "\xEF\xBB\xBF" then content = content:sub(4) end
+    content = content:gsub("\r\n", "\n"):gsub("\r", "\n")
+    local lines = {}
+    for line in (content .. "\n"):gmatch("([^\n]*)\n") do lines[#lines+1] = line end
+    if #lines > 1 and lines[#lines] == "" then lines[#lines] = nil end
+    if #lines == 0 then lines = { "" } end
+    t.lines        = lines
+    t.modified     = false
+    t.disk_changed = false
+    t.mtime        = get_mtime(t.filepath)
+    t.hist_pos     = nil
+    t.hist_list    = nil
+    -- Clamp cursor and scroll to the new line count.
+    t.cursor.line = math.min(t.cursor.line, #t.lines)
+    t.cursor.col  = math.min(t.cursor.col,  #t.lines[t.cursor.line] + 1)
+    t.scroll      = math.min(t.scroll, math.max(0, #t.lines - 1))
+    t.sel         = nil
 end
 
 local function close_tab(idx)
@@ -729,6 +848,7 @@ end
 
 local function paste_into(t, clip, h)
     if not clip or clip == "" then return end
+    push_undo(t, true)
     if t.sel then delete_sel(t) end
     local paste_lines = {}
     for ln in (clip .. "\n"):gmatch("([^\n]*)\n") do
@@ -814,7 +934,7 @@ ensure_active_tab_visible = function()
     local tx = 4
     for i, tab in ipairs(M.tabs) do
         local name  = basename(tab.filepath)
-        local label = (tab.modified and "*" or "") .. name
+        local label = (tab.disk_changed and "!" or "") .. (tab.modified and "*" or "") .. name
         local lw    = font_sm:getWidth(label)
         local cw    = font_sm:getWidth("x") + 8
         local tw    = math.min(lw + cw + 20, TAB_MAX_W)
@@ -852,7 +972,7 @@ function M.draw(x, y, w, h)
     local total_tabs_w = 4
     for i, tab in ipairs(M.tabs) do
         local name  = basename(tab.filepath)
-        local label = (tab.modified and "*" or "") .. name
+        local label = (tab.disk_changed and "!" or "") .. (tab.modified and "*" or "") .. name
         local lw    = font_sm:getWidth(label)
         local cw    = font_sm:getWidth("x") + 8
         local tw    = math.min(lw + cw + 20, TAB_MAX_W)
@@ -877,7 +997,7 @@ function M.draw(x, y, w, h)
     local tx = x + 4 - _tab_scroll_x
     for i, tab in ipairs(M.tabs) do
         local name   = basename(tab.filepath)
-        local label  = (tab.modified and "*" or "") .. name
+        local label  = (tab.disk_changed and "!" or "") .. (tab.modified and "*" or "") .. name
         local cw     = font_sm:getWidth("x") + 8
         local tw     = tab_widths[i]
         local active = (i == M.cur_idx)
@@ -895,7 +1015,8 @@ function M.draw(x, y, w, h)
             if active then
                 love.graphics.setColor(C.panel_bg)
                 fill_rect(tx, y + 1, tw, TAB_H - 1, 3)
-                love.graphics.setColor(C.accent)
+                -- Orange stripe when disk changed with local edits; normal accent otherwise.
+                love.graphics.setColor(tab.disk_changed and {1, 0.6, 0.1, 1} or C.accent)
                 fill_rect(tx, y, tw, 2)
             elseif dragging then
                 -- Lifted appearance: matches the active style but with the
@@ -973,8 +1094,8 @@ function M.draw(x, y, w, h)
         -- selection highlight
         local sl, sc, el, ec = sel_norm(t)
         if sl and li >= sl and li <= el then
-            local px_s = (li == sl) and col_px(line, sc) or (x + GUTTER)
-            local px_e = (li == el) and col_px(line, ec)
+            local px_s = (li == sl) and (x + col_px(line, sc)) or (x + GUTTER)
+            local px_e = (li == el) and (x + col_px(line, ec))
                          or (x + GUTTER + font_sm:getWidth(_utf8_safe(line)) + font_sm:getWidth(" "))
             if px_e > px_s then
                 love.graphics.setColor(0.55, 0.28, 1.0, 0.82)
@@ -1043,8 +1164,18 @@ function M.draw(x, y, w, h)
     love.graphics.line(x, y + h - FOOTER_H, x + w, y + h - FOOTER_H)
     love.graphics.setFont(font_sm)
     love.graphics.setColor(C.dim)
+    -- Build history indicator when browsing snapshots.
+    local hist_str = ""
+    if t.hist_pos and t.hist_list then
+        local entry = t.hist_list[t.hist_pos]
+        local ts    = entry and os.date("%Y-%m-%d %H:%M", entry.saved_at) or "?"
+        hist_str = "  |  Hist " .. t.hist_pos .. "/" .. #t.hist_list .. "  " .. ts
+    elseif History.enabled() then
+        hist_str = ""
+    end
     local pos = "Ln " .. t.cursor.line .. "  Col " .. t.cursor.col
              .. "  |  " .. (ext ~= "" and ext:upper() or "TXT")
+             .. hist_str
              .. "  |  " .. t.filepath
     love.graphics.print(pos, x + 8, y + h - FOOTER_H + 4)
 
@@ -1228,6 +1359,7 @@ function M.keypressed(key, h)
     elseif key == "x" and ctrl then
         local txt = sel_text(t)
         if txt then
+            push_undo(t, true)
             love.system.setClipboardText(txt)
             delete_sel(t)
             ensure_scroll(t, h)
@@ -1236,6 +1368,92 @@ function M.keypressed(key, h)
 
     elseif key == "v" and ctrl then
         paste_into(t, love.system.getClipboardText(), h); return true
+
+    -- Ctrl+Z = undo, Ctrl+Y = redo, Ctrl+Shift+Z = snapshot history back
+    elseif key == "z" and ctrl and not shift then
+        local state = table.remove(t.undo_stack, #t.undo_stack)
+        if state then
+            t.redo_stack[#t.redo_stack + 1] = {
+                lines  = _copy_lines(t.lines),
+                cursor = { line = t.cursor.line, col = t.cursor.col },
+                sel    = nil,
+            }
+            t.lines       = state.lines
+            t.cursor      = state.cursor
+            t.sel         = state.sel
+            t.modified    = true
+            t.hist_pos    = nil
+            t.hist_list   = nil
+            ensure_scroll(t, h)
+        end
+        return true
+
+    elseif key == "y" and ctrl and not shift then
+        local state = table.remove(t.redo_stack, #t.redo_stack)
+        if state then
+            t.undo_stack[#t.undo_stack + 1] = {
+                lines  = _copy_lines(t.lines),
+                cursor = { line = t.cursor.line, col = t.cursor.col },
+                sel    = nil,
+            }
+            t.lines       = state.lines
+            t.cursor      = state.cursor
+            t.sel         = state.sel
+            t.modified    = true
+            ensure_scroll(t, h)
+        end
+        return true
+
+    -- Ctrl+Shift+Z / Ctrl+Shift+Y = snapshot time-travel (file-level history)
+    elseif key == "z" and ctrl and shift then
+        if not History.enabled() then return true end
+        if not t.hist_pos then
+            History.snapshot(t.filepath, t.lines)
+            t.last_snap_t = love.timer.getTime()
+            t.hist_list   = nil
+        end
+        if not t.hist_list then
+            t.hist_list = History.list(t.filepath)
+        end
+        local list = t.hist_list
+        if #list < 2 then return true end
+        local new_pos = (t.hist_pos or 0) + 1
+        if new_pos > #list then new_pos = #list end
+        if new_pos == (t.hist_pos or 0) then return true end
+        local snap_lines = History.load(list[new_pos].id)
+        if snap_lines then
+            t.lines     = snap_lines
+            t.hist_pos  = new_pos
+            t.modified  = true
+            t.sel       = nil
+            t.cursor.line = math.min(t.cursor.line, #t.lines)
+            t.cursor.col  = math.min(t.cursor.col, #t.lines[t.cursor.line] + 1)
+            t.scroll      = math.min(t.scroll, math.max(0, #t.lines - 1))
+        end
+        return true
+
+    elseif key == "y" and ctrl and shift then
+        if not History.enabled() or not t.hist_pos then return true end
+        if not t.hist_list then
+            t.hist_list = History.list(t.filepath)
+        end
+        local list    = t.hist_list
+        local new_pos = t.hist_pos - 1
+        if new_pos < 1 then
+            t.hist_pos = nil
+            return true
+        end
+        local snap_lines = History.load(list[new_pos].id)
+        if snap_lines then
+            t.lines     = snap_lines
+            t.hist_pos  = new_pos
+            t.modified  = true
+            t.sel       = nil
+            t.cursor.line = math.min(t.cursor.line, #t.lines)
+            t.cursor.col  = math.min(t.cursor.col, #t.lines[t.cursor.line] + 1)
+            t.scroll      = math.min(t.scroll, math.max(0, #t.lines - 1))
+        end
+        return true
 
     -- Cmd+Shift+I/J/K/L (macOS/Win key) or Ctrl+Shift+I/J/K/L (Windows): turbo movement
     elseif key == "i" and ctrl and shift then
@@ -1282,6 +1500,7 @@ function M.keypressed(key, h)
             find_goto(t, h, shift and -1 or 1)
             return true
         end
+        push_undo(t, true)
         if t.sel then delete_sel(t) end
         local before  = t.lines[L]:sub(1, CO - 1)
         local after   = t.lines[L]:sub(CO)
@@ -1299,7 +1518,8 @@ function M.keypressed(key, h)
             find_rebuild(t, _find.query)
             return true
         end
-        if t.sel then delete_sel(t); ensure_scroll(t, h); return true end
+        if t.sel then push_undo(t, true); delete_sel(t); ensure_scroll(t, h); return true end
+        push_undo(t, ctrl)  -- ctrl+backspace = word delete, always checkpoint
         if ctrl then
             local b     = t.lines[L]:sub(1, CO - 1)
             local new_b = b:match("^(.*%s)%S+%s*$") or b:match("^(.-)%S+$") or ""
@@ -1319,7 +1539,8 @@ function M.keypressed(key, h)
         ensure_scroll(t, h); return true
 
     elseif key == "delete" then
-        if t.sel then delete_sel(t); ensure_scroll(t, h); return true end
+        if t.sel then push_undo(t, true); delete_sel(t); ensure_scroll(t, h); return true end
+        push_undo(t, false)
         if CO <= #t.lines[L] then
             t.lines[L] = t.lines[L]:sub(1, CO-1) .. t.lines[L]:sub(CO+1)
             t.modified = true
@@ -1331,11 +1552,59 @@ function M.keypressed(key, h)
         return true
 
     elseif key == "tab" then
-        if t.sel then delete_sel(t) end
-        local spaces = "    "
-        t.lines[L]   = t.lines[L]:sub(1, CO-1) .. spaces .. t.lines[L]:sub(CO)
-        t.cursor.col = CO + #spaces
-        t.modified   = true; return true
+        local sl, sc, el, ec = sel_norm(t)
+        local INDENT = "    "
+
+        if shift then
+            -- Shift+Tab: unindent selected lines (or current line if no selection).
+            push_undo(t, true)
+            local first = (sl and el and el > sl) and sl or L
+            local last  = (sl and el and el > sl) and el  or L
+            for li = first, last do
+                local line    = t.lines[li]
+                local removed = 0
+                -- Remove up to 4 leading spaces (one indent level).
+                for i = 1, 4 do
+                    if line:sub(i, i) == " " then removed = i
+                    else break end
+                end
+                if removed > 0 then
+                    t.lines[li] = line:sub(removed + 1)
+                end
+            end
+            -- Adjust selection / cursor after unindent.
+            if sl and el and el > sl then
+                t.sel = {
+                    s = { line = sl, col = math.max(1, sc - 4) },
+                    e = { line = el, col = math.max(1, ec - 4) },
+                }
+                t.cursor.col = math.max(1, ec - 4)
+            else
+                t.cursor.col = math.max(1, CO - 4)
+            end
+            t.modified = true; return true
+        end
+
+        if sl and el and el > sl then
+            -- Tab with multi-line selection: indent all selected lines.
+            push_undo(t, true)
+            for li = sl, el do
+                t.lines[li] = INDENT .. t.lines[li]
+            end
+            t.sel = {
+                s = { line = sl, col = sc + #INDENT },
+                e = { line = el, col = ec + #INDENT },
+            }
+            t.cursor.line = el
+            t.cursor.col  = ec + #INDENT
+        else
+            -- Tab with no / single-line selection: insert spaces at cursor.
+            push_undo(t, true)
+            if t.sel then delete_sel(t) end
+            t.lines[L]   = t.lines[L]:sub(1, CO-1) .. INDENT .. t.lines[L]:sub(CO)
+            t.cursor.col = CO + #INDENT
+        end
+        t.modified = true; return true
 
     elseif key == "up" then
         -- ctrl = jump 8 lines; shift = extend selection; plain = 1 line
@@ -1460,7 +1729,14 @@ function M.textinput(char)
         find_rebuild(t, _find.query)
         return true
     end
-    if t.sel then delete_sel(t) end
+    -- Any real typing exits history-browse mode (keeps position but re-anchors to live).
+    if t.hist_pos then t.hist_pos = nil; t.hist_list = nil end
+    if t.sel then
+        push_undo(t, true)   -- replacing a selection = always checkpoint
+        delete_sel(t)
+    else
+        push_undo(t, false)  -- coalesced: only checkpoint if > 0.5s since last
+    end
     local L, CO = t.cursor.line, t.cursor.col
     t.lines[L]   = t.lines[L]:sub(1, CO-1) .. char .. t.lines[L]:sub(CO)
     t.cursor.col = CO + #char
@@ -1680,6 +1956,41 @@ end
 -- Auto-scroll the editor while a drag-to-select is in progress and the
 -- mouse is outside the visible row area.  Called every frame from love.update.
 function M.update(dt, mx, my)
+    -- ---- File-watch polling ----
+    _watch_accum = _watch_accum + dt
+    if _watch_accum >= WATCH_INTERVAL then
+        _watch_accum = 0
+        for _, t in ipairs(M.tabs) do
+            if t.filepath and t.mtime then
+                local m = get_mtime(t.filepath)
+                if m and m ~= t.mtime then
+                    if not t.modified then
+                        -- No local edits: silently reload.
+                        reload_tab(t)
+                    else
+                        -- User has unsaved edits: flag the conflict, don't clobber.
+                        t.disk_changed = true
+                        t.mtime        = m
+                    end
+                end
+            end
+        end
+    end
+
+    -- ---- Periodic auto-snapshot (background history) ----
+    if History.enabled() then
+        local now = love.timer.getTime()
+        for _, t in ipairs(M.tabs) do
+            if t.modified and t.filepath
+               and (now - t.last_snap_t) >= AUTO_SNAP_INTERVAL then
+                History.snapshot(t.filepath, t.lines)
+                t.last_snap_t = now
+                t.hist_list   = nil  -- invalidate cached list
+            end
+        end
+    end
+
+    -- ---- Drag-to-select auto-scroll ----
     if not _drag or not _drag_ctx then return end
     local t = M.active_tab()
     if not t then return end
@@ -1759,7 +2070,7 @@ function M.wheelmoved(wx, wy, px, py, pw, ph, mx, my)
         local tab_widths_total = 4
         for _, tab in ipairs(M.tabs) do
             local name  = basename(tab.filepath)
-            local label = (tab.modified and "*" or "") .. name
+            local label = (tab.disk_changed and "!" or "") .. (tab.modified and "*" or "") .. name
             local lw    = font_sm:getWidth(label)
             local cw    = font_sm:getWidth("x") + 8
             local tw    = math.min(lw + cw + 20, TAB_MAX_W)

@@ -60,6 +60,13 @@ if (-not $pythonInfo) {
 $pythonPrefix = if ($pythonInfo.PrefixArgs.Count -gt 0) { " " + ($pythonInfo.PrefixArgs -join " ") } else { "" }
 $env:CODE_REVIEW_PYTHON = $pythonInfo.Cmd + $pythonPrefix
 
+# Export the Python sqlite3.dll path so the Lua history module can load it via FFI.
+$pythonDllsDir = Join-Path (Split-Path $pythonInfo.Cmd -Parent) "DLLs"
+$sqliteDll = Join-Path $pythonDllsDir "sqlite3.dll"
+if (Test-Path $sqliteDll) {
+    $env:CODE_REVIEW_SQLITE3 = $sqliteDll
+}
+
 $reportsDir = Join-Path $Dir "reports"
 if (-not (Test-Path $reportsDir)) {
     New-Item -ItemType Directory -Path $reportsDir | Out-Null

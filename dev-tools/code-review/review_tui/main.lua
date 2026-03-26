@@ -328,6 +328,7 @@ local Browser = require "modules.browser"
 local Editor  = require "modules.editor"
 local Terminal = require "modules.terminal"
 local ColorPicker = require "modules.colorpicker"
+local History = require "modules.history"
 
 --------------------------------------------------------------------
 -- Results helpers
@@ -508,6 +509,7 @@ function love.load()
     )
     Terminal.init(C, scan_path)
     ColorPicker.init(C)
+    History._open()   -- open (or create) the snapshot DB in Documents
     Browser.set_root(scan_path)
     Browser.set_keyboard_focus(true)
     CHAR_H = font_sm:getHeight()
@@ -1168,8 +1170,8 @@ function love.wheelmoved(wx, wy)
         if Terminal.wheelmoved(wy) then return end
     end
     if Browser.wheelmoved(wx, wy, mx, my) then return end
-    -- Route to editor if open
-    if Editor.has_tabs() and mx >= content_x() then
+    -- Route to editor only when the editor panel is active.
+    if Editor.has_tabs() and _panel == "editor" and mx >= content_x() then
         Editor.wheelmoved(wx, wy, content_x(), content_y(), content_w(), content_h(), mx, my)
         return
     end
