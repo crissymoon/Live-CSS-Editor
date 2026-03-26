@@ -19,6 +19,7 @@
 local M = {}
 
 local History = require "modules.history"
+local AC      = require "modules.autocomplete"
 
 -- ---------------------------------------------
 -- File-watch helper (LuaJIT FFI _stat64)
@@ -77,6 +78,10 @@ local ARROW_W   = 18   -- width of the left/right scroll-arrow buttons on the ta
 
 -- drag-to-select state
 local _drag              = false
+
+-- autocomplete cursor-pixel cache (updated during draw, used by AC.draw)
+local _ac_cursor_x = 0
+local _ac_cursor_y = 0
 local _drag_anchor       = nil   -- { line, col }
 local _drag_ctx          = nil   -- { px, py, pw, ph }
 local _drag_mx           = 0     -- last mouse position during drag (scaled coords)
@@ -1145,6 +1150,8 @@ function M.draw(x, y, w, h)
         if is_cur then
             local before = _utf8_safe(line:sub(1, t.cursor.col - 1))
             local cx2    = x + GUTTER + font_sm:getWidth(before)
+            _ac_cursor_x = cx2    -- store for autocomplete overlay
+            _ac_cursor_y = draw_y
             local blink  = math.floor(love.timer.getTime() * 2) % 2 == 0
             if blink then
                 love.graphics.setColor(C.text_bright)
@@ -1261,6 +1268,9 @@ function M.draw(x, y, w, h)
             love.graphics.print(item.hint, cmx + CTX_W - hw - 10, ity + 4)
         end
     end
+
+    -- autocomplete overlay (popup + ghost text) drawn on top of everything
+    AC.draw(_ac_cursor_x, _ac_cursor_y, x, y + TAB_H, w)
 end
 
 -- ---------------------------------------------
@@ -1305,6 +1315,11 @@ function M.keypressed(key, h)
 
     -- close context menu on any key
     if t._ctx then t._ctx = nil end
+
+    -- autocomplete: give it first crack (Tab/Enter/Up/Down/Esc/Ctrl+Space)
+    if not _find.active then
+        if AC.keypressed(key, ctrl, shift, t, h) then return true end
+    end
 
     -- Cmd+Left/Right (macOS/Win key) or Alt+Left/Right (Windows): switch tabs
     -- Cmd+T / Alt+T: new empty tab
@@ -1741,6 +1756,7 @@ function M.textinput(char)
     t.lines[L]   = t.lines[L]:sub(1, CO-1) .. char .. t.lines[L]:sub(CO)
     t.cursor.col = CO + #char
     t.modified   = true
+    AC.on_text(t, char)
     ensure_scroll(t, _last_h)
     return true
 end
@@ -1880,6 +1896,7 @@ function M.mousepressed(mx, my, btn, px, py, pw, ph)
         end
         t.sel          = nil
         clamp_col(t)
+        AC.dismiss()
         ensure_scroll(t, ph)
         -- begin drag-to-select
         _drag        = true
@@ -1956,6 +1973,8 @@ end
 -- Auto-scroll the editor while a drag-to-select is in progress and the
 -- mouse is outside the visible row area.  Called every frame from love.update.
 function M.update(dt, mx, my)
+    AC.poll()
+
     -- ---- File-watch polling ----
     _watch_accum = _watch_accum + dt
     if _watch_accum >= WATCH_INTERVAL then

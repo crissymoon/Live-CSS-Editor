@@ -329,6 +329,7 @@ local Editor  = require "modules.editor"
 local Terminal = require "modules.terminal"
 local ColorPicker = require "modules.colorpicker"
 local History = require "modules.history"
+local AC      = require "modules.autocomplete"
 
 --------------------------------------------------------------------
 -- Results helpers
@@ -454,6 +455,8 @@ actions.scan_c_lint    = function() run_scan("c_lint",        "C/C++ Lint")    e
 actions.scan_all       = function() run_scan("run_all",       "Run All Scans") end
 actions.toggle_terminal = function() Terminal.toggle() end
 actions.toggle_color_picker = function() ColorPicker.toggle() end
+actions.toggle_autocomplete = function() AC.toggle() end
+actions.toggle_ac_ai        = function() AC.toggle_ai() end
 
 actions.toggle_browser = function() Browser.toggle() end
 actions.scroll_bottom  = function() scroll_y = 1e9 end
@@ -510,6 +513,7 @@ function love.load()
     Terminal.init(C, scan_path)
     ColorPicker.init(C)
     History._open()   -- open (or create) the snapshot DB in Documents
+    AC.init(os.getenv("CODE_REVIEW_DIR") or scan_path)
     Browser.set_root(scan_path)
     Browser.set_keyboard_focus(true)
     CHAR_H = font_sm:getHeight()
@@ -632,6 +636,7 @@ local function draw_toolbar()
         { label="C Lint",    action=actions.scan_c_lint    },
         { label="Terminal",  action=actions.toggle_terminal },
         { label="Colors",    action=actions.toggle_color_picker },
+        { label=AC.is_enabled() and "AC:on" or "AC:off", action=actions.toggle_autocomplete },
         { label="> All",     action=actions.scan_all, accent=true },
     }
     -- When editor tabs are open, show a toggle so the user can switch between
