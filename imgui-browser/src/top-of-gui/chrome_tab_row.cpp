@@ -17,6 +17,7 @@ static int      s_logo_src_h = 0;
 static int   s_drag_idx   = -1;
 static float s_drag_off_x = 0.0f;
 static int   s_drop_tgt   = -1;
+static float s_end_x      = 0.0f;
 
 void chrome_tab_set_logo(uint32_t tex_id, int src_w, int src_h) {
     s_logo_tex   = tex_id;
@@ -120,7 +121,7 @@ int chrome_draw_tab_row(AppState* st, int win_w, bool& new_tab, int& close_idx) 
         ImGui::SetCursorPos({cx, TOP_PAD});
         char btn_id[16];
         snprintf(btn_id, sizeof(btn_id), "##tb%d", tab.id);
-        float ib_w = (close_w > 0.0f) ? (tab_w - close_w - 1.0f) : tab_w;
+        float ib_w = (close_w > 0.0f) ? (tab_w - close_w - 6.0f) : tab_w;
         ImGui::InvisibleButton(btn_id, {ib_w, AVAIL_H});
 
         if (ImGui::IsItemActivated()) {
@@ -156,7 +157,7 @@ int chrome_draw_tab_row(AppState* st, int win_w, bool& new_tab, int& close_idx) 
 
         // Close button
         if (close_w > 0.0f) {
-            ImGui::SetCursorPos({cx + tab_w - close_w - 1.0f,
+            ImGui::SetCursorPos({cx + tab_w - close_w - 6.0f,
                                  TOP_PAD + (AVAIL_H - close_w) * 0.5f});
             ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.9f,0.3f,0.3f,0.30f});
@@ -220,6 +221,9 @@ int chrome_draw_tab_row(AppState* st, int win_w, bool& new_tab, int& close_idx) 
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(3);
 
+    // Record where interactive elements end for drag-area calculation.
+    s_end_x = cx + 2.0f + 22.0f + 4.0f;
+
     // Logo (Xcalibur The Cat) -- far-right corner, only if space allows
     if (s_logo_tex && s_logo_src_h > 0) {
         const float logo_h = AVAIL_H - 4.0f;
@@ -239,3 +243,5 @@ int chrome_draw_tab_row(AppState* st, int win_w, bool& new_tab, int& close_idx) 
     end_panel();
     return (int)H;
 }
+
+float chrome_tab_row_end_x() { return s_end_x; }

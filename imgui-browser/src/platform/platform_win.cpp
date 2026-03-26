@@ -6,6 +6,8 @@
 #include "platform.h"
 #include "../app_state.h"
 #include "../top-of-gui/chrome.h"
+#include "../top-of-gui/chrome_tab_row.h"
+#include "../top-of-gui/chrome_traffic_lights.h"
 #include "../webview.h"
 
 #include "imgui.h"
@@ -49,16 +51,65 @@ static bool     s_has_hover   = false;
 static HWND     s_hwnd        = nullptr;
 static WNDPROC  s_prev_wndproc = nullptr;
 static HBRUSH   s_bg_brush    = nullptr;
+static LRESULT  s_edge_ht     = HTCLIENT;  // current edge hit-test for cursor
 
 static bool point_in_drag_strip(HWND hwnd, int client_x, int client_y) {
     RECT cr{};
     GetClientRect(hwnd, &cr);
     const int w = cr.right - cr.left;
-    const int drag_strip_h = 30;  // match TOP_PAD; don't overlap tab area
-    const int drag_left = TRAFFIC_LIGHT_W + 14;
+    const int drag_strip_h = 30;  // TOP_PAD: above the tab content
+    const int tab_row_h    = TAB_BAR_HEIGHT_PX;
+    const int drag_left  = TRAFFIC_LIGHT_W + 14;
     const int drag_right = w - 14;
-    return client_y >= 0 && client_y < drag_strip_h &&
-           client_x >= drag_left && client_x < drag_right;
+
+    // Top padding strip (above tabs, between traffic lights and right edge)
+    if (client_y >= 0 && client_y < drag_strip_h &&
+        client_x >= drag_left && client_x < drag_right)
+        return true;
+
+    // Empty space in the tab row (after all tabs and the "+" button)
+    float end_x = chrome_tab_row_end_x();
+    if (client_y >= drag_strip_h && client_y < tab_row_h &&
+        (float)client_x >= end_x && client_x < drag_right)
+        return true;
+
+    return false;
+}
+
+// Test if a client-area point is near a window edge.  Returns the
+// appropriate HT* code (HTLEFT, HTTOP, etc.) or HTCLIENT if not.
+static LRESULT client_edge_ht(HWND hwnd, int cx, int cy) {
+    if (IsZoomed(hwnd)) return HTCLIENT;
+    RECT cr{};
+    GetClientRect(hwnd, &cr);
+    int w = cr.right, h = cr.bottom;
+    const int border = 8;
+
+    bool l = cx < border;
+    bool r = cx >= w - border;
+    bool t = cy < border;
+    bool b = cy >= h - border;
+
+    if (t && l) return HTTOPLEFT;
+    if (t && r) return HTTOPRIGHT;
+    if (b && l) return HTBOTTOMLEFT;
+    if (b && r) return HTBOTTOMRIGHT;
+    if (l) return HTLEFT;
+    if (r) return HTRIGHT;
+    if (t) return HTTOP;
+    if (b) return HTBOTTOM;
+    return HTCLIENT;
+}
+
+// Map an HT* edge code to the appropriate resize cursor.
+static HCURSOR edge_cursor(LRESULT ht) {
+    switch (ht) {
+    case HTLEFT:        case HTRIGHT:       return LoadCursor(nullptr, IDC_SIZEWE);
+    case HTTOP:         case HTBOTTOM:      return LoadCursor(nullptr, IDC_SIZENS);
+    case HTTOPLEFT:     case HTBOTTOMRIGHT: return LoadCursor(nullptr, IDC_SIZENWSE);
+    case HTTOPRIGHT:    case HTBOTTOMLEFT:  return LoadCursor(nullptr, IDC_SIZENESW);
+    default:                                return nullptr;
+    }
 }
 
 // Radius for rounded window corners when not maximized (pixels).
@@ -117,17 +168,33 @@ static LRESULT hit_test_non_client(HWND hwnd, LPARAM lParam) {
 
 static LRESULT CALLBACK platform_win_wndproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-    case WM_NCHITTEST:
-        return hit_test_non_client(hwnd, lParam);
+    case WM_NCHITTEST: {
+        LRESULT ht = hit_test_non_client(hwnd, lParam);
+        s_edge_ht = ht;
+        return ht;
+    }
     case WM_SETCURSOR: {
-        // GLFW overrides the cursor for undecorated windows, preventing the
-        // resize arrows from appearing. Handle non-client hit tests ourselves
-        // so DefWindowProc can set the correct resize cursor.
         WORD ht = LOWORD(lParam);
-        if (ht != HTCLIENT) {
-            return DefWindowProcA(hwnd, msg, wParam, lParam);
+        // For frameless windows DefWindowProc doesn't reliably set resize
+        // cursors because WM_NCCALCSIZE removed all non-client area.
+        // Handle every edge/corner code ourselves.
+        HCURSOR cur = edge_cursor(ht);
+        if (cur) {
+            SetCursor(cur);
+            return TRUE;
         }
-        break;  // let GLFW handle client-area cursor
+        if (ht == HTCLIENT) {
+            // Client area: show resize cursor if near a window edge.
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(hwnd, &pt);
+            cur = edge_cursor(client_edge_ht(hwnd, pt.x, pt.y));
+            if (cur) {
+                SetCursor(cur);
+                return TRUE;
+            }
+        }
+        break;  // let GLFW handle normal client-area cursor
     }
     case WM_NCLBUTTONDOWN:
     case WM_NCLBUTTONUP:
@@ -151,6 +218,32 @@ static LRESULT CALLBACK platform_win_wndproc(HWND hwnd, UINT msg, WPARAM wParam,
         // Returning 1 tells Windows the background is already erased so it
         // never fills the client area with the (possibly white) window brush.
         return 1;
+    case WM_LBUTTONDOWN: {
+        // Reclaim keyboard focus from WebView2 child HWND so ImGui widgets
+        // (URL bar InputText) receive WM_CHAR / WM_KEYDOWN after clicking.
+        if (GetFocus() != hwnd) SetFocus(hwnd);
+        int mx = GET_X_LPARAM(lParam), my = GET_Y_LPARAM(lParam);
+        // Traffic light buttons first.
+        if (chrome_tl_try_click(mx, my))
+            return 0;
+        // Edge resize: initiate a system resize drag if near any edge.
+        LRESULT ht = client_edge_ht(hwnd, mx, my);
+        if (ht != HTCLIENT) {
+            ReleaseCapture();
+            POINT pt = { mx, my };
+            ClientToScreen(hwnd, &pt);
+            SendMessageA(hwnd, WM_NCLBUTTONDOWN, ht, MAKELPARAM(pt.x, pt.y));
+            return 0;
+        }
+        break;
+    }
+    case WM_PARENTNOTIFY: {
+        // WebView2 child HWND eats mouse clicks, so ImGui's "click outside"
+        // check in the drawer never fires.  Close the drawer here.
+        if (LOWORD(wParam) == WM_LBUTTONDOWN)
+            g_state.show_more_panel = false;
+        break;
+    }
     case WM_SIZE: {
         // WM_SIZE fires inside Windows' modal sizing loop while glfwPollEvents
         // is blocked.  Update our logical size and reposition the WebView2
@@ -382,6 +475,39 @@ void platform_chrome_focus_url() {
 }
 
 void platform_chrome_destroy() {}
+
+int platform_resize_inset() {
+    if (!s_hwnd || IsZoomed(s_hwnd)) return 0;
+    return 6;
+}
+
+void platform_pre_imgui_newframe() {
+    if (!s_hwnd) return;
+
+    // Actively poll cursor position every frame instead of relying on the
+    // cached WM_NCHITTEST result (s_edge_ht) which goes stale when the mouse
+    // moves over the WebView2 child HWND (it swallows WM_NCHITTEST).
+    POINT pt;
+    GetCursorPos(&pt);
+    HWND under = WindowFromPoint(pt);
+
+    LRESULT live_ht = HTCLIENT;
+    if (under == s_hwnd) {
+        // Cursor is over our parent window (the 6px inset strip).
+        // Use the real WM_NCHITTEST result which is kept current.
+        live_ht = s_edge_ht;
+    }
+    // else: cursor is over a child (WebView2) or another window entirely.
+
+    ImGuiIO& io = ImGui::GetIO();
+    HCURSOR resize_cur = edge_cursor(live_ht);
+    if (resize_cur) {
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+        SetCursor(resize_cur);
+    } else {
+        io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+    }
+}
 
 // ── Export bridge ─────────────────────────────────────────────────────────
 

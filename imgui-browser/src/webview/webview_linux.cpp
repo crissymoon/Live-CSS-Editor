@@ -282,6 +282,8 @@ void webview_set_cf_user_agent(const std::string& ua) {
     }
 }
 
+void webview_reapply_corners() {} // no-op on Linux
+
 // ── Shutdown ──────────────────────────────────────────────────────────────
 
 void webview_shutdown() {

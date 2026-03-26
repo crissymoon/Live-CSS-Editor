@@ -1,10 +1,11 @@
-// chrome_traffic_lights.cpp -- Native GDI+ traffic light overlay (Windows).
+// chrome_traffic_lights.cpp -- GDI+ traffic lights painted directly on parent HDC.
 //
-// A small WS_CHILD window sits in the top-left corner of the main HWND.
-// It handles its own WM_PAINT (GDI+ anti-aliased circles + line glyphs),
-// WM_MOUSEMOVE / WM_MOUSELEAVE (hover tracking), and WM_LBUTTONDOWN
-// (close / minimize / maximize).  Completely independent from ImGui/OpenGL
-// -- no z-order issues, no float-precision pipeline quirks.
+// No child HWND is created.  After each glfwSwapBuffers, chrome_tl_update()
+// paints circles + glyphs onto the parent window's front buffer via GDI+.
+// This sidesteps the OpenGL pipeline entirely (no z-order / float issues)
+// and avoids the child-over-OpenGL flicker that a WS_CHILD approach causes.
+//
+// Clicks are intercepted by the parent wndproc calling chrome_tl_try_click().
 
 #ifndef __APPLE__
 #ifdef _WIN32
@@ -16,7 +17,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
-#include <windowsx.h>     // GET_X_LPARAM, GET_Y_LPARAM
+#include <windowsx.h>
 #include <objidl.h>
 #include <gdiplus.h>
 
@@ -28,171 +29,100 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-#include <cmath>
 #include <algorithm>
 
-// ── Module state ──────────────────────────────────────────────────────
-static HWND          s_hwnd         = nullptr;
-static HWND          s_parent       = nullptr;
-static AppState*     s_state        = nullptr;
-static ULONG_PTR     s_gdiplus_tok  = 0;
-static int           s_hover        = -1;
-static bool          s_tracking     = false;
+// ── State ─────────────────────────────────────────────────────────────
+static HWND      s_parent      = nullptr;
+static AppState* s_state       = nullptr;
+static ULONG_PTR s_gdiplus_tok = 0;
+static HDC       s_memdc       = nullptr;
+static HBITMAP   s_bmp         = nullptr;
+static HBITMAP   s_oldbmp      = nullptr;
+static int       s_hover       = -1;
 
-// Layout -- device pixels, matching ImGui coordinate system directly.
-// On DPI-aware Windows, ImGui coords = device pixels (FontGlobalScale=1.0),
-// so these values must NOT be multiplied by dpi_scale for HWND sizing.
-static constexpr int TL_W     = 82;   // TRAFFIC_LIGHT_W
-static constexpr int TL_H     = 30;   // TOP_PAD in chrome_tab_row.cpp
+// Layout (device pixels -- matches ImGui coordinate system 1:1)
+static constexpr int   TL_W     = 82;
+static constexpr int   TL_H     = 30;
 static constexpr float BASE_R   = 7.0f;
 static constexpr float BASE_HIT = 9.0f;
 static constexpr float BASE_X0  = 8.0f;
 static constexpr float BASE_GAP = 4.0f;
 static constexpr float BASE_SZ  = 3.0f;
 
-// Circle colours (close=red, min=yellow, zoom=green)
 static const Gdiplus::Color COLS[3] = {
-    Gdiplus::Color(255, 248, 135, 115),
-    Gdiplus::Color(255, 251, 192,  66),
-    Gdiplus::Color(255,  52, 211, 153),
+    Gdiplus::Color(255, 248, 135, 115),   // close  (red)
+    Gdiplus::Color(255, 251, 192,  66),   // min    (yellow)
+    Gdiplus::Color(255,  52, 211, 153),   // zoom   (green)
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────
-// All coordinates are in device pixels (no DPI multiplication needed).
 static float btn_cx(int i) {
     return BASE_X0 + BASE_HIT + (BASE_HIT * 2.0f + BASE_GAP) * (float)i;
 }
 static float btn_cy() { return (float)TL_H * 0.5f; }
 
 static int hit_test(int px, int py) {
+    if (px < 0 || px >= TL_W || py < 0 || py >= TL_H) return -1;
     float cy = btn_cy();
     for (int i = 0; i < 3; ++i) {
         float cx = btn_cx(i);
         float dx = (float)px - cx;
         float dy = (float)py - cy;
-        if (dx*dx + dy*dy <= BASE_HIT * BASE_HIT) return i;
+        if (dx * dx + dy * dy <= BASE_HIT * BASE_HIT) return i;
     }
     return -1;
 }
 
-// ── WndProc ───────────────────────────────────────────────────────────
-static LRESULT CALLBACK tl_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
+static void paint_to_memdc() {
+    Gdiplus::Graphics gfx(s_memdc);
+    gfx.SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
 
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
-        RECT rc; GetClientRect(hwnd, &rc);
-        int w = rc.right, h = rc.bottom;
+    // Background must match the surface behind the traffic lights.
+    // COL_SURFACE = rgba(0.063, 0.063, 0.094, 1) = RGB(16, 16, 24)
+    Gdiplus::SolidBrush bg(Gdiplus::Color(255, 16, 16, 24));
+    gfx.FillRectangle(&bg, 0, 0, TL_W, TL_H);
 
-        // Double-buffer to offscreen bitmap
-        HDC mem = CreateCompatibleDC(hdc);
-        HBITMAP bmp = CreateCompatibleBitmap(hdc, w, h);
-        HBITMAP old = (HBITMAP)SelectObject(mem, bmp);
+    float r  = BASE_R;
+    float cy = btn_cy();
 
-        {
-            Gdiplus::Graphics gfx(mem);
-            gfx.SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
+    for (int i = 0; i < 3; ++i) {
+        float cx  = btn_cx(i);
+        bool  hov = (s_hover == i);
 
-            // Background: COL_SURFACE = RGB(16, 16, 24)
-            Gdiplus::SolidBrush bg(Gdiplus::Color(255, 16, 16, 24));
-            gfx.FillRectangle(&bg, 0, 0, w, h);
-
-            float r  = BASE_R;
-            float cy = btn_cy();
-
-            for (int i = 0; i < 3; ++i) {
-                float cx  = btn_cx(i);
-                bool  hov = (s_hover == i);
-
-                // Circle fill (slightly brighter on hover)
-                Gdiplus::Color fc = COLS[i];
-                if (hov) {
-                    fc = Gdiplus::Color(255,
-                        (std::min)(255, (int)fc.GetR() + 18),
-                        (std::min)(255, (int)fc.GetG() + 18),
-                        (std::min)(255, (int)fc.GetB() + 18));
-                }
-                Gdiplus::SolidBrush cb(fc);
-                gfx.FillEllipse(&cb, cx - r, cy - r, r * 2.0f, r * 2.0f);
-
-                // Subtle dark ring
-                int ra = hov ? 100 : 55;
-                Gdiplus::Pen ring(Gdiplus::Color(ra, 8, 8, 13), 1.0f);
-                gfx.DrawEllipse(&ring, cx - r, cy - r, r * 2.0f, r * 2.0f);
-
-                // Glyph lines -- always visible (faint idle, strong hover)
-                int ga = hov ? 220 : 70;
-                Gdiplus::Pen gp(Gdiplus::Color(ga, 10, 10, 12), 1.2f);
-                gp.SetLineCap(Gdiplus::LineCapRound,
-                              Gdiplus::LineCapRound,
-                              Gdiplus::DashCapRound);
-                float sz = BASE_SZ;
-
-                if (i == 0) { // x -- close
-                    gfx.DrawLine(&gp, cx - sz, cy - sz, cx + sz, cy + sz);
-                    gfx.DrawLine(&gp, cx + sz, cy - sz, cx - sz, cy + sz);
-                } else if (i == 1) { // - -- minimize
-                    gfx.DrawLine(&gp, cx - sz, cy, cx + sz, cy);
-                } else { // + -- zoom
-                    gfx.DrawLine(&gp, cx - sz, cy, cx + sz, cy);
-                    gfx.DrawLine(&gp, cx, cy - sz, cx, cy + sz);
-                }
-            }
+        // Filled circle
+        Gdiplus::Color fc = COLS[i];
+        if (hov) {
+            fc = Gdiplus::Color(255,
+                (std::min)(255, (int)fc.GetR() + 18),
+                (std::min)(255, (int)fc.GetG() + 18),
+                (std::min)(255, (int)fc.GetB() + 18));
         }
+        Gdiplus::SolidBrush cb(fc);
+        gfx.FillEllipse(&cb, cx - r, cy - r, r * 2.0f, r * 2.0f);
 
-        BitBlt(hdc, 0, 0, w, h, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, old);
-        DeleteObject(bmp);
-        DeleteDC(mem);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
+        // Dark ring
+        int ra = hov ? 100 : 55;
+        Gdiplus::Pen ring(Gdiplus::Color(ra, 8, 8, 13), 1.0f);
+        gfx.DrawEllipse(&ring, cx - r, cy - r, r * 2.0f, r * 2.0f);
 
-    case WM_MOUSEMOVE: {
-        int prev = s_hover;
-        s_hover = hit_test(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        if (s_hover != prev) InvalidateRect(hwnd, nullptr, FALSE);
-        if (!s_tracking) {
-            TRACKMOUSEEVENT tme = {};
-            tme.cbSize    = sizeof(tme);
-            tme.dwFlags   = TME_LEAVE;
-            tme.hwndTrack = hwnd;
-            TrackMouseEvent(&tme);
-            s_tracking = true;
+        // Glyph lines (always visible; stronger on hover)
+        int ga = hov ? 220 : 70;
+        Gdiplus::Pen gp(Gdiplus::Color(ga, 10, 10, 12), 1.2f);
+        gp.SetLineCap(Gdiplus::LineCapRound,
+                      Gdiplus::LineCapRound,
+                      Gdiplus::DashCapRound);
+        float sz = BASE_SZ;
+
+        if (i == 0) {
+            gfx.DrawLine(&gp, cx - sz, cy - sz, cx + sz, cy + sz);
+            gfx.DrawLine(&gp, cx + sz, cy - sz, cx - sz, cy + sz);
+        } else if (i == 1) {
+            gfx.DrawLine(&gp, cx - sz, cy, cx + sz, cy);
+        } else {
+            gfx.DrawLine(&gp, cx - sz, cy, cx + sz, cy);
+            gfx.DrawLine(&gp, cx, cy - sz, cx, cy + sz);
         }
-        return 0;
     }
-
-    case WM_MOUSELEAVE:
-        s_tracking = false;
-        if (s_hover != -1) { s_hover = -1; InvalidateRect(hwnd, nullptr, FALSE); }
-        return 0;
-
-    case WM_LBUTTONDOWN: {
-        int btn = hit_test(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        if (btn == 0) {
-            GLFWwindow* gw = glfwGetCurrentContext();
-            if (gw) glfwSetWindowShouldClose(gw, GLFW_TRUE);
-        } else if (btn == 1) {
-            ShowWindow(s_parent, SW_MINIMIZE);
-        } else if (btn == 2) {
-            if (IsZoomed(s_parent)) ShowWindow(s_parent, SW_RESTORE);
-            else                    ShowWindow(s_parent, SW_MAXIMIZE);
-        }
-        return 0;
-    }
-
-    case WM_NCHITTEST: {
-        POINT pt = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
-        ScreenToClient(hwnd, &pt);
-        if (hit_test(pt.x, pt.y) >= 0) return HTCLIENT;
-        return HTCAPTION;   // allow drag through non-button area
-    }
-
-    default: break;
-    }
-    return DefWindowProcA(hwnd, msg, wp, lp);
 }
 
 // ── Public API ────────────────────────────────────────────────────────
@@ -203,35 +133,65 @@ void chrome_tl_create(void* parent_hwnd, AppState* st) {
     Gdiplus::GdiplusStartupInput gsi;
     Gdiplus::GdiplusStartup(&s_gdiplus_tok, &gsi, nullptr);
 
-    static bool reg = false;
-    if (!reg) {
-        WNDCLASSEXA wc = {};
-        wc.cbSize       = sizeof(wc);
-        wc.style        = CS_OWNDC;
-        wc.lpfnWndProc  = tl_wndproc;
-        wc.hInstance     = GetModuleHandleA(nullptr);
-        wc.hCursor      = LoadCursor(nullptr, IDC_ARROW);
-        wc.lpszClassName = "ChrTrafficLights";
-        RegisterClassExA(&wc);
-        reg = true;
-    }
-
-    s_hwnd = CreateWindowExA(0, "ChrTrafficLights", nullptr,
-                             WS_CHILD | WS_VISIBLE,
-                             0, 0, TL_W, TL_H,
-                             s_parent, nullptr,
-                             GetModuleHandleA(nullptr), nullptr);
+    // Persistent offscreen bitmap (avoids per-frame allocation)
+    HDC screenDC = GetDC(nullptr);
+    s_memdc  = CreateCompatibleDC(screenDC);
+    s_bmp    = CreateCompatibleBitmap(screenDC, TL_W, TL_H);
+    s_oldbmp = (HBITMAP)SelectObject(s_memdc, s_bmp);
+    ReleaseDC(nullptr, screenDC);
 }
 
 void chrome_tl_update() {
-    if (!s_hwnd) return;
-    // Repaint every frame so the overlay stays in sync
-    InvalidateRect(s_hwnd, nullptr, FALSE);
+    if (!s_parent || !s_memdc) return;
+
+    // Update hover from cursor position
+    POINT cur;
+    GetCursorPos(&cur);
+    ScreenToClient(s_parent, &cur);
+    s_hover = hit_test(cur.x, cur.y);
+
+    // Paint to the offscreen bitmap
+    paint_to_memdc();
+
+    // Blit to the parent's front buffer
+    HDC hdc = GetDC(s_parent);
+    BitBlt(hdc, 0, 0, TL_W, TL_H, s_memdc, 0, 0, SRCCOPY);
+    ReleaseDC(s_parent, hdc);
+}
+
+bool chrome_tl_try_click(int client_x, int client_y) {
+    int btn = hit_test(client_x, client_y);
+    if (btn < 0) return false;
+
+    if (btn == 0) {
+        GLFWwindow* gw = glfwGetCurrentContext();
+        if (gw) glfwSetWindowShouldClose(gw, GLFW_TRUE);
+    } else if (btn == 1) {
+        ShowWindow(s_parent, SW_MINIMIZE);
+    } else if (btn == 2) {
+        if (IsZoomed(s_parent)) ShowWindow(s_parent, SW_RESTORE);
+        else                    ShowWindow(s_parent, SW_MAXIMIZE);
+    }
+    return true;
+}
+
+bool chrome_tl_hit(int client_x, int client_y) {
+    return hit_test(client_x, client_y) >= 0;
 }
 
 void chrome_tl_destroy() {
-    if (s_hwnd) { DestroyWindow(s_hwnd); s_hwnd = nullptr; }
-    if (s_gdiplus_tok) { Gdiplus::GdiplusShutdown(s_gdiplus_tok); s_gdiplus_tok = 0; }
+    if (s_memdc) {
+        SelectObject(s_memdc, s_oldbmp);
+        DeleteObject(s_bmp);
+        DeleteDC(s_memdc);
+        s_memdc = nullptr;
+        s_bmp = nullptr;
+    }
+    if (s_gdiplus_tok) {
+        Gdiplus::GdiplusShutdown(s_gdiplus_tok);
+        s_gdiplus_tok = 0;
+    }
+    s_parent = nullptr;
 }
 
 #else
@@ -239,6 +199,8 @@ void chrome_tl_destroy() {
 #include "chrome_traffic_lights.h"
 void chrome_tl_create(void*, AppState*) {}
 void chrome_tl_update() {}
+bool chrome_tl_try_click(int, int) { return false; }
+bool chrome_tl_hit(int, int) { return false; }
 void chrome_tl_destroy() {}
 #endif // _WIN32
 #endif // !__APPLE__

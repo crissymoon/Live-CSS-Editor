@@ -73,6 +73,22 @@ void platform_chrome_focus_url();
 // Tear down all chrome views on shutdown.
 void platform_chrome_destroy();
 
+// ── Per-frame cursor hook ─────────────────────────────────────────────────
+
+// Must be called BETWEEN glfwPollEvents() and ImGui_ImplGlfw_NewFrame().
+// On Windows this sets ImGuiConfigFlags_NoMouseCursorChange when the pointer
+// is over a resize edge, preventing GLFW/ImGui from overriding the resize
+// cursor.  No-op on macOS and Linux.
+void platform_pre_imgui_newframe();
+
+// ── Resize inset ──────────────────────────────────────────────────────────
+
+// Returns the number of device-pixels to inset embedded content (WebView2)
+// from the left, right, and bottom window edges so that the parent HWND
+// receives mouse messages for resize grips.  Returns 0 when no inset is
+// needed (macOS, Linux, or when the window is maximized on Windows).
+int platform_resize_inset();
+
 // ── Export bridge ─────────────────────────────────────────────────────────
 
 // Write `content` to a file at the platform's default user-facing save path.

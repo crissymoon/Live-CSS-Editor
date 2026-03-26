@@ -267,6 +267,8 @@ void webview_resize(void* handle, int x, int y, int w, int h) {
     [CATransaction commit];
 }
 
+void webview_reapply_corners() {} // no-op on macOS
+
 void webview_shutdown() {
     for (auto& [id, h] : s_handles) {
         [h->fps_tmr invalidate];

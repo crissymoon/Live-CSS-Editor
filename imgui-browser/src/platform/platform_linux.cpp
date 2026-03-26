@@ -86,6 +86,10 @@ void platform_chrome_focus_url() {
 
 void platform_chrome_destroy() {}
 
+int platform_resize_inset() { return 0; }
+
+void platform_pre_imgui_newframe() {}
+
 void platform_install_drag_hook(void* /*glfw_window*/, int /*chrome_top_px*/) {}
 
 // ── Export bridge ─────────────────────────────────────────────────────────

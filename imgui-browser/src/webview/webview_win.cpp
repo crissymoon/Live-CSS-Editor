@@ -78,6 +78,8 @@ static AppState*                          s_state   = nullptr;
 static HWND                               s_hwnd    = nullptr;
 static std::unordered_map<int, std::shared_ptr<WVHandle>> s_handles;
 
+static void apply_bottom_corner_radius(HWND parent, int x, int y, int w, int h);
+
 static std::wstring widen(const std::string& value) {
     if (value.empty()) return {};
     int needed = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, nullptr, 0);
@@ -283,6 +285,7 @@ void* webview_create(int tab_id, const std::string& url)
                             RECT bounds = { h->x, h->y, h->x + h->w, h->y + h->h };
                             ctrl->put_Bounds(bounds);
                             ctrl->put_IsVisible(h->visible ? TRUE : FALSE);
+                            apply_bottom_corner_radius(s_hwnd, h->x, h->y, h->w, h->h);
 
                             // Prevent white flash before first page paint.
                             // Keep the embedded surface close to host clear color.
@@ -360,6 +363,32 @@ void webview_hide(void* handle) {
 
 // ── webview_resize ────────────────────────────────────────────────────────
 
+// Clip the WebView2 child HWND so the bottom corners are rounded.
+// Creates a region that is rectangular at the top and rounded at the bottom.
+static void apply_bottom_corner_radius(HWND parent, int x, int y, int w, int h) {
+    if (w <= 0 || h <= 0) return;
+    const int r = 10;
+    // Find the direct child HWND positioned at (x, y) within the parent.
+    HWND child = GetWindow(parent, GW_CHILD);
+    while (child) {
+        if (GetParent(child) == parent) {
+            RECT wr;
+            GetWindowRect(child, &wr);
+            POINT tl = { wr.left, wr.top };
+            ScreenToClient(parent, &tl);
+            if (tl.x == x && tl.y == y) {
+                HRGN rr  = CreateRoundRectRgn(0, 0, w + 1, h + 1, r * 2, r * 2);
+                HRGN top = CreateRectRgn(0, 0, w + 1, r);
+                CombineRgn(rr, rr, top, RGN_OR);
+                SetWindowRgn(child, rr, FALSE);
+                DeleteObject(top);
+                break;
+            }
+        }
+        child = GetWindow(child, GW_HWNDNEXT);
+    }
+}
+
 void webview_resize(void* handle, int x, int y, int w, int h) {
     if (!handle) return;
     auto* wh = static_cast<WVHandle*>(handle);
@@ -370,6 +399,21 @@ void webview_resize(void* handle, int x, int y, int w, int h) {
     if (wh->ctrl && wh->ready) {
         RECT bounds = { x, y, x + w, y + h };
         wh->ctrl->put_Bounds(bounds);
+        apply_bottom_corner_radius(s_hwnd, x, y, w, h);
+    }
+#endif
+}
+
+void webview_reapply_corners() {
+#if XCM_WEBVIEW2_AVAILABLE
+    if (!s_hwnd || !s_state) return;
+    for (auto& [id, holder] : s_handles) {
+        if (!holder || holder->closed) continue;
+        std::lock_guard<std::mutex> lock(holder->mu);
+        if (holder->ctrl && holder->ready && holder->visible &&
+            holder->w > 0 && holder->h > 0)
+            apply_bottom_corner_radius(s_hwnd, holder->x, holder->y,
+                                       holder->w, holder->h);
     }
 #endif
 }

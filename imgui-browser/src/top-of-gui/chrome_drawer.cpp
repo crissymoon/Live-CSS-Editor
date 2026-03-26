@@ -281,14 +281,21 @@ int chrome_draw_more_drawer(AppState* st, int win_w, int y_offset) {
     ImGui::PopStyleVar(2);
     ImGui::EndChild();
 
-    // Close: Escape or click outside
+    // Close: Escape or click outside.
+    // Use IsMouseReleased (not IsMouseClicked) so this fires on the same
+    // frame as ImGui::Button -- otherwise mouse-down closes the drawer and
+    // the subsequent mouse-up re-toggles it via the three-dot button.
     if (ImGui::IsKeyPressed(ImGuiKey_Escape))
         st->show_more_panel = false;
-    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows |
-                                ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
-            && ImGui::IsMouseClicked(ImGuiMouseButton_Left)
-            && ImGui::GetFrameCount() != s_more_open_frame)
-        st->show_more_panel = false;
+    {
+        ImVec2 mp = ImGui::GetMousePos();
+        bool in_drawer = (mp.x >= 0 && mp.x < (float)win_w &&
+                          mp.y >= (float)y_offset && mp.y < (float)y_offset + H);
+        if (!in_drawer
+                && ImGui::IsMouseReleased(ImGuiMouseButton_Left)
+                && ImGui::GetFrameCount() != s_more_open_frame)
+            st->show_more_panel = false;
+    }
 
     end_panel();
     return (int)H;

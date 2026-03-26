@@ -5,6 +5,8 @@
 #include "main_funcs.h"
 #include "main_crash.h"
 #include "../top-of-gui/chrome_traffic_lights.h"
+#include "../platform/platform.h"
+#include "../webview.h"
 
 void main_render_loop(const Args& args) {
     double last_server_poll = 0.0;
@@ -180,6 +182,7 @@ void main_render_loop(const Args& args) {
         @try {
     #endif
         ImGui_ImplOpenGL3_NewFrame();
+        platform_pre_imgui_newframe();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
@@ -203,9 +206,11 @@ void main_render_loop(const Args& args) {
                            native_chrome_hist_btn_x(),
                            chrome_top);
 
-        if (chrome_top != g_prev_top || chrome_bot != g_prev_bot) {
+        if (chrome_top != g_prev_top || chrome_bot != g_prev_bot ||
+            (int)g_state.tabs.size() != g_prev_tab_count) {
             g_prev_top = chrome_top;
             g_prev_bot = chrome_bot;
+            g_prev_tab_count = (int)g_state.tabs.size();
             reposition_webviews(chrome_top, chrome_bot, g_state.win_w, g_state.win_h);
         }
 
@@ -255,6 +260,7 @@ void main_render_loop(const Args& args) {
 
 #ifndef __APPLE__
         chrome_tl_update();
+        webview_reapply_corners();
 #endif
 
 #if defined(__APPLE__)

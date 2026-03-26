@@ -7,6 +7,7 @@ extern AppState      g_state;
 extern GLFWwindow*   g_win;
 extern int           g_prev_top;
 extern int           g_prev_bot;
+extern int           g_prev_tab_count;
 extern int           g_php_port;
 extern int           g_fb_w;
 extern int           g_fb_h;

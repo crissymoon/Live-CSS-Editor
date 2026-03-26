@@ -127,5 +127,10 @@ void  webview_dump_cookies_json(std::function<void(const std::string&)> callback
 // Safe to call from any thread; dispatches to the main thread internally.
 void  webview_set_cf_user_agent(const std::string& ua);
 
+// Reapply rounded bottom corners on the active WebView2 child HWND.
+// WebView2's compositor may reset SetWindowRgn during page rendering.
+// Call once per frame after SwapBuffers (Windows-only; no-op elsewhere).
+void  webview_reapply_corners();
+
 // Tear down everything (called on app exit).
 void  webview_shutdown();

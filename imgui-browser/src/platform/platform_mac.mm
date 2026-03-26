@@ -81,6 +81,10 @@ void platform_chrome_destroy() {
     native_chrome_destroy();
 }
 
+int platform_resize_inset() { return 0; }
+
+void platform_pre_imgui_newframe() {}
+
 // ── Export bridge ─────────────────────────────────────────────────────────
 
 void platform_export_file(const std::string& filename, const std::string& content) {

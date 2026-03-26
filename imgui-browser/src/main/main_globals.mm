@@ -7,6 +7,7 @@ AppState      g_state;
 GLFWwindow*   g_win             = nullptr;
 int           g_prev_top        = 0;
 int           g_prev_bot        = 0;
+int           g_prev_tab_count  = 0;
 int           g_php_port        = 9879;
 int           g_fb_w            = 0;
 int           g_fb_h            = 0;
