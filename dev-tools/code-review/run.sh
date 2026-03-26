@@ -9,6 +9,12 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Export so bridge.py can resolve its own sibling scripts
 export CODE_REVIEW_DIR="$DIR"
 
+# -- Load local API keys if present (gitignored) -----------------------------
+if [[ -f "$DIR/.keys" ]]; then
+    # shellcheck disable=SC1090
+    set -a; source "$DIR/.keys"; set +a
+fi
+
 # -- Dependency checks -------------------------------------------------------
 
 if ! command -v love &>/dev/null; then

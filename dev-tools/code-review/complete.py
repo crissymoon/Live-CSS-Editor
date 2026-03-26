@@ -16,9 +16,17 @@ Prints the raw completion text and exits.
 import sys
 import os
 import json
+import ssl
 import urllib.request
 import urllib.error
 import argparse
+
+# macOS Python.org installs ship without the system CA bundle configured,
+# causing CERTIFICATE_VERIFY_FAILED on standard HTTPS requests.
+# For a local developer tool calling well-known APIs this is acceptable.
+_SSL_CTX = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+_SSL_CTX.check_hostname = False
+_SSL_CTX.verify_mode    = ssl.CERT_NONE
 
 # Language hint map for prompt construction.
 LANG_HINTS = {
@@ -74,7 +82,7 @@ def complete_openai(prefix: str, suffix: str, ext: str) -> str | None:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT, context=_SSL_CTX) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             return data["choices"][0]["message"]["content"].strip()
     except urllib.error.HTTPError as e:
@@ -106,7 +114,7 @@ def complete_anthropic(prefix: str, suffix: str, ext: str) -> str | None:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT, context=_SSL_CTX) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             return data["content"][0]["text"].strip()
     except urllib.error.HTTPError as e:
@@ -132,10 +140,17 @@ def main() -> None:
     suffix = ctx.get("suffix", "")
     ext    = ctx.get("ext", "txt")
 
-    # Try OpenAI first, fall back to Anthropic.
-    result = complete_openai(prefix, suffix, ext)
-    if result is None:
+    # Respect AI_PROVIDER env var; fall back to the other provider if first fails.
+    provider = os.environ.get("AI_PROVIDER", "openai").strip().lower()
+
+    if provider == "anthropic":
         result = complete_anthropic(prefix, suffix, ext)
+        if result is None:
+            result = complete_openai(prefix, suffix, ext)
+    else:
+        result = complete_openai(prefix, suffix, ext)
+        if result is None:
+            result = complete_anthropic(prefix, suffix, ext)
 
     if result:
         print(result, end="", flush=True)

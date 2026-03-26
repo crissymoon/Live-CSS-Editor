@@ -51,6 +51,8 @@ dev-browser/modules/url_history.json
 .env.*
 *.env
 secrets.*
+# Code-review local key config (never commit)
+dev-tools/code-review/.keys
 config.local.*
 
 # macOS

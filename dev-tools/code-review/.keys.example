@@ -1,0 +1,14 @@
+# dev-tools/code-review/.keys.example
+#
+# Copy this file to .keys (same directory) and fill in your keys.
+# .keys is gitignored — it will NEVER be committed to the repository.
+#
+# Run  ./setup_keys.sh  for an interactive setup that reads from common locations.
+#
+# AI_PROVIDER controls which API is used: openai or anthropic
+# Leave a key blank to skip that provider.
+
+AI_PROVIDER=openai
+
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
