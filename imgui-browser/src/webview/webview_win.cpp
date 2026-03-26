@@ -22,14 +22,20 @@
 #include "../app_state.h"
 #include "../platform/platform.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
+#include <Unknwn.h>
 #include <shellapi.h>
-#include <wrl.h>
 
 #include <string>
 #include <functional>
+#include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 #include <cstdio>
@@ -37,6 +43,7 @@
 // WebView2 headers -- present only when the SDK is installed via NuGet.
 #if __has_include(<WebView2.h>)
 #  include <WebView2.h>
+#  include <wrl.h>
 #  define XCM_WEBVIEW2_AVAILABLE 1
 #else
 #  pragma message("WARNING: WebView2.h not found. webview_win.cpp will build as stubs only. Install the SDK via nuget install Microsoft.Web.WebView2 -OutputDirectory vendor/webview2")
@@ -55,7 +62,10 @@ struct WVHandle {
     bool visible = false;
     bool ready   = false;
     int  x = 0, y = 0, w = 0, h = 0;
+    bool closed  = false;
+    bool open_devtools_requested = false;
     std::vector<std::string> pending_urls;
+    std::mutex mu;
 
 #if XCM_WEBVIEW2_AVAILABLE
     ICoreWebView2Controller* ctrl = nullptr;
@@ -66,8 +76,51 @@ struct WVHandle {
 static WebViewCallbacks                   s_cbs;
 static AppState*                          s_state   = nullptr;
 static HWND                               s_hwnd    = nullptr;
-static std::unordered_map<int, WVHandle*> s_handles;
-static bool                               s_com_initialized = false;
+static std::unordered_map<int, std::shared_ptr<WVHandle>> s_handles;
+
+static std::wstring widen(const std::string& value) {
+    if (value.empty()) return {};
+    int needed = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, nullptr, 0);
+    if (needed <= 1) return {};
+    std::wstring out((size_t)needed - 1, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, out.data(), needed);
+    return out;
+}
+
+static std::string discover_webview2_runtime_dir() {
+    if (const char* env = std::getenv("XCM_WEBVIEW2_RUNTIME_DIR")) {
+        if (GetFileAttributesA(env) != INVALID_FILE_ATTRIBUTES) return env;
+    }
+    if (const char* env = std::getenv("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER")) {
+        if (GetFileAttributesA(env) != INVALID_FILE_ATTRIBUTES) return env;
+    }
+
+    char exe[MAX_PATH] = {};
+    if (!platform_exe_path(exe, sizeof(exe))) return {};
+
+    std::vector<std::string> candidates;
+    std::string dir(exe);
+    auto slash = dir.find_last_of("\\/");
+    if (slash != std::string::npos) dir = dir.substr(0, slash);
+    candidates.push_back(dir + "\\runtime\\webview2");
+    slash = dir.find_last_of("\\/");
+    if (slash != std::string::npos) {
+        auto parent = dir.substr(0, slash);
+        candidates.push_back(parent + "\\runtime\\webview2");
+        auto slash2 = parent.find_last_of("\\/");
+        if (slash2 != std::string::npos) {
+            candidates.push_back(parent.substr(0, slash2) + "\\runtime\\webview2");
+        }
+    }
+
+    for (const auto& candidate : candidates) {
+        std::string exe_path = candidate + "\\msedgewebview2.exe";
+        if (GetFileAttributesA(exe_path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            return candidate;
+        }
+    }
+    return {};
+}
 
 // ── webview_init ──────────────────────────────────────────────────────────
 
@@ -75,16 +128,6 @@ void webview_init(void* glfw_window_opaque, AppState* state, WebViewCallbacks cb
 {
     s_state = state;
     s_cbs   = std::move(cbs);
-
-#if XCM_WEBVIEW2_AVAILABLE
-    // WebView2 requires COM on the calling thread.
-    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    if (SUCCEEDED(hr) || hr == S_FALSE || hr == RPC_E_CHANGED_MODE) {
-        s_com_initialized = (hr == S_OK || hr == S_FALSE);
-    } else {
-        fprintf(stderr, "[webview_win] CoInitializeEx failed: 0x%08lx\n", hr);
-    }
-#endif
 
 #if XCM_WEBVIEW2_AVAILABLE
     GLFWwindow* gw = static_cast<GLFWwindow*>(glfw_window_opaque);
@@ -105,19 +148,22 @@ void webview_load_adblock(const std::string& /*rules_json*/) {
 
 void* webview_create(int tab_id, const std::string& url)
 {
-    auto* h     = new WVHandle();
+    auto holder = std::make_shared<WVHandle>();
+    auto* h     = holder.get();
     h->tab_id   = tab_id;
     if (!url.empty()) h->pending_urls.push_back(url);
 
-    s_handles[tab_id] = h;
+    s_handles[tab_id] = holder;
 
 #if XCM_WEBVIEW2_AVAILABLE
     // WebView2 creation is async -- CreateCoreWebView2ControllerAsync spins
     // an internal message loop thread and calls us back on the main thread.
+    const std::wstring runtime_dir = widen(discover_webview2_runtime_dir());
     CreateCoreWebView2EnvironmentWithOptions(
-        nullptr, nullptr, nullptr,
+        runtime_dir.empty() ? nullptr : runtime_dir.c_str(), nullptr, nullptr,
         Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [h](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+            [holder](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+                auto* h = holder.get();
                 if (FAILED(result) || !env) {
                     fprintf(stderr, "[webview_win] env creation failed: 0x%08lx\n", result);
                     return result;
@@ -125,18 +171,29 @@ void* webview_create(int tab_id, const std::string& url)
                 env->CreateCoreWebView2Controller(
                     s_hwnd,
                     Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                        [h](HRESULT result, ICoreWebView2Controller* ctrl) -> HRESULT {
+                        [holder](HRESULT result, ICoreWebView2Controller* ctrl) -> HRESULT {
+                            auto* h = holder.get();
+                            std::lock_guard<std::mutex> lock(h->mu);
+                            if (h->closed) return E_ABORT;
                             if (FAILED(result) || !ctrl) {
                                 fprintf(stderr, "[webview_win] controller creation failed: 0x%08lx\n", result);
                                 return result;
                             }
+                            // Callback argument lifetime ends when this lambda returns.
+                            // Keep our own COM reference for subsequent calls.
+                            ctrl->AddRef();
                             h->ctrl = ctrl;
-                            ctrl->get_CoreWebView2(&h->wv);
+                            HRESULT hr_wv = ctrl->get_CoreWebView2(&h->wv);
+                            if (FAILED(hr_wv) || !h->wv) {
+                                fprintf(stderr, "[webview_win] get_CoreWebView2 failed: 0x%08lx\n", hr_wv);
+                                return FAILED(hr_wv) ? hr_wv : E_POINTER;
+                            }
 
                             // Export bridge: receive postMessage from JS.
                             h->wv->add_WebMessageReceived(
                                 Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
                                     [](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
+                                        if (!args) return E_POINTER;
                                         LPWSTR msg = nullptr;
                                         args->TryGetWebMessageAsString(&msg);
                                         if (msg) {
@@ -152,6 +209,19 @@ void* webview_create(int tab_id, const std::string& url)
                             ctrl->put_Bounds(bounds);
                             ctrl->put_IsVisible(h->visible ? TRUE : FALSE);
 
+                            // Prevent white flash before first page paint.
+                            // Keep the embedded surface close to host clear color.
+                            ICoreWebView2Controller2* ctrl2 = nullptr;
+                            if (SUCCEEDED(ctrl->QueryInterface(IID_PPV_ARGS(&ctrl2))) && ctrl2) {
+                                COREWEBVIEW2_COLOR bg{};
+                                bg.A = 255;
+                                bg.R = 12;
+                                bg.G = 12;
+                                bg.B = 16;
+                                ctrl2->put_DefaultBackgroundColor(bg);
+                                ctrl2->Release();
+                            }
+
                             h->ready = true;
                             // Replay any queued navigation.
                             if (!h->pending_urls.empty()) {
@@ -159,6 +229,10 @@ void* webview_create(int tab_id, const std::string& url)
                                                   h->pending_urls.back().end());
                                 h->wv->Navigate(wurl.c_str());
                                 h->pending_urls.clear();
+                            }
+                            if (h->open_devtools_requested) {
+                                h->wv->OpenDevToolsWindow();
+                                h->open_devtools_requested = false;
                             }
                             return S_OK;
                         }).Get());
@@ -175,12 +249,16 @@ void webview_destroy(void* handle)
 {
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    {
+        std::lock_guard<std::mutex> lock(h->mu);
+        h->closed = true;
 #if XCM_WEBVIEW2_AVAILABLE
-    if (h->ctrl) { h->ctrl->Close(); h->ctrl->Release(); }
-    if (h->wv)   { h->wv->Release(); }
+        if (h->wv)   { h->wv->Release(); h->wv = nullptr; }
+        if (h->ctrl) { h->ctrl->Close(); h->ctrl->Release(); h->ctrl = nullptr; }
 #endif
+        h->pending_urls.clear();
+    }
     s_handles.erase(h->tab_id);
-    delete h;
 }
 
 // ── Show / Hide ───────────────────────────────────────────────────────────
@@ -188,6 +266,8 @@ void webview_destroy(void* handle)
 void webview_show(void* handle) {
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed || h->visible) return;  // already visible — avoid redundant COM call
     h->visible = true;
 #if XCM_WEBVIEW2_AVAILABLE
     if (h->ctrl && h->ready) h->ctrl->put_IsVisible(TRUE);
@@ -197,6 +277,8 @@ void webview_show(void* handle) {
 void webview_hide(void* handle) {
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed || !h->visible) return;  // already hidden — avoid redundant COM call
     h->visible = false;
 #if XCM_WEBVIEW2_AVAILABLE
     if (h->ctrl && h->ready) h->ctrl->put_IsVisible(FALSE);
@@ -208,6 +290,8 @@ void webview_hide(void* handle) {
 void webview_resize(void* handle, int x, int y, int w, int h) {
     if (!handle) return;
     auto* wh = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(wh->mu);
+    if (wh->closed) return;
     wh->x = x; wh->y = y; wh->w = w; wh->h = h;
 #if XCM_WEBVIEW2_AVAILABLE
     if (wh->ctrl && wh->ready) {
@@ -222,6 +306,8 @@ void webview_resize(void* handle, int x, int y, int w, int h) {
 void webview_load_url(void* handle, const std::string& url) {
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed) return;
 #if XCM_WEBVIEW2_AVAILABLE
     if (h->wv && h->ready) {
         std::wstring wu(url.begin(), url.end());
@@ -236,6 +322,8 @@ void webview_go_back(void* handle) {
 #if XCM_WEBVIEW2_AVAILABLE
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed) return;
     if (h->wv && h->ready) h->wv->GoBack();
 #endif
 }
@@ -244,6 +332,8 @@ void webview_go_forward(void* handle) {
 #if XCM_WEBVIEW2_AVAILABLE
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed) return;
     if (h->wv && h->ready) h->wv->GoForward();
 #endif
 }
@@ -252,6 +342,8 @@ void webview_reload(void* handle) {
 #if XCM_WEBVIEW2_AVAILABLE
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed) return;
     if (h->wv && h->ready) h->wv->Reload();
 #endif
 }
@@ -260,6 +352,8 @@ void webview_stop(void* handle) {
 #if XCM_WEBVIEW2_AVAILABLE
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed) return;
     if (h->wv && h->ready) h->wv->Stop();
 #endif
 }
@@ -272,6 +366,8 @@ void webview_eval_js(void* handle, const std::string& script,
 #if XCM_WEBVIEW2_AVAILABLE
     if (!handle) { if (cb) cb(""); return; }
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed) { if (cb) cb(""); return; }
     if (!h->wv || !h->ready) { if (cb) cb(""); return; }
     std::wstring ws(script.begin(), script.end());
     h->wv->ExecuteScript(ws.c_str(),
@@ -304,11 +400,13 @@ void webview_open_inspector(void* handle) {
 #if XCM_WEBVIEW2_AVAILABLE
     if (!handle) return;
     auto* h = static_cast<WVHandle*>(handle);
+    std::lock_guard<std::mutex> lock(h->mu);
+    if (h->closed) return;
     if (h->wv && h->ready) {
-        ICoreWebView2DevToolsProtocolEventReceiver* recv = nullptr;
-        h->wv->GetDevToolsProtocolEventReceiver(L"Inspector.detached", &recv);
-        // Open DevTools via CDP Page.openDevToolsWindow
         h->wv->OpenDevToolsWindow();
+        h->open_devtools_requested = false;
+    } else {
+        h->open_devtools_requested = true;
     }
 #endif
 }
@@ -361,15 +459,16 @@ void webview_set_cf_user_agent(const std::string& /*ua*/) {
 // ── Shutdown ──────────────────────────────────────────────────────────────
 
 void webview_shutdown() {
-    for (auto& [id, h] : s_handles) {
-        webview_destroy(h);
+    for (auto& kv : s_handles) {
+    auto h = kv.second;
+        if (!h) continue;
+    std::lock_guard<std::mutex> lock(h->mu);
+    h->closed = true;
+#if XCM_WEBVIEW2_AVAILABLE
+        if (h->wv)   { h->wv->Release(); h->wv = nullptr; }
+        if (h->ctrl) { h->ctrl->Close(); h->ctrl->Release(); h->ctrl = nullptr; }
+#endif
+    h->pending_urls.clear();
     }
     s_handles.clear();
-
-#if XCM_WEBVIEW2_AVAILABLE
-    if (s_com_initialized) {
-        CoUninitialize();
-        s_com_initialized = false;
-    }
-#endif
 }

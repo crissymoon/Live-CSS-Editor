@@ -86,6 +86,8 @@ void platform_chrome_focus_url() {
 
 void platform_chrome_destroy() {}
 
+void platform_install_drag_hook(void* /*glfw_window*/, int /*chrome_top_px*/) {}
+
 // ── Export bridge ─────────────────────────────────────────────────────────
 
 void platform_export_file(const std::string& filename, const std::string& content) {

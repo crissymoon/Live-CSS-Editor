@@ -53,6 +53,11 @@ C = {
     grey        = {0.59,  0.59,  0.59,  1},    -- 38;5;244
     cyan        = {0.4,   0.8,   0.87,  1},    -- 38;5;116
     orange      = {1.0,   0.55,  0.15,  1},
+    kw_ctrl     = {0.95, 0.45, 0.70, 1},   -- rose-pink:  control flow (if/for/while/return)
+    kw_decl     = {0.38, 0.75, 1.0,  1},   -- sky blue:   declarations (function/class/const)
+    literal     = {1.0,  0.70, 0.28, 1},   -- amber:      value literals (true/false/null/nil)
+    op          = {0.76, 0.88, 1.0,  1},   -- ice blue:   operators (= + - * / ! < > & | ~)
+    comment     = {0.40, 0.50, 0.44, 1},   -- sage:       line comments
 }
 
 --------------------------------------------------------------------
@@ -158,46 +163,90 @@ local function load_fonts()
     }
 
     -- Fallback fonts for glyphs not in the primary.
-    -- Order matters: comprehensive coverage fonts come first so that common
-    -- characters like em-dash, curly quotes, and ellipsis are found quickly.
-    -- Symbol/emoji fonts come last since they cover narrow Unicode ranges.
-    -- LastResort.otf is intentionally excluded: it renders descriptive tofu
-    -- boxes (worse than a blank) for every unmapped character.
+    --
+    -- Priority order:
+    --   1. Comprehensive Unicode BMP coverage (em-dash, curly quotes, arrows, math…)
+    --   2. Broad script/block coverage (CJK, Indic, Arabic, Hebrew, …)
+    --   3. Symbol / emoji fonts (colour bitmap glyphs)
+    --
+    -- Lucida Sans Unicode (l_10646.ttf) is first on Windows because it covers
+    -- the entire Basic Multilingual Plane reliably, including General Punctuation
+    -- (U+2000–U+206F) where em-dash, en-dash, curly quotes, and ellipsis live.
     local fallback_candidates = {
-        -- Windows: comprehensive general-purpose fonts first
+        -- Windows — BMP coverage
+        wf .. "l_10646.ttf",    -- Lucida Sans Unicode: widest BMP coverage
         wf .. "segoeui.ttf",
+        wf .. "seguisym.ttf",   -- Segoe UI Symbol: mathematical & miscellaneous symbols
         wf .. "arial.ttf",
-        wf .. "seguisym.ttf",   -- mathematical and symbol blocks
-        wf .. "seguiemj.ttf",   -- emoji
+        wf .. "sylfaen.ttf",    -- Sylfaen: Georgian, Armenian, Cyrillic, Greek
+        -- Windows — broad script/language coverage
+        wf .. "msyh.ttc",       -- Microsoft YaHei (CJK)
+        wf .. "msgothic.ttc",   -- MS Gothic (Japanese)
+        wf .. "malgun.ttf",     -- Malgun Gothic (Korean)
+        wf .. "Nirmala.ttc",    -- Nirmala UI (South Asian scripts)
+        wf .. "ebrima.ttf",     -- Ebrima (African scripts)
+        wf .. "gadugi.ttf",     -- Gadugi (Cherokee, Unified Canadian Aboriginal)
+        wf .. "seguihis.ttf",   -- Segoe UI Historic (ancient scripts)
+        wf .. "cambria.ttc",    -- Cambria (additional Latin + Greek + Cyrillic)
+        wf .. "calibri.ttf",    -- Calibri (extended Latin)
+        -- Windows — emoji / colour symbols (checked last)
+        wf .. "seguiemj.ttf",   -- Segoe UI Emoji (colour emoji)
         -- macOS
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
         "/System/Library/Fonts/Apple Symbols.ttf",
-        -- Linux
+        "/System/Library/Fonts/Supplemental/Lucida Grande.ttf",
+        "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
+        "/System/Library/Fonts/Apple Color Emoji.ttc",
+        -- Linux — broad coverage
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansMono-Regular.otf",
         "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansSymbols-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
         "/usr/share/fonts/truetype/unifont/unifont.ttf",
     }
 
+    -- LuaJIT (Love2D) exposes unpack as a global in 5.1 mode and as
+    -- table.unpack in 5.2-compat mode.  Support both.
+    local _unpack = table.unpack or unpack
+
+    -- Load a font from an absolute OS path by reading raw bytes with io.open,
+    -- then handing the data to Love2D as FileData.  This fully bypasses Love2D's
+    -- sandboxed VFS (PhysFS), which does not reliably resolve absolute system
+    -- paths on all platforms.  Returns a Font object, or nil on any failure.
+    local function font_from_path(path, size)
+        local fh = io.open(path, "rb")
+        if not fh then return nil end
+        local bytes = fh:read("*a")
+        fh:close()
+        if not bytes or #bytes < 16 then return nil end
+        local ok, result = pcall(function()
+            local fd = love.filesystem.newFileData(bytes, "font")
+            return love.graphics.newFont(fd, size)
+        end)
+        return (ok and result) or nil
+    end
+
     local function try_font(paths, size)
         for _, p in ipairs(paths) do
-            local ok, f = pcall(love.graphics.newFont, p, size)
-            if ok and f then return f end
+            local f = font_from_path(p, size)
+            if f then return f end
         end
-        return love.graphics.newFont(size)
+        return love.graphics.newFont(size)   -- Love2D built-in as last resort
     end
 
     local function add_fallbacks(primary, size)
         local fbs = {}
         for _, p in ipairs(fallback_candidates) do
-            local ok, f = pcall(love.graphics.newFont, p, size)
-            if ok and f then fbs[#fbs + 1] = f end
+            local f = font_from_path(p, size)
+            if f then fbs[#fbs + 1] = f end
         end
         if #fbs > 0 then
-            -- pcall guards against older Love2D builds that lack setFallbacks.
-            pcall(function() primary:setFallbacks(unpack(fbs)) end)
+            -- setFallbacks was added in Love2D 11.0; pcall guards older builds.
+            pcall(function() primary:setFallbacks(_unpack(fbs)) end)
         end
     end
 
@@ -418,6 +467,10 @@ function love.load()
     H = love.graphics.getHeight()
 
     load_fonts()
+
+    -- Enable OS-level key repeat so held keys (backspace, arrows, etc.)
+    -- fire love.keypressed repeatedly at the system repeat rate.
+    love.keyboard.setKeyRepeat(true)
 
     -- DPI normalisation: keep mouse event coordinates in logical pixels
     -- (guards against SDL2 reporting physical pixels on high-DPI Windows displays)

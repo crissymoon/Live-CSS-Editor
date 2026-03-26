@@ -11,6 +11,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <objbase.h>   // CoInitializeEx / CoUninitialize
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -147,6 +148,11 @@ int main(int argc, char** argv)
     platform_chrome_create(g_win, &g_state, args.php_port);
 
     // ── WebView init ──────────────────────────────────────────────────────
+    // COM must be initialised on the main thread before WebView2 can create
+    // its environment.  S_FALSE means it was already init'd; that's fine.
+    HRESULT hr_com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (FAILED(hr_com) && hr_com != RPC_E_CHANGED_MODE)
+        fprintf(stderr, "[main] CoInitializeEx failed: 0x%08lx\n", hr_com);
     WebViewCallbacks wv_cbs = build_webview_callbacks(args);
     webview_init(g_win, &g_state, wv_cbs);
 
@@ -190,5 +196,6 @@ int main(int argc, char** argv)
     ImGui::DestroyContext();
     glfwDestroyWindow(g_win);
     glfwTerminate();
+    CoUninitialize();
     return 0;
 }

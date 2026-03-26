@@ -4,6 +4,7 @@
 
 #include "chrome.h"
 #include "imgui.h"
+#include <GLFW/glfw3.h>
 #include <cstdio>
 #include <cstdint>
 #include <cmath>
@@ -206,6 +207,61 @@ static int draw_title_tab_row(AppState* st, int win_w,
     const float PLUS_W = 28.0f;
     float tabs_x = TL_GAP;
     float tabs_w = (float)win_w - TL_GAP - PLUS_W - 4.0f;
+
+#ifndef __APPLE__
+    // Window control buttons (close / minimize / maximize) in the 30 px grab strip.
+    // macOS provides native traffic lights; on other platforms we draw our own.
+    {
+        const float BTN_R  = 6.0f;
+        const float BTN_CY = TOP_PAD * 0.5f;
+        struct WinBtn { const char* id; float cx; ImVec4 idle; ImVec4 hov; const char* cmd; };
+        WinBtn btns[] = {
+            { "##wc0", 14.0f, {0.55f,0.20f,0.20f,1.0f}, {0.97f,0.27f,0.27f,1.0f}, "__win_close__"    },
+            { "##wc1", 34.0f, {0.45f,0.38f,0.12f,1.0f}, {0.98f,0.75f,0.13f,1.0f}, "__win_minimize__" },
+            { "##wc2", 54.0f, {0.14f,0.43f,0.25f,1.0f}, {0.20f,0.83f,0.60f,1.0f}, "__win_zoom__"     },
+        };
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0,0});
+        for (auto& b : btns) {
+            ImGui::SetCursorPos({b.cx - BTN_R, BTN_CY - BTN_R});
+            ImGui::PushStyleColor(ImGuiCol_Button,        {0,0,0,0});
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0,0,0,0});
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  {0,0,0,0});
+            bool clicked = ImGui::InvisibleButton(b.id, {BTN_R * 2.0f, BTN_R * 2.0f});
+            bool hov     = ImGui::IsItemHovered();
+            dl->AddCircleFilled({b.cx, BTN_CY}, BTN_R, to_u32(hov ? b.hov : b.idle), 16);
+            // Icon on hover: small symbol inside the circle
+            if (hov) {
+                float arm = 3.2f;
+                ImU32 ic  = to_u32({1.0f,1.0f,1.0f,0.85f});
+                if (b.cx < 20.0f) { // close: X
+                    dl->AddLine({b.cx-arm,BTN_CY-arm},{b.cx+arm,BTN_CY+arm},ic,1.5f);
+                    dl->AddLine({b.cx+arm,BTN_CY-arm},{b.cx-arm,BTN_CY+arm},ic,1.5f);
+                } else if (b.cx < 44.0f) { // minimize: dash
+                    dl->AddLine({b.cx-arm,BTN_CY},{b.cx+arm,BTN_CY},ic,1.5f);
+                } else { // zoom: + or square
+                    dl->AddLine({b.cx-arm,BTN_CY},{b.cx+arm,BTN_CY},ic,1.5f);
+                    dl->AddLine({b.cx,BTN_CY-arm},{b.cx,BTN_CY+arm},ic,1.5f);
+                }
+            }
+            ImGui::PopStyleColor(3);
+            if (clicked) {
+                fprintf(stderr, "[chrome] win ctrl clicked: %s\n", b.cmd);
+                st->push_nav(-1, b.cmd);
+            }
+        }
+        ImGui::PopStyleVar();
+    }
+
+    // DEBUG: show mouse coords in the grab strip so it is immediately visible
+    // whether ImGui is receiving mouse events at all.  Remove once confirmed.
+    {
+        ImVec2 mp = ImGui::GetMousePos();
+        char dbg[32];
+        snprintf(dbg, sizeof(dbg), "%.0f,%.0f", mp.x, mp.y);
+        ImGui::GetForegroundDrawList()->AddText({200.0f, 8.0f},
+                                               IM_COL32(255, 220, 0, 200), dbg);
+    }
+#endif
 
     int   n     = (int)st->tabs.size();
     float tab_w = std::min(180.0f, std::max(64.0f, tabs_w / (float)std::max(n, 1)));

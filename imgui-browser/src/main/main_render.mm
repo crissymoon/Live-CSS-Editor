@@ -41,10 +41,22 @@ void main_render_loop(const Args& args) {
             bool pressed  = left_now && !left_prev;
             bool released = !left_now && left_prev;
 
-            const float drag_h = (g_prev_top > 0) ? (float)g_prev_top : (float)TAB_BAR_HEIGHT_PX;
-            bool in_drag_zone = (my >= 0.0 && my <= (double)drag_h);
+            // Only start drag from the 30-px TOP_PAD strip at the very top.
+            // Exclude the three window-control button areas so their clicks
+            // pass through to ImGui normally.
+            // On Windows, WM_NCHITTEST already handles drag via HTCAPTION; this
+            // path is kept as a cross-platform fallback.
+            const double TOP_PAD = 30.0;
+            const double BTN_CY  = 15.0, BTN_R = 6.0;
+            struct WBR { double x0, x1; } win_btns[] = {{8,20},{28,40},{48,60}};
+            bool in_top_pad = (my >= 0.0 && my < TOP_PAD);
+            bool over_win_btn = false;
+            if (in_top_pad && my >= BTN_CY - BTN_R && my <= BTN_CY + BTN_R) {
+                for (auto& b : win_btns)
+                    if (mx >= b.x0 && mx <= b.x1) { over_win_btn = true; break; }
+            }
 
-            if (pressed && in_drag_zone && !g_chrome_has_hover) {
+            if (pressed && in_top_pad && !over_win_btn) {
                 drag_active = true;
                 glfwGetWindowPos(g_win, &drag_win_x, &drag_win_y);
                 drag_mouse_x = mx;
@@ -52,8 +64,13 @@ void main_render_loop(const Args& args) {
             }
 
             if (drag_active && left_now) {
-                int nx = drag_win_x + (int)(mx - drag_mouse_x);
-                int ny = drag_win_y + (int)(my - drag_mouse_y);
+                // Use current window pos each frame: as the window moves, the
+                // cursor's client-relative coords shift, so we can't use the
+                // initial drag_win_x/y.  Read current pos + apply client delta.
+                int cwx, cwy;
+                glfwGetWindowPos(g_win, &cwx, &cwy);
+                int nx = cwx + (int)(mx - drag_mouse_x);
+                int ny = cwy + (int)(my - drag_mouse_y);
                 glfwSetWindowPos(g_win, nx, ny);
             }
 
@@ -78,7 +95,11 @@ void main_render_loop(const Args& args) {
         // ── Keyboard shortcuts ────────────────────────────────────────
         {
             ImGuiIO& kio = ImGui::GetIO();
-            bool cmd = kio.KeySuper;
+#if defined(__APPLE__)
+            bool cmd = kio.KeySuper;   // Cmd key on macOS
+#else
+            bool cmd = kio.KeyCtrl;    // Ctrl key on Windows / Linux
+#endif
 
             if (cmd && !kio.WantTextInput) {
 
@@ -149,6 +170,21 @@ void main_render_loop(const Args& args) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        // DEBUG: on-screen mouse position overlay -- remove after diagnosis.
+        {
+            double gx = 0, gy = 0;
+            glfwGetCursorPos(g_win, &gx, &gy);
+            ImVec2 mp = ImGui::GetMousePos();
+            char dbg[128];
+            if (mp.x < -100000.0f)
+                snprintf(dbg, sizeof(dbg), "GLFW=(%.0f,%.0f) ImGui=NO_DATA", gx, gy);
+            else
+                snprintf(dbg, sizeof(dbg), "GLFW=(%.0f,%.0f) ImGui=(%.0f,%.0f)",
+                         gx, gy, mp.x, mp.y);
+            ImGui::GetForegroundDrawList()->AddText(
+                {10.0f, 40.0f}, IM_COL32(255, 50, 50, 255), dbg);
+        }
 
         if (g_resize_dirty) {
             native_chrome_resize(g_state.win_w, g_state.win_h);

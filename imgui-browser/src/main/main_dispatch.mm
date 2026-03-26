@@ -44,6 +44,15 @@ void dispatch_nav(AppState::NavCmd& cmd) {
             if (t.id == cmd.tab_id) { tab = &t; break; }
     }
 
+    // Window management commands -- don't need a tab or webview handle.
+    if      (cmd.url == "__win_close__")    { glfwSetWindowShouldClose(g_win, 1); return; }
+    else if (cmd.url == "__win_minimize__") { glfwIconifyWindow(g_win);           return; }
+    else if (cmd.url == "__win_zoom__") {
+        if (glfwGetWindowAttrib(g_win, GLFW_MAXIMIZED)) glfwRestoreWindow(g_win);
+        else                                            glfwMaximizeWindow(g_win);
+        return;
+    }
+
     if (!tab) return;
     void* h = tab->wv_handle;
     if (!h) return;

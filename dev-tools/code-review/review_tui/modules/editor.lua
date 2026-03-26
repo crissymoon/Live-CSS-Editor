@@ -46,6 +46,16 @@ local _request_browser_focus = false
 local _tab_drag_idx    = nil  -- index of tab currently being dragged (nil = none)
 local _tab_drag_origin = 0    -- mouse x when the tab drag started
 
+-- find bar state (shared across all tabs)
+local _find = {
+    active  = false,
+    query   = "",
+    matches = {},  -- { line, col_s, col_e }  col_e is one-past-end
+    idx     = 0,   -- current highlighted match (1-based); 0 = none
+}
+local FIND_BAR_W = 264
+local FIND_BAR_H = 28
+
 local CTX_ITEMS = {
     { label = "Select All",  hint = "Ctrl+A" },
     { label = "Copy",        hint = "Ctrl+C" },
@@ -136,26 +146,68 @@ end
 -- Simple syntax highlighter
 -- Returns list of { text, col_key } tokens
 -- ---------------------------------------------
-local KEYWORDS = {
-    lua     = { "and","break","do","else","elseif","end","false","for","function","goto","if",
-                "in","local","nil","not","or","repeat","return","then","true","until","while" },
-    python  = { "False","None","True","and","as","assert","async","await","break","class","continue",
-                "def","del","elif","else","except","finally","for","from","global","if","import",
-                "in","is","lambda","nonlocal","not","or","pass","raise","return","try","while","with","yield" },
-    js      = { "break","case","catch","class","const","continue","debugger","default","delete","do",
-                "else","export","extends","false","finally","for","function","if","import","in",
-                "instanceof","let","new","null","return","static","super","switch","this","throw",
-                "true","try","typeof","undefined","var","void","while","with","yield","async","await" },
-    php     = { "echo","print","if","else","elseif","while","for","foreach","break","continue",
-                "return","function","class","new","extends","implements","namespace","use","true",
-                "false","null","public","private","protected","static","abstract","final","try",
-                "catch","throw","interface","trait" },
+-- keyword → color-key map per language (each word maps to its color key string)
+local KW_MAP = {
+    lua = {
+        ["if"]="kw_ctrl",["then"]="kw_ctrl",["else"]="kw_ctrl",["elseif"]="kw_ctrl",
+        ["end"]="kw_ctrl",["for"]="kw_ctrl",["while"]="kw_ctrl",["do"]="kw_ctrl",
+        ["repeat"]="kw_ctrl",["until"]="kw_ctrl",["break"]="kw_ctrl",
+        ["return"]="kw_ctrl",["goto"]="kw_ctrl",
+        ["function"]="kw_decl",["local"]="kw_decl",["in"]="kw_decl",
+        ["true"]="literal",["false"]="literal",["nil"]="literal",
+        ["and"]="violet",["or"]="violet",["not"]="violet",
+    },
+    python = {
+        ["if"]="kw_ctrl",["elif"]="kw_ctrl",["else"]="kw_ctrl",["for"]="kw_ctrl",
+        ["while"]="kw_ctrl",["break"]="kw_ctrl",["continue"]="kw_ctrl",
+        ["return"]="kw_ctrl",["yield"]="kw_ctrl",["raise"]="kw_ctrl",
+        ["try"]="kw_ctrl",["except"]="kw_ctrl",["finally"]="kw_ctrl",
+        ["with"]="kw_ctrl",["pass"]="kw_ctrl",
+        ["def"]="kw_decl",["class"]="kw_decl",["lambda"]="kw_decl",
+        ["import"]="kw_decl",["from"]="kw_decl",["as"]="kw_decl",
+        ["global"]="kw_decl",["nonlocal"]="kw_decl",["del"]="kw_decl",
+        ["async"]="kw_decl",["await"]="kw_decl",
+        ["True"]="literal",["False"]="literal",["None"]="literal",
+        ["and"]="violet",["or"]="violet",["not"]="violet",
+        ["is"]="violet",["in"]="violet",["assert"]="violet",
+    },
+    js = {
+        ["if"]="kw_ctrl",["else"]="kw_ctrl",["for"]="kw_ctrl",["while"]="kw_ctrl",
+        ["do"]="kw_ctrl",["switch"]="kw_ctrl",["case"]="kw_ctrl",["default"]="kw_ctrl",
+        ["break"]="kw_ctrl",["continue"]="kw_ctrl",["return"]="kw_ctrl",
+        ["throw"]="kw_ctrl",["try"]="kw_ctrl",["catch"]="kw_ctrl",["finally"]="kw_ctrl",
+        ["yield"]="kw_ctrl",["debugger"]="kw_ctrl",
+        ["function"]="kw_decl",["class"]="kw_decl",["const"]="kw_decl",
+        ["let"]="kw_decl",["var"]="kw_decl",["new"]="kw_decl",
+        ["import"]="kw_decl",["export"]="kw_decl",["extends"]="kw_decl",
+        ["static"]="kw_decl",["super"]="kw_decl",["async"]="kw_decl",["await"]="kw_decl",
+        ["typeof"]="kw_decl",["instanceof"]="kw_decl",["delete"]="kw_decl",
+        ["void"]="kw_decl",["in"]="kw_decl",["with"]="kw_decl",
+        ["true"]="literal",["false"]="literal",["null"]="literal",
+        ["undefined"]="literal",["this"]="literal",
+    },
+    php = {
+        ["if"]="kw_ctrl",["else"]="kw_ctrl",["elseif"]="kw_ctrl",
+        ["while"]="kw_ctrl",["for"]="kw_ctrl",["foreach"]="kw_ctrl",
+        ["break"]="kw_ctrl",["continue"]="kw_ctrl",["return"]="kw_ctrl",
+        ["try"]="kw_ctrl",["catch"]="kw_ctrl",["throw"]="kw_ctrl",
+        ["function"]="kw_decl",["class"]="kw_decl",["new"]="kw_decl",
+        ["extends"]="kw_decl",["implements"]="kw_decl",["namespace"]="kw_decl",
+        ["use"]="kw_decl",["public"]="kw_decl",["private"]="kw_decl",
+        ["protected"]="kw_decl",["static"]="kw_decl",["abstract"]="kw_decl",
+        ["final"]="kw_decl",["interface"]="kw_decl",["trait"]="kw_decl",
+        ["echo"]="kw_decl",["print"]="kw_decl",
+        ["true"]="literal",["false"]="literal",["null"]="literal",
+    },
 }
-local KW_SETS = {}
-for lang, words in pairs(KEYWORDS) do
-    KW_SETS[lang] = {}
-    for _, w in ipairs(words) do KW_SETS[lang][w] = true end
-end
+
+-- symbol characters that should receive the operator color
+local OP_SET = {
+    ["="] = true, ["+"] = true, ["-"] = true, ["*"] = true, ["/"] = true,
+    ["!"] = true, ["&"] = true, ["|"] = true, ["~"] = true, ["?"] = true,
+    ["@"] = true, ["%"] = true, ["^"] = true, ["\\"]= true,
+    ["<"] = true, [">"] = true, [":"] = true,
+}
 
 local EXT_LANG = {
     lua="lua", py="python", js="js", ts="js", jsx="js", tsx="js", php="php",
@@ -174,7 +226,7 @@ end
 
 local function tokenize_line(line, ext)
     local lang  = EXT_LANG[ext] or "js"
-    local kw    = KW_SETS[lang] or {}
+    local kw    = KW_MAP[lang] or {}
     local out   = {}
     local i     = 1
     local n     = #line
@@ -187,7 +239,7 @@ local function tokenize_line(line, ext)
     while i <= n do
         -- line comment
         if line:sub(i, i + #lc - 1) == lc then
-            out[#out+1] = { text = line:sub(i), col = "grey" }
+            out[#out+1] = { text = line:sub(i), col = "comment" }
             break
         end
 
@@ -215,7 +267,7 @@ local function tokenize_line(line, ext)
             local j = i
             while j <= n and line:sub(j, j):match("[%w_]") do j = j + 1 end
             local word = line:sub(i, j - 1)
-            local col  = kw[word] and "violet" or "text"
+            local col  = kw[word] or "text"
             out[#out+1] = { text = word, col = col }
             i = j
 
@@ -224,13 +276,22 @@ local function tokenize_line(line, ext)
             local b = line:byte(i)
             local slen = _seq_len(b)
             if slen and slen > 1 and i + slen - 1 <= n and _valid_seq(line, i, slen) then
-                -- full multi-byte UTF-8 char (keep it intact so the font can render it)
-                out[#out+1] = { text = line:sub(i, i + slen - 1), col = "dim" }
+                -- Multi-byte UTF-8 char (em-dash, curly quotes, emoji, CJK, etc.).
+                -- Use full text brightness so these characters are clearly visible.
+                out[#out+1] = { text = line:sub(i, i + slen - 1), col = "text" }
                 i = i + slen
             else
                 local char = line:sub(i, i)
-                local col  = "dim"
-                if char:match("[(){}%[%]<>]") then col = "lavender" end
+                local col
+                if char:match("[(){}%[%]]") then
+                    col = "lavender"
+                elseif OP_SET[char] then
+                    col = "op"
+                elseif char:match("%S") then
+                    col = "text"
+                else
+                    col = "dim"
+                end
                 out[#out+1] = { text = char, col = col }
                 i = i + 1
             end
@@ -335,6 +396,10 @@ function M.open_file(path)
         -- as cp1252/Latin-1 and recode to UTF-8 so all characters display correctly.
         if not _is_utf8(content) then
             content = _cp1252_to_utf8(content)
+        end
+        -- Strip UTF-8 BOM (EF BB BF / U+FEFF) if present at the start of the file.
+        if content:sub(1, 3) == "\xEF\xBB\xBF" then
+            content = content:sub(4)
         end
         -- Normalise line endings (CRLF, CR, LF all → LF) then split.
         content = content:gsub("\r\n", "\n"):gsub("\r", "\n")
@@ -465,6 +530,36 @@ local function paste_into(t, clip, h)
         t.cursor.col  = #last + 1
     end
     t.modified = true
+    ensure_scroll(t, h)
+end
+
+-- ---------------------------------------------
+-- Find / search helpers
+-- ---------------------------------------------
+local function find_rebuild(t, query)
+    _find.matches = {}
+    _find.idx     = 0
+    if not t or query == "" then return end
+    local q  = query:lower()
+    local ql = #q
+    for li, line in ipairs(t.lines) do
+        local s   = line:lower()
+        local col = 1
+        while col <= #s do
+            local a = s:find(q, col, true)
+            if not a then break end
+            _find.matches[#_find.matches + 1] = { line = li, col_s = a, col_e = a + ql }
+            col = a + 1
+        end
+    end
+end
+
+local function find_goto(t, h, step)
+    if #_find.matches == 0 then return end
+    _find.idx     = ((_find.idx - 1 + step) % #_find.matches) + 1
+    local m       = _find.matches[_find.idx]
+    t.cursor.line = m.line
+    t.cursor.col  = m.col_s
     ensure_scroll(t, h)
 end
 
@@ -667,6 +762,22 @@ function M.draw(x, y, w, h)
             end
         end
 
+        -- find match highlights (behind text, in front of selection)
+        if _find.active and _find.query ~= "" then
+            for mi, m in ipairs(_find.matches) do
+                if m.line == li then
+                    local px_s = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_s - 1)))
+                    local px_e = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_e - 1)))
+                    if mi == _find.idx then
+                        love.graphics.setColor(1.0, 0.82, 0.0, 0.72)  -- current match: gold
+                    else
+                        love.graphics.setColor(0.9, 0.7, 0.2, 0.32)   -- other matches: dim gold
+                    end
+                    fill_rect(px_s, draw_y - 1, math.max(4, px_e - px_s), CHAR_H)
+                end
+            end
+        end
+
         -- gutter
         love.graphics.setColor(C.panel_bg[1] or 0.065, C.panel_bg[2] or 0.04, C.panel_bg[3] or 0.14, 1)
         fill_rect(x, draw_y - 2, GUTTER - 4, CHAR_H + 2)
@@ -716,6 +827,63 @@ function M.draw(x, y, w, h)
              .. "  |  " .. (ext ~= "" and ext:upper() or "TXT")
              .. "  |  " .. t.filepath
     love.graphics.print(pos, x + 8, y + h - FOOTER_H + 4)
+
+    -- find bar overlay (floats over editor content, top-right)
+    if _find.active then
+        local fbx    = x + w - FIND_BAR_W - 6
+        local fby    = y + TAB_H + 4
+        local lbl    = "Find:"
+        local lbl_w  = font_sm:getWidth(lbl) + 10
+        local cnt_str
+        if #_find.matches == 0 and _find.query ~= "" then
+            cnt_str = "0/0"
+        elseif #_find.matches > 0 then
+            cnt_str = tostring(_find.idx) .. "/" .. tostring(#_find.matches)
+        else
+            cnt_str = ""
+        end
+        local cnt_w  = cnt_str ~= "" and (font_sm:getWidth(cnt_str) + 8) or 0
+        local ifw    = FIND_BAR_W - lbl_w - cnt_w - 8
+
+        -- background + border
+        love.graphics.setColor(C.menu_bg)
+        fill_rect(fbx, fby, FIND_BAR_W, FIND_BAR_H, 4)
+        love.graphics.setColor(C.border)
+        stroke_rect(fbx, fby, FIND_BAR_W, FIND_BAR_H, 4)
+        love.graphics.setFont(font_sm)
+
+        -- label
+        love.graphics.setColor(C.dim)
+        love.graphics.print(lbl, fbx + 6, fby + 6)
+
+        -- input field background
+        love.graphics.setColor(C.bg)
+        fill_rect(fbx + lbl_w, fby + 4, ifw, FIND_BAR_H - 8, 3)
+        love.graphics.setColor(C.border)
+        stroke_rect(fbx + lbl_w, fby + 4, ifw, FIND_BAR_H - 8, 3)
+
+        -- query text (right-align so the end is always visible while typing)
+        local disp_q = _find.query
+        while #disp_q > 0 and font_sm:getWidth(disp_q) > ifw - 8 do
+            disp_q = disp_q:sub(2)
+        end
+        love.graphics.setColor(C.text)
+        love.graphics.print(disp_q, fbx + lbl_w + 4, fby + 6)
+
+        -- blinking cursor inside input
+        local qcw   = font_sm:getWidth(disp_q)
+        local blink = math.floor(love.timer.getTime() * 2) % 2 == 0
+        if blink then
+            love.graphics.setColor(C.text_bright)
+            fill_rect(fbx + lbl_w + 4 + qcw, fby + 5, 1, FIND_BAR_H - 10)
+        end
+
+        -- match count
+        if cnt_str ~= "" then
+            love.graphics.setColor(_find.idx > 0 and C.text or C.dim)
+            love.graphics.print(cnt_str, fbx + FIND_BAR_W - cnt_w - 2, fby + 6)
+        end
+    end
 
     -- context menu
     if t._ctx then
@@ -812,8 +980,14 @@ function M.keypressed(key, h)
     end
 
     if key == "escape" then
+        if _find.active then _find.active = false; return true end
         if t.sel then t.sel = nil return true end
         return false  -- let main handle
+
+    elseif key == "f" and ctrl then
+        _find.active = true
+        find_rebuild(t, _find.query)
+        return true
 
     elseif key == "s" and ctrl then
         save_tab(t); return true
@@ -884,6 +1058,10 @@ function M.keypressed(key, h)
         ensure_scroll(t, h); return true
 
     elseif key == "return" or key == "kpenter" then
+        if _find.active then
+            find_goto(t, h, shift and -1 or 1)
+            return true
+        end
         if t.sel then delete_sel(t) end
         local before  = t.lines[L]:sub(1, CO - 1)
         local after   = t.lines[L]:sub(CO)
@@ -896,6 +1074,11 @@ function M.keypressed(key, h)
         ensure_scroll(t, h); return true
 
     elseif key == "backspace" then
+        if _find.active then
+            _find.query = _find.query:sub(1, -2)
+            find_rebuild(t, _find.query)
+            return true
+        end
         if t.sel then delete_sel(t); ensure_scroll(t, h); return true end
         if ctrl then
             local b     = t.lines[L]:sub(1, CO - 1)
@@ -1052,6 +1235,11 @@ function M.textinput(char)
     if not M.has_tabs() then return false end
     local t = M.active_tab()
     if not t then return false end
+    if _find.active then
+        _find.query = _find.query .. char
+        find_rebuild(t, _find.query)
+        return true
+    end
     if t.sel then delete_sel(t) end
     local L, CO = t.cursor.line, t.cursor.col
     t.lines[L]   = t.lines[L]:sub(1, CO-1) .. char .. t.lines[L]:sub(CO)
