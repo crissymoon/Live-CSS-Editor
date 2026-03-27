@@ -23,11 +23,13 @@ local entries   = {}      -- tree entries only
 local display_entries = {} -- recents + tree entries
 local recent_paths = {}
 local finder = { active = false, query = "" }
+local create_prompt = { active = false, kind = nil, parent = nil, text = "" }
 local scroll_y  = 0
 local max_scroll= 0
 local hover_idx = nil
 local visible   = true
 local top_y     = 0  -- set by draw (menubar_h + toolbar_h)
+local panel_h   = 0  -- set by draw (full height passed to M.draw)
 local viewport_h = 0 -- set by draw (rows area under root bar)
 local kb_focus  = false
 local kb_idx    = 1
@@ -39,8 +41,8 @@ local _on_edit   = nil
 
 -- Right-click context menu state
 local bctx        = nil   -- { x, y, entry_idx } or nil
-local BCTX_ITEMS  = { "Edit file", "Copy path", "Set as scan path" }
-local BCTX_W      = 160
+local BCTX_ITEMS  = { "Edit file", "Copy path", "Set as scan path", "New file", "New folder" }
+local BCTX_W      = 170
 local BCTX_ITEM_H = 22
 
 local function fuzzy_match(text, query)
@@ -370,12 +372,17 @@ end
 
 function M.draw(x, y, h, font)
     if not visible then return end
-    top_y = y
+    top_y   = y
+    panel_h = h
 
     local visible_entries = get_visible_entries()
     local list_top = y + ITEM_H
 
     if finder.active then
+        list_top = list_top + FINDER_H
+    end
+
+    if create_prompt.active then
         list_top = list_top + FINDER_H
     end
 
@@ -422,6 +429,18 @@ function M.draw(x, y, h, font)
         love.graphics.setColor(C.text_bright)
         local q = finder.query ~= "" and finder.query or ""
         love.graphics.print("Find: " .. q .. ((math.floor(love.timer.getTime() * 2) % 2 == 0) and "|" or ""), x + 6, fy + 3)
+    end
+
+    if create_prompt.active then
+        local base_y = y + ITEM_H + (finder.active and FINDER_H or 0)
+        love.graphics.setColor(C.menu_bg)
+        love.graphics.rectangle("fill", x, base_y, W_PANEL, FINDER_H)
+        love.graphics.setColor(C.accent)
+        love.graphics.rectangle("line", x, base_y, W_PANEL, FINDER_H)
+        love.graphics.setColor(C.text_bright)
+        local label = create_prompt.kind == "folder" and "Folder: " or "File: "
+        local cursor = (math.floor(love.timer.getTime() * 2) % 2 == 0) and "|" or ""
+        love.graphics.print(label .. create_prompt.text .. cursor, x + 6, base_y + 3)
     end
 
     love.graphics.setScissor(x, list_top, W_PANEL, h - (list_top - y))
@@ -559,7 +578,7 @@ function M.mousepressed(mx, my, btn)
             local visible_entries = get_visible_entries()
             local e   = visible_entries[bctx.entry_idx]
             local cmx = math.min(bctx.x, W_PANEL - BCTX_W - 4)
-            local cmy = bctx.y
+            local cmy = math.min(bctx.y, top_y + panel_h - #BCTX_ITEMS * BCTX_ITEM_H - 6)
             if mx >= cmx and mx < cmx + BCTX_W then
                 local ci = math.floor((my - cmy - 3) / BCTX_ITEM_H) + 1
                 if ci >= 1 and ci <= #BCTX_ITEMS then
@@ -571,6 +590,15 @@ function M.mousepressed(mx, my, btn)
                         love.system.setClipboardText(e.path)
                     elseif label == "Set as scan path" and e then
                         if _on_select then _on_select(e.is_dir and e.path or (e.path:match("^(.-/)[^/]+$") or e.path)) end
+                    elseif (label == "New file" or label == "New folder") and e then
+                        local sep = IS_WIN and "\\" or "/"
+                        local parent_dir = e.is_dir and e.path
+                            or (e.path:match("^(.*)[/\\][^/\\]+$") or root_path)
+                        create_prompt.active = true
+                        create_prompt.kind   = (label == "New folder") and "folder" or "file"
+                        create_prompt.parent = parent_dir
+                        create_prompt.text   = ""
+                        kb_focus = true
                     end
                     return true
                 end
@@ -633,6 +661,38 @@ function M.keypressed(key)
         return true
     end
 
+    if create_prompt.active then
+        if key == "backspace" then
+            create_prompt.text = create_prompt.text:sub(1, -2)
+            return true
+        elseif key == "return" or key == "kpenter" then
+            local name = create_prompt.text:match("^%s*(.-)%s*$")
+            if name ~= "" then
+                local sep = IS_WIN and "\\" or "/"
+                local full = create_prompt.parent:gsub("[/\\]?$", sep) .. name
+                if create_prompt.kind == "folder" then
+                    if IS_WIN then
+                        os.execute('mkdir "' .. full:gsub('"', '') .. '" 2>nul')
+                    else
+                        os.execute('mkdir -p "' .. full:gsub('"', '\\"') .. '" 2>/dev/null')
+                    end
+                else
+                    local fh = io.open(full, "w")
+                    if fh then fh:close() end
+                end
+                refresh_open_dirs()
+            end
+            create_prompt.active = false
+            create_prompt.text   = ""
+            return true
+        elseif key == "escape" then
+            create_prompt.active = false
+            create_prompt.text   = ""
+            return true
+        end
+        return true
+    end
+
     if finder.active then
         if key == "backspace" then
             finder.query = finder.query:sub(1, -2)
@@ -655,6 +715,8 @@ function M.keypressed(key)
         kb_focus = false
         finder.active = false
         finder.query = ""
+        create_prompt.active = false
+        create_prompt.text   = ""
         return true
     end
 
@@ -733,8 +795,13 @@ function M.keypressed(key)
 end
 
 function M.textinput(t)
-    if not visible or not kb_focus or not finder.active then return false end
+    if not visible or not kb_focus then return false end
     if not t or t == "" then return false end
+    if create_prompt.active then
+        create_prompt.text = create_prompt.text .. t
+        return true
+    end
+    if not finder.active then return false end
     finder.query = finder.query .. t
     kb_idx = 1
     clamp_kb_idx()
