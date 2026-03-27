@@ -297,6 +297,10 @@ local browser_nav_focus = true
 -- Opening a file auto-switches to "editor"; user can switch back via toolbar or Ctrl+E.
 local _panel = "results"
 
+-- cached pixel width of the perf text slot; set once on first draw so the
+-- right-anchored perf string never shifts as fps/scan values change
+local _perf_slot_w = nil
+
 -- text selection in results panel
 local sel_anchor   = nil   -- line index where drag started
 local sel_cur      = nil   -- line index at current mouse position
@@ -572,9 +576,15 @@ local function draw_toolbar()
     local mx, my = love.mouse.getPosition()
 
     -- Row 1: title on left, status badge on right
+    -- Badge occupies y+3 .. y+23 (height 20). Center all Row 1 text within that box.
+    local row1_box_y = y + 3
+    local row1_box_h = 20
+    local ui_oy  = math.floor((row1_box_h - font_ui:getHeight()) / 2)
+    local sm_oy  = math.floor((row1_box_h - font_sm:getHeight()) / 2)
+
     love.graphics.setFont(font_ui)
     gc("lavender")
-    text_at(12, y + 6, "Code Review")
+    text_at(12, row1_box_y + ui_oy, "Code Review")
 
     local badge_colours = {
         READY   = C.dim,
@@ -590,20 +600,24 @@ local function draw_toolbar()
     local badge_w = 72
     local badge_x = W - badge_w - 12
     local sl_x    = badge_x - slw - 8
-    text_at(sl_x, y + 6, status_label)
+    text_at(sl_x, row1_box_y + ui_oy, status_label)
     love.graphics.setColor(sc)
-    fill_rect(badge_x, y + 3, badge_w, 20, 4)
+    fill_rect(badge_x, row1_box_y, badge_w, row1_box_h, 4)
     gc("bg")
     love.graphics.setFont(font_sm)
-    text_at(badge_x + (badge_w - font_sm:getWidth(status)) / 2, y + 7, status)
+    text_at(badge_x + math.floor((badge_w - font_sm:getWidth(status)) / 2),
+            row1_box_y + sm_oy, status)
 
-    -- Row 2: path label + input spanning available width
-    local ph     = 20
-    local py     = y + 30
+    -- Row 2: path label + input — both centered within the input box height
+    local ph  = 20
+    local py  = y + 30
+    local ui_label_oy = math.floor((ph - font_ui:getHeight()) / 2)
+    local sm_text_oy  = math.floor((ph - font_sm:getHeight()) / 2)
+
     love.graphics.setFont(font_ui)
     gc("dim")
     local path_label = "Path:"
-    text_at(12, py - 1, path_label)
+    text_at(12, py + ui_label_oy, path_label)
     local plw = font_ui:getWidth(path_label)
     local px, pw = 12 + plw + 8, W - 12 - 12 - plw - 8
     if path_editing then
@@ -613,7 +627,7 @@ local function draw_toolbar()
         stroke_rect(px, py, pw, ph, 3)
         gc("text_bright")
         love.graphics.setFont(font_sm)
-        text_at(px + 5, py + 3, trunc_str(path_buf, pw - 10, font_sm) .. (math.floor(love.timer.getTime() * 2) % 2 == 0 and "|" or ""))
+        text_at(px + 5, py + sm_text_oy, trunc_str(path_buf, pw - 10, font_sm) .. (math.floor(love.timer.getTime() * 2) % 2 == 0 and "|" or ""))
     else
         gc("panel_bg")
         fill_rect(px, py, pw, ph, 3)
@@ -621,10 +635,10 @@ local function draw_toolbar()
         stroke_rect(px, py, pw, ph, 3)
         gc("text")
         love.graphics.setFont(font_sm)
-        text_at(px + 5, py + 3, trunc_str(scan_path, pw - 10, font_sm))
+        text_at(px + 5, py + sm_text_oy, trunc_str(scan_path, pw - 10, font_sm))
     end
 
-    -- Row 3: scan buttons left to right
+    -- Row 3: scan buttons left to right (fixed positions — no prepend/append)
     local btns = {
         { label="Security",  action=actions.scan_security  },
         { label="God Funcs", action=actions.scan_god_funcs },
@@ -639,15 +653,6 @@ local function draw_toolbar()
         { label=AC.is_enabled() and "AC:on" or "AC:off", action=actions.toggle_autocomplete },
         { label="> All",     action=actions.scan_all, accent=true },
     }
-    -- When editor tabs are open, show a toggle so the user can switch between
-    -- the review results and the editor without closing tabs.
-    if Editor.has_tabs() then
-        if _panel == "editor" then
-            table.insert(btns, 1, { label="< Review", action=function() _panel="results" end, accent=true })
-        else
-            table.insert(btns, 1, { label="Editor >", action=function() _panel="editor"  end })
-        end
-    end
     local btn_h  = 20
     local btn_y  = y + 58
     local btn_cx = 12
@@ -670,6 +675,31 @@ local function draw_toolbar()
         text_at(btn_cx + 10, btn_y + 3, b.label)
         btn_cx = btn_cx + bw2 + 6
     end
+
+    -- Panel toggle: fixed right-anchored, never shifts the scan buttons above
+    if Editor.has_tabs() then
+        -- reserve a fixed width wide enough for both labels so the button never resizes
+        local tog_label  = (_panel == "editor") and "< Review" or "Editor >"
+        local tog_action = (_panel == "editor") and function() _panel="results" end
+                                                 or function() _panel="editor"  end
+        local tog_accent = (_panel == "editor")
+        -- fixed slot: pick the wider of the two labels once
+        local slot_w = math.max(font_sm:getWidth("< Review"), font_sm:getWidth("Editor >")) + 20
+        local tog_x  = W - slot_w - 12
+        local hov    = mx >= tog_x and mx < tog_x + slot_w and my >= btn_y and my < btn_y + btn_h
+        love.graphics.setColor(tog_accent and (hov and C.violet or C.accent)
+                                          or  (hov and C.hover  or C.panel_bg))
+        fill_rect(tog_x, btn_y, slot_w, btn_h, 3)
+        love.graphics.setColor(hov and C.text_bright or C.text)
+        stroke_rect(tog_x, btn_y, slot_w, btn_h, 3)
+        gc(hov and "text_bright" or "text")
+        -- center label within the fixed slot
+        local lw = font_sm:getWidth(tog_label)
+        text_at(tog_x + math.floor((slot_w - lw) / 2), btn_y + 3, tog_label)
+        table.insert(btns, { label=tog_label, action=tog_action,
+                              _x=tog_x, _y=btn_y, _w=slot_w, _h=btn_h })
+    end
+
     _toolbar_btns = btns
 end
 
@@ -784,31 +814,42 @@ local function draw_summary()
     }
 
     love.graphics.setFont(font_sm)
+    -- reserve a fixed minimum width for the count so pills don't resize as numbers grow
+    local count_slot = font_sm:getWidth("9999")
     local px = 10
     for _, p in ipairs(pills) do
-        local num = tostring(counts[p.key])
-        local lbl = p.label .. " " .. num
-        local pw  = font_sm:getWidth(lbl) + 16
+        local base_w = font_sm:getWidth(p.label .. " ") + count_slot + 16
+        local pw     = math.max(base_w, font_sm:getWidth(p.label .. " " .. tostring(counts[p.key])) + 16)
         love.graphics.setColor(p.col[1], p.col[2], p.col[3], 0.25)
         fill_rect(px, sy + 6, pw, SUMMARY_H - 12, 4)
         love.graphics.setColor(p.col)
         stroke_rect(px, sy + 6, pw, SUMMARY_H - 12, 4)
-        text_at(px + 8, sy + 9, lbl)
+        text_at(px + 8, sy + 9, p.label .. " " .. tostring(counts[p.key]))
         px = px + pw + 8
     end
 
     local qd = Bridge.queue_depth and Bridge.queue_depth() or 0
-    local perf_text = string.format("fps:%3d  frame:%4.1fms  q:%d", math.floor(perf.fps + 0.5), perf.frame_ms, qd)
+    -- Build perf string with fixed-width fields so the right-anchored text never shifts.
+    -- fps: 3-digit, frame_ms: 5 chars (xx.x), q: 3-digit, optional suffix: fixed 12 chars
+    local perf_base   = string.format("fps:%3d  frame:%4.1fms  q:%-3d",
+                                      math.floor(perf.fps + 0.5), perf.frame_ms, qd)
+    local perf_suffix = ""
     if status == "RUNNING" and perf.scan_start then
-        perf_text = perf_text .. string.format("  scan:%0.1fs", love.timer.getTime() - perf.scan_start)
+        perf_suffix = string.format("  scan:%6.1fs", love.timer.getTime() - perf.scan_start)
     elseif perf.last_scan_s > 0 then
-        perf_text = perf_text .. string.format("  last:%0.1fs", perf.last_scan_s)
+        perf_suffix = string.format("  last:%6.1fs", perf.last_scan_s)
+    else
+        perf_suffix = "              "   -- same char count as "  last:XXXX.Xs"
     end
+    local perf_text = perf_base .. perf_suffix
 
     gc("dim")
     love.graphics.setFont(font_sm)
-    local perf_w = font_sm:getWidth(perf_text)
-    local perf_x = W - perf_w - 12
+    -- anchor to the right edge using a fixed reserved width so perf_x never drifts
+    if not _perf_slot_w then
+        _perf_slot_w = font_sm:getWidth(perf_text)
+    end
+    local perf_x = W - _perf_slot_w - 12
     text_at(perf_x, sy + 9, perf_text)
 
     -- Last report left of perf diagnostics
