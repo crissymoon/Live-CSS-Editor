@@ -550,6 +550,7 @@ function M.mousepressed(mx, my, btn)
     -- right-click: open context menu (requires a hovered entry)
     if btn == 2 then
         if hover_idx then
+            kb_idx = hover_idx  -- keep ensure_kb_visible from snapping away from the clicked item
             bctx = { x = mx, y = my, entry_idx = hover_idx }
             return true
         end
