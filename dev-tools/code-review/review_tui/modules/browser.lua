@@ -243,17 +243,17 @@ local function build_entries(path, depth, out)
         local safe = path:gsub('"', '')
         -- directories first (append "/" to match ls -1p convention used below)
         for name in WP.lines('cmd /C "chcp 65001 >nul 2>&1 & dir /B /AD "' .. safe .. '" 2>nul"') do
-            if name ~= "" and name:sub(1,1) ~= "." then
+            if name ~= "" then
                 names[#names+1] = name .. "/"
             end
         end
         for name in WP.lines('cmd /C "dir /B /A-D "' .. safe .. '" 2>nul"') do
-            if name ~= "" and name:sub(1,1) ~= "." then
+            if name ~= "" then
                 names[#names+1] = name
             end
         end
     else
-        for name in WP.lines("ls -1p \"" .. path:gsub('"', '\\"') .. "\" 2>/dev/null") do
+        for name in WP.lines("ls -1pA \"" .. path:gsub('"', '\\"') .. "\" 2>/dev/null") do
             names[#names+1] = name
         end
     end
@@ -268,15 +268,12 @@ local function build_entries(path, depth, out)
     for _, raw in ipairs(names) do
         local is_dir = raw:sub(-1) == "/"
         local name   = is_dir and raw:sub(1, -2) or raw
-        -- skip hidden
-        if name:sub(1,1) ~= "." then
-            local sep = IS_WIN and "\\" or "/"
-            local full = path:gsub("[/\\]?$", sep) .. name
-            local entry = { name=name, path=full, is_dir=is_dir, depth=depth, open=false }
-            out[#out+1] = entry
-            if is_dir and entry.open then
-                build_entries(full, depth + 1, out)
-            end
+        local sep = IS_WIN and "\\" or "/"
+        local full = path:gsub("[/\\]?$", sep) .. name
+        local entry = { name=name, path=full, is_dir=is_dir, depth=depth, open=false }
+        out[#out+1] = entry
+        if is_dir and entry.open then
+            build_entries(full, depth + 1, out)
         end
     end
 end
@@ -333,13 +330,13 @@ local function refresh_open_dirs()
         if IS_WIN then
             local safe = path:gsub('"', '')
             for name in WP.lines('cmd /C "chcp 65001 >nul 2>&1 & dir /B /AD "' .. safe .. '" 2>nul"') do
-                if name ~= "" and name:sub(1,1) ~= "." then names[#names+1] = name .. "/" end
+                if name ~= "" then names[#names+1] = name .. "/" end
             end
             for name in WP.lines('cmd /C "dir /B /A-D "' .. safe .. '" 2>nul"') do
-                if name ~= "" and name:sub(1,1) ~= "." then names[#names+1] = name end
+                if name ~= "" then names[#names+1] = name end
             end
         else
-            for name in WP.lines("ls -1p \"" .. path:gsub('"', '\\"') .. "\" 2>/dev/null") do
+            for name in WP.lines("ls -1pA \"" .. path:gsub('"', '\\"') .. "\" 2>/dev/null") do
                 names[#names+1] = name
             end
         end
@@ -351,18 +348,16 @@ local function refresh_open_dirs()
         for _, raw in ipairs(names) do
             local is_dir = raw:sub(-1)=="/"
             local name   = is_dir and raw:sub(1,-2) or raw
-            if name:sub(1,1)~="." then
-                local sep = IS_WIN and "\\" or "/"
-                local full = path:gsub("[/\\]?$", sep)..name
-                -- preserve open state
-                local prev_open = false
-                for _, e in ipairs(entries) do
-                    if e.path==full then prev_open=e.open break end
-                end
-                local entry = {name=name,path=full,is_dir=is_dir,depth=depth,open=prev_open}
-                new[#new+1]=entry
-                if is_dir and prev_open then recurse(full, depth+1) end
+            local sep = IS_WIN and "\\" or "/"
+            local full = path:gsub("[/\\]?$", sep)..name
+            -- preserve open state
+            local prev_open = false
+            for _, e in ipairs(entries) do
+                if e.path==full then prev_open=e.open break end
             end
+            local entry = {name=name,path=full,is_dir=is_dir,depth=depth,open=prev_open}
+            new[#new+1]=entry
+            if is_dir and prev_open then recurse(full, depth+1) end
         end
     end
     recurse(root_path, 0)
