@@ -66,6 +66,7 @@ local WATCH_INTERVAL = 1.5  -- seconds between disk-mtime polls
 -- ---------------------------------------------
 local CHAR_H    = 16
 local _last_h   = 480   -- cache of last draw height for use in textinput
+local _last_w   = 800   -- cache of last draw width  for use in textinput
 local GUTTER    = 50    -- line-number column width
 local TAB_H     = 26    -- tab bar height
 local FOOTER_H  = 20    -- editor footer/status strip
@@ -122,6 +123,7 @@ local function new_tab(path, lines)
         lines        = lines,
         cursor       = { line = 1, col = 1 },
         scroll       = 0,
+        scroll_x     = 0,
         modified     = false,
         disk_changed = false,
         mtime        = nil,
@@ -346,6 +348,114 @@ local function basename(path)
 end
 
 -- CSS-specific tokenizer.
+
+-- Color swatch helpers: detect color literals in tokens and annotate them
+-- so the draw loop can render a colored background with contrasting text.
+
+local function hsl_to_rgb(h, s, l)
+    if s == 0 then return l, l, l end
+    local function hue(p, q, t)
+        if t < 0 then t = t + 1 elseif t > 1 then t = t - 1 end
+        if t < 1/6 then return p + (q-p)*6*t end
+        if t < 1/2 then return q end
+        if t < 2/3 then return p + (q-p)*(2/3-t)*6 end
+        return p
+    end
+    local q = l < 0.5 and l*(1+s) or l+s-l*s
+    local p = 2*l - q
+    return hue(p, q, h+1/3), hue(p, q, h), hue(p, q, h-1/3)
+end
+
+local function hex_str_to_rgb(h)
+    local n = #h
+    if n == 3 or n == 4 then
+        return tonumber(h:sub(1,1)..h:sub(1,1), 16)/255,
+               tonumber(h:sub(2,2)..h:sub(2,2), 16)/255,
+               tonumber(h:sub(3,3)..h:sub(3,3), 16)/255
+    elseif n == 6 or n == 8 then
+        return tonumber(h:sub(1,2), 16)/255,
+               tonumber(h:sub(3,4), 16)/255,
+               tonumber(h:sub(5,6), 16)/255
+    end
+end
+
+local function contrast_fg(r, g, b)
+    local function lin(c)
+        return c <= 0.04045 and c/12.92 or ((c+0.055)/1.055)^2.4
+    end
+    local L = 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b)
+    if L > 0.179 then return 0, 0, 0 else return 1, 1, 1 end
+end
+
+local function annotate_color_swatches(toks, raw_line)
+    -- Build byte-offset table so we can map line positions → tokens
+    local offsets = {}
+    local pos = 1
+    for i, tok in ipairs(toks) do
+        offsets[i] = pos
+        pos = pos + #tok.text
+    end
+
+    local function mark_tok_at(byte_pos, r, g, b)
+        r = math.max(0, math.min(1, r))
+        g = math.max(0, math.min(1, g))
+        b = math.max(0, math.min(1, b))
+        local fr, fg, fb = contrast_fg(r, g, b)
+        for i, tok in ipairs(toks) do
+            local ts = offsets[i]
+            if ts <= byte_pos and ts + #tok.text > byte_pos then
+                if not tok.swatch then
+                    tok.swatch = { r, g, b, fr, fg, fb }
+                end
+                return
+            end
+        end
+    end
+
+    -- Hex colors: each token whose entire text is #RGB / #RRGGBB / #RGBA / #RRGGBBAA
+    for i, tok in ipairs(toks) do
+        local hex = tok.text:match("^#(%x+)$")
+        if hex then
+            local n = #hex
+            if n == 3 or n == 4 or n == 6 or n == 8 then
+                local r, g, b = hex_str_to_rgb(hex)
+                if r and not tok.swatch then
+                    local fr, fg, fb = contrast_fg(r, g, b)
+                    tok.swatch = { r, g, b, fr, fg, fb }
+                end
+            end
+        end
+    end
+
+    -- rgb() / rgba() in raw line
+    local sp = 1
+    while sp <= #raw_line do
+        local s, e, args = raw_line:find("rgba?%(([^)]+)%)", sp)
+        if not s then break end
+        local vals = {}
+        for v in args:gmatch("[%d%.]+") do vals[#vals+1] = tonumber(v) end
+        if #vals >= 3 then
+            mark_tok_at(s, vals[1]/255, vals[2]/255, vals[3]/255)
+        end
+        sp = e + 1
+    end
+
+    -- hsl() / hsla() in raw line
+    sp = 1
+    while sp <= #raw_line do
+        local s, e, args = raw_line:find("hsla?%(([^)]+)%)", sp)
+        if not s then break end
+        local vals = {}
+        for v in args:gmatch("[%d%.]+") do vals[#vals+1] = tonumber(v) end
+        if #vals >= 3 then
+            local r, g, b = hsl_to_rgb(vals[1]/360, vals[2]/100, vals[3]/100)
+            mark_tok_at(s, r, g, b)
+        end
+        sp = e + 1
+    end
+end
+
+-- CSS-specific tokenizer (continued below).
 -- Colors:
 --   .class    → yellow     (#id → literal/amber, both distinct in the dark purple theme)
 --   property  → lavender   (light purple/blueish, same hue used for brackets elsewhere)
@@ -845,6 +955,32 @@ local function ensure_scroll(t, h)
         t.scroll = t.cursor.line - vis
     end
     if t.scroll < 0 then t.scroll = 0 end
+    -- keep cursor horizontally in view whenever cursor movement triggers this
+    local line   = t.lines[t.cursor.line] or ""
+    local cpx    = font_sm:getWidth(_utf8_safe(line:sub(1, t.cursor.col - 1)))
+    local view_w = _last_w - GUTTER
+    if view_w > 0 then
+        if cpx < t.scroll_x then
+            t.scroll_x = math.max(0, cpx - 10)
+        elseif cpx > t.scroll_x + view_w - 10 then
+            t.scroll_x = cpx - view_w + 10
+        end
+        if t.scroll_x < 0 then t.scroll_x = 0 end
+    end
+end
+
+local function ensure_cursor_visible_x(t, w)
+    if not t then return end
+    local line      = t.lines[t.cursor.line] or ""
+    local cursor_px = font_sm:getWidth(_utf8_safe(line:sub(1, t.cursor.col - 1)))
+    local view_w    = w - GUTTER
+    if view_w <= 0 then return end
+    if cursor_px < t.scroll_x then
+        t.scroll_x = math.max(0, cursor_px - 10)
+    elseif cursor_px > t.scroll_x + view_w - 10 then
+        t.scroll_x = cursor_px - view_w + 10
+    end
+    if t.scroll_x < 0 then t.scroll_x = 0 end
 end
 
 local function col_px(line_str, col)
@@ -958,6 +1094,7 @@ end
 function M.draw(x, y, w, h)
     if not M.has_tabs() then return end
     _last_h = h
+    _last_w = w
 
     local t = M.active_tab()
 
@@ -1079,6 +1216,8 @@ function M.draw(x, y, w, h)
     local max_scr = math.max(0, #t.lines - vis + OVER_ROWS)
     if t.scroll > max_scr then t.scroll = max_scr end
 
+    local sx = t.scroll_x  -- horizontal pixel offset for text content
+
     -- strict content rect: draw only full rows between top and bottom padding
     local scissor_y = ey + TOP_PAD
     local scissor_h = vis * CHAR_H
@@ -1096,24 +1235,24 @@ function M.draw(x, y, w, h)
             fill_rect(x, draw_y, w, CHAR_H)
         end
 
-        -- selection highlight
+        -- selection highlight (offset by scroll_x)
         local sl, sc, el, ec = sel_norm(t)
         if sl and li >= sl and li <= el then
-            local px_s = (li == sl) and (x + col_px(line, sc)) or (x + GUTTER)
-            local px_e = (li == el) and (x + col_px(line, ec))
-                         or (x + GUTTER + font_sm:getWidth(_utf8_safe(line)) + font_sm:getWidth(" "))
+            local px_s = ((li == sl) and (x + col_px(line, sc)) or (x + GUTTER)) - sx
+            local px_e = ((li == el) and (x + col_px(line, ec))
+                         or (x + GUTTER + font_sm:getWidth(_utf8_safe(line)) + font_sm:getWidth(" "))) - sx
             if px_e > px_s then
                 love.graphics.setColor(0.55, 0.28, 1.0, 0.82)
                 fill_rect(px_s, draw_y, px_e - px_s, CHAR_H)
             end
         end
 
-        -- find match highlights (behind text, in front of selection)
+        -- find match highlights (behind text, in front of selection; offset by scroll_x)
         if _find.active and _find.query ~= "" then
             for mi, m in ipairs(_find.matches) do
                 if m.line == li then
-                    local px_s = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_s - 1)))
-                    local px_e = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_e - 1)))
+                    local px_s = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_s - 1))) - sx
+                    local px_e = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_e - 1))) - sx
                     if mi == _find.idx then
                         love.graphics.setColor(1.0, 0.82, 0.0, 0.72)  -- current match: gold
                     else
@@ -1124,32 +1263,32 @@ function M.draw(x, y, w, h)
             end
         end
 
-        -- gutter
-        love.graphics.setColor(C.panel_bg[1] or 0.065, C.panel_bg[2] or 0.04, C.panel_bg[3] or 0.14, 1)
-        fill_rect(x, draw_y, GUTTER - 4, CHAR_H)
-        local ln_str = tostring(li)
-        local ln_w   = font_sm:getWidth(ln_str)
-        love.graphics.setColor(is_cur and C.lavender or C.grey)
-        love.graphics.setFont(font_sm)
-        love.graphics.print(ln_str, x + GUTTER - 6 - ln_w, draw_y + 1)
-
-        -- syntax tokens
+        -- syntax tokens (offset by scroll_x)
         local toks = tokenize_line(line, ext)
-        local text_x = x + GUTTER
+        annotate_color_swatches(toks, line)
+        local text_x = x + GUTTER - sx
         for _, tok in ipairs(toks) do
             local safe = _utf8_safe(tok.text)
             if safe ~= "" then
-                love.graphics.setColor(C[tok.col] or C.text)
+                local tw = font_sm:getWidth(safe)
+                if tok.swatch then
+                    local sw = tok.swatch
+                    love.graphics.setColor(sw[1], sw[2], sw[3], 1)
+                    fill_rect(text_x, draw_y + 1, tw, CHAR_H - 2)
+                    love.graphics.setColor(sw[4], sw[5], sw[6], 1)
+                else
+                    love.graphics.setColor(C[tok.col] or C.text)
+                end
                 love.graphics.setFont(font_sm)
                 love.graphics.print(safe, text_x, draw_y)
-                text_x = text_x + font_sm:getWidth(safe)
+                text_x = text_x + tw
             end
         end
 
-        -- cursor caret
+        -- cursor caret (offset by scroll_x)
         if is_cur then
             local before = _utf8_safe(line:sub(1, t.cursor.col - 1))
-            local cx2    = x + GUTTER + font_sm:getWidth(before)
+            local cx2    = x + GUTTER + font_sm:getWidth(before) - sx
             _ac_cursor_x = cx2    -- store for autocomplete overlay
             _ac_cursor_y = draw_y
             local blink  = math.floor(love.timer.getTime() * 2) % 2 == 0
@@ -1159,10 +1298,45 @@ function M.draw(x, y, w, h)
             end
         end
 
+        -- gutter drawn last so it covers any text that scrolled into the gutter column
+        love.graphics.setColor(C.panel_bg[1] or 0.065, C.panel_bg[2] or 0.04, C.panel_bg[3] or 0.14, 1)
+        fill_rect(x, draw_y, GUTTER - 4, CHAR_H)
+        local ln_str = tostring(li)
+        local ln_w   = font_sm:getWidth(ln_str)
+        love.graphics.setColor(is_cur and C.lavender or C.grey)
+        love.graphics.setFont(font_sm)
+        love.graphics.print(ln_str, x + GUTTER - 6 - ln_w, draw_y + 1)
+
         draw_y = draw_y + CHAR_H
     end
 
     love.graphics.setScissor()
+
+    -- horizontal scrollbar (shown when content is wider than viewport)
+    do
+        local max_line_px = 0
+        for _, ln in ipairs(t.lines) do
+            local lw = font_sm:getWidth(_utf8_safe(ln))
+            if lw > max_line_px then max_line_px = lw end
+        end
+        local view_w    = w - GUTTER
+        -- content width is the text-only width; the scrollable range is content_w - view_w
+        local content_w = max_line_px + 40
+        local max_sx    = math.max(0, content_w - view_w)
+        -- clamp scroll_x every frame so wheel-scroll cannot overshoot
+        t.scroll_x = math.max(0, math.min(t.scroll_x, max_sx))
+        if max_sx > 0 then
+            local SB_H    = 4
+            local sb_y    = ey + eh - SB_H
+            local ratio   = math.min(1, view_w / content_w)
+            local thumb_w = math.max(30, math.floor(view_w * ratio))
+            local thumb_x = x + GUTTER + math.floor((view_w - thumb_w) * (t.scroll_x / max_sx))
+            love.graphics.setColor(C.border[1], C.border[2], C.border[3], 0.5)
+            fill_rect(x + GUTTER, sb_y, view_w, SB_H)
+            love.graphics.setColor(C.accent[1], C.accent[2], C.accent[3], 0.7)
+            fill_rect(thumb_x, sb_y, thumb_w, SB_H)
+        end
+    end
 
     -- footer bar: filename + position
     love.graphics.setColor(C.menu_bg)
@@ -1758,6 +1932,7 @@ function M.textinput(char)
     t.modified   = true
     AC.on_text(t, char)
     ensure_scroll(t, _last_h)
+    ensure_cursor_visible_x(t, _last_w)
     return true
 end
 
@@ -1771,7 +1946,7 @@ local function _pos_from_mouse(mx, my, t, px, py)
     row = math.max(1, math.min(#t.lines, row))
     local line  = t.lines[row] or ""
     local safe  = _utf8_safe(line)
-    local rel_x = mx - (px + GUTTER)
+    local rel_x = mx - (px + GUTTER) + (t.scroll_x or 0)
     local best  = #safe + 1
     if rel_x > 0 then
         local acc = 0
@@ -2105,6 +2280,13 @@ function M.wheelmoved(wx, wy, px, py, pw, ph, mx, my)
 
     local vis = visible_lines(ph)
     local max_scr = math.max(0, #t.lines - vis + OVER_ROWS)
+
+    -- horizontal trackpad axis scrolls the content, not the tab bar
+    if wx ~= 0 then
+        t.scroll_x = math.max(0, t.scroll_x + wx * 40)
+        return true
+    end
+
     t.scroll  = math.max(0, math.min(max_scr, t.scroll - wy * 3))
     return true
 end
