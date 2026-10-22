@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ava Gateway</title>
+<style>
+  :root {
+    --bg: #0b1016;
+    --panel: #131b24;
+    --line: #22303f;
+    --text: #e6edf5;
+    --muted: #8fa3b8;
+    --accent: #4aa8ff;
+    --accent-dim: #1d63a6;
+    --user: #16324c;
+    --err: #ff8087;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand { font-weight: 600; letter-spacing: .2px; }
+  .brand span { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 13px; }
+  header .controls { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  select, input, textarea, button {
+    font: inherit;
+    color: var(--text);
+    background: #0f1720;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  select { max-width: 46vw; }
+  button { cursor: pointer; background: var(--accent-dim); border-color: var(--accent-dim); }
+  button:hover { background: var(--accent); border-color: var(--accent); color: #06121d; }
+  button.ghost { background: transparent; border-color: var(--line); color: var(--muted); }
+  button.ghost:hover { color: var(--text); border-color: var(--accent); background: transparent; }
+  button:disabled { opacity: .5; cursor: default; }
+  .who { color: var(--muted); font-size: 13px; }
+  .card {
+    margin: auto;
+    width: min(420px, 92vw);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .card h1 { font-size: 19px; margin: 0 0 18px; font-weight: 600; }
+  .card label { display: block; margin-bottom: 14px; font-size: 13px; color: var(--muted); }
+  .card label input { display: block; width: 100%; margin-top: 6px; }
+  .card button[type=submit] { width: 100%; margin-top: 4px; padding: 10px; }
+  .err { color: var(--err); font-size: 13px; min-height: 18px; margin: 10px 0 0; }
+  .hint { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+  #chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .log { flex: 1; overflow-y: auto; padding: 22px max(18px, calc((100% - 780px) / 2)); }
+  .msg { display: flex; gap: 12px; margin-bottom: 20px; }
+  .msg .role {
+    flex: 0 0 64px;
+    text-align: right;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--muted);
+    padding-top: 4px;
+  }
+  .msg .body {
+    flex: 1;
+    min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .msg.user .body { background: var(--user); border-color: #1f4363; }
+  .msg.pending .body::after { content: ""; display: inline-block; width: 7px; height: 15px; background: var(--accent); margin-left: 3px; animation: blink 1s steps(2) infinite; vertical-align: -2px; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .composer {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 14px max(18px, calc((100% - 780px) / 2)) 20px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .composer textarea { flex: 1; resize: none; max-height: 40vh; }
+  .composer button { padding: 9px 18px; }
+  .meta { color: var(--muted); font-size: 12px; padding: 0 max(18px, calc((100% - 780px) / 2)); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Ava Gateway <span>authenticated model access</span></div>
+  <div class="controls" id="controls" hidden>
+    <select id="model" aria-label="Model"></select>
+    <span class="who" id="who"></span>
+    <button type="button" class="ghost" id="signout">Sign out</button>
+  </div>
+</header>
+
+<main>
+  <section class="card" id="login">
+    <h1>Sign in</h1>
+    <form id="login-form" autocomplete="on">
+      <label>Username or email
+        <input id="identifier" name="username" autocomplete="username" required>
+      </label>
+      <label>Password
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" id="login-btn">Continue</button>
+      <p class="err" id="login-err"></p>
+    </form>
+    <form id="code-form" hidden>
+      <label>Six digit code
+        <input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
+      </label>
+      <button type="submit">Verify</button>
+      <p class="hint" id="code-hint">A code was sent to the account email address.</p>
+      <p class="err" id="code-err"></p>
+    </form>
+  </section>
+
+  <section id="chat" hidden>
+    <div class="log" id="log"></div>
+    <div class="meta" id="meta"></div>
+    <form class="composer" id="send-form">
+      <textarea id="prompt" rows="2" placeholder="Message the model"></textarea>
+      <button type="submit" id="send">Send</button>
+      <button type="button" class="ghost" id="stop" hidden>Stop</button>
+    </form>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  const AUTH_BASE = "__AUTH_BASE__";
+  const DEFAULT_BACKEND = "__DEFAULT_BACKEND__";
+  const STORE = 'xcm.gateway.session';
+  const MAX_TURNS = 16;
+
+  const el = (id) => document.getElementById(id);
+  const state = {
+    token: '',
+    refresh: '',
+    challenge: '',
+    messages: [],
+    controller: null,
+  };
+
+  function session() {
+    try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (_) { return {}; }
+  }
+  function saveSession(tokens) {
+    state.token = tokens.access_token || '';
+    state.refresh = tokens.refresh_token || '';
+    localStorage.setItem(STORE, JSON.stringify({ token: state.token, refresh: state.refresh }));
+  }
+  function clearSession() {
+    state.token = '';
+    state.refresh = '';
+    localStorage.removeItem(STORE);
+  }
+
+  async function jsonFetch(url, options) {
+    const res = await fetch(url, options);
+    let body = null;
+    try { body = await res.json(); } catch (_) { body = null; }
+    return { res: res, body: body };
+  }
+
+  async function refreshToken() {
+    if (!state.refresh) return false;
+    const out = await jsonFetch(AUTH_BASE + '/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: state.refresh }),
+    });
+    if (!out.res.ok || !out.body || !out.body.ok || !out.body.data) return false;
+    saveSession(out.body.data);
+    return true;
+  }
+
+  async function authorised(url, options) {
+    const opts = Object.assign({}, options);
+    opts.headers = Object.assign({}, opts.headers, { Authorization: 'Bearer ' + state.token });
+    let out = await fetch(url, opts);
+    if (out.status === 401 && await refreshToken()) {
+      opts.headers.Authorization = 'Bearer ' + state.token;
+      out = await fetch(url, opts);
+    }
+    if (out.status === 401) {
+      clearSession();
+      showLogin('Session expired, sign in again.');
+    }
+    return out;
+  }
+
+  function showError(id, msg) { el(id).textContent = msg || ''; }
+
+  async function submitLogin(event) {
+    event.preventDefault();
+    showError('login-err', '');
+    el('login-btn').disabled = true;
+    try {
+      const out = await jsonFetch(AUTH_BASE + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: el('identifier').value.trim(),
+          password: el('password').value,
+        }),
+      });
+      if (!out.res.ok || !out.body || !out.body.ok) {
+        showError('login-err', (out.body && out.body.message) || 'Login failed.');
+        return;
+      }
+      const data = out.body.data || {};
+      if (data.twofa_required) {
+        state.challenge = data.challenge_token || '';
+        el('login-form').hidden = true;
+        el('code-form').hidden = false;
+        el('code').focus();
+        return;
+      }
+      saveSession(data.tokens || {});
+      await enterChat(data.user || {});
+    } finally {
+      el('login-btn').disabled = false;
+    }
+  }
+
+  async function submitCode(event) {
+    event.preventDefault();
+    showError('code-err', '');
+    const out = await jsonFetch(AUTH_BASE + '/auth/verify-2fa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + state.challenge },
+      body: JSON.stringify({ code: el('code').value.trim() }),
+    });
+    if (!out.res.ok || !out.body || !out.body.ok) {
+      showError('code-err', (out.body && out.body.message) || 'Code rejected.');
+      return;
+    }
+    const data = out.body.data || {};
+    saveSession(data.tokens || {});
+    el('code-form').hidden = true;
+    await enterChat(data.user || {});
+  }
+
+  function showLogin(message) {
+    el('chat').hidden = true;
+    el('controls').hidden = true;
+    el('login').hidden = false;
+    el('login-form').hidden = false;
+    el('code-form').hidden = true;
+    showError('login-err', message || '');
+  }
+
+  async function enterChat(user) {
+    el('login').hidden = true;
+    el('chat').hidden = false;
+    el('controls').hidden = false;
+    el('who').textContent = user.username || '';
+    el('prompt').focus();
+    if (!state.messages.length) {
+      addMessage('assistant', 'Connected. Pick a model and send a message.');
+    }
+    await loadModels();
+  }
+
+  async function loadModels() {
+    const select = el('model');
+    select.innerHTML = '';
+    const out = await authorised('/v1/models');
+    if (!out.ok) {
+      el('meta').textContent = 'Could not list models.';
+      return;
+    }
+    const body = await out.json();
+    const list = (body.data || []).slice().sort((a, b) => (a.backend + a.id).localeCompare(b.backend + b.id));
+    if (!list.length) {
+      el('meta').textContent = 'No models are reachable right now.';
+      return;
+    }
+    list.forEach((m) => {
+      const option = document.createElement('option');
+      option.value = m.backend + '\u0000' + m.id;
+      option.textContent = m.id + '  [' + m.backend + ']';
+      if (m.backend === DEFAULT_BACKEND && !select.value) option.selected = true;
+      select.appendChild(option);
+    });
+    el('meta').textContent = list.length + ' model(s) across ' +
+      new Set(list.map((m) => m.backend)).size + ' backend(s).';
+  }
+
+  function addMessage(role, text) {
+    const row = document.createElement('div');
+    row.className = 'msg ' + role;
+    const label = document.createElement('div');
+    label.className = 'role';
+    label.textContent = role === 'user' ? 'you' : 'model';
+    const body = document.createElement('div');
+    body.className = 'body';
+    body.textContent = text;
+    row.appendChild(label);
+    row.appendChild(body);
+    el('log').appendChild(row);
+    el('log').scrollTop = el('log').scrollHeight;
+    return body;
+  }
+
+  function selected() {
+    const raw = el('model').value || '';
+    const parts = raw.split('\u0000');
+    return { backend: parts[0] || DEFAULT_BACKEND, model: parts[1] || '' };
+  }
+
+  async function send(event) {
+    event.preventDefault();
+    const text = el('prompt').value.trim();
+    if (!text || state.controller) return;
+    const choice = selected();
+    if (!choice.model) return;
+
+    el('prompt').value = '';
+    addMessage('user', text);
+    state.messages.push({ role: 'user', content: text });
+    if (state.messages.length > MAX_TURNS) state.messages = state.messages.slice(-MAX_TURNS);
+
+    const bubble = addMessage('assistant', '');
+    bubble.parentElement.classList.add('pending');
+    el('send').disabled = true;
+    el('stop').hidden = false;
+    state.controller = new AbortController();
+
+    let answer = '';
+    try {
+      const out = await authorised('/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: state.controller.signal,
+        body: JSON.stringify({
+          model: choice.model,
+          backend: choice.backend,
+          messages: state.messages,
+          stream: true,
+        }),
+      });
+      if (!out.ok) {
+        let detail = 'HTTP ' + out.status;
+        try { const err = await out.json(); detail = (err.error && err.error.message) || detail; } catch (_) {}
+        bubble.textContent = 'Error: ' + detail;
+        return;
+      }
+      await readStream(out, (chunk) => {
+        answer += chunk;
+        bubble.textContent = answer;
+        el('log').scrollTop = el('log').scrollHeight;
+      });
+      if (answer) state.messages.push({ role: 'assistant', content: answer });
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        bubble.textContent = 'Error: ' + (err.message || String(err));
+      } else if (answer) {
+        state.messages.push({ role: 'assistant', content: answer });
+      }
+    } finally {
+      bubble.parentElement.classList.remove('pending');
+      state.controller = null;
+      el('send').disabled = false;
+      el('stop').hidden = true;
+    }
+  }
+
+  async function readStream(response, onDelta) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      let boundary;
+      while ((boundary = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 1);
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          const event = JSON.parse(payload);
+          const delta = event.choices && event.choices[0] && (event.choices[0].delta || {});
+          const piece = (delta && delta.content) || '';
+          if (piece) onDelta(piece);
+        } catch (_) { /* keep-alive or unknown frame */ }
+      }
+    }
+  }
+
+  function boot() {
+    const saved = session();
+    if (saved.token) {
+      state.token = saved.token;
+      state.refresh = saved.refresh || '';
+      enterChat({});
+      return;
+    }
+    showLogin('');
+  }
+
+  el('login-form').addEventListener('submit', submitLogin);
+  el('code-form').addEventListener('submit', submitCode);
+  el('send-form').addEventListener('submit', send);
+  el('stop').addEventListener('click', () => { if (state.controller) state.controller.abort(); });
+  el('signout').addEventListener('click', () => { clearSession(); showLogin(''); });
+  el('prompt').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      el('send-form').requestSubmit();
+    }
+  });
+
+  boot();
+}());
+</script>
+</body>
+</html>

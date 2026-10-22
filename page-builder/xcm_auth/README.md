@@ -190,3 +190,33 @@ var res = await client.PostAsync("http://127.0.0.1:9100/auth/login", body);
 var json = await res.Content.ReadAsStringAsync();
 Console.WriteLine(json);
 ```
+
+## Gateway: one authenticated door to every model
+
+`cmd/gateway` is a second binary in this module. It holds no user table: it
+verifies the access tokens issued here (same `JWT_ACCESS_SECRET`) and a
+long-lived `GATEWAY_SERVICE_TOKEN` for scripts and MCP clients.
+
+```
+GET  /health              backend reachability, no auth
+GET  /v1/models           every model with the backend that serves it
+POST /v1/chat/completions OpenAI schema, streaming passthrough
+GET  /api/me              who the token belongs to
+GET  /                    small browser client with login and 2FA
+```
+
+Backends are plain `/v1` endpoints, so anything OpenAI compatible works:
+
+```
+GATEWAY_BACKENDS=local=http://127.0.0.1:11435/v1,gpu=http://10.0.0.5:8000/v1
+GATEWAY_DEFAULT_BACKEND=local
+```
+
+A request may carry `"backend": "gpu"` to force one; otherwise the gateway picks
+the backend that advertises the requested model, then the default. Backend API
+keys stay in `GATEWAY_BACKEND_KEYS` on the server and are never forwarded from
+the client.
+
+Behind Caddy, `/auth/*`, `/user/*` and `/admin/*` go to this service and
+everything else goes to the gateway, so the UI, the API and the mobile app share
+one origin.
