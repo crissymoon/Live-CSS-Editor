@@ -4,6 +4,7 @@
 // Returned by value; caller passes the result straight to webview_init().
 
 #include "main_funcs.h"
+#include "platform/xcm_paths.h"
 
 WebViewCallbacks build_webview_callbacks(const Args& args) {
     WebViewCallbacks wv_cbs;
@@ -74,9 +75,16 @@ WebViewCallbacks build_webview_callbacks(const Args& args) {
     };
 
     // ── Performance-enhancement script loading ────────────────────────
-    // Scripts live in dev-tools/dev-browser/src/ (one level above apps_dir).
-    if (!args.apps_dir.empty()) {
-        std::string src_dir = args.apps_dir + "/../src";
+    // Scripts live in dev-tools/dev-browser/src/.  Resolve that from the project
+    // root instead of from apps_dir, which may point at the project root itself.
+    std::string src_dir = xcm::first_existing_dir({
+        "../dev-tools/dev-browser/src",
+        "dev-tools/dev-browser/src",
+        "src/dev-src"});
+    if (src_dir.empty()) {
+        fprintf(stderr, "[wvcbs] WARNING: injection script dir not found under %s\n",
+                xcm::project_root().c_str());
+    } else {
         auto load_file = [](const std::string& p) -> std::string {
             FILE* f = fopen(p.c_str(), "r");
             if (!f) {

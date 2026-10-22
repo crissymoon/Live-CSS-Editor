@@ -1,6 +1,7 @@
 // server_manager.cpp -- PHP/Node process management
 
 #include "server_manager.h"
+#include "platform/xcm_paths.h"
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -13,7 +14,6 @@
 #include <sys/wait.h>
 
 static std::vector<pid_t> s_procs;
-
 static bool port_open(int port) {
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) return false;
@@ -153,8 +153,11 @@ std::string server_find_wasm_dir(const std::string& apps_dir) {
             }
         }
     }
-    // Also try the bundled sibling path next to the binary (for .app bundles)
-    candidates.push_back("/Users/mac/Documents/live-css/imgui-browser/php-wasm-project");
+    // Also try paths relative to the project root, which is how the tree is
+    // laid out both for dev builds and for an installed .app.
+    candidates.push_back(xcm::asset_path("php-wasm-project"));
+    candidates.push_back(xcm::asset_path("../php-wasm-project"));
+    candidates.push_back(xcm::asset_path("../imgui-browser/php-wasm-project"));
     for (auto& c : candidates) {
         std::string srv = c + "/server.js";
         if (access(srv.c_str(), R_OK) == 0) return c;

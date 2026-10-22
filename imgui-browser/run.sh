@@ -67,23 +67,32 @@ else
     DEFAULT_URL="https://localhost:8443/page-builder/composer.php?page=landing"
 fi
 
-# Ensure the nginx HTTPS server on port 8443 is up before launching.
-# nginx + PHP-FPM are managed by brew services (launchd) and should already
-# be running.  If not, run: bash "$LIVECSS_ROOT/server/start.sh"
+# Ensure the nginx HTTPS server on port 8443 is up, or fall back to the PHP
+# built-in server.  nginx + PHP-FPM are managed by brew services (launchd);
+# when nginx is not installed the dev server below still serves the whole repo.
 _port_open() { nc -z 127.0.0.1 "$1" &>/dev/null; }
+PHP_DEV_PORT=9879
 if ! _port_open 8443; then
-    echo "[run] WARNING: port 8443 (nginx HTTPS) not listening."
-    echo "[run] Attempting to start server stack..."
-    if bash "$LIVECSS_ROOT/server/start.sh" 2>/dev/null; then
-        for i in {1..14}; do
-            _port_open 8443 && break
-            sleep 0.5
-        done
-        _port_open 8443 && echo "[run] port 8443 ready" \
-                        || echo "[run] WARNING: port 8443 still not up after 7s"
+    echo "[run] port 8443 (nginx HTTPS) not listening -- trying server/start.sh"
+    bash "$LIVECSS_ROOT/server/start.sh" >/dev/null 2>&1 || true
+    for i in {1..14}; do
+        _port_open 8443 && break
+        sleep 0.5
+    done
+    if _port_open 8443; then
+        echo "[run] port 8443 ready"
     else
-        echo "[run] server/start.sh failed -- open a terminal and run:"
-        echo "[run]   bash $LIVECSS_ROOT/server/start.sh"
+        # No nginx: point the app's own PHP built-in server at the project root,
+        # which is the same document root server/conf/nginx.conf.tpl uses.
+        echo "[run] nginx unavailable -- serving the project root on PHP :$PHP_DEV_PORT"
+        APPS_DIR="$LIVECSS_ROOT"
+        if [[ "$SERVE_MODE" == "css_tool" ]]; then
+            DEFAULT_URL="http://127.0.0.1:$PHP_DEV_PORT/my_project/index.php"
+        else
+            DEFAULT_URL="http://127.0.0.1:$PHP_DEV_PORT/page-builder/composer.php?page=landing"
+        fi
+        echo "[run] serving $DEFAULT_URL"
+        echo "[run] for the HTTPS stack run: bash $LIVECSS_ROOT/server/setup.sh"
     fi
 else
     echo "[run] port 8443 already listening"

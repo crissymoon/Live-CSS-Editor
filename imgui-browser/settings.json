@@ -48,6 +48,30 @@
       "win_h":         900
     },
 
+    "local_site": {
+      "_desc": "Page-builder served by the app's own PHP dev server with the project root as document root.  This is the nginx-free path: works when nginx is not installed.",
+      "ui_mode":       "full",
+      "show_tabs":     true,
+      "show_toolbar":  true,
+      "startup_url":   "http://127.0.0.1:9879/page-builder/composer.php?page=landing",
+      "wasm_enabled":  false,
+      "apps_dir":      "..",
+      "win_w":         1400,
+      "win_h":         900
+    },
+
+    "local_style_tool": {
+      "_desc": "Live CSS style tool (my_project) served by the app's own PHP dev server with the project root as document root.  No nginx required.",
+      "ui_mode":       "full",
+      "show_tabs":     true,
+      "show_toolbar":  true,
+      "startup_url":   "http://127.0.0.1:9879/my_project/index.php",
+      "wasm_enabled":  false,
+      "apps_dir":      "..",
+      "win_w":         1400,
+      "win_h":         900
+    },
+
     "wasm": {
       "_desc": "Full browser backed by the PHP-WASM server.  No native PHP install required.  Node.js is used to run the WASM PHP interpreter.  The WASM server starts automatically on wasm_port.",
       "ui_mode":       "full",

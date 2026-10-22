@@ -3,6 +3,7 @@
 // All other popup logic lives in XCMPopupDelegate (webview_delegates.mm).
 
 #include "webview_priv.h"
+#include "platform/xcm_paths.h"
 
 // ── Patterns that trigger the secure-window popup ─────────────────────
 
@@ -77,8 +78,37 @@ static const char* const kSecureOverlayJS =
 "},3000);"
 "})();";
 
+// Shell-escape a path or argument for /bin/sh single quotes.
+static std::string sh_quote(const std::string& s) {
+    std::string out = "'";
+    for (char c : s) {
+        if (c == '\'') out += "'\\''";
+        else           out += c;
+    }
+    out += "'";
+    return out;
+}
+
 void webview_open_virt_popup(const std::string& url) {
     fprintf(stderr, "[popup] launching no-controls browser for: %s\n", url.c_str());
+
+    // ── Locate the no-controls browser (dev-tools/dev-browser) ───────────────
+    // The python script and its interpreter live outside imgui-browser/, so the
+    // paths are resolved from the project root instead of being hardcoded.
+    std::string script = xcm::first_existing({
+        "../dev-tools/dev-browser/webbrowse_no_controls.py",
+        "dev-tools/dev-browser/webbrowse_no_controls.py"});
+    if (script.empty()) {
+        fprintf(stderr, "[popup] webbrowse_no_controls.py not found under %s\n",
+                xcm::project_root().c_str());
+        return;
+    }
+
+    std::string python = xcm::first_existing({
+        "../dev-tools/dev-browser/venv/bin/python3",
+        "../dev-tools/dev-browser/.venv/bin/python3",
+        "venv/bin/python3"});
+    if (python.empty()) python = "python3";  // fall back to PATH
 
     // ── Full-page overlay animation in the active tab ────────────────
     // Inject into the active tab's WKWebView so the user sees a visual
@@ -101,26 +131,20 @@ void webview_open_virt_popup(const std::string& url) {
         native_chrome_eval_toolbar_js(js.c_str());
     }
 
-    // Shell-escape the URL so single quotes inside it cannot break the command.
-    std::string escaped_url;
-    for (char c : url) {
-        if (c == '\'') escaped_url += "'\\''";
-        else           escaped_url += c;
-    }
-
     // nohup + & reparents the child to launchd -- fully detached from this app.
     std::string cmd =
-        "nohup "
-        "/Users/mac/Documents/live-css/dev-tools/dev-browser/venv/bin/python3 "
-        "/Users/mac/Documents/live-css/dev-tools/dev-browser/webbrowse_no_controls.py "
-        "--url '" + escaped_url + "' "
-        "</dev/null >/dev/null 2>&1 &";
+        "nohup " + sh_quote(python) + " " + sh_quote(script) +
+        " --url " + sh_quote(url) +
+        " </dev/null >/dev/null 2>&1 &";
+
+    std::string work_dir = script.substr(0, script.find_last_of('/'));
 
     dispatch_async(dispatch_get_main_queue(), ^{
         NSTask* task = [[NSTask alloc] init];
         task.launchPath = @"/bin/sh";
         task.arguments  = @[@"-c", [NSString stringWithUTF8String:cmd.c_str()]];
-        task.currentDirectoryPath = @"/Users/mac/Documents/live-css/dev-tools/dev-browser";
+        if (!work_dir.empty())
+            task.currentDirectoryPath = [NSString stringWithUTF8String:work_dir.c_str()];
 
         NSError* err = nil;
         if (@available(macOS 10.13, *)) {

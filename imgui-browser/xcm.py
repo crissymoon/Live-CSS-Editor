@@ -188,6 +188,13 @@ def build_argv(profile: dict, overrides: dict) -> list[str]:
     if p.get("cmd_port"):
         argv += ["--cmd-port", str(p["cmd_port"])]
 
+    # Document root for the PHP dev server.  Relative values are resolved
+    # against this folder so a profile can say ".." for the project root.
+    apps_dir = p.get("apps_dir") or ""
+    if apps_dir:
+        here = os.path.dirname(os.path.abspath(__file__))
+        argv += ["--apps-dir", os.path.normpath(os.path.join(here, apps_dir))]
+
     return argv
 
 # ---------------------------------------------------------------------------

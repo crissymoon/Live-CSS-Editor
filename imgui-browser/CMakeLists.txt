@@ -59,6 +59,7 @@ set(SOURCES_SHARED
     src/top-of-gui/chrome_drawer.cpp
     src/cmds-and-server/cmd_server.cpp
     src/fps_counter.cpp
+    src/platform/xcm_paths.cpp
 )
 
 # These main/ files are .mm for ObjC compatibility but contain pure C++ logic.
@@ -81,6 +82,7 @@ set(SOURCES_APPLE
     src/main/main_crash.mm
     src/main/main_menu.mm
     src/top-of-gui/native_chrome_stub.cpp
+    src/top-of-gui/window_chrome_mac.mm
     src/webview/webview_state.mm
     src/webview/webview_delegates.mm
     src/webview/webview_popup.mm

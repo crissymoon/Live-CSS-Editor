@@ -17,29 +17,17 @@
 #include "main/main_args.h"
 #include "main/main_globals.h"
 #include "main/main_funcs.h"
+#include "platform/xcm_paths.h"
+#include "top-of-gui/window_chrome_mac.h"
 
 int main(int argc, char** argv) {
-    // Debug / crash log setup
+    // Debug / crash log setup -- lives next to the source tree, never in /tmp.
     {
-        char exe[1024] = {};
-        uint32_t sz = sizeof(exe);
-        _NSGetExecutablePath(exe, &sz);
-        std::string ep(exe);
-        auto sl = ep.rfind('/');
-        std::string bin_dir = (sl != std::string::npos) ? ep.substr(0, sl) : ".";
-        std::string proj_dir = bin_dir;
-        auto sl2 = bin_dir.rfind('/');
-        if (sl2 != std::string::npos) proj_dir = bin_dir.substr(0, sl2);
-        if (proj_dir.find("Contents/MacOS") != std::string::npos ||
-            proj_dir.find(".app") != std::string::npos) {
-            for (int up = 0; up < 3; up++) {
-                auto s = proj_dir.rfind('/');
-                if (s != std::string::npos) proj_dir = proj_dir.substr(0, s);
-            }
-        }
+        std::string proj_dir = xcm::project_root();
         snprintf(g_debug_dir, sizeof(g_debug_dir), "%s/debug", proj_dir.c_str());
         snprintf(g_crash_log, sizeof(g_crash_log), "%s/crash.log", g_debug_dir);
         mkdir(g_debug_dir, 0755);
+        fprintf(stderr, "[main] project root: %s\n", proj_dir.c_str());
         fprintf(stderr, "[main] debug dir: %s\n", g_debug_dir);
     }
 
@@ -64,7 +52,11 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
-    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+    // A titled window, not a borderless one: macOS only rounds and shadows
+    // titled windows, and only those get the real traffic lights plus the
+    // standard double-click-to-zoom title bar.  The title bar itself is made
+    // transparent below, so the chrome still runs edge to edge.
+    glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
 
     g_win = glfwCreateWindow(args.win_w, args.win_h, "Crissy's Style Tool", nullptr, nullptr);
     if (!g_win) {
@@ -176,8 +168,15 @@ int main(int argc, char** argv) {
 
     // Logo texture
     {
-        NSString* logo_path = @"/Users/mac/Documents/live-css/xcalibur-the-cat-logo.png";
-        NSImage*  ns_img    = [[NSImage alloc] initWithContentsOfFile:logo_path];
+        std::string logo_std = xcm::first_existing({
+            "../my_project/xcalibur-the-cat-logo.png",
+            "src/style-tool-logo.png"});
+        NSString* logo_path = logo_std.empty()
+            ? nil
+            : [NSString stringWithUTF8String:logo_std.c_str()];
+        NSImage*  ns_img    = logo_path
+            ? [[NSImage alloc] initWithContentsOfFile:logo_path]
+            : nil;
         if (ns_img) {
             [NSApp setApplicationIconImage:ns_img];
             NSSize nsz = ns_img.size;
@@ -208,7 +207,8 @@ int main(int argc, char** argv) {
                 }
             }
         } else {
-            fprintf(stderr, "[main] WARNING: could not load logo: %s\n", logo_path.UTF8String);
+            fprintf(stderr, "[main] WARNING: could not load logo (looked in %s)\n",
+                    xcm::project_root().c_str());
         }
     }
 
@@ -217,10 +217,16 @@ int main(int argc, char** argv) {
 
     // NSWindow appearance
     NSWindow* ns_win = glfwGetCocoaWindow(g_win);
+    [ns_win setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]];
     ns_win.titlebarAppearsTransparent = YES;
     ns_win.titleVisibility            = NSWindowTitleHidden;
     ns_win.styleMask |= NSWindowStyleMaskFullSizeContentView;
     [ns_win setTitle:@"Crissy's Style Tool"];
+    fprintf(stderr, "[main] window frame %.0fx%.0f, content %.0fx%.0f, glfw %dx%d\n",
+            ns_win.frame.size.width, ns_win.frame.size.height,
+            ns_win.contentView.bounds.size.width,
+            ns_win.contentView.bounds.size.height,
+            g_state.win_w, g_state.win_h);
 
     // Window drag monitor
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown
@@ -232,7 +238,17 @@ int main(int argc, char** argv) {
         bool  in_tb  = (p.y >= view_h - zone_h);
         bool  in_tl  = (p.x < (float)TRAFFIC_LIGHT_W);
         if (in_tb && !in_tl && !g_chrome_has_hover) {
-            [ns_win performWindowDragWithEvent:ev];
+            // The traffic-light column is left untouched, so the native
+            // buttons handle their own clicks.  Double click runs the system
+            // title-bar action: the first click starts a drag session and
+            // eats AppKit's click count, hence the shared tracker.
+            NSPoint on_screen = [NSEvent mouseLocation];
+            if (xcm_is_double_click(ev.timestamp, on_screen.x, on_screen.y,
+                                    (int)ev.clickCount)) {
+                xcm_titlebar_double_click((__bridge void*)ns_win);
+            } else {
+                [ns_win performWindowDragWithEvent:ev];
+            }
             return nil;
         }
         return ev;
@@ -242,19 +258,28 @@ int main(int argc, char** argv) {
     WebViewCallbacks wv_cbs = build_webview_callbacks(args);
     webview_init((__bridge void*)ns_win, &g_state, wv_cbs);
 
-    // Adblock
-    if (!args.apps_dir.empty()) {
-        std::string rules_path = args.apps_dir + "/../src/adblock-rules.json";
-        FILE* f = fopen(rules_path.c_str(), "r");
-        if (f) {
-            fseek(f, 0, SEEK_END); long fsz = ftell(f); rewind(f);
-            std::string rules(fsz, '\0');
-            fread(&rules[0], 1, fsz, f); fclose(f);
-            webview_load_adblock(rules);
-            fprintf(stderr, "[main] adblock rules loaded (%ld bytes)\n", fsz);
+    // Adblock -- locate the rule list relative to the project root so it works
+    // from a dev build, an .app bundle or an installed copy.
+    {
+        std::string rules_path = xcm::first_existing({
+            "src/adblock-rules.json",
+            "../dev-tools/dev-browser/src/adblock-rules.json"});
+        if (rules_path.empty()) {
+            fprintf(stderr, "[main] WARNING: adblock-rules.json not found under %s\n",
+                    xcm::project_root().c_str());
         } else {
-            fprintf(stderr, "[main] WARNING: adblock-rules.json not at %s\n",
-                    rules_path.c_str());
+            FILE* f = fopen(rules_path.c_str(), "r");
+            if (!f) {
+                fprintf(stderr, "[main] WARNING: cannot read %s\n", rules_path.c_str());
+            } else {
+                fseek(f, 0, SEEK_END); long fsz = ftell(f); rewind(f);
+                std::string rules(fsz > 0 ? (size_t)fsz : 0, '\0');
+                if (fsz > 0) fread(&rules[0], 1, (size_t)fsz, f);
+                fclose(f);
+                webview_load_adblock(rules);
+                fprintf(stderr, "[main] adblock rules loaded (%ld bytes from %s)\n",
+                        fsz, rules_path.c_str());
+            }
         }
     }
 
