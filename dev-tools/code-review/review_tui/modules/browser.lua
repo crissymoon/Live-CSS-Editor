@@ -5,6 +5,7 @@
 local M = {}
 
 local WP     = require "modules.winpipe"
+local U      = require "modules.utf8_util"
 local IS_WIN = love.system.getOS() == "Windows"
 local C = nil
 
@@ -34,6 +35,31 @@ local viewport_h = 0 -- set by draw (rows area under root bar)
 local kb_focus  = false
 local kb_idx    = 1
 
+-- Forward declaration: clamp_kb_idx() is used by handlers defined above it.
+local clamp_kb_idx
+
+-- Known binary extensions that should not be offered for "Edit file".
+-- Kept in sync with the set in editor.lua.
+local BINARY_EXTENSIONS = {
+    png=true, jpg=true, jpeg=true, gif=true, bmp=true, tiff=true, tif=true, webp=true, ico=true,
+    mp3=true, wav=true, ogg=true, flac=true, wma=true, aac=true, m4a=true,
+    mp4=true, avi=true, mkv=true, mov=true, wmv=true, flv=true, webm=true,
+    zip=true, tar=true, gz=true, bz2=true, xz=true, zst=true, rar=true, ["7z"]=true,
+    pdf=true, doc=true, docx=true, xls=true, xlsx=true, ppt=true, pptx=true,
+    dll=true, exe=true, so=true, dylib=true, bin=true, dat=true,
+    o=true, a=true, lib=true, obj=true,
+    ttf=true, otf=true, woff=true, woff2=true, eot=true,
+    svg=true, psd=true, ai=true, eps=true,
+    deb=true, rpm=true, dmg=true, iso=true, img=true,
+    pyc=true, pyo=true, pyd=true, class=true, jar=true,
+    db=true, sqlite=true,
+}
+
+local function is_binary_path(path)
+    local ext = (path:match("%.([^%.]+)$") or ""):lower()
+    return BINARY_EXTENSIONS[ext] == true
+end
+
 -- on_select(path) callback when user picks a directory
 local _on_select = nil
 -- on_edit(path) callback when user chooses "Edit file" from context menu
@@ -45,18 +71,40 @@ local BCTX_ITEMS  = { "Edit file", "Copy path", "Set as scan path", "New file", 
 local BCTX_W      = 170
 local BCTX_ITEM_H = 22
 
-local function fuzzy_match(text, query)
-    local t = (text or ""):lower()
-    local q = (query or ""):lower()
-    if q == "" then return true end
-    local qi = 1
-    for i = 1, #t do
-        if t:sub(i, i) == q:sub(qi, qi) then
-            qi = qi + 1
-            if qi > #q then return true end
+-- The visible menu is shorter for entries that cannot be edited. Keep the
+-- drawing and hit-testing paths using this same list so item indices never
+-- drift when "Edit file" is hidden.
+local function context_menu_items(entry)
+    local items = {}
+    for _, label in ipairs(BCTX_ITEMS) do
+        local hide = label == "Edit file"
+            and entry
+            and (entry.is_dir or is_binary_path(entry.path))
+        if not hide then
+            items[#items + 1] = label
         end
     end
-    return false
+    return items
+end
+
+
+local function fuzzy_match(text, query)
+    local t = U.sanitize(tostring(text or "")):lower()
+    local q = U.sanitize(tostring(query or "")):lower()
+    if q == "" then return true end
+
+    local qchars = U.to_chars(q)
+    local qi = 1
+    local i = 1
+    while true do
+        local ch, next_i = U.next_char(t, i)
+        if not ch then return false end
+        if ch == qchars[qi] then
+            qi = qi + 1
+            if qi > #qchars then return true end
+        end
+        i = next_i
+    end
 end
 
 local function get_visible_entries()
@@ -75,15 +123,19 @@ local function get_visible_entries()
 end
 
 local function draw_fuzzy_text(x, y, text, query, base_col, hit_col)
-    local s = tostring(text or "")
-    local q = (query or ""):lower()
+    local s = U.sanitize(tostring(text or ""))
+    local q = U.sanitize(tostring(query or "")):lower()
+    local qchars = U.to_chars(q)
     local qi = 1
     local cx = x
+    local i = 1
 
-    for i = 1, #s do
-        local ch = s:sub(i, i)
+    while true do
+        local ch, next_i = U.next_char(s, i)
+        if not ch then break end
+
         local is_hit = false
-        if q ~= "" and qi <= #q and ch:lower() == q:sub(qi, qi) then
+        if qi <= #qchars and ch:lower() == qchars[qi] then
             is_hit = true
             qi = qi + 1
         end
@@ -95,7 +147,53 @@ local function draw_fuzzy_text(x, y, text, query, base_col, hit_col)
         end
         love.graphics.print(ch, cx, y)
         cx = cx + font_sm:getWidth(ch)
+        i = next_i
     end
+end
+
+local function draw_entry_tooltip(entry, font, mx, my)
+    if not entry then return end
+
+    local screen_w, screen_h = love.graphics.getDimensions()
+    local padding = 8
+    local line_gap = 3
+    local max_content_w = math.max(80, math.min(520, screen_w - padding * 3))
+    local name_text = "Name: " .. U.sanitize(tostring(entry.name or ""))
+    local path_text = "Path: " .. U.sanitize(tostring(entry.path or ""))
+    local content_w = math.min(
+        max_content_w,
+        math.max(160, font:getWidth(name_text), font:getWidth(path_text))
+    )
+    local _, name_lines = font:getWrap(name_text, content_w)
+    local _, path_lines = font:getWrap(path_text, content_w)
+    local line_h = font:getHeight()
+    local tooltip_w = content_w + padding * 2
+    local tooltip_h = (#name_lines + #path_lines) * line_h + line_gap + padding * 2
+    local tx = mx + 14
+    local ty = my + 12
+
+    if tx + tooltip_w > screen_w - 4 then
+        tx = math.max(4, mx - tooltip_w - 10)
+    end
+    if ty + tooltip_h > screen_h - 4 then
+        ty = math.max(4, screen_h - tooltip_h - 4)
+    end
+
+    love.graphics.setFont(font)
+    love.graphics.setColor(C.menu_bg)
+    love.graphics.rectangle("fill", tx, ty, tooltip_w, tooltip_h, 4)
+    love.graphics.setColor(C.border)
+    love.graphics.rectangle("line", tx, ty, tooltip_w, tooltip_h, 4)
+    love.graphics.setColor(C.text_bright)
+    love.graphics.printf(name_text, tx + padding, ty + padding, content_w, "left")
+    love.graphics.setColor(C.text)
+    love.graphics.printf(
+        path_text,
+        tx + padding,
+        ty + padding + #name_lines * line_h + line_gap,
+        content_w,
+        "left"
+    )
 end
 
 local function normalize_path(path)
@@ -201,7 +299,7 @@ function M.open_finder()
     clamp_kb_idx()
 end
 
-local function clamp_kb_idx()
+function clamp_kb_idx()
     local visible_entries = get_visible_entries()
     if #visible_entries <= 0 then
         kb_idx = 1
@@ -401,7 +499,7 @@ function M.draw(x, y, h, font)
     local rname = IS_WIN
         and (root_path:match("([^/\\]+)[/\\]?$") or root_path)
         or  (root_path:match("([^/]+)$") or root_path)
-    love.graphics.print("~ " .. rname, x + 6, y + 3)
+    love.graphics.print("~ " .. U.sanitize(rname), x + 6, y + 3)
     -- "up" button on the right of the root bar
     local up_label = "^ up"
     local up_w     = font:getWidth(up_label) + 10
@@ -422,7 +520,7 @@ function M.draw(x, y, h, font)
         love.graphics.setColor(C.border)
         love.graphics.rectangle("line", x, fy, W_PANEL, FINDER_H)
         love.graphics.setColor(C.text_bright)
-        local q = finder.query ~= "" and finder.query or ""
+        local q = finder.query ~= "" and U.sanitize(finder.query) or ""
         love.graphics.print("Find: " .. q .. ((math.floor(love.timer.getTime() * 2) % 2 == 0) and "|" or ""), x + 6, fy + 3)
     end
 
@@ -435,7 +533,7 @@ function M.draw(x, y, h, font)
         love.graphics.setColor(C.text_bright)
         local label = create_prompt.kind == "folder" and "Folder: " or "File: "
         local cursor = (math.floor(love.timer.getTime() * 2) % 2 == 0) and "|" or ""
-        love.graphics.print(label .. create_prompt.text .. cursor, x + 6, base_y + 3)
+        love.graphics.print(label .. U.sanitize(create_prompt.text) .. cursor, x + 6, base_y + 3)
     end
 
     love.graphics.setScissor(x, list_top, W_PANEL, h - (list_top - y))
@@ -503,35 +601,43 @@ function M.draw(x, y, h, font)
 
     love.graphics.setScissor()
 
+    -- Tooltip is drawn later by M.draw_overlay so main panels cannot cover it.
+
     -- context menu over browser panel
     if bctx then
-        local e    = get_visible_entries()[bctx.entry_idx]
-        local cmx  = math.min(bctx.x, x + W_PANEL - BCTX_W - 4)
-        local cmy  = math.min(bctx.y, y + h - #BCTX_ITEMS * BCTX_ITEM_H - 6)
-        local mh   = #BCTX_ITEMS * BCTX_ITEM_H + 6
+        local e     = get_visible_entries()[bctx.entry_idx]
+        local items = context_menu_items(e)
+        local cmx   = math.min(bctx.x, x + W_PANEL - BCTX_W - 4)
+        local cmy   = math.min(bctx.y, y + h - #items * BCTX_ITEM_H - 6)
+        local mh    = #items * BCTX_ITEM_H + 6
         local mmx, mmy = love.mouse.getPosition()
         love.graphics.setColor(C.menu_bg)
         love.graphics.rectangle("fill", cmx, cmy, BCTX_W, mh, 4)
         love.graphics.setColor(C.border)
         love.graphics.rectangle("line", cmx, cmy, BCTX_W, mh, 4)
         love.graphics.setFont(font)
-        for ci, label in ipairs(BCTX_ITEMS) do
-            -- hide "Edit file" for directories
-            if label == "Edit file" and e and e.is_dir then
-                -- skip
-            else
-                local ity = cmy + 3 + (ci - 1) * BCTX_ITEM_H
-                local hov = mmx >= cmx and mmx < cmx + BCTX_W
-                         and mmy >= ity and mmy < ity + BCTX_ITEM_H
-                if hov then
-                    love.graphics.setColor(C.accent)
-                    love.graphics.rectangle("fill", cmx + 2, ity, BCTX_W - 4, BCTX_ITEM_H, 3)
-                end
-                love.graphics.setColor(hov and C.text_bright or C.text)
-                love.graphics.print(label, cmx + 10, ity + 4)
+        for ci, label in ipairs(items) do
+            local ity = cmy + 3 + (ci - 1) * BCTX_ITEM_H
+            local hov = mmx >= cmx and mmx < cmx + BCTX_W
+                     and mmy >= ity and mmy < ity + BCTX_ITEM_H
+            if hov then
+                love.graphics.setColor(C.accent)
+                love.graphics.rectangle("fill", cmx + 2, ity, BCTX_W - 4, BCTX_ITEM_H, 3)
             end
+            love.graphics.setColor(hov and C.text_bright or C.text)
+            love.graphics.print(label, cmx + 10, ity + 4)
         end
     end
+end
+
+function M.draw_overlay(font)
+    if not visible or not hover_idx or bctx then return end
+
+    local entry = get_visible_entries()[hover_idx]
+    if not entry then return end
+
+    local mx, my = love.mouse.getPosition()
+    draw_entry_tooltip(entry, font, mx, my)
 end
 
 function M.wheelmoved(wx, wy, mx, my)
@@ -572,20 +678,24 @@ function M.mousepressed(mx, my, btn)
 
         if bctx then
             local visible_entries = get_visible_entries()
-            local e   = visible_entries[bctx.entry_idx]
-            local cmx = math.min(bctx.x, W_PANEL - BCTX_W - 4)
-            local cmy = math.min(bctx.y, top_y + panel_h - #BCTX_ITEMS * BCTX_ITEM_H - 6)
-            if mx >= cmx and mx < cmx + BCTX_W then
+            local e     = visible_entries[bctx.entry_idx]
+            local items = context_menu_items(e)
+            local cmx   = math.min(bctx.x, W_PANEL - BCTX_W - 4)
+            local cmy   = math.min(bctx.y, top_y + panel_h - #items * BCTX_ITEM_H - 6)
+            local mh    = #items * BCTX_ITEM_H + 6
+            if mx >= cmx and mx < cmx + BCTX_W and my >= cmy and my < cmy + mh then
                 local ci = math.floor((my - cmy - 3) / BCTX_ITEM_H) + 1
-                if ci >= 1 and ci <= #BCTX_ITEMS then
-                    local label = BCTX_ITEMS[ci]
+                if ci >= 1 and ci <= #items then
+                    local label = items[ci]
                     bctx = nil
-                    if label == "Edit file" and e and not e.is_dir then
+                    if label == "Edit file" and e and not e.is_dir and not is_binary_path(e.path) then
                         if _on_edit then _on_edit(e.path) end
                     elseif label == "Copy path" and e then
                         love.system.setClipboardText(e.path)
                     elseif label == "Set as scan path" and e then
-                        if _on_select then _on_select(e.is_dir and e.path or (e.path:match("^(.-/)[^/]+$") or e.path)) end
+                        local target = e.is_dir and e.path
+                            or (e.path:match("^(.*)[/\\][^/\\]+$") or root_path)
+                        if _on_select then _on_select(target) end
                     elseif (label == "New file" or label == "New folder") and e then
                         local sep = IS_WIN and "\\" or "/"
                         local parent_dir = e.is_dir and e.path
@@ -618,7 +728,7 @@ function M.mousepressed(mx, my, btn)
             local ni = find_idx_by_path(e.path)
             if ni then kb_idx = ni end
             if _on_select then _on_select(e.path) end
-        elseif _on_edit then
+        elseif _on_edit and not is_binary_path(e.path) then
             -- single-click on file opens it in the editor
             _on_edit(e.path)
             kb_focus = false
@@ -659,7 +769,7 @@ function M.keypressed(key)
 
     if create_prompt.active then
         if key == "backspace" then
-            create_prompt.text = create_prompt.text:sub(1, -2)
+            create_prompt.text = U.trim_last_char(create_prompt.text)
             return true
         elseif key == "return" or key == "kpenter" then
             local name = create_prompt.text:match("^%s*(.-)%s*$")
@@ -691,7 +801,7 @@ function M.keypressed(key)
 
     if finder.active then
         if key == "backspace" then
-            finder.query = finder.query:sub(1, -2)
+            finder.query = U.trim_last_char(finder.query)
             kb_idx = 1
             clamp_kb_idx()
             return true
@@ -753,7 +863,6 @@ function M.keypressed(key)
         if e and e.is_dir then
             if e.is_recent then
                 M.set_root(e.path)
-                if _on_select then _on_select(e.path) end
             elseif not e.open then
                 e.open = true
                 refresh_open_dirs()
@@ -778,7 +887,7 @@ function M.keypressed(key)
             local ni = find_idx_by_path(e.path)
             if ni then kb_idx = ni end
             if _on_select then _on_select(e.path) end
-        elseif _on_edit then
+        elseif _on_edit and not is_binary_path(e.path) then
             _on_edit(e.path)
             kb_focus = false
         end

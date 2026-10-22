@@ -283,9 +283,17 @@ end
 local scan_path    = load_default_scan_path()
 local status       = "READY"   -- READY | RUNNING | DONE | ERROR
 local results      = {}        -- {text, kind}  kind: result|error|report|dim|head|sep
-local MAX_RESULT_LINES = 5000
+local MAX_RESULT_LINES = 20000
+local RESULT_TRIM_BATCH = 1000
 local scroll_y     = 0
+local scroll_x     = 0
 local max_scroll   = 0
+local max_scroll_x = 0
+local result_wrap  = true
+local display_rows = {}
+local display_width = 0
+local display_max_px = 0
+local display_dirty = true
 local last_report  = nil
 local path_editing = false
 local path_buf     = scan_path
@@ -311,6 +319,7 @@ local ctx_menu     = { open=false, x=0, y=0 }
 local CTX_ITEMS    = {
     { label="Copy selection",  key="copy_sel"  },
     { label="Copy all",        key="copy_all"  },
+    { label="Toggle word wrap", key="toggle_wrap" },
     { label="Clear results",   key="clear"     },
 }
 
@@ -341,11 +350,16 @@ local AC      = require "modules.autocomplete"
 local function add_line(text, kind)
     results[#results+1] = { text = text or "", kind = kind or "result" }
     if #results > MAX_RESULT_LINES then
-        local drop = #results - MAX_RESULT_LINES
-        for _ = 1, drop do table.remove(results, 1) end
+        local drop = math.min(RESULT_TRIM_BATCH, #results - MAX_RESULT_LINES + RESULT_TRIM_BATCH)
+        local kept = {}
+        for i = drop + 1, #results do
+            kept[#kept + 1] = results[i]
+        end
+        results = kept
+        sel_anchor, sel_cur = nil, nil
     end
-    -- auto-scroll
-    scroll_y = 1e9  -- clamped in draw
+    display_dirty = true
+    scroll_y = 1e9
 end
 
 local function classify_kind(text)
@@ -467,10 +481,13 @@ actions.scroll_bottom  = function() scroll_y = 1e9 end
 
 actions.clear_results  = function()
     results      = {}
+    display_rows = {}
+    display_dirty = true
     last_report  = nil
     reset_counts()
     status       = "READY"
     scroll_y     = 0
+    scroll_x     = 0
 end
 
 actions.about = function() about_open = true end
@@ -503,8 +520,9 @@ function love.load()
     Menu.init(actions, C)
     Browser.init(C,
         function(path)
+            -- Selecting a directory only changes the scan target. Keeping the
+            -- browser root independent lets folders expand in place.
             scan_path = path
-            Browser.set_root(path)
             Terminal.set_default_cwd(path)
         end,
         function(path)
@@ -518,6 +536,7 @@ function love.load()
     ColorPicker.init(C)
     History._open()   -- open (or create) the snapshot DB in Documents
     AC.init(os.getenv("CODE_REVIEW_DIR") or scan_path)
+    AC.set_invalidate_callback(Editor.invalidate_tab_caches)
     Browser.set_root(scan_path)
     Browser.set_keyboard_focus(true)
     CHAR_H = font_sm:getHeight()
@@ -708,74 +727,112 @@ _toolbar_btns = {}
 --------------------------------------------------------------------
 -- Draw results panel
 --------------------------------------------------------------------
-local function draw_results()
-    local rx = content_x()
-    local ry = content_y()
-    local rw = content_w()
-    local rh = content_h()
+local function rebuild_display_rows(width)
+    display_rows = {}
+    display_width = width
+    display_max_px = 0
+    local wrap_width = math.max(40, width - 24)
+    love.graphics.setFont(font_sm)
+    for source_idx, result in ipairs(results) do
+        local safe = sanitize_utf8(result.text)
+        if result_wrap and result.kind ~= "sep" then
+            local _, wrapped = font_sm:getWrap(safe, wrap_width)
+            if #wrapped == 0 then wrapped = { "" } end
+            for _, segment in ipairs(wrapped) do
+                display_rows[#display_rows + 1] = {
+                    text = segment, kind = result.kind, source = source_idx,
+                }
+            end
+        else
+            display_rows[#display_rows + 1] = {
+                text = safe, kind = result.kind, source = source_idx,
+            }
+            display_max_px = math.max(display_max_px, font_sm:getWidth(safe))
+        end
+    end
+    display_dirty = false
+end
 
+local function draw_results()
+    local rx, ry = content_x(), content_y()
+    local rw, rh = content_w(), content_h()
     gc("bg")
     fill_rect(rx, ry, rw, rh)
 
-    -- Compute total needed height
-    local total_h = #results * RESULT_LINE_H + 8
-    max_scroll = math.max(0, total_h - rh)
-    scroll_y   = math.max(0, math.min(scroll_y, max_scroll))
+    if display_dirty or display_width ~= rw then rebuild_display_rows(rw) end
 
-    -- selection range (normalised)
-    local sel_lo, sel_hi
-    if sel_anchor and sel_cur then
-        sel_lo = math.min(sel_anchor, sel_cur)
-        sel_hi = math.max(sel_anchor, sel_cur)
+    local horizontal_h = (not result_wrap and max_scroll_x > 0) and 8 or 0
+    local viewport_h = rh - horizontal_h
+    local total_h = #display_rows * RESULT_LINE_H + 8
+    max_scroll = math.max(0, total_h - viewport_h)
+    scroll_y = math.max(0, math.min(scroll_y, max_scroll))
+
+    local available_w = math.max(1, rw - 24)
+    if result_wrap then
+        max_scroll_x = 0
+        scroll_x = 0
+    else
+        max_scroll_x = math.max(0, display_max_px - available_w)
+        scroll_x = math.max(0, math.min(scroll_x, max_scroll_x))
+        horizontal_h = max_scroll_x > 0 and 8 or 0
+        viewport_h = rh - horizontal_h
+        max_scroll = math.max(0, total_h - viewport_h)
+        scroll_y = math.max(0, math.min(scroll_y, max_scroll))
     end
 
-    love.graphics.setScissor(rx, ry, rw, rh)
+    local sel_lo, sel_hi
+    if sel_anchor and sel_cur then
+        sel_lo, sel_hi = math.min(sel_anchor, sel_cur), math.max(sel_anchor, sel_cur)
+    end
+
+    love.graphics.setScissor(rx, ry, rw, viewport_h)
     love.graphics.setFont(font_sm)
-
     local first_idx = math.max(1, math.floor(scroll_y / RESULT_LINE_H) + 1)
-    local visible_count = math.ceil(rh / RESULT_LINE_H) + 2
-    local last_idx = math.min(#results, first_idx + visible_count)
-
+    local last_idx = math.min(#display_rows, first_idx + math.ceil(viewport_h / RESULT_LINE_H) + 2)
     local iy = ry + 6 - scroll_y + (first_idx - 1) * RESULT_LINE_H
     for i = first_idx, last_idx do
-        local r = results[i]
-        -- highlight selected lines
-        if sel_lo and i >= sel_lo and i <= sel_hi then
+        local row = display_rows[i]
+        if sel_lo and row.source >= sel_lo and row.source <= sel_hi then
             love.graphics.setColor(0.33, 0.0, 0.8, 0.28)
             fill_rect(rx, iy, rw - 8, RESULT_LINE_H)
         end
-        love.graphics.setColor(kind_colour(r.kind))
-        if r.kind == "sep" then
+        if row.kind == "sep" then
             love.graphics.setColor(C.dark)
-            love.graphics.line(rx + 8, iy + RESULT_LINE_H/2, rx + rw - 8, iy + RESULT_LINE_H/2)
+            love.graphics.line(rx + 8, iy + RESULT_LINE_H / 2, rx + rw - 8, iy + RESULT_LINE_H / 2)
         else
-            text_at(rx + 10, iy, r.text)
+            love.graphics.setColor(kind_colour(row.kind))
+            text_at(rx + 10 - scroll_x, iy, row.text)
         end
         iy = iy + RESULT_LINE_H
     end
-
     love.graphics.setScissor()
 
-    -- Scrollbar
     if max_scroll > 0 then
-        local sb_w     = 5
-        local sb_x     = rx + rw - sb_w - 2
-        local ratio    = scroll_y / max_scroll
-        local thumb_h  = math.max(20, rh * rh / total_h)
-        local thumb_y  = ry + (rh - thumb_h) * ratio
+        local sb_w = 5
+        local sb_x = rx + rw - sb_w - 2
+        local thumb_h = math.max(20, viewport_h * viewport_h / total_h)
+        local thumb_y = ry + (viewport_h - thumb_h) * (scroll_y / max_scroll)
         love.graphics.setColor(C.border)
-        fill_rect(sb_x, ry, sb_w, rh, 2)
+        fill_rect(sb_x, ry, sb_w, viewport_h, 2)
         love.graphics.setColor(C.violet)
         fill_rect(sb_x, thumb_y, sb_w, thumb_h, 2)
     end
 
-    -- Context menu
+    if max_scroll_x > 0 then
+        local track_x, track_w = rx + 8, rw - 20
+        local thumb_w = math.max(30, track_w * available_w / (available_w + max_scroll_x))
+        local thumb_x = track_x + (track_w - thumb_w) * (scroll_x / max_scroll_x)
+        love.graphics.setColor(C.border)
+        fill_rect(track_x, ry + rh - 6, track_w, 4, 2)
+        love.graphics.setColor(C.violet)
+        fill_rect(thumb_x, ry + rh - 6, thumb_w, 4, 2)
+    end
+
     if ctx_menu.open then
-        local item_h = 22
-        local mw     = 160
-        local mh     = #CTX_ITEMS * item_h + 6
-        local cmx    = math.min(ctx_menu.x, W - mw - 4)
-        local cmy    = math.min(ctx_menu.y, H - mh - 4)
+        local item_h, mw = 22, 178
+        local mh = #CTX_ITEMS * item_h + 6
+        local cmx = math.min(ctx_menu.x, W - mw - 4)
+        local cmy = math.min(ctx_menu.y, H - mh - 4)
         local mmx, mmy = love.mouse.getPosition()
         love.graphics.setColor(C.menu_bg)
         fill_rect(cmx, cmy, mw, mh, 4)
@@ -913,6 +970,9 @@ function love.draw()
     end
     draw_summary()
 
+    -- Browser overlays must be rendered after the main panels.
+    Browser.draw_overlay(font_sm)
+
     -- Menu on top
     Menu.draw(MENUBAR_H, font_ui)
 
@@ -939,10 +999,10 @@ end
 local function line_idx_at(my)
     local ry = content_y()
     local offset = my - ry - 6 + scroll_y
-    local idx = math.floor(offset / RESULT_LINE_H) + 1
-    if idx < 1 then idx = 1 end
-    if idx > #results then idx = #results end
-    return idx
+    local row_idx = math.floor(offset / RESULT_LINE_H) + 1
+    row_idx = math.max(1, math.min(#display_rows, row_idx))
+    local row = display_rows[row_idx]
+    return row and row.source or math.max(1, #results)
 end
 
 local function in_results(mx, my)
@@ -962,6 +1022,14 @@ function love.keypressed(key)
     -- Ctrl+E: toggle between editor and review results when editor has tabs open.
     if ctrl and key == "e" and Editor.has_tabs() then
         _panel = (_panel == "editor") and "results" or "editor"
+        return
+    end
+
+    -- Ctrl+W toggles wrapping in the review results panel.
+    if ctrl and key == "w" and _panel == "results" and not Terminal.is_visible() then
+        result_wrap = not result_wrap
+        display_dirty = true
+        scroll_x = 0
         return
     end
 
@@ -1094,7 +1162,7 @@ function love.mousepressed(mx, my, btn)
         if btn == 1 then
             -- check if clicked on a context menu item
             local item_h = 22
-            local mw     = 160
+            local mw     = 178
             local cmx    = math.min(ctx_menu.x, W - mw - 4)
             local cmy    = math.min(ctx_menu.y, H - (#CTX_ITEMS * item_h + 6) - 4)
             for ci, item in ipairs(CTX_ITEMS) do
@@ -1108,6 +1176,10 @@ function love.mousepressed(mx, my, btn)
                         end
                     elseif item.key == "copy_all" then
                         love.system.setClipboardText(lines_to_text(1, #results))
+                    elseif item.key == "toggle_wrap" then
+                        result_wrap = not result_wrap
+                        display_dirty = true
+                        scroll_x = 0
                     elseif item.key == "clear" then
                         actions.clear_results()
                     end
@@ -1221,9 +1293,15 @@ function love.wheelmoved(wx, wy)
         Editor.wheelmoved(wx, wy, content_x(), content_y(), content_w(), content_h(), mx, my)
         return
     end
-    -- Scroll results
+    -- Scroll results. Shift+wheel or a horizontal trackpad gesture scrolls long lines.
     if mx >= content_x() and my >= content_y() and my < H - SUMMARY_H then
-        scroll_y = scroll_y - wy * 40
+        local shift = love.keyboard.isDown("lshift", "rshift")
+        if not result_wrap and (wx ~= 0 or shift) then
+            local delta = wx ~= 0 and wx or wy
+            scroll_x = math.max(0, math.min(max_scroll_x, scroll_x - delta * 40))
+        else
+            scroll_y = scroll_y - wy * 40
+        end
     end
 end
 

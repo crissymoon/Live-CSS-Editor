@@ -77,6 +77,48 @@ local CTX_W     = 178
 local CTX_ITEM_H= 22
 local ARROW_W   = 18   -- width of the left/right scroll-arrow buttons on the tab bar
 
+-- Safety limits for file loading
+local MAX_FILE_BYTES    = 4 * 1024 * 1024   -- bounded preview keeps very large files responsive
+local HARD_FILE_LIMIT   = 512 * 1024 * 1024 -- reject only exceptionally large files
+local MAX_EDIT_LINES    = 20000             -- bounded editable line count
+local MAX_LINE_LEN      = 10000             -- max characters per line (prevent freeze on minified files)
+local BINARY_SCAN_BYTES = 512               -- bytes to scan for binary detection (smaller = faster skip)
+local MAX_TOK_CACHE     = 2000              -- max entries in syntax token cache before eviction
+local MAX_LINE_PX_LIMIT = 1000              -- max lines to scan for max pixel width
+local LARGE_FILE_LINES  = 5000              -- threshold for reduced-cost editor features
+local HUGE_FILE_LINES   = 10000             -- threshold for minimal undo/history overhead
+local LARGE_UNDO_LIMIT  = 8                 -- bound full-buffer copies for large files
+
+-- Known binary extensions: refuse to open these files (don't even read them).
+-- Prevents the editor from trying to load images, DLLs, archives, etc.
+local BINARY_EXTENSIONS = {
+    png=true, jpg=true, jpeg=true, gif=true, bmp=true, tiff=true, tif=true, webp=true, ico=true,
+    mp3=true, wav=true, ogg=true, flac=true, wma=true, aac=true, m4a=true,
+    mp4=true, avi=true, mkv=true, mov=true, wmv=true, flv=true, webm=true,
+    zip=true, tar=true, gz=true, bz2=true, xz=true, zst=true, rar=true, ["7z"]=true,
+    pdf=true, doc=true, docx=true, xls=true, xlsx=true, ppt=true, pptx=true,
+    dll=true, exe=true, so=true, dylib=true, bin=true, dat=true,
+    o=true, a=true, lib=true, obj=true,
+    ttf=true, otf=true, woff=true, woff2=true, eot=true,
+    svg=true,  -- technically text, but usually unreadable as code lines
+    psd=true, psb=true, ai=true, eps=true,
+    deb=true, rpm=true, dmg=true, iso=true, img=true,
+    pyc=true, pyo=true, pyd=true, class=true, jar=true,
+    db=true, sqlite=true,
+    -- Additional binary formats that can cause issues
+    heic=true, heif=true, avif=true, jxl=true,
+    cr2=true, nef=true, arw=true, dng=true, raf=true, rw2=true, srw=true, orf=true,
+    mid=true, midi=true, aiff=true, au=true, snd=true, ra=true, ram=true,
+    m2ts=true, mts=true, m2v=true, mpeg=true, divx=true, xvid=true,
+    cab=true, lzh=true, lha=true, arj=true, ace=true,
+    odt=true, ods=true, odp=true, odg=true, odf=true, oth=true, ott=true,
+    mobi=true, azw=true, azw3=true, epub=true, cbr=true, cbz=true,
+    msi=true, msp=true, pcap=true, cap=true, dmp=true,
+}
+
+-- Periodic auto-snapshot interval (seconds between background snapshots)
+local AUTO_SNAP_INTERVAL = 120
+
 -- drag-to-select state
 local _drag              = false
 
@@ -99,6 +141,7 @@ local _find = {
     active  = false,
     query   = "",
     matches = {},  -- { line, col_s, col_e }  col_e is one-past-end
+    by_line = {},  -- line number to matches, keeps drawing proportional to visible rows
     idx     = 0,   -- current highlighted match (1-based); 0 = none
 }
 local FIND_BAR_W = 264
@@ -116,6 +159,26 @@ local CTX_ITEMS = {
 -- ---------------------------------------------
 M.tabs    = {}   -- array of tab objects (see new_tab)
 M.cur_idx = 0    -- 1..#tabs; 0 means no tab focused (should not occur when tabs exist)
+
+-- Return true if the byte string looks like binary content.
+-- A text file may legitimately contain one very long line, so missing newlines
+-- must not be treated as evidence that the file is binary.
+local function is_binary_content(s, scan_bytes)
+    scan_bytes = scan_bytes or BINARY_SCAN_BYTES
+    local n = math.min(#s, scan_bytes)
+    if n == 0 then return false end
+    local non_printable = 0
+    for i = 1, n do
+        local b = s:byte(i)
+        if b == 0 then
+            return true
+        end
+        if b < 0x09 or (b > 0x0D and b < 0x20) then
+            non_printable = non_printable + 1
+        end
+    end
+    return non_printable / n > 0.30
+end
 
 local function new_tab(path, lines)
     return {
@@ -137,6 +200,14 @@ local function new_tab(path, lines)
         undo_stack   = {},
         redo_stack   = {},
         last_undo_t  = 0,
+        -- Syntax-token cache: nil = uninitialised, {} = cached, false = pending rebuild
+        _tok_cache   = {},
+        _tok_order   = {},
+        _tok_dirty   = true,
+        -- Max line pixel width cache for horizontal scrollbar
+        _max_line_px = 0,
+        _max_px_dirty = true,
+        _large_file   = #lines > LARGE_FILE_LINES,
     }
 end
 
@@ -155,6 +226,11 @@ local function push_undo(t, force)
     local now = love.timer.getTime()
     if not force and (now - t.last_undo_t) < 0.5 then return end
     t.redo_stack = {}  -- any new edit discards the redo history
+    local line_count = #t.lines
+    -- Every checkpoint copies the complete buffer. Keep only a few snapshots for
+    -- large files, and coalesce normal typing more aggressively.
+    if not force and line_count > HUGE_FILE_LINES and (now - t.last_undo_t) < 2 then return end
+    local undo_limit = line_count > LARGE_FILE_LINES and LARGE_UNDO_LIMIT or UNDO_LIMIT
     t.undo_stack[#t.undo_stack + 1] = {
         lines  = _copy_lines(t.lines),
         cursor = { line = t.cursor.line, col = t.cursor.col },
@@ -163,7 +239,7 @@ local function push_undo(t, force)
             e = { line = t.sel.e.line, col = t.sel.e.col },
         } or nil,
     }
-    if #t.undo_stack > UNDO_LIMIT then
+    if #t.undo_stack > undo_limit then
         table.remove(t.undo_stack, 1)
     end
     t.last_undo_t = now
@@ -716,6 +792,78 @@ local function tokenize_line(line, ext)
     return out
 end
 
+-- Mark a tab's syntax-token and pixel-width caches as dirty (needs rebuild).
+-- Call this after any edit that changes lines or cursor position.
+local function invalidate_caches(t)
+    t._tok_dirty   = true
+    t._max_px_dirty = true
+    -- Clear the per-tab insert-order tracker so stale entries don't linger
+    t._tok_order = {}
+end
+
+-- Ensure the token cache is populated for a given line index.
+-- Returns cached tokens if fresh, or builds them on demand.
+-- Evicts old cached entries when the cache grows beyond MAX_TOK_CACHE
+-- to prevent memory bloat on very large files.
+local function get_line_tokens(t, li, ext)
+    if t._tok_dirty then
+        -- Drop the whole cache once, then rebuild lazily per line. Clearing the
+        -- flag here is what lets the rebuilt entries survive the frame; clearing
+        -- only this line would retokenize every visible line on every frame.
+        t._tok_cache = {}
+        t._tok_order = {}
+        t._tok_dirty = false
+    end
+
+    -- Evict oldest entries when cache exceeds limit (per-tab order list)
+    local order = t._tok_order
+    while order and #order >= MAX_TOK_CACHE do
+        local oldest = table.remove(order, 1)
+        if oldest and oldest ~= li then
+            t._tok_cache[oldest] = nil
+        else
+            break  -- don't evict the one we're about to access
+        end
+    end
+
+    local cached = t._tok_cache[li]
+    if not cached then
+        local line = t.lines[li] or ""
+        local toks = tokenize_line(line, ext)
+        annotate_color_swatches(toks, line)
+        cached = toks
+        t._tok_cache[li] = cached
+        order[#order + 1] = li
+    end
+    return cached
+end
+
+-- Compute the maximum pixel width of lines (for horizontal scrollbar).
+-- For files with many lines, only scans the first MAX_LINE_PX_LIMIT lines
+-- and every Nth line afterward as a sample, to avoid freezing on large files.
+local function get_max_line_px(t)
+    if not t._max_px_dirty then
+        return t._max_line_px
+    end
+    local max_px = 0
+    local total = #t.lines
+    -- Width is only an estimate for scrollbar sizing. Sampling uniformly avoids
+    -- a visible pause after every edit in large buffers.
+    local sample_count = math.min(total, MAX_LINE_PX_LIMIT)
+    local step = math.max(1, math.floor(total / math.max(1, sample_count)))
+    for i = 1, total, step do
+        local lw = font_sm:getWidth(_utf8_safe(t.lines[i]))
+        if lw > max_px then max_px = lw end
+    end
+    if total > 0 then
+        local lw = font_sm:getWidth(_utf8_safe(t.lines[total]))
+        if lw > max_px then max_px = lw end
+    end
+    t._max_line_px  = max_px
+    t._max_px_dirty = false
+    return max_px
+end
+
 -- Forward declaration so open_file (below) can call it before the body is defined.
 local ensure_active_tab_visible
 
@@ -800,13 +948,118 @@ function M.open_file(path)
             return
         end
     end
-    -- Read as raw bytes so no OS-level encoding conversion happens.
+
+    -- Check file size before reading. love.filesystem cannot see paths outside
+    -- its sandbox, so stat directly in that case. A failed stat returns nil and
+    -- the read path reports the real error.
+    local info = love.filesystem.getInfo and love.filesystem.getInfo(path)
+    if not info then
+        local fh = io.open(path, "rb")
+        if not fh then return end
+        local size = fh:seek("end")
+        fh:close()
+        if size and size > HARD_FILE_LIMIT then
+            local tab = new_tab(path, {
+                "[FILE TOO LARGE]",
+                "This file is " .. math.floor(size/1024/1024) .. " MB.",
+                "The editor cannot open files larger than " .. math.floor(HARD_FILE_LIMIT/1024/1024) .. " MB.",
+                "",
+                "Use an external tool to review this file."
+            })
+            M.tabs[#M.tabs+1] = tab
+            M.cur_idx = #M.tabs
+            ensure_active_tab_visible()
+            return
+        end
+    elseif info.size > HARD_FILE_LIMIT then
+        local tab = new_tab(path, {
+            "[FILE TOO LARGE]",
+            "This file is " .. math.floor(info.size/1024/1024) .. " MB.",
+            "The editor cannot open files larger than " .. math.floor(HARD_FILE_LIMIT/1024/1024) .. " MB.",
+            "",
+            "Use an external tool to review this file."
+        })
+        M.tabs[#M.tabs+1] = tab
+        M.cur_idx = #M.tabs
+        ensure_active_tab_visible()
+        return
+    end
+
+    -- Check for known binary file extensions before reading the file.
+    local ext = ext_of(path)
+    if ext ~= "" and BINARY_EXTENSIONS[ext] then
+        local size_str = "unknown size"
+        if info and info.size then
+            size_str = math.floor(info.size / 1024) .. " KB"
+        end
+        local tab = new_tab(path, {
+            "[BINARY FILE]",
+            "This file type (" .. ext .. ") is known to be binary.",
+            "The editor cannot display binary content.",
+            "",
+            "File: " .. path,
+            "Size: " .. size_str
+        })
+        M.tabs[#M.tabs+1] = tab
+        M.cur_idx = #M.tabs
+        ensure_active_tab_visible()
+        return
+    end
+
+    -- Read only up to MAX_FILE_BYTES to avoid freezing on large files.
+    -- Binary detection only needs the first few bytes, and we cap lines anyway.
     local f = io.open(path, "rb")
     if not f then return end
-    local content = f:read("*a")
+    local content, read_err = f:read(MAX_FILE_BYTES)
+    local total_size = f:seek("end")
     f:close()
 
+    -- read(n) returns nil at EOF with no error, so an empty file lands here.
+    -- Only a real read error should produce the error tab.
+    if not content and read_err == nil then
+        content = ""
+    end
+
+    if not content then
+        local tab = new_tab(path, {
+            "[FILE READ ERROR]",
+            "The editor could not read this file.",
+            "",
+            "File: " .. path,
+            "Reason: " .. tostring(read_err or "unknown read error")
+        })
+        M.tabs[#M.tabs+1] = tab
+        M.cur_idx = #M.tabs
+        ensure_active_tab_visible()
+        return
+    end
+
+    if total_size and total_size <= #content then total_size = nil end
+
+    -- Binary file detection: scan first bytes for nulls or high non-printable ratio.
+    if content and #content > 0 and is_binary_content(content) then
+        local size_kb = total_size and math.floor(total_size/1024) or math.floor(#content/1024)
+        local tab = new_tab(path, {
+            "[BINARY FILE]",
+            "This file appears to be a binary file.",
+            "The editor cannot display binary content.",
+            "",
+            "File: " .. path,
+            "Size: " .. size_kb .. " KB"
+        })
+        M.tabs[#M.tabs+1] = tab
+        M.cur_idx = #M.tabs
+        ensure_active_tab_visible()
+        return
+    end
+
+    -- Warn if file is larger than MAX_FILE_BYTES.
+    -- total_size is set when the file had more data than we read.
+    local oversized = total_size ~= nil or (content and #content >= MAX_FILE_BYTES)
+
     local lines = { "" }
+    local truncated = false
+    local total_line_count = 0
     if content and content ~= "" then
         -- Auto-detect encoding: if the bytes are not valid UTF-8 treat the file
         -- as cp1252/Latin-1 and recode to UTF-8 so all characters display correctly.
@@ -821,6 +1074,16 @@ function M.open_file(path)
         content = content:gsub("\r\n", "\n"):gsub("\r", "\n")
         lines = {}
         for line in (content .. "\n"):gmatch("([^\n]*)\n") do
+            total_line_count = total_line_count + 1
+            -- Cap lines to MAX_EDIT_LINES to prevent editor freeze on huge files.
+            if total_line_count > MAX_EDIT_LINES then
+                truncated = true
+                break
+            end
+            -- Cap individual line length to prevent freeze on minified/data files.
+            if #line > MAX_LINE_LEN then
+                line = line:sub(1, MAX_LINE_LEN) .. " ... [TRUNCATED line " .. total_line_count .. " > " .. MAX_LINE_LEN .. " chars]"
+            end
             lines[#lines+1] = line
         end
         -- Drop the spurious trailing empty line the gmatch adds.
@@ -832,11 +1095,39 @@ function M.open_file(path)
 
     local tab = new_tab(path, lines)
     tab.mtime = get_mtime(path)
+
+    -- Insert header notes for oversized or truncated files.
+    -- Use total_size for display when we know the file was larger.
+    local display_size_kb = total_size and math.floor(total_size/1024) or math.floor((#content or 0)/1024)
+    if oversized or truncated then
+        local notes = {}
+        if oversized then
+            notes[#notes+1] = "[LARGE FILE: " .. display_size_kb .. " KB - edit with caution]"
+        end
+        if truncated then
+            -- total_line_count stops at MAX_EDIT_LINES + 1 because the loop
+            -- breaks on the first line over the cap, so the true total is
+            -- unknown. Do not report a count we did not read.
+            notes[#notes+1] = "[FILE TRUNCATED: showing first " .. MAX_EDIT_LINES .. " lines]"
+        end
+        table.insert(tab.lines, 1, "")
+        for i = #notes, 1, -1 do
+            table.insert(tab.lines, 1, notes[i])
+        end
+        table.insert(tab.lines, 1, "")
+        -- Header layout is: blank, one line per note, blank, then the content.
+        tab.cursor.line = #notes + 3
+        tab.undo_stack = {}
+        tab.redo_stack = {}
+    end
+
     M.tabs[#M.tabs+1] = tab
     M.cur_idx = #M.tabs
     ensure_active_tab_visible()
-    -- Capture the on-disk state as a baseline snapshot.
-    History.snapshot(path, lines)
+    -- Avoid duplicating very large buffers in history during initial load.
+    if #lines <= 5000 then
+        History.snapshot(path, lines)
+    end
     tab.last_snap_t = love.timer.getTime()
 end
 
@@ -851,6 +1142,7 @@ local function save_tab(t)
     t.modified     = false
     t.disk_changed = false
     t.mtime        = get_mtime(t.filepath)
+    invalidate_caches(t)
     -- Snapshot after save so Ctrl+Z can return to this saved state.
     History.snapshot(t.filepath, t.lines)
     t.last_snap_t = love.timer.getTime()
@@ -862,22 +1154,31 @@ end
 local function reload_tab(t)
     local f = io.open(t.filepath, "rb")
     if not f then return end
-    local content = f:read("*a")
+    local content = f:read(MAX_FILE_BYTES)
     f:close()
     if not content then return end
     if not _is_utf8(content) then content = _cp1252_to_utf8(content) end
     if content:sub(1, 3) == "\xEF\xBB\xBF" then content = content:sub(4) end
     content = content:gsub("\r\n", "\n"):gsub("\r", "\n")
     local lines = {}
-    for line in (content .. "\n"):gmatch("([^\n]*)\n") do lines[#lines+1] = line end
+    for line in (content .. "\n"):gmatch("([^\n]*)\n") do
+        if #lines >= MAX_EDIT_LINES then break end
+        -- Cap individual line length to prevent freeze on minified/data files.
+        if #line > MAX_LINE_LEN then
+            line = line:sub(1, MAX_LINE_LEN) .. " ... [TRUNCATED line " .. (#lines+1) .. " > " .. MAX_LINE_LEN .. " chars]"
+        end
+        lines[#lines+1] = line
+    end
     if #lines > 1 and lines[#lines] == "" then lines[#lines] = nil end
     if #lines == 0 then lines = { "" } end
     t.lines        = lines
+    t._large_file  = #lines > LARGE_FILE_LINES
     t.modified     = false
     t.disk_changed = false
     t.mtime        = get_mtime(t.filepath)
     t.hist_pos     = nil
     t.hist_list    = nil
+    invalidate_caches(t)
     -- Clamp cursor and scroll to the new line count.
     t.cursor.line = math.min(t.cursor.line, #t.lines)
     t.cursor.col  = math.min(t.cursor.col,  #t.lines[t.cursor.line] + 1)
@@ -931,6 +1232,7 @@ local function delete_sel(t)
     t.cursor.col  = sc
     t.sel         = nil
     t.modified    = true
+    invalidate_caches(t)
 end
 
 -- ---------------------------------------------
@@ -1011,6 +1313,7 @@ local function paste_into(t, clip, h)
         t.cursor.col  = #last + 1
     end
     t.modified = true
+    invalidate_caches(t)
     ensure_scroll(t, h)
 end
 
@@ -1019,17 +1322,27 @@ end
 -- ---------------------------------------------
 local function find_rebuild(t, query)
     _find.matches = {}
+    _find.by_line = {}
     _find.idx     = 0
     if not t or query == "" then return end
     local q  = query:lower()
     local ql = #q
+    local max_matches = t._large_file and 5000 or math.huge
     for li, line in ipairs(t.lines) do
         local s   = line:lower()
         local col = 1
         while col <= #s do
             local a = s:find(q, col, true)
             if not a then break end
-            _find.matches[#_find.matches + 1] = { line = li, col_s = a, col_e = a + ql }
+            local match = { line = li, col_s = a, col_e = a + ql }
+            _find.matches[#_find.matches + 1] = match
+            local line_matches = _find.by_line[li]
+            if not line_matches then
+                line_matches = {}
+                _find.by_line[li] = line_matches
+            end
+            line_matches[#line_matches + 1] = { match = match, idx = #_find.matches }
+            if #_find.matches >= max_matches then return end
             col = a + 1
         end
     end
@@ -1224,10 +1537,25 @@ function M.draw(x, y, w, h)
     love.graphics.setScissor(x, scissor_y, w, scissor_h)
     love.graphics.setFont(font_sm)
 
+    -- Per-frame UTF-8 safe string cache: avoids repeatedly calling _utf8_safe on
+    -- the same line for gutter, find, cursor-pos, and every syntax token.
+    -- Cleared after each draw frame (scope ends when this function returns).
+    local _utf8_cache = {}
+
     local draw_y = ey + TOP_PAD
     for li = t.scroll + 1, math.min(t.scroll + vis, #t.lines) do
         local line   = t.lines[li] or ""
         local is_cur = (li == t.cursor.line)
+
+        -- Cache the UTF-8-safe version of the full line once per frame per line.
+        -- This avoids O(n) re-scans for gutter, find, cursor, and every token.
+        local safe_line = _utf8_cache[li]
+        if not safe_line then
+            safe_line = _utf8_safe(line)
+            _utf8_cache[li] = safe_line
+        end
+        -- Width is only needed for multi-line selection highlighting.
+        local line_w = nil
 
         -- current line highlight
         if is_cur then
@@ -1239,8 +1567,9 @@ function M.draw(x, y, w, h)
         local sl, sc, el, ec = sel_norm(t)
         if sl and li >= sl and li <= el then
             local px_s = ((li == sl) and (x + col_px(line, sc)) or (x + GUTTER)) - sx
+            if li ~= el then line_w = font_sm:getWidth(safe_line) end
             local px_e = ((li == el) and (x + col_px(line, ec))
-                         or (x + GUTTER + font_sm:getWidth(_utf8_safe(line)) + font_sm:getWidth(" "))) - sx
+                         or (x + GUTTER + line_w + font_sm:getWidth(" "))) - sx
             if px_e > px_s then
                 love.graphics.setColor(0.55, 0.28, 1.0, 0.82)
                 fill_rect(px_s, draw_y, px_e - px_s, CHAR_H)
@@ -1249,23 +1578,21 @@ function M.draw(x, y, w, h)
 
         -- find match highlights (behind text, in front of selection; offset by scroll_x)
         if _find.active and _find.query ~= "" then
-            for mi, m in ipairs(_find.matches) do
-                if m.line == li then
-                    local px_s = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_s - 1))) - sx
-                    local px_e = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_e - 1))) - sx
-                    if mi == _find.idx then
-                        love.graphics.setColor(1.0, 0.82, 0.0, 0.72)  -- current match: gold
-                    else
-                        love.graphics.setColor(0.9, 0.7, 0.2, 0.32)   -- other matches: dim gold
-                    end
-                    fill_rect(px_s, draw_y, math.max(4, px_e - px_s), CHAR_H)
+            for _, item in ipairs(_find.by_line[li] or {}) do
+                local m = item.match
+                local px_s = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_s - 1))) - sx
+                local px_e = x + GUTTER + font_sm:getWidth(_utf8_safe(line:sub(1, m.col_e - 1))) - sx
+                if item.idx == _find.idx then
+                    love.graphics.setColor(1.0, 0.82, 0.0, 0.72)  -- current match: gold
+                else
+                    love.graphics.setColor(0.9, 0.7, 0.2, 0.32)   -- other matches: dim gold
                 end
+                fill_rect(px_s, draw_y, math.max(4, px_e - px_s), CHAR_H)
             end
         end
 
         -- syntax tokens (offset by scroll_x)
-        local toks = tokenize_line(line, ext)
-        annotate_color_swatches(toks, line)
+        local toks = get_line_tokens(t, li, ext)
         local text_x = x + GUTTER - sx
         for _, tok in ipairs(toks) do
             local safe = _utf8_safe(tok.text)
@@ -1314,11 +1641,7 @@ function M.draw(x, y, w, h)
 
     -- horizontal scrollbar (shown when content is wider than viewport)
     do
-        local max_line_px = 0
-        for _, ln in ipairs(t.lines) do
-            local lw = font_sm:getWidth(_utf8_safe(ln))
-            if lw > max_line_px then max_line_px = lw end
-        end
+        local max_line_px = get_max_line_px(t)
         local view_w    = w - GUTTER
         -- content width is the text-only width; the scrollable range is content_w - view_w
         local content_w = max_line_px + 40
@@ -1395,9 +1718,12 @@ function M.draw(x, y, w, h)
         stroke_rect(fbx + lbl_w, fby + 4, ifw, FIND_BAR_H - 8, 3)
 
         -- query text (right-align so the end is always visible while typing)
-        local disp_q = _find.query
+        -- advance by full UTF-8 character widths to avoid splitting multi-byte sequences
+        local disp_q = _utf8_safe(_find.query)
         while #disp_q > 0 and font_sm:getWidth(disp_q) > ifw - 8 do
-            disp_q = disp_q:sub(2)
+            local b   = disp_q:byte(1)
+            local len = _seq_len(b) or 1
+            disp_q = disp_q:sub(len + 1)
         end
         love.graphics.setColor(C.text)
         love.graphics.print(disp_q, fbx + lbl_w + 4, fby + 6)
@@ -1556,6 +1882,12 @@ function M.keypressed(key, h)
         return true
 
     elseif key == "v" and ctrl then
+        if _find.active then
+            local clip = love.system.getClipboardText() or ""
+            _find.query = _find.query .. clip
+            find_rebuild(t, _find.query)
+            return true
+        end
         paste_into(t, love.system.getClipboardText(), h); return true
 
     -- Ctrl+Z = undo, Ctrl+Y = redo, Ctrl+Shift+Z = snapshot history back
@@ -1573,6 +1905,7 @@ function M.keypressed(key, h)
             t.modified    = true
             t.hist_pos    = nil
             t.hist_list   = nil
+            invalidate_caches(t)
             ensure_scroll(t, h)
         end
         return true
@@ -1589,6 +1922,7 @@ function M.keypressed(key, h)
             t.cursor      = state.cursor
             t.sel         = state.sel
             t.modified    = true
+            invalidate_caches(t)
             ensure_scroll(t, h)
         end
         return true
@@ -1618,6 +1952,7 @@ function M.keypressed(key, h)
             t.cursor.line = math.min(t.cursor.line, #t.lines)
             t.cursor.col  = math.min(t.cursor.col, #t.lines[t.cursor.line] + 1)
             t.scroll      = math.min(t.scroll, math.max(0, #t.lines - 1))
+            invalidate_caches(t)
         end
         return true
 
@@ -1641,6 +1976,7 @@ function M.keypressed(key, h)
             t.cursor.line = math.min(t.cursor.line, #t.lines)
             t.cursor.col  = math.min(t.cursor.col, #t.lines[t.cursor.line] + 1)
             t.scroll      = math.min(t.scroll, math.max(0, #t.lines - 1))
+            invalidate_caches(t)
         end
         return true
 
@@ -1699,6 +2035,7 @@ function M.keypressed(key, h)
         t.cursor.line = L + 1
         t.cursor.col  = #indent + 1
         t.modified    = true
+        invalidate_caches(t)
         ensure_scroll(t, h); return true
 
     elseif key == "backspace" then
@@ -1725,6 +2062,7 @@ function M.keypressed(key, h)
             t.cursor.col  = prev + 1
         end
         t.modified = true
+        invalidate_caches(t)
         ensure_scroll(t, h); return true
 
     elseif key == "delete" then
@@ -1738,6 +2076,7 @@ function M.keypressed(key, h)
             table.remove(t.lines, L+1)
             t.modified = true
         end
+        invalidate_caches(t)
         return true
 
     elseif key == "tab" then
@@ -1771,7 +2110,7 @@ function M.keypressed(key, h)
             else
                 t.cursor.col = math.max(1, CO - 4)
             end
-            t.modified = true; return true
+            t.modified = true; invalidate_caches(t); return true
         end
 
         if sl and el and el > sl then
@@ -1793,7 +2132,7 @@ function M.keypressed(key, h)
             t.lines[L]   = t.lines[L]:sub(1, CO-1) .. INDENT .. t.lines[L]:sub(CO)
             t.cursor.col = CO + #INDENT
         end
-        t.modified = true; return true
+        t.modified = true; invalidate_caches(t); return true
 
     elseif key == "up" then
         -- ctrl = jump 8 lines; shift = extend selection; plain = 1 line
@@ -1930,6 +2269,7 @@ function M.textinput(char)
     t.lines[L]   = t.lines[L]:sub(1, CO-1) .. char .. t.lines[L]:sub(CO)
     t.cursor.col = CO + #char
     t.modified   = true
+    invalidate_caches(t)
     AC.on_text(t, char)
     ensure_scroll(t, _last_h)
     ensure_cursor_visible_x(t, _last_w)
@@ -2289,6 +2629,12 @@ function M.wheelmoved(wx, wy, px, py, pw, ph, mx, my)
 
     t.scroll  = math.max(0, math.min(max_scr, t.scroll - wy * 3))
     return true
+end
+
+-- Expose cache invalidation for external modules (e.g. autocomplete) that
+-- modify a tab's lines directly and need the draw caches to be rebuilt.
+function M.invalidate_tab_caches(t)
+    invalidate_caches(t)
 end
 
 return M

@@ -28,6 +28,7 @@ local M = {}
 
 -- ---- State ------------------------------------------------------------------
 local _enabled  = true    -- master on/off switch
+local _invalidate_cb = nil  -- callback to invalidate editor caches (set by editor during init)
 local _ai_on    = true    -- AI sub-toggle
 local _popup    = nil     -- { items={}, sel=1, prefix="" }  or nil
 local _ghost    = nil     -- { text="" }  or nil  (AI inline suggestion)
@@ -93,10 +94,15 @@ local function current_prefix(line, col)
     return line:sub(s + 1, col - 1)
 end
 
--- Collect unique words from all lines, sorted alphabetically.
-local function collect_words(lines)
+-- Collect unique words near the cursor. Scanning an entire large buffer on
+-- every keystroke makes completion the dominant source of input latency.
+local function collect_words(lines, cursor_line)
     local seen = {}
-    for _, ln in ipairs(lines) do
+    local radius = #lines > 5000 and 500 or #lines
+    local first = math.max(1, (cursor_line or 1) - radius)
+    local last = math.min(#lines, (cursor_line or 1) + radius)
+    for i = first, last do
+        local ln = lines[i]
         for w in ln:gmatch("[%a_][%w_]*") do
             if #w >= MIN_WORD then seen[w] = true end
         end
@@ -144,6 +150,7 @@ local function accept_popup(t)
     t.lines[L]   = t.lines[L]:sub(1, CO - 1) .. suffix .. t.lines[L]:sub(CO)
     t.cursor.col = CO + #suffix
     t.modified   = true
+    if _invalidate_cb then _invalidate_cb(t) end
     _popup = nil
     return true
 end
@@ -156,6 +163,7 @@ local function accept_ghost(t)
     t.lines[L]   = t.lines[L]:sub(1, CO - 1) .. first .. t.lines[L]:sub(CO)
     t.cursor.col = CO + #first
     t.modified   = true
+    if _invalidate_cb then _invalidate_cb(t) end
     _ghost = nil
     return true
 end
@@ -166,6 +174,12 @@ function M.init(base_dir)
     local base = os.getenv("CODE_REVIEW_DIR") or base_dir or "."
     _state_path = base .. "/.autocomplete_state.lua"
     load_state()
+end
+
+-- Register a callback that editor.lua calls to invalidate caches after
+-- autocomplete modifies a tab's lines.  Avoids circular dependency.
+function M.set_invalidate_callback(cb)
+    _invalidate_cb = cb
 end
 
 function M.is_enabled()   return _enabled end
@@ -205,7 +219,7 @@ function M.on_text(t, char)
     local prefix = current_prefix(line, t.cursor.col)
     if #prefix < MIN_PREFIX then _popup = nil; return end
 
-    local words = collect_words(t.lines)
+    local words = collect_words(t.lines, t.cursor.line)
     local items = filter_words(words, prefix)
     if #items == 0 then _popup = nil; return end
 

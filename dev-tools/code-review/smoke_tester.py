@@ -29,6 +29,7 @@ class SmokeResult:
 
 
 def repo_root() -> Path:
+    # Vendored in the monorepo: dev-tools/code-review, so the root is two up.
     return Path(__file__).resolve().parents[2]
 
 
@@ -84,6 +85,7 @@ def run_tool(tool: dict[str, Any], root: Path, timeout_s: int, dry_run: bool) ->
     cwd_rel = str(tool.get("cwd", "."))
     cwd = (root / cwd_rel).resolve()
     note = str(tool.get("description", ""))
+    allowed_codes = tool.get("allowed_exit_codes", [0])
 
     if dry_run:
         return SmokeResult(tool_id, True, 0, 0.0, command, str(cwd), f"dry-run: {note}")
@@ -99,7 +101,7 @@ def run_tool(tool: dict[str, Any], root: Path, timeout_s: int, dry_run: bool) ->
             capture_output=True,
         )
         elapsed = round(time.monotonic() - t0, 3)
-        ok = proc.returncode == 0
+        ok = proc.returncode in allowed_codes
         tail = "\n".join((proc.stdout + "\n" + proc.stderr).splitlines()[-12:]).strip()
         return SmokeResult(tool_id, ok, proc.returncode, elapsed, command, str(cwd), tail)
     except subprocess.TimeoutExpired:

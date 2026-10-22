@@ -17,17 +17,39 @@ fi
 
 # -- Dependency checks -------------------------------------------------------
 
-if ! command -v love &>/dev/null; then
-    echo "Error: love2d not found.  Install with:"
-    echo "  macOS:  brew install love"
+if ! command -v python3 &>/dev/null; then
+    echo "Error: python3 not found."
+    exit 1
+fi
+
+if ! LOVE_BIN="$(command -v love)"; then
+    echo "Error: love2d not found. Install with:"
+    echo "  macOS:  brew install --cask love"
     echo "  Ubuntu: sudo apt install love"
     echo "  Arch:   sudo pacman -S love"
     exit 1
 fi
 
-if ! command -v python3 &>/dev/null; then
-    echo "Error: python3 not found."
-    exit 1
+# Homebrew's LÖVE cask can retain a download quarantine attribute. In a local
+# development install that makes macOS block the unsigned executable even when
+# it was launched from this trusted script. Remove quarantine only from the
+# resolved LÖVE application bundle, never globally or from the project.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    LOVE_REAL_BIN="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$LOVE_BIN")"
+    LOVE_APP="$LOVE_REAL_BIN"
+    while [[ "$LOVE_APP" != "/" && "$LOVE_APP" != *.app ]]; do
+        LOVE_APP="$(dirname "$LOVE_APP")"
+    done
+
+    if [[ "$LOVE_APP" == *.app ]] && xattr -p com.apple.quarantine "$LOVE_APP" &>/dev/null; then
+        echo "Removing macOS quarantine from development dependency: $LOVE_APP"
+        if ! xattr -dr com.apple.quarantine "$LOVE_APP" 2>/dev/null; then
+            echo "Error: macOS is blocking LÖVE and its quarantine flag could not be removed."
+            echo "Run: xattr -dr com.apple.quarantine \"$LOVE_APP\""
+            echo "Then allow LÖVE in System Settings > Privacy & Security if prompted."
+            exit 1
+        fi
+    fi
 fi
 
 # -- Create reports dir if missing -------------------------------------------
